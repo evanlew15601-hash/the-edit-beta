@@ -1,0 +1,97 @@
+export interface Contestant {
+  id: string;
+  name: string;
+  publicPersona: string;
+  psychProfile: {
+    disposition: string[];
+    trustLevel: number; // -100 to 100
+    suspicionLevel: number; // 0 to 100
+    emotionalCloseness: number; // 0 to 100
+    editBias: number; // -50 to 50
+  };
+  memory: GameMemory[];
+  isEliminated: boolean;
+  eliminationDay?: number;
+  isMole?: boolean;
+}
+
+export interface GameMemory {
+  day: number;
+  type: 'conversation' | 'scheme' | 'observation' | 'dm' | 'confessional_leak' | 'elimination';
+  participants: string[];
+  content: string;
+  emotionalImpact: number; // -10 to 10
+  timestamp: number;
+}
+
+export interface PlayerAction {
+  type: 'talk' | 'dm' | 'confessional' | 'observe' | 'scheme';
+  target?: string;
+  content?: string;
+  tone?: string;
+  used: boolean;
+}
+
+export interface GameState {
+  currentDay: number;
+  playerName: string;
+  contestants: Contestant[];
+  playerActions: PlayerAction[];
+  confessionals: Confessional[];
+  editPerception: EditPerception;
+  alliances: Alliance[];
+  votingHistory: VotingRecord[];
+  gamePhase: 'intro' | 'daily' | 'elimination' | 'weekly_recap' | 'finale';
+  twistsActivated: string[];
+  nextEliminationDay: number;
+}
+
+export interface Confessional {
+  day: number;
+  content: string;
+  tone: string;
+  editImpact: number;
+}
+
+export interface EditPerception {
+  screenTimeIndex: number; // 0 to 100
+  audienceApproval: number; // -100 to 100
+  persona: 'Hero' | 'Villain' | 'Underedited' | 'Ghosted' | 'Comic Relief' | 'Dark Horse';
+  lastEditShift: number;
+  weeklyQuote?: string;
+}
+
+export interface Alliance {
+  id: string;
+  members: string[];
+  strength: number; // 0 to 100
+  secret: boolean;
+  formed: number; // day
+  lastActivity: number;
+}
+
+export interface VotingRecord {
+  day: number;
+  eliminated: string;
+  votes: { [voterName: string]: string };
+  playerVote?: string;
+  reason: string;
+}
+
+export interface DialogueOption {
+  text: string;
+  tone: 'friendly' | 'strategic' | 'aggressive' | 'flirty' | 'suspicious';
+  consequence: string;
+}
+
+export interface WeeklyEdit {
+  week: number;
+  playerPersona: string;
+  selectedQuote: string;
+  approvalShift: number;
+  eventMontage: string[];
+  realityVsEdit: {
+    whatHappened: string;
+    whatWasShown: string;
+  };
+}

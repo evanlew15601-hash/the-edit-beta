@@ -1,14 +1,56 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useGameState } from '@/hooks/useGameState';
+import { IntroScreen } from '@/components/game/IntroScreen';
+import { GameplayScreen } from '@/components/game/GameplayScreen';
+import { EliminationScreen } from '@/components/game/EliminationScreen';
+import { WeeklyRecapScreen } from '@/components/game/WeeklyRecapScreen';
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+  const {
+    gameState,
+    startGame,
+    useAction,
+    advanceDay,
+    continueFromElimination,
+    continueFromWeeklyRecap,
+    resetGame
+  } = useGameState();
+
+  const renderScreen = () => {
+    switch (gameState.gamePhase) {
+      case 'intro':
+        return <IntroScreen onStartGame={startGame} />;
+      
+      case 'daily':
+        return (
+          <GameplayScreen
+            gameState={gameState}
+            onUseAction={useAction}
+            onAdvanceDay={advanceDay}
+          />
+        );
+      
+      case 'elimination':
+        return (
+          <EliminationScreen
+            gameState={gameState}
+            onContinue={continueFromElimination}
+          />
+        );
+      
+      case 'weekly_recap':
+        return (
+          <WeeklyRecapScreen
+            gameState={gameState}
+            onContinue={continueFromWeeklyRecap}
+          />
+        );
+      
+      default:
+        return <IntroScreen onStartGame={startGame} />;
+    }
+  };
+
+  return renderScreen();
 };
 
 export default Index;

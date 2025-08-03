@@ -52,6 +52,19 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				edit: {
+					hero: 'hsl(var(--hero))',
+					villain: 'hsl(var(--villain))',
+					underedited: 'hsl(var(--underedited))',
+					ghosted: 'hsl(var(--ghosted))',
+					comic: 'hsl(var(--comic))',
+					darkhorse: 'hsl(var(--darkhorse))'
+				},
+				surveillance: {
+					active: 'hsl(var(--camera-active))',
+					inactive: 'hsl(var(--camera-inactive))',
+					confessional: 'hsl(var(--confessional))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
