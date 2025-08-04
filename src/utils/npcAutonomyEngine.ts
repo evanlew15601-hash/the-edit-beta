@@ -180,7 +180,7 @@ class NPCAutonomyEngine {
               type: 'propose_alliance',
               actor: npc.name,
               target: potentialAllies[0].target,
-              content: this.generateAllianceProposal(npc, potentialAllies[0].target, personality),
+              content: this.generateAllianceProposal(npc.name, potentialAllies[0].target, personality),
               motivation: 'survival',
               urgency: motive.intensity,
               executionTime: Date.now()
@@ -199,7 +199,7 @@ class NPCAutonomyEngine {
               type: 'send_dm',
               actor: npc.name,
               target: intelTargets[0].target,
-              content: this.generateIntelGatheringMessage(npc, intelTargets[0].target, personality),
+              content: this.generateIntelGatheringMessage(npc.name, intelTargets[0].target, personality),
               motivation: 'information_gathering',
               urgency: motive.intensity,
               executionTime: Date.now()
@@ -217,7 +217,7 @@ class NPCAutonomyEngine {
               type: actionType,
               actor: npc.name,
               target: revengeTarget,
-              content: this.generateRevengeAction(npc, revengeTarget, actionType, personality),
+              content: this.generateRevengeAction(npc.name, revengeTarget, actionType, personality),
               motivation: 'revenge',
               urgency: motive.intensity,
               executionTime: Date.now()
@@ -233,7 +233,7 @@ class NPCAutonomyEngine {
               type: 'spread_rumor',
               actor: npc.name,
               target: rumorTargets[Math.floor(Math.random() * rumorTargets.length)].target,
-              content: this.generateRumor(npc, personality),
+              content: this.generateRumor(npc.name, personality),
               motivation: 'chaos',
               urgency: motive.intensity,
               executionTime: Date.now()
@@ -248,7 +248,7 @@ class NPCAutonomyEngine {
               type: 'flirt',
               actor: npc.name,
               target: motive.targets[0],
-              content: this.generateFlirtMessage(npc, motive.targets[0], personality),
+              content: this.generateFlirtMessage(npc.name, motive.targets[0], personality),
               motivation: 'romance',
               urgency: motive.intensity,
               executionTime: Date.now()
