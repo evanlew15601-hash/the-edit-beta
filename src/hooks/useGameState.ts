@@ -5,6 +5,15 @@ import { calculateEditPerception } from '@/utils/editEngine';
 import { processVoting } from '@/utils/votingEngine';
 import { getTrustDelta, getSuspicionDelta, calculateLeakChance, calculateSchemeSuccess, generateNPCInteractions } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
+import { speechActClassifier } from '@/utils/speechActClassifier';
+import { 
+  getNPCPersonalityBias, 
+  calculateAITrustDelta, 
+  calculateAISuspicionDelta, 
+  calculateEmotionalDelta,
+  calculateAILeakChance,
+  generateAIResponse
+} from '@/utils/aiResponseEngine';
 
 const initialGameState = (): GameState => ({
   currentDay: 1,
@@ -54,16 +63,25 @@ export const useGameState = () => {
         action.type === actionType ? { ...action, used: true, target, content, tone } : action
       );
 
-      // Process the action's effect on contestants based on action type
+      // CRITICAL: Parse player input with AI before processing
+      let parsedInput = null;
+      if (content && target) {
+        parsedInput = speechActClassifier.classifyMessage(content, 'Player', { target, actionType });
+      }
+
+      // Process the action's effect on contestants based on PARSED intent, not just content
       const updatedContestants = prev.contestants.map(contestant => {
         let updatedContestant = { ...contestant };
 
-        // Apply action-specific logic
+        // Apply AI-DRIVEN action processing based on parsed intent
         switch (actionType) {
           case 'talk':
-            if (contestant.name === target) {
-              const trustDelta = getTrustDelta(tone || '', contestant.psychProfile.disposition);
-              const suspicionDelta = getSuspicionDelta(tone || '', content || '');
+            if (contestant.name === target && parsedInput) {
+              // Use AI classification to determine NPC reaction
+              const npcPersonalityBias = getNPCPersonalityBias(contestant);
+              const trustDelta = calculateAITrustDelta(parsedInput, npcPersonalityBias);
+              const suspicionDelta = calculateAISuspicionDelta(parsedInput, npcPersonalityBias);
+              const emotionalDelta = calculateEmotionalDelta(parsedInput, npcPersonalityBias);
               
               updatedContestant = {
                 ...updatedContestant,
@@ -71,13 +89,13 @@ export const useGameState = () => {
                   ...updatedContestant.psychProfile,
                   trustLevel: Math.max(-100, Math.min(100, updatedContestant.psychProfile.trustLevel + trustDelta)),
                   suspicionLevel: Math.max(0, Math.min(100, updatedContestant.psychProfile.suspicionLevel + suspicionDelta)),
-                  emotionalCloseness: Math.max(0, Math.min(100, updatedContestant.psychProfile.emotionalCloseness + (trustDelta > 0 ? 2 : -1)))
+                  emotionalCloseness: Math.max(0, Math.min(100, updatedContestant.psychProfile.emotionalCloseness + emotionalDelta))
                 },
                 memory: [...updatedContestant.memory, {
                   day: prev.currentDay,
                   type: 'conversation' as const,
                   participants: [prev.playerName, contestant.name],
-                  content: content || '',
+                  content: `${content} [AI Detected: ${parsedInput.primary}]`,
                   emotionalImpact: trustDelta / 5,
                   timestamp: prev.currentDay * 1000 + Math.random() * 1000
                 }]
@@ -86,33 +104,41 @@ export const useGameState = () => {
             break;
 
           case 'dm':
-            if (contestant.name === target) {
-              const trustImpact = tone === 'alliance' ? 8 : tone === 'secretive' ? 3 : tone === 'manipulation' ? -5 : 0;
-              const leakChance = calculateLeakChance(contestant.psychProfile);
+            if (contestant.name === target && parsedInput) {
+              const npcPersonalityBias = getNPCPersonalityBias(contestant);
+              const trustImpact = calculateAITrustDelta(parsedInput, npcPersonalityBias);
+              const suspicionImpact = calculateAISuspicionDelta(parsedInput, npcPersonalityBias);
+              const leakChance = calculateAILeakChance(parsedInput, contestant.psychProfile);
               
               updatedContestant = {
                 ...updatedContestant,
                 psychProfile: {
                   ...updatedContestant.psychProfile,
                   trustLevel: Math.max(-100, Math.min(100, updatedContestant.psychProfile.trustLevel + trustImpact)),
-                  suspicionLevel: tone === 'manipulation' ? Math.min(100, updatedContestant.psychProfile.suspicionLevel + 10) : updatedContestant.psychProfile.suspicionLevel
+                  suspicionLevel: Math.max(0, Math.min(100, updatedContestant.psychProfile.suspicionLevel + suspicionImpact))
                 },
                 memory: [...updatedContestant.memory, {
                   day: prev.currentDay,
                   type: 'dm' as const,
                   participants: [prev.playerName, contestant.name],
-                  content: `[DM-${tone}] ${content}`,
+                  content: `[DM-AI:${parsedInput.primary}] ${content}`,
                   emotionalImpact: trustImpact / 3,
                   timestamp: prev.currentDay * 1000 + Math.random() * 1000
                 }]
               };
 
-              // Handle potential leak
+              // AI-driven leak based on actual content interpretation
               if (Math.random() < leakChance) {
-                // Add leaked message to other contestants' memories
                 prev.contestants.forEach(otherContestant => {
                   if (otherContestant.name !== contestant.name && otherContestant.name !== prev.playerName && !otherContestant.isEliminated) {
-                    // This will be handled in the next iteration
+                    otherContestant.memory.push({
+                      day: prev.currentDay,
+                      type: 'observation' as const,
+                      participants: [prev.playerName, contestant.name],
+                      content: `Heard ${contestant.name} got a suspicious DM from ${prev.playerName}`,
+                      emotionalImpact: -1,
+                      timestamp: prev.currentDay * 1000 + Math.random() * 1000
+                    });
                   }
                 });
               }
@@ -144,25 +170,27 @@ export const useGameState = () => {
             break;
 
           case 'scheme':
-            if (contestant.name === target) {
-              const schemeSuccess = calculateSchemeSuccess(prev.playerName, contestant, content || '', tone || '');
-              const suspicionIncrease = schemeSuccess ? 15 : 25; // Failed schemes are more suspicious
+            if (contestant.name === target && parsedInput) {
+              const npcPersonalityBias = getNPCPersonalityBias(contestant);
+              const schemeDetected = parsedInput.manipulationLevel > 40 || parsedInput.primary === 'sabotaging';
+              const schemeSuccess = !schemeDetected && npcPersonalityBias.manipulationDetection < 60;
+              
+              const trustDelta = schemeSuccess ? -5 : -20; // Failed schemes hurt more
+              const suspicionDelta = schemeDetected ? 35 : 15;
               
               updatedContestant = {
                 ...updatedContestant,
                 psychProfile: {
                   ...updatedContestant.psychProfile,
-                  trustLevel: schemeSuccess ? 
-                    Math.max(-100, updatedContestant.psychProfile.trustLevel - 5) : 
-                    Math.max(-100, updatedContestant.psychProfile.trustLevel - 15),
-                  suspicionLevel: Math.min(100, updatedContestant.psychProfile.suspicionLevel + suspicionIncrease)
+                  trustLevel: Math.max(-100, updatedContestant.psychProfile.trustLevel + trustDelta),
+                  suspicionLevel: Math.min(100, updatedContestant.psychProfile.suspicionLevel + suspicionDelta)
                 },
                 memory: [...updatedContestant.memory, {
                   day: prev.currentDay,
                   type: 'scheme' as const,
                   participants: [prev.playerName, contestant.name],
-                  content: `[SCHEME-${schemeSuccess ? 'SUCCESS' : 'FAILED'}] ${content}`,
-                  emotionalImpact: schemeSuccess ? -2 : -5,
+                  content: `[AI-SCHEME-${schemeSuccess ? 'SUCCESS' : 'DETECTED'}] ${content}`,
+                  emotionalImpact: schemeSuccess ? -2 : -8,
                   timestamp: prev.currentDay * 1000 + Math.random() * 1000
                 }]
               };
@@ -192,11 +220,22 @@ export const useGameState = () => {
         }
       }
 
+      // Store AI response for UI display
+      let aiResponse = null;
+      if (target && content && parsedInput) {
+        const targetContestant = updatedContestants.find(c => c.name === target);
+        if (targetContestant) {
+          aiResponse = generateAIResponse(parsedInput, targetContestant, content);
+        }
+      }
+
       return {
         ...prev,
         playerActions: newActions,
         contestants: updatedContestants,
-        alliances: newAlliances
+        alliances: newAlliances,
+        lastAIResponse: aiResponse, // Store for UI to display
+        lastParsedInput: parsedInput // Store for debugging
       };
     });
   }, []);

@@ -44,6 +44,8 @@ export interface GameState {
   gamePhase: 'intro' | 'daily' | 'elimination' | 'weekly_recap' | 'finale';
   twistsActivated: string[];
   nextEliminationDay: number;
+  lastAIResponse?: string; // Store AI-generated response for UI
+  lastParsedInput?: any; // Store parsed input for debugging
 }
 
 export interface Confessional {
