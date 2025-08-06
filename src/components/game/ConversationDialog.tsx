@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Contestant } from '@/types/game';
 
 interface ConversationDialogProps {
@@ -36,12 +37,13 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit }: C
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Start a Conversation</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <ScrollArea className="max-h-[60vh] pr-4">
+          <div className="space-y-6">
           <div className="space-y-2">
             <label className="text-sm font-medium">Select Target</label>
             <Select value={selectedTarget} onValueChange={setSelectedTarget}>
@@ -100,8 +102,9 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit }: C
             >
               Start Conversation
             </Button>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

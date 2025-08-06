@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Contestant } from '@/types/game';
 
 interface ContestantGridProps {
@@ -20,10 +21,11 @@ export const ContestantGrid = ({ contestants }: ContestantGridProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-h-[80vh]">
       <Card className="p-6">
         <h2 className="text-xl font-light mb-4">Active Contestants</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <ScrollArea className="max-h-[50vh]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-4">
           {activeContestants.map((contestant) => (
             <div key={contestant.id} className="border border-border rounded p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -65,13 +67,15 @@ export const ContestantGrid = ({ contestants }: ContestantGridProps) => {
               )}
             </div>
           ))}
-        </div>
+          </div>
+        </ScrollArea>
       </Card>
 
       {eliminatedContestants.length > 0 && (
         <Card className="p-6">
           <h2 className="text-xl font-light mb-4">Eliminated</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <ScrollArea className="max-h-[30vh]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pr-4">
             {eliminatedContestants.map((contestant) => (
               <div key={contestant.id} className="border border-border rounded p-3 opacity-60">
                 <div className="flex items-center justify-between mb-2">
@@ -83,7 +87,8 @@ export const ContestantGrid = ({ contestants }: ContestantGridProps) => {
                 </p>
               </div>
             ))}
-          </div>
+            </div>
+          </ScrollArea>
         </Card>
       )}
     </div>

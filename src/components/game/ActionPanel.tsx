@@ -7,6 +7,7 @@ import { DirectMessageDialog } from './DirectMessageDialog';
 import { ConfessionalDialog } from './ConfessionalDialog';
 import { ObservationDialog } from './ObservationDialog';
 import { SchemeDialog } from './SchemeDialog';
+import { DaySkipDialog } from './DaySkipDialog';
 
 interface ActionPanelProps {
   gameState: GameState;
@@ -16,6 +17,7 @@ interface ActionPanelProps {
 
 export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPanelProps) => {
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
+  const [showSkipDialog, setShowSkipDialog] = useState(false);
   
   const allActionsUsed = gameState.playerActions.every(action => action.used);
   const hasCompletedConfessional = gameState.playerActions.find(a => a.type === 'confessional')?.used;
@@ -104,6 +106,24 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
             </div>
           </div>
         )}
+
+        {!allActionsUsed && (
+          <div className="mt-6 pt-6 border-t border-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Passive Strategy Option</p>
+                <p className="text-xs text-muted-foreground">Skip remaining actions and advance day</p>
+              </div>
+              <Button
+                variant="outline"
+                size="wide"
+                onClick={() => setShowSkipDialog(true)}
+              >
+                Skip Day
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Dialog Components */}
@@ -139,6 +159,14 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
         onClose={handleDialogClose}
         contestants={gameState.contestants.filter(c => !c.isEliminated)}
         onSubmit={(target, content, tone) => handleActionSubmit('scheme', target, content, tone)}
+      />
+
+      <DaySkipDialog
+        isOpen={showSkipDialog}
+        onClose={() => setShowSkipDialog(false)}
+        onConfirmSkip={onAdvanceDay}
+        currentDay={gameState.currentDay}
+        gameState={gameState}
       />
     </div>
   );

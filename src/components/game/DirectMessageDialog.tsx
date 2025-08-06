@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Contestant } from '@/types/game';
 
 interface DirectMessageDialogProps {
@@ -35,12 +36,13 @@ export const DirectMessageDialog = ({ isOpen, onClose, contestants, onSubmit }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Send Direct Message</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <ScrollArea className="max-h-[60vh] pr-4">
+          <div className="space-y-6">
           <div className="bg-destructive/10 border border-destructive/20 rounded p-3">
             <p className="text-sm text-destructive">
               Warning: Private messages may be leaked by the recipient. Trust carefully.
@@ -105,8 +107,9 @@ export const DirectMessageDialog = ({ isOpen, onClose, contestants, onSubmit }: 
             >
               Send Message
             </Button>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

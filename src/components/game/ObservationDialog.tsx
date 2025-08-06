@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Contestant } from '@/types/game';
 
 interface ObservationDialogProps {
@@ -66,12 +67,13 @@ export const ObservationDialog = ({ isOpen, onClose, contestants, onSubmit }: Ob
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Observe Other Contestants</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <ScrollArea className="max-h-[60vh] pr-4">
+          <div className="space-y-6">
           <div className="bg-accent/10 border border-accent/20 rounded p-3">
             <p className="text-sm text-accent">
               Watch from the shadows. What you observe may reveal alliances, betrayals, or valuable information about the social dynamics.
@@ -127,8 +129,9 @@ export const ObservationDialog = ({ isOpen, onClose, contestants, onSubmit }: Ob
             >
               {selectedObservation ? 'Complete Observation' : 'Select Observation'}
             </Button>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

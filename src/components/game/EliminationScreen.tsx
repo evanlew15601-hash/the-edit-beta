@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState } from '@/types/game';
 
 interface EliminationScreenProps {
@@ -24,7 +25,8 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
+      <ScrollArea className="h-screen">
+        <div className="max-w-4xl mx-auto px-6 py-12 space-y-8 pr-4">
         
         {/* Header */}
         <div className="text-center space-y-4">
@@ -136,7 +138,8 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
             {isPlayerEliminated ? 'View Final Edit' : 'Continue Game'}
           </Button>
         </div>
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 };

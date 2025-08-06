@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ConfessionalDialogProps {
   isOpen: boolean;
@@ -32,12 +33,13 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit }: ConfessionalDi
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Diary Room Confessional</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <ScrollArea className="max-h-[60vh] pr-4">
+          <div className="space-y-6">
           <div className="bg-surveillance-confessional/20 border border-surveillance-confessional/40 rounded p-4">
             <p className="text-sm text-foreground">
               You are alone in the diary room. The cameras are rolling. What you say here will directly shape how the audience sees you. Choose your words carefully.
@@ -87,8 +89,9 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit }: ConfessionalDi
             >
               Record Confessional
             </Button>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

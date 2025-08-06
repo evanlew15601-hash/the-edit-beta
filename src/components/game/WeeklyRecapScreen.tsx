@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState, WeeklyEdit } from '@/types/game';
 
 interface WeeklyRecapScreenProps {
@@ -45,7 +46,8 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
+      <ScrollArea className="h-screen">
+        <div className="max-w-4xl mx-auto px-6 py-12 space-y-8 pr-4">
         
         {/* Header */}
         <div className="text-center space-y-4">
@@ -171,7 +173,8 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
             Continue to Next Week
           </Button>
         </div>
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 };

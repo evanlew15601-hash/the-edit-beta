@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Contestant } from '@/types/game';
 
 interface SchemeDialogProps {
@@ -63,12 +64,13 @@ export const SchemeDialog = ({ isOpen, onClose, contestants, onSubmit }: SchemeD
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Execute a Scheme</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <ScrollArea className="max-h-[60vh] pr-4">
+          <div className="space-y-6">
           <div className="bg-destructive/10 border border-destructive/20 rounded p-3">
             <p className="text-sm text-destructive">
               Warning: Schemes can backfire spectacularly. Success depends on your reputation, the target's psychology, and pure chance.
@@ -156,8 +158,9 @@ export const SchemeDialog = ({ isOpen, onClose, contestants, onSubmit }: SchemeD
             >
               Execute Scheme
             </Button>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

@@ -17,7 +17,7 @@ export interface Contestant {
 
 export interface GameMemory {
   day: number;
-  type: 'conversation' | 'scheme' | 'observation' | 'dm' | 'confessional_leak' | 'elimination';
+  type: 'conversation' | 'scheme' | 'observation' | 'dm' | 'confessional_leak' | 'elimination' | 'event';
   participants: string[];
   content: string;
   emotionalImpact: number; // -10 to 10
@@ -46,6 +46,7 @@ export interface GameState {
   nextEliminationDay: number;
   lastAIResponse?: string; // Store AI-generated response for UI
   lastParsedInput?: any; // Store parsed input for debugging
+  lastEmergentEvent?: any; // Store emergent event for UI display
 }
 
 export interface Confessional {
