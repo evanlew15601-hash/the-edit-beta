@@ -42,9 +42,8 @@ const initialGameState = (): GameState => ({
 
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
-    // Load saved game state on initialization
-    const savedState = loadGameState();
-    return savedState || initialGameState();
+    // Always start with intro screen - don't load saved state on first load
+    return initialGameState();
   });
 
   const startGame = useCallback((playerName: string) => {
