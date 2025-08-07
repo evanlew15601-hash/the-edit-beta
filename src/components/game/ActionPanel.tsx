@@ -19,7 +19,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
   
-  const allActionsUsed = gameState.playerActions.every(action => action.used);
+  const allActionsUsed = gameState.playerActions.every(action => action.used || (action.usageCount && action.usageCount >= 2));
   const hasCompletedConfessional = gameState.playerActions.find(a => a.type === 'confessional')?.used;
 
   const getActionDescription = (type: string) => {
@@ -40,7 +40,8 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
   };
 
   const handleActionClick = (actionType: string) => {
-    if (gameState.playerActions.find(a => a.type === actionType)?.used) return;
+    const action = gameState.playerActions.find(a => a.type === actionType);
+    if (action?.used || (action?.usageCount && action.usageCount >= 2)) return;
     setActiveDialog(actionType);
   };
 
@@ -67,20 +68,22 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium capitalize">{action.type.replace('_', ' ')}</h3>
                 <Button
-                  variant={action.used ? "disabled" : "action"}
+                  variant={(action.used || (action.usageCount && action.usageCount >= 2)) ? "disabled" : "action"}
                   size="sm"
-                  used={action.used}
+                  used={action.used || (action.usageCount && action.usageCount >= 2)}
                   onClick={() => handleActionClick(action.type)}
                 >
-                  {action.used ? 'Used' : 'Select'}
+                  {action.used || (action.usageCount && action.usageCount >= 2) 
+                    ? `Used ${action.usageCount || 1}/2` 
+                    : 'Select'}
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground">
                 {getActionDescription(action.type)}
               </p>
-              {action.used && action.target && (
+              {(action.used || (action.usageCount && action.usageCount > 0)) && action.target && (
                 <p className="text-xs text-surveillance-active mt-2">
-                  Used on: {action.target}
+                  Last used on: {action.target}
                 </p>
               )}
             </div>

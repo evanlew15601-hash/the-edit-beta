@@ -20,11 +20,11 @@ const initialGameState = (): GameState => ({
   playerName: '',
   contestants: [],
   playerActions: [
-    { type: 'talk', used: false },
-    { type: 'dm', used: false },
-    { type: 'confessional', used: false },
-    { type: 'observe', used: false },
-    { type: 'scheme', used: false }
+    { type: 'talk', used: false, usageCount: 0 },
+    { type: 'dm', used: false, usageCount: 0 },
+    { type: 'confessional', used: false, usageCount: 0 },
+    { type: 'observe', used: false, usageCount: 0 },
+    { type: 'scheme', used: false, usageCount: 0 }
   ],
   confessionals: [],
   editPerception: {
@@ -58,9 +58,20 @@ export const useGameState = () => {
 
   const useAction = useCallback((actionType: string, target?: string, content?: string, tone?: string) => {
     setGameState(prev => {
-      const newActions = prev.playerActions.map(action => 
-        action.type === actionType ? { ...action, used: true, target, content, tone } : action
-      );
+      const newActions = prev.playerActions.map(action => {
+        if (action.type === actionType) {
+          const currentUsage = action.usageCount || 0;
+          return { 
+            ...action, 
+            used: currentUsage >= 1, // Mark as used after first usage
+            usageCount: currentUsage + 1,
+            target, 
+            content, 
+            tone 
+          };
+        }
+        return action;
+      });
 
       // CRITICAL: Parse player input with AI before processing
       let parsedInput = null;
@@ -269,6 +280,18 @@ export const useGameState = () => {
     setGameState(prev => {
       const newDay = prev.currentDay + 1;
       const isEliminationDay = newDay === prev.nextEliminationDay;
+      const activeContestants = prev.contestants.filter(c => !c.isEliminated);
+      
+      // Check for immunity competition (day before elimination)
+      if (newDay === prev.nextEliminationDay - 1 && activeContestants.length > 3) {
+        const newState: GameState = {
+          ...prev,
+          currentDay: newDay,
+          gamePhase: 'immunity_competition' as const
+        };
+        saveGameState(newState);
+        return newState;
+      }
 
       // Check for twist activation
       const potentialTwist = TwistEngine.shouldActivateTwist(prev);
@@ -311,13 +334,38 @@ export const useGameState = () => {
       }
 
       if (isEliminationDay) {
-        const votingResult = processVoting(updatedContestants, prev.playerName, prev.alliances);
+        const votingResult = processVoting(updatedContestants, prev.playerName, prev.alliances, prev.immunityWinner);
         
         const finalContestants = updatedContestants.map(c =>
           c.name === votingResult.eliminated 
             ? { ...c, isEliminated: true, eliminationDay: newDay }
             : c
         );
+
+        // Check if game should end (final 2)
+        const remainingContestants = finalContestants.filter(c => !c.isEliminated);
+        if (remainingContestants.length <= 2) {
+          const newState: GameState = {
+            ...prev,
+            ...(twistUpdates as Partial<GameState>),
+            currentDay: newDay,
+            contestants: finalContestants,
+            votingHistory: [...prev.votingHistory, { ...votingResult, day: newDay }],
+            gamePhase: 'finale' as const,
+            juryMembers: prev.contestants.filter(c => 
+              c.isEliminated && c.eliminationDay && c.eliminationDay >= newDay - 14
+            ).map(c => c.name),
+            playerActions: [
+              { type: 'talk', used: false, usageCount: 0 },
+              { type: 'dm', used: false, usageCount: 0 },
+              { type: 'confessional', used: false, usageCount: 0 },
+              { type: 'observe', used: false, usageCount: 0 },
+              { type: 'scheme', used: false, usageCount: 0 }
+            ] as PlayerAction[]
+          };
+          saveGameState(newState);
+          return newState;
+        }
 
         const newState: GameState = {
           ...prev,
@@ -327,12 +375,13 @@ export const useGameState = () => {
           votingHistory: [...prev.votingHistory, { ...votingResult, day: newDay }],
           gamePhase: 'elimination' as const,
           nextEliminationDay: newDay + 6,
+          immunityWinner: undefined, // Reset immunity
           playerActions: [
-            { type: 'talk', used: false },
-            { type: 'dm', used: false },
-            { type: 'confessional', used: false },
-            { type: 'observe', used: false },
-            { type: 'scheme', used: false }
+            { type: 'talk', used: false, usageCount: 0 },
+            { type: 'dm', used: false, usageCount: 0 },
+            { type: 'confessional', used: false, usageCount: 0 },
+            { type: 'observe', used: false, usageCount: 0 },
+            { type: 'scheme', used: false, usageCount: 0 }
           ] as PlayerAction[]
         };
 
@@ -347,11 +396,11 @@ export const useGameState = () => {
         currentDay: newDay,
         contestants: updatedContestants,
         playerActions: [
-          { type: 'talk', used: false },
-          { type: 'dm', used: false },
-          { type: 'confessional', used: false },
-          { type: 'observe', used: false },
-          { type: 'scheme', used: false }
+          { type: 'talk', used: false, usageCount: 0 },
+          { type: 'dm', used: false, usageCount: 0 },
+          { type: 'confessional', used: false, usageCount: 0 },
+          { type: 'observe', used: false, usageCount: 0 },
+          { type: 'scheme', used: false, usageCount: 0 }
         ] as PlayerAction[]
       };
 
@@ -359,6 +408,29 @@ export const useGameState = () => {
       saveGameState(newState);
       return newState;
     });
+  }, []);
+
+  const setImmunityWinner = useCallback((winner: string) => {
+    setGameState(prev => ({
+      ...prev,
+      immunityWinner: winner,
+      gamePhase: 'daily' as const
+    }));
+  }, []);
+
+  const submitFinaleSpeech = useCallback((speech: string) => {
+    setGameState(prev => ({
+      ...prev,
+      finaleSpeechesGiven: true,
+      gamePhase: 'jury_vote' as const
+    }));
+  }, []);
+
+  const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }) => {
+    setGameState(prev => ({
+      ...prev,
+      gamePhase: 'intro' as const // Reset to intro for new game
+    }));
   }, []);
 
   const continueFromElimination = useCallback(() => {
@@ -392,6 +464,9 @@ export const useGameState = () => {
     useAction,
     submitConfessional,
     advanceDay,
+    setImmunityWinner,
+    submitFinaleSpeech,
+    endGame,
     continueFromElimination,
     continueFromWeeklyRecap,
     resetGame

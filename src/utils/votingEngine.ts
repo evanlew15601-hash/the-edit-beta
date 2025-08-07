@@ -3,7 +3,8 @@ import { Contestant, Alliance, VotingRecord } from '@/types/game';
 export const processVoting = (
   contestants: Contestant[],
   playerName: string,
-  alliances: Alliance[]
+  alliances: Alliance[],
+  immunityWinner?: string
 ): VotingRecord => {
   const activeContestants = contestants.filter(c => !c.isEliminated);
   
@@ -60,6 +61,7 @@ export const processVoting = (
     
     [...activeContestants, { name: playerName }].forEach(target => {
       if (target.name === voter.name) return;
+      if (target.name === immunityWinner) return; // Can't vote for immunity winner
       if (allianceMembers.has(target.name) && Math.random() > 0.1) return; // 90% alliance loyalty
       
       const threat = threatLevels.get(target.name) || 0;

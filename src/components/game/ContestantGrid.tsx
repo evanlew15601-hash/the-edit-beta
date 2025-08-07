@@ -25,7 +25,7 @@ export const ContestantGrid = ({ contestants }: ContestantGridProps) => {
       <Card className="p-6">
         <h2 className="text-xl font-light mb-4">Active Contestants</h2>
         <ScrollArea className="max-h-[50vh]">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 pr-4">
           {activeContestants.map((contestant) => (
             <div key={contestant.id} className="border border-border rounded p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -36,13 +36,6 @@ export const ContestantGrid = ({ contestants }: ContestantGridProps) => {
               <p className="text-sm text-muted-foreground">{contestant.publicPersona}</p>
               
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Trust Level:</span>
-                  <span className={getTrustColor(contestant.psychProfile.trustLevel)}>
-                    {contestant.psychProfile.trustLevel > 0 ? '+' : ''}{contestant.psychProfile.trustLevel}
-                  </span>
-                </div>
-                
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Disposition:</span>
                   <span className="text-foreground">

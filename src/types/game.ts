@@ -30,6 +30,7 @@ export interface PlayerAction {
   content?: string;
   tone?: string;
   used: boolean;
+  usageCount?: number;
 }
 
 export interface GameState {
@@ -41,12 +42,15 @@ export interface GameState {
   editPerception: EditPerception;
   alliances: Alliance[];
   votingHistory: VotingRecord[];
-  gamePhase: 'intro' | 'daily' | 'elimination' | 'weekly_recap' | 'finale';
+  gamePhase: 'intro' | 'daily' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote';
   twistsActivated: string[];
   nextEliminationDay: number;
   lastAIResponse?: string; // Store AI-generated response for UI
   lastParsedInput?: any; // Store parsed input for debugging
   lastEmergentEvent?: any; // Store emergent event for UI display
+  immunityWinner?: string; // Who won immunity this week
+  juryMembers?: string[]; // Who is on the jury
+  finaleSpeechesGiven?: boolean; // Track finale speeches
 }
 
 export interface Confessional {

@@ -3,6 +3,7 @@ import { DashboardHeader } from './DashboardHeader';
 import { ActionPanel } from './ActionPanel';
 import { ContestantGrid } from './ContestantGrid';
 import { TwistNotification } from './TwistNotification';
+import { AIResponseDisplay } from './AIResponseDisplay';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -18,6 +19,13 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay }: Gamepla
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Twist Notification */}
         <TwistNotification gameState={gameState} />
+        
+        {/* AI Response Display */}
+        <AIResponseDisplay 
+          lastResponse={gameState.lastAIResponse}
+          lastTarget={gameState.playerActions.find(a => a.target)?.target}
+          actionType={gameState.playerActions.find(a => a.target)?.type}
+        />
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Action Panel */}

@@ -36,9 +36,9 @@ export const generateContestants = (count: number): Contestant[] => {
       publicPersona: persona,
       psychProfile: {
         disposition,
-        trustLevel: Math.floor(Math.random() * 40) - 20, // Start neutral to slightly negative
+        trustLevel: 0, // Start neutral relationship with player
         suspicionLevel: Math.floor(Math.random() * 30),
-        emotionalCloseness: Math.floor(Math.random() * 20),
+        emotionalCloseness: 0, // Start neutral emotional connection
         editBias: Math.floor(Math.random() * 20) - 10
       },
       memory: [],
