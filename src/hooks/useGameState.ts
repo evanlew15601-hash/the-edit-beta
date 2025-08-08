@@ -24,7 +24,8 @@ const initialGameState = (): GameState => ({
     { type: 'dm', used: false, usageCount: 0 },
     { type: 'confessional', used: false, usageCount: 0 },
     { type: 'observe', used: false, usageCount: 0 },
-    { type: 'scheme', used: false, usageCount: 0 }
+    { type: 'scheme', used: false, usageCount: 0 },
+    { type: 'activity', used: false, usageCount: 0 }
   ],
   confessionals: [],
   editPerception: {
@@ -206,6 +207,28 @@ export const useGameState = () => {
               };
             }
             break;
+
+          case 'activity':
+            // Group task participation: small positive social effects
+            if (!contestant.isEliminated && Math.random() < 0.35) {
+              updatedContestant = {
+                ...updatedContestant,
+                psychProfile: {
+                  ...updatedContestant.psychProfile,
+                  trustLevel: Math.min(100, updatedContestant.psychProfile.trustLevel + 2),
+                  suspicionLevel: Math.max(0, updatedContestant.psychProfile.suspicionLevel - 2)
+                },
+                memory: [...updatedContestant.memory, {
+                  day: prev.currentDay,
+                  type: 'event' as const,
+                  participants: [prev.playerName, contestant.name],
+                  content: 'Joined a house group task together',
+                  emotionalImpact: 2,
+                  timestamp: prev.currentDay * 1000 + Math.random() * 1000
+                }]
+              };
+            }
+            break;
         }
 
         return updatedContestant;
@@ -245,7 +268,9 @@ export const useGameState = () => {
         contestants: updatedContestants,
         alliances: newAlliances,
         lastAIResponse: aiResponse, // Store for UI to display
-        lastParsedInput: parsedInput // Store for debugging
+        lastParsedInput: parsedInput, // Store for debugging
+        lastActionTarget: target,
+        lastActionType: actionType as PlayerAction['type']
       };
     });
   }, []);
@@ -360,7 +385,8 @@ export const useGameState = () => {
               { type: 'dm', used: false, usageCount: 0 },
               { type: 'confessional', used: false, usageCount: 0 },
               { type: 'observe', used: false, usageCount: 0 },
-              { type: 'scheme', used: false, usageCount: 0 }
+              { type: 'scheme', used: false, usageCount: 0 },
+              { type: 'activity', used: false, usageCount: 0 }
             ] as PlayerAction[]
           };
           saveGameState(newState);
@@ -381,7 +407,8 @@ export const useGameState = () => {
             { type: 'dm', used: false, usageCount: 0 },
             { type: 'confessional', used: false, usageCount: 0 },
             { type: 'observe', used: false, usageCount: 0 },
-            { type: 'scheme', used: false, usageCount: 0 }
+            { type: 'scheme', used: false, usageCount: 0 },
+            { type: 'activity', used: false, usageCount: 0 }
           ] as PlayerAction[]
         };
 
@@ -400,7 +427,8 @@ export const useGameState = () => {
           { type: 'dm', used: false, usageCount: 0 },
           { type: 'confessional', used: false, usageCount: 0 },
           { type: 'observe', used: false, usageCount: 0 },
-          { type: 'scheme', used: false, usageCount: 0 }
+          { type: 'scheme', used: false, usageCount: 0 },
+          { type: 'activity', used: false, usageCount: 0 }
         ] as PlayerAction[]
       };
 

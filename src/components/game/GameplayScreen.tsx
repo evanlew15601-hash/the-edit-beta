@@ -23,8 +23,8 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay }: Gamepla
         {/* AI Response Display */}
         <AIResponseDisplay 
           lastResponse={gameState.lastAIResponse}
-          lastTarget={gameState.playerActions.find(a => a.target)?.target}
-          actionType={gameState.playerActions.find(a => a.target)?.type}
+          lastTarget={gameState.lastActionTarget}
+          actionType={gameState.lastActionType}
         />
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

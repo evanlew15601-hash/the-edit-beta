@@ -25,7 +25,7 @@ export interface GameMemory {
 }
 
 export interface PlayerAction {
-  type: 'talk' | 'dm' | 'confessional' | 'observe' | 'scheme';
+  type: 'talk' | 'dm' | 'confessional' | 'observe' | 'scheme' | 'activity';
   target?: string;
   content?: string;
   tone?: string;
@@ -48,6 +48,8 @@ export interface GameState {
   lastAIResponse?: string; // Store AI-generated response for UI
   lastParsedInput?: any; // Store parsed input for debugging
   lastEmergentEvent?: any; // Store emergent event for UI display
+  lastActionTarget?: string; // Most recent action target for UI context
+  lastActionType?: PlayerAction['type']; // Most recent action type for UI context
   immunityWinner?: string; // Who won immunity this week
   juryMembers?: string[]; // Who is on the jury
   finaleSpeechesGiven?: boolean; // Track finale speeches
