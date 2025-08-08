@@ -17,6 +17,7 @@ interface DaySkipDialogProps {
 export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, gameState }: DaySkipDialogProps) => {
   const [isSkipping, setIsSkipping] = useState(false);
   const [emergentEvent, setEmergentEvent] = useState<any>(null);
+  const [selectedReason, setSelectedReason] = useState<string>('');
 
   const handleSkip = async () => {
     setIsSkipping(true);
@@ -91,14 +92,18 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
             <div className="space-y-3">
               <label className="text-sm font-medium">Why skip this day?</label>
               {skipReasons.map((reason, index) => (
-                <div
+                <button
                   key={index}
-                  className="p-3 border border-border rounded transition-colors hover:bg-muted"
+                  type="button"
+                  onClick={() => setSelectedReason(reason.title)}
+                  className={`w-full text-left p-3 border rounded transition-colors ${
+                    selectedReason === reason.title ? 'bg-primary/10 border-primary' : 'border-border hover:bg-muted'
+                  }`}
                 >
                   <div className="font-medium mb-1">{reason.title}</div>
                   <div className="text-sm text-muted-foreground mb-2">{reason.description}</div>
                   <div className="text-xs text-accent">Risk Level: {reason.risk}</div>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -173,7 +178,7 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
               <Button 
                 variant="action" 
                 onClick={handleSkip} 
-                disabled={isSkipping || emergentEvent}
+                disabled={!selectedReason || isSkipping || !!emergentEvent}
                 className="flex-1"
               >
                 {isSkipping ? 'Checking...' : 'Skip Day'}

@@ -31,6 +31,8 @@ export const AIResponseDisplay = ({ lastResponse, lastTarget, actionType }: AIRe
         return <MessageCircle className="w-4 h-4" />;
       case 'scheme':
         return <Users className="w-4 h-4" />;
+      case 'activity':
+        return <Users className="w-4 h-4" />;
       default:
         return <MessageCircle className="w-4 h-4" />;
     }

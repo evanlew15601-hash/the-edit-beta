@@ -8,6 +8,7 @@ import { ConfessionalDialog } from './ConfessionalDialog';
 import { ObservationDialog } from './ObservationDialog';
 import { SchemeDialog } from './SchemeDialog';
 import { DaySkipDialog } from './DaySkipDialog';
+import { ActivityDialog } from './ActivityDialog';
 
 interface ActionPanelProps {
   gameState: GameState;
@@ -34,6 +35,8 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
         return 'Watch other contestants interact. Gain intelligence without being seen.';
       case 'scheme':
         return 'Attempt to manipulate votes, spread rumors, or form secret alliances.';
+      case 'activity':
+        return 'Start a light house activity to build rapport and stir subtle dynamics.';
       default:
         return '';
     }
@@ -170,6 +173,12 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
         onConfirmSkip={onAdvanceDay}
         currentDay={gameState.currentDay}
         gameState={gameState}
+      />
+
+      <ActivityDialog
+        isOpen={activeDialog === 'activity'}
+        onClose={handleDialogClose}
+        onSubmit={(content) => handleActionSubmit('activity', undefined, content)}
       />
     </div>
   );

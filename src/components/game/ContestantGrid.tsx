@@ -51,13 +51,6 @@ export const ContestantGrid = ({ contestants }: ContestantGridProps) => {
                 </div>
               </div>
 
-              {contestant.isMole && (
-                <div className="pt-2 border-t border-border">
-                  <span className="text-xs text-destructive uppercase tracking-wide">
-                    Unknown Status
-                  </span>
-                </div>
-              )}
             </div>
           ))}
           </div>

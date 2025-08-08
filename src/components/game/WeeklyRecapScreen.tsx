@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState, WeeklyEdit } from '@/types/game';
+import { generateFanReactions } from '@/utils/fanReactions';
 
 interface WeeklyRecapScreenProps {
   gameState: GameState;
@@ -31,6 +32,8 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
       whatWasShown: 'Edited to emphasize drama, conflict, and your current narrative arc'
     }
   };
+
+  const fanReactions = generateFanReactions(gameState);
 
   const getPersonaColor = (persona: string) => {
     switch (persona) {
@@ -135,6 +138,16 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
             <p className="text-xs text-muted-foreground">
               Remember: The edit shapes everything. Your actions matter, but how they're presented matters more.
             </p>
+          </div>
+        </Card>
+
+        {/* Fan Reactions */}
+        <Card className="p-6">
+          <h3 className="text-xl font-light mb-4">Fan Reactions</h3>
+          <div className="space-y-2">
+            {fanReactions.map((r, i) => (
+              <p key={i} className="text-sm text-foreground">• {r}</p>
+            ))}
           </div>
         </Card>
 
