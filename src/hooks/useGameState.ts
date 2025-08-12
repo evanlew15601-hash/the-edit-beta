@@ -16,6 +16,7 @@ import {
   calculateAILeakChance,
   generateAIResponse,
 } from '@/utils/aiResponseEngine';
+import { generateLocalAIReply } from '@/utils/localLLM';
 
 const USE_REMOTE_AI = true; // Enable remote LLMs for higher-quality replies (HF/OpenAI)
 
@@ -336,6 +337,13 @@ export const useGameState = () => {
               if (!hf.error) {
                 aiText = (hf.data as any)?.generatedText || '';
               }
+            }
+
+            // 2.5) Local on-device LLM (WebGPU/WebCPU) as strong offline fallback
+            if (!aiText) {
+              try {
+                aiText = await generateLocalAIReply(payload);
+              } catch {}
             }
           }
         } catch (e) {
