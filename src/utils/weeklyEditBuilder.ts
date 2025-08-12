@@ -22,9 +22,9 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   }, {});
   const dominantTone = Object.entries(toneCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
 
-  // Featured quote: highest editImpact, then by length, then latest
+  // Featured quote: highest audienceScore, then editImpact, then length, then latest
   const featured = [...weeklyConfs]
-    .sort((a, b) => (b.editImpact ?? 0) - (a.editImpact ?? 0) || (b.content?.length ?? 0) - (a.content?.length ?? 0) || b.day - a.day)[0];
+    .sort((a, b) => (b.audienceScore ?? -Infinity) - (a.audienceScore ?? -Infinity) || (b.editImpact ?? 0) - (a.editImpact ?? 0) || (b.content?.length ?? 0) - (a.content?.length ?? 0) || b.day - a.day)[0];
 
   const selectedQuote = truncate(
     featured?.content || editPerception.weeklyQuote || 'Quiet week—no standout confessional.',

@@ -50,7 +50,7 @@ export interface GameState {
   editPerception: EditPerception;
   alliances: Alliance[];
   votingHistory: VotingRecord[];
-  gamePhase: 'intro' | 'premiere' | 'daily' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote';
+  gamePhase: 'intro' | 'premiere' | 'daily' | 'player_vote' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote';
   twistsActivated: string[];
   nextEliminationDay: number;
   dailyActionCount: number; // actions used today
@@ -78,6 +78,7 @@ export interface Confessional {
   content: string;
   tone: string;
   editImpact: number;
+  audienceScore?: number;
 }
 
 export interface EditPerception {

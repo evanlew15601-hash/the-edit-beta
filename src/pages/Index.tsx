@@ -7,6 +7,7 @@ import { JuryVoteScreen } from '@/components/game/JuryVoteScreen';
 import { PremiereCutscene } from '@/components/game/PremiereCutscene';
 import { EliminationEpisode } from '@/components/game/EliminationEpisode';
 import { FinaleEpisode } from '@/components/game/FinaleEpisode';
+import { PlayerVoteScreen } from '@/components/game/PlayerVoteScreen';
 
 const Index = () => {
   const {
@@ -78,6 +79,14 @@ const Index = () => {
           <JuryVoteScreen
             gameState={gameState}
             onGameEnd={endGame}
+          />
+        );
+
+      case 'player_vote':
+        return (
+          <PlayerVoteScreen
+            gameState={gameState}
+            onSubmitVote={submitPlayerVote}
           />
         );
       

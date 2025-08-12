@@ -4,7 +4,8 @@ export const processVoting = (
   contestants: Contestant[],
   playerName: string,
   alliances: Alliance[],
-  immunityWinner?: string
+  immunityWinner?: string,
+  playerVote?: string
 ): VotingRecord => {
   const activeContestants = contestants.filter(c => !c.isEliminated);
   
@@ -98,6 +99,13 @@ export const processVoting = (
     const currentCount = voteCounts.get(targetName) || 0;
     voteCounts.set(targetName, currentCount + 1);
   });
+
+  // Include player's vote if provided
+  if (playerVote && playerVote !== immunityWinner && playerVote !== playerName) {
+    votes[playerName] = playerVote;
+    const current = voteCounts.get(playerVote) || 0;
+    voteCounts.set(playerVote, current + 1);
+  }
 
   // Find who received the most votes
   let eliminated = '';
