@@ -300,18 +300,40 @@ export const useGameState = () => {
           }
         } catch (e) {
           console.error('AI reply error:', e);
-          // Fallback to local NPC response engine
+          // Fallback order: Hugging Face edge function -> local engine
           try {
-            const local = npcResponseEngine.generateResponse(
-              content!,
-              target!,
-              gameState,
-              actionType === 'dm' ? 'private' : 'public'
-            );
-            aiText = local.content;
-          } catch (e2) {
-            console.error('Local fallback error:', e2);
-            aiText = '';
+            const npc = gameState.contestants.find(c => c.name === target);
+            const hfPayload = {
+              playerMessage: content,
+              npc: npc ? {
+                name: npc.name,
+                publicPersona: npc.publicPersona,
+                psychProfile: npc.psychProfile,
+              } : undefined,
+              tone: tone || '',
+              conversationType: actionType === 'dm' ? 'private' : 'public'
+            };
+            const hf = await supabase.functions.invoke('generate-ai-reply-hf', { body: hfPayload });
+            if (!hf.error) {
+              aiText = (hf.data as any)?.generatedText || '';
+            }
+          } catch (hfErr) {
+            console.error('HF fallback error:', hfErr);
+          }
+
+          if (!aiText) {
+            try {
+              const local = npcResponseEngine.generateResponse(
+                content!,
+                target!,
+                gameState,
+                actionType === 'dm' ? 'private' : 'public'
+              );
+              aiText = local.content;
+            } catch (e2) {
+              console.error('Local fallback error:', e2);
+              aiText = '';
+            }
           }
         } finally {
           if (aiText) {
