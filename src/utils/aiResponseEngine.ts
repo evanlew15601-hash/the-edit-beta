@@ -11,6 +11,86 @@ export type NPCPersonalityBias = {
   revengefulness: number; // 0-100
 };
 
+// Archetype-driven tone system
+export type Archetype = 'Strategist' | 'Charmer' | 'Hothead' | 'Floater' | 'Loyalist' | 'Cynic';
+
+export function deriveArchetype(npc: Contestant): Archetype {
+  const persona = (npc.publicPersona || '').toLowerCase();
+  const disp = (npc.psychProfile?.disposition || []).map((d: string) => d.toLowerCase());
+
+  if (/strateg|calculat/.test(persona)) return 'Strategist';
+  if (/charm|flirt|social/.test(persona)) return 'Charmer';
+  if (/hothead|fiery|aggress/.test(persona)) return 'Hothead';
+  if (/floater|under the radar|quiet/.test(persona)) return 'Floater';
+  if (/loyal|protector|honou?r/.test(persona)) return 'Loyalist';
+  if (/cynic|skeptic|sarcastic/.test(persona)) return 'Cynic';
+
+  if (disp.includes('calculating')) return 'Strategist';
+  if (disp.includes('charming')) return 'Charmer';
+  if (disp.includes('emotional')) return 'Hothead';
+  if (disp.includes('loyal')) return 'Loyalist';
+  if (disp.includes('paranoid')) return 'Cynic';
+  return 'Floater';
+}
+
+// Remove slang/jargon and enforce formal, neutral wording
+export function sanitizeAndFormalize(text: string): string {
+  let t = text;
+  const replacements: Array<[RegExp, string]> = [
+    [/\bI'm\b/g, 'I am'], [/\byou're\b/gi, 'you are'], [/\bit's\b/gi, 'it is'], [/\blet's\b/gi, 'let us'],
+    [/\bthat's\b/gi, 'that is'], [/\bthere's\b/gi, 'there is'], [/\bwe're\b/gi, 'we are'], [/\bthey're\b/gi, 'they are'],
+    [/\bdon't\b/gi, 'do not'], [/\bdoesn't\b/gi, 'does not'], [/\bisn't\b/gi, 'is not'], [/\baren't\b/gi, 'are not'],
+    [/\bcan't\b/gi, 'cannot'], [/n't\b/gi, ' not'], [/\bwon't\b/gi, 'will not'], [/\bI'll\b/gi, 'I will'],
+
+    // General slang/colloquialisms
+    [/\bwanna\b/gi, 'want to'], [/\bgonna\b/gi, 'going to'], [/\bkinda\b/gi, 'somewhat'], [/\bsorta\b/gi, 'somewhat'],
+    [/\bbruh\b|\bbro\b|\bfam\b|\bdude\b|\byo\b/gi, ''], [/\bnah\b/gi, 'no'], [/\byep\b/gi, 'yes'], [/\byeah\b/gi, 'yes'],
+    [/\bain'?t\b/gi, 'is not'], [/\bcap\b/gi, ''], [/\bsus\b/gi, 'questionable'], [/\blow-?key\b/gi, ''], [/\bhigh-?key\b/gi, ''],
+
+    // Show-jargon to neutral
+    [/\bplay tight\b/gi, 'be careful'], [/\bavoid noise\b/gi, 'avoid attention'], [/\blive wire\b/gi, 'a volatile situation'],
+    [/\bclocked\b/gi, ''], [/\bNoted\.?\b/g, '']
+  ];
+  for (const [re, val] of replacements) t = t.replace(re, val);
+  // Collapse extra spaces
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  // Keep quotes symmetrical
+  t = t.replace(/“/g, '"').replace(/”/g, '"').replace(/''/g, '"');
+  return t;
+}
+
+export function applyArchetypeTone(text: string, archetype: Archetype, parsed: SpeechAct, original: string): string {
+  let t = text;
+  switch (archetype) {
+    case 'Charmer':
+      if (/[?]/.test(original) || /\babout\b/i.test(original)) {
+        t = t.replace(/^(.+?)$/, (_m, s1) => `${s1} I appreciate you asking.`);
+      }
+      break;
+    case 'Hothead':
+      // Keep direct; remove hedging
+      t = t.replace(/\bI need to think about this\b/gi, 'I will decide quickly');
+      break;
+    case 'Floater':
+      if (!/for now\.?$/i.test(t)) t = t.replace(/\.$/, '. For now.');
+      break;
+    case 'Loyalist':
+      t = t.replace(/keeping distance/gi, 'keeping us protected');
+      break;
+    case 'Cynic':
+      if (!/not convinced/i.test(t)) {
+        t = /\.$/.test(t) ? `${t} I am not convinced yet.` : `${t}. I am not convinced yet.`;
+      }
+      break;
+    case 'Strategist':
+    default:
+      // Already formal; no change
+      break;
+  }
+  return sanitizeAndFormalize(t);
+}
+
+
 // Generate NPC personality bias from existing psychProfile
 export function getNPCPersonalityBias(contestant: Contestant): NPCPersonalityBias {
   const disposition = contestant.psychProfile.disposition;
@@ -328,5 +408,8 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
     responses.push(`${npc.name} sees right through your manipulation attempt.`);
   }
   
-  return responses[Math.floor(Math.random() * responses.length)];
+  const archetype = deriveArchetype(npc);
+  const first = responses[0] || `${npc.name} keeps it brief. "I am considering that."`;
+  const toned = applyArchetypeTone(first, archetype, parsedInput, content);
+  return sanitizeAndFormalize(toned);
 }
