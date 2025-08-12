@@ -290,34 +290,51 @@ export const useGameState = () => {
             psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 }
           };
 
-          const payload = {
-            playerMessage: content,
-            parsedInput: parsed,
-            npc: npcPayload,
-            tone: tone || '',
-            socialContext: {
-              day: gameState.currentDay,
-              relationshipHint: npcEntity ? {
-                trust: npcEntity.psychProfile.trustLevel,
-                suspicion: npcEntity.psychProfile.suspicionLevel,
-                closeness: npcEntity.psychProfile.emotionalCloseness,
-              } : undefined,
-              lastInteractions: recentMemories,
-            },
-            conversationType: actionType === 'dm' ? 'private' : 'public'
-          };
-
-          // 1) Try OpenAI
-          const primary = await supabase.functions.invoke('generate-ai-reply', { body: payload });
-          if (!primary.error) {
-            aiText = (primary.data as any)?.generatedText || '';
+          // Short-circuit for small talk check-ins to avoid nonsense
+          const lower = content!.toLowerCase();
+          const isCheckIn = (/\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(lower) || /\bhow are you\b/.test(lower));
+          if (!aiText && parsed.primary === 'neutral_conversation' && isCheckIn) {
+            const nameSafe = npcEntity?.name || target!;
+            const ps = npcEntity?.psychProfile;
+            if (ps && ps.suspicionLevel > 60) {
+              aiText = `${nameSafe} glances around. "It's tense—people are sniffing for cracks. I'm staying quiet."`;
+            } else if (ps && ps.trustLevel > 50) {
+              aiText = `${nameSafe} softens. "Busy. A couple sparks in the kitchen, but I'm keeping us out of it."`;
+            } else {
+              aiText = `${nameSafe} keeps it brief. "Fine. Reading the room and not overplaying anything."`;
+            }
           }
 
-          // 2) Fallback to Hugging Face if needed
           if (!aiText) {
-            const hf = await supabase.functions.invoke('generate-ai-reply-hf', { body: payload });
-            if (!hf.error) {
-              aiText = (hf.data as any)?.generatedText || '';
+            const payload = {
+              playerMessage: content,
+              parsedInput: parsed,
+              npc: npcPayload,
+              tone: tone || '',
+              socialContext: {
+                day: gameState.currentDay,
+                relationshipHint: npcEntity ? {
+                  trust: npcEntity.psychProfile.trustLevel,
+                  suspicion: npcEntity.psychProfile.suspicionLevel,
+                  closeness: npcEntity.psychProfile.emotionalCloseness,
+                } : undefined,
+                lastInteractions: recentMemories,
+              },
+              conversationType: actionType === 'dm' ? 'private' : 'public'
+            };
+
+            // 1) Try OpenAI
+            const primary = await supabase.functions.invoke('generate-ai-reply', { body: payload });
+            if (!primary.error) {
+              aiText = (primary.data as any)?.generatedText || '';
+            }
+
+            // 2) Fallback to Hugging Face if needed
+            if (!aiText) {
+              const hf = await supabase.functions.invoke('generate-ai-reply-hf', { body: payload });
+              if (!hf.error) {
+                aiText = (hf.data as any)?.generatedText || '';
+              }
             }
           }
         } catch (e) {

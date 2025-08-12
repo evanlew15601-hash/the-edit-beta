@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const hfToken = Deno.env.get("HUGGING_FACE_ACCESS_TOKEN");
+const hfToken = Deno.env.get("HUGGING_FACE_ACCESS_TOKEN") || Deno.env.get("HUGGINGFACE_API_TOKEN") || Deno.env.get("HUGGING_FACE_API_TOKEN") || Deno.env.get("HF_API_TOKEN");
 const MODEL = "HuggingFaceH4/zephyr-7b-beta"; // Good free-tier chat-tuned model
 
 serve(async (req) => {
@@ -17,7 +17,7 @@ serve(async (req) => {
 
   try {
     if (!hfToken) {
-      return new Response(JSON.stringify({ error: "Missing HUGGING_FACE_ACCESS_TOKEN" }), {
+      return new Response(JSON.stringify({ error: "Missing Hugging Face API token" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
