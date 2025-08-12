@@ -271,18 +271,22 @@ export const useGameState = () => {
       (async () => {
         let aiText = '';
         try {
-          const npc = gameState.contestants.find(c => c.name === target);
+          const npcEntity = gameState.contestants.find(c => c.name === target);
+          const npcPayload = npcEntity ? {
+            name: npcEntity.name,
+            publicPersona: npcEntity.publicPersona,
+            psychProfile: npcEntity.psychProfile,
+          } : {
+            name: target!,
+            publicPersona: 'strategic contestant',
+            psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 }
+          };
           const payload = {
             playerMessage: content,
-            npc: npc ? {
-              name: npc.name,
-              publicPersona: npc.publicPersona,
-              psychProfile: npc.psychProfile,
-            } : undefined,
+            npc: npcPayload,
             tone: tone || '',
             conversationType: actionType === 'dm' ? 'private' : 'public'
           };
-
           // Primary: OpenAI edge function
           const primary = await supabase.functions.invoke('generate-ai-reply', {
             body: payload,
@@ -302,72 +306,21 @@ export const useGameState = () => {
           console.error('AI reply error:', e);
           // Fallback order: Hugging Face edge function -> local engine
           try {
-            const npc = gameState.contestants.find(c => c.name === target);
+            const npcEntity = gameState.contestants.find(c => c.name === target);
             const hfPayload = {
               playerMessage: content,
-              npc: npc ? {
-                name: npc.name,
-                publicPersona: npc.publicPersona,
-                psychProfile: npc.psychProfile,
-              } : undefined,
+              npc: npcEntity ? {
+                name: npcEntity.name,
+                publicPersona: npcEntity.publicPersona,
+                psychProfile: npcEntity.psychProfile,
+              } : {
+                name: target!,
+                publicPersona: 'strategic contestant',
+                psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 }
+              },
               tone: tone || '',
               conversationType: actionType === 'dm' ? 'private' : 'public'
             };
-            const hf = await supabase.functions.invoke('generate-ai-reply-hf', { body: hfPayload });
-            if (!hf.error) {
-              aiText = (hf.data as any)?.generatedText || '';
-            }
-          } catch (hfErr) {
-            console.error('HF fallback error:', hfErr);
-          }
-
-          if (!aiText) {
-            try {
-              const local = npcResponseEngine.generateResponse(
-                content!,
-                target!,
-                gameState,
-                actionType === 'dm' ? 'private' : 'public'
-              );
-              aiText = local.content;
-            } catch (e2) {
-              console.error('Local fallback error:', e2);
-              aiText = '';
-            }
-          }
-        } finally {
-          if (aiText) {
-            setGameState(prev => ({
-              ...prev,
-              lastAIResponse: aiText,
-            }));
-            try {
-              await supabase.from('interactions').insert({
-                day: gameState.currentDay,
-                type: actionType,
-                participants: [gameState.playerName, target],
-                npc_name: target,
-                player_name: gameState.playerName,
-                player_message: content,
-                ai_response: aiText,
-                tone,
-              });
-            } catch {}
-          }
-        }
-      })();
-    }
-  }, []);
-
-  const submitConfessional = useCallback((content: string, tone: string) => {
-    setGameState(prev => {
-      const confessional: Confessional = {
-        day: prev.currentDay,
-        content,
-        tone,
-        editImpact: tone === 'strategic' ? 5 : tone === 'aggressive' ? -3 : 2
-      };
-
       const newEditPerception = calculateEditPerception(
         [...prev.confessionals, confessional],
         prev.editPerception,
