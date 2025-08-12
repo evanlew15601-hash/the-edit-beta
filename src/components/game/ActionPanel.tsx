@@ -22,6 +22,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
   const hasCompletedConfessional = gameState.playerActions.find(a => a.type === 'confessional')?.used;
+  const allActionsUsed = (gameState.dailyActionCount ?? 0) >= (gameState.dailyActionCap ?? 10);
 
   const getActionDescription = (type: string) => {
     switch (type) {
@@ -60,9 +61,9 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <h2 className="text-xl font-light mb-4">Daily Actions</h2>
+        <h2 className="text-xl font-light mb-1">Daily Actions</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Choose 3 actions to shape your day. Each choice has consequences.
+          Use up to {gameState.dailyActionCap} actions per day (optional). Used {gameState.dailyActionCount}/{gameState.dailyActionCap}.
         </p>
         
         <div className="grid gap-4">
@@ -125,7 +126,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
                 size="wide"
                 onClick={() => setShowSkipDialog(true)}
               >
-                Skip Day
+                Proceed to Next Day
               </Button>
             </div>
           </div>
