@@ -267,6 +267,31 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
       {
         const text = content.toLowerCase();
         const checkIn = /\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(text) || /\bhow are you\b/.test(text);
+
+        // Helper to extract a coherent topic/phrase from the player's message
+        const extractTopicPhrase = (original: string): string | null => {
+          const patterns = [
+            /think\s+about\s+([^.!?"']+)/i,
+            /think\s+of\s+([^.!?"']+)/i,
+            /about\s+([^.!?"']+)/i,
+          ];
+          for (const re of patterns) {
+            const m = original.match(re);
+            if (m && m[1]) {
+              let phrase = m[1].trim();
+              phrase = phrase.replace(/^\s*"|"\s*$/g, '');
+              const words = phrase.split(/\s+/).slice(0, 6);
+              phrase = words.join(' ').replace(/[\s,;.]+$/, '');
+              if (phrase.length >= 3) return phrase;
+            }
+          }
+          const stop = new Set([
+            'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','know','feel','doing','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing'
+          ]);
+          const candidates = (original.toLowerCase().match(/\b[a-z]{4,}\b/g) || []).filter(w => !stop.has(w));
+          return candidates[0] ? candidates[0] : null;
+        };
+
         if (parsedInput.primary === 'neutral_conversation' && checkIn) {
           if (npc.psychProfile.suspicionLevel > 60) {
             responses.push(`${npc.name} glances around. "It's tense—people are sniffing for cracks. I'm staying quiet."`);
@@ -276,18 +301,18 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
             responses.push(`${npc.name} keeps it brief. "Fine. Reading the room and not overplaying anything."`);
           }
         } else if (parsedInput.informationSeeking) {
-          const words = (content.toLowerCase().match(/\b[a-z]{4,}\b/g) || []);
-          const stop = new Set(['about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those']);
-          const topic = words.find(w => !stop.has(w));
-          responses.push(`${npc.name} weighs you. "${topic ? `About ${topic}, ` : ''}why are you asking?"`);
+          const phrase = extractTopicPhrase(content);
+          const prefix = phrase ? `About ${phrase}, ` : '';
+          responses.push(`${npc.name} weighs you. "${prefix}why are you asking?"`);
         } else {
-          const words = (content.toLowerCase().match(/\b[a-z]{4,}\b/g) || []);
-          const stop = new Set(['about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those']);
-          const topic = words.find(w => !stop.has(w));
+          const phrase = extractTopicPhrase(content);
+          const prefix = phrase ? `About ${phrase}, ` : '';
           if (npc.psychProfile.suspicionLevel > 60) {
-            responses.push(`${npc.name} keeps a read. "${topic ? topic[0].toUpperCase() + topic.slice(1) : 'That'}'s a live wire—I'm not overcommitting until I see where votes settle."`);
+            responses.push(`${npc.name} stays guarded. "${prefix}I'm keeping distance until the dust settles."`);
+          } else if (npc.psychProfile.trustLevel > 50) {
+            responses.push(`${npc.name} is candid. "${prefix}I'm steady—let's keep our footprint small and accurate."`);
           } else {
-            responses.push(`${npc.name} stays guarded. "Clocked. On ${topic || 'that'}, I’m keeping distance until the dust settles."`);
+            responses.push(`${npc.name} keeps it brief. "${prefix}Let's play tight and avoid noise."`);
           }
         }
       }
