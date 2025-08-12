@@ -18,25 +18,50 @@ export function summarizeReaction(
     : actionType === 'activity' ? 'activity'
     : conversationType;
 
-  const isGameTalk = /(ally|alliance|numbers|votes?|target|backdoor|flip|lock|majority|minority|leak|secret|plan|scheme|jury)/.test(lower);
+  // Consider both regex and parsed intent
+  const primary: string = (parsed?.primary || '').toString();
+  const threatLevel: number = Number(parsed?.threatLevel ?? 0);
+  const manipulationLevel: number = Number(parsed?.manipulationLevel ?? 0);
+  const emotional: Record<string, number> | undefined = parsed?.emotionalSubtext;
+
+  const isParsedGameTalk = /alliance|ally|vote|numbers|target|plan|scheme|jury|flip|backdoor/i.test(primary);
+  const isGameTalk = isParsedGameTalk || /(ally|alliance|numbers|votes?|target|backdoor|flip|lock|majority|minority|leak|secret|plan|scheme|jury)/.test(lower);
 
   function pick<T>(vals: T[]): T { return vals[Math.floor(Math.random() * vals.length)]; }
 
   let take: ReactionSummary['take'] = 'neutral';
 
-  if (actionType === 'scheme') {
+  // Priority 1: Threats/manipulation from parsed input
+  if (threatLevel >= 50) {
+    take = 'pushback';
+  } else if (manipulationLevel >= 55) {
+    take = suspicion > 50 ? 'pushback' : 'suspicious';
+  } else if (actionType === 'scheme') {
     take = suspicion > 60 ? 'pushback' : suspicion > 40 ? 'suspicious' : 'curious';
   } else if (actionType === 'activity') {
-    take = trust > 30 ? 'positive' : 'neutral';
+    // Activities mostly vibe based
+    const warmth = emotional?.warmth ?? 0;
+    take = trust + warmth * 50 > 40 ? 'positive' : 'neutral';
   } else if (actionType === 'dm' || actionType === 'talk') {
     if (isGameTalk) {
       if (normalizedContext === 'public') {
         take = suspicion > 60 ? 'pushback' : suspicion > 35 ? 'deflect' : 'suspicious';
       } else {
-        take = trust > 60 ? 'positive' : suspicion > 60 ? 'suspicious' : 'curious';
+        take = trust > 60 ? 'positive' : suspicion > 55 ? 'suspicious' : 'curious';
       }
+    } else if (/information|question/i.test(primary)) {
+      take = 'curious';
+    } else if (/apology|trust|reassurance|vulnerability|gratitude|flattery/i.test(primary)) {
+      take = trust > 30 ? 'positive' : 'curious';
+    } else if (/threat|gaslight|undermin/i.test(primary)) {
+      take = suspicion > 40 ? 'pushback' : 'suspicious';
     } else {
-      take = trust > 50 ? 'positive' : suspicion > 60 ? 'suspicious' : 'neutral';
+      // Small talk: use emotion to bias out of neutral
+      const warmth = emotional?.warmth ?? 0;
+      const hostility = emotional?.hostility ?? 0;
+      if (warmth > 0.4 && trust > 20) take = 'positive';
+      else if (hostility > 0.4 || suspicion > 60) take = 'suspicious';
+      else take = 'neutral';
     }
   }
 
