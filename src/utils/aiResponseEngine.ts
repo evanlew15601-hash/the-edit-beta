@@ -346,7 +346,11 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
     default:
       {
         const text = content.toLowerCase();
-        const checkIn = /\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(text) || /\bhow are you\b/.test(text);
+        const checkIn = /\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(text)
+          || /\bhow (are you)\b/.test(text)
+          || /\bhow (are you|you'?re)\s+(feeling|doing)\b/.test(text)
+          || /\bhow do you feel\b/.test(text)
+          || /\bhow is it going\b/.test(text);
 
         // Helper to extract a coherent topic/phrase from the player's message
         const extractTopicPhrase = (original: string): string | null => {
@@ -366,9 +370,9 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
             }
           }
           const stop = new Set([
-            'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','know','feel','doing','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing',
+            'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','thinking','know','feel','feeling','doing','say','saying','ask','asking','talk','talking','chat','chatting','discuss','discussing','discussion','question','topic','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing','so','far',
             // Common prepositions and function words we should never surface as topics
-            'from','into','onto','over','under','after','before','around','through','against','between','within','without','upon','inside','outside','across','toward','towards','behind','beside','besides','above','below','near','off','out','in','on','at','for','to','of','as','by','up','down','over','under','via','per','per',
+            'from','into','onto','over','under','after','before','around','through','against','between','within','without','upon','inside','outside','across','toward','towards','behind','beside','besides','above','below','near','off','out','in','on','at','for','to','of','as','by','up','down','via','per',
             // Pronouns and auxiliaries
             'you','your','yours','me','my','mine','we','our','ours','he','she','it','its','they','them','their','theirs','am','is','are','was','were','be','been','being'
           ]);
