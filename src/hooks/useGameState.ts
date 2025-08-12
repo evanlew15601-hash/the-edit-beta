@@ -69,6 +69,7 @@ export const useGameState = () => {
     }));
   }, []);
 
+  const startGame = useCallback((playerName: string) => {
     const contestants = generateContestants(11);
     setGameState(prev => ({
       ...prev,
@@ -76,6 +77,8 @@ export const useGameState = () => {
       contestants,
       gamePhase: 'daily'
     }));
+  }, []);
+
   useEffect(() => {
     const handler = (e: any) => updateAISettings(e.detail || {});
     window.addEventListener('ai-settings:update', handler);
@@ -292,9 +295,10 @@ export const useGameState = () => {
     if (target && content && ['talk','dm','scheme'].includes(actionType)) {
       (async () => {
         let aiText = '';
+        let parsed: any = null;
         try {
           // Build NPC payload with safe defaults if target not in roster yet
-          const parsed = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
+          parsed = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
           const npcEntity = gameState.contestants.find(c => c.name === target);
           const recentMemories = (npcEntity?.memory || [])
             .filter(m => m.participants.includes(gameState.playerName))

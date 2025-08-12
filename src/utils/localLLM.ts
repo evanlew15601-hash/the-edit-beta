@@ -47,10 +47,10 @@ async function ensureGenerator() {
   return initPromise;
 }
 
-function sanitizeOutput(text: string) {
+function sanitizeOutput(text: string, maxSentences: number) {
   let t = String(text || "").trim();
   // Remove surrounding quotes
-  t = t.replace(/^["'""]+|["'""]+$/g, "");
+  t = t.replace(/^["'“”]+|["'“”]+$/g, "");
   // If model narrated and included a quoted line, extract it
   const q = t.match(/"([^\"]{3,})"/);
   if (q) t = q[1];
@@ -67,8 +67,8 @@ function sanitizeOutput(text: string) {
   ];
   pairs.forEach(([re, rep]) => { t = t.replace(re, rep); });
   t = t.replace(/\b(didn|couldn|wouldn|shouldn)\b\.?/gi, (m) => ({didn:'did not',couldn:'could not',wouldn:'would not',shouldn:'should not'}[m.toLowerCase().replace(/\./,'')] || m));
-  // Enforce 1–2 sentences
-  t = t.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
+  // Enforce sentence cap
+  t = t.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, Math.max(1, Math.min(5, maxSentences))).join(' ');
   return t.trim();
 }
 
@@ -78,8 +78,8 @@ export async function generateLocalAIReply(payload: {
   npc: { name: string; publicPersona?: string; psychProfile?: any };
   tone?: string;
   socialContext?: any;
-  conversationType?: 'public' | 'private' | string;
-}) {
+  conversationType?: 'public' | 'private' | 'confessional' | string;
+}, opts?: { maxSentences?: number; maxNewTokens?: number }) {
   await ensureGenerator();
   const { playerMessage, npc, tone, conversationType, parsedInput, socialContext } = payload;
 
@@ -92,7 +92,7 @@ export async function generateLocalAIReply(payload: {
 
   const gen = await ensureGenerator() as any;
   const out = await gen(prompt, {
-    max_new_tokens: 96,
+    max_new_tokens: opts?.maxNewTokens ?? 128,
     temperature: 0.7,
     top_p: 0.9,
     repetition_penalty: 1.1,
@@ -109,5 +109,5 @@ export async function generateLocalAIReply(payload: {
     text = out.trim();
   }
 
-  return sanitizeOutput(text);
+  return sanitizeOutput(text, Math.max(1, Math.min(5, opts?.maxSentences ?? 2)));
 }
