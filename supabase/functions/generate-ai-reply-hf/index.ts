@@ -8,9 +8,9 @@ const corsHeaders = {
 
 const hfToken = Deno.env.get("HUGGING_FACE_ACCESS_TOKEN") || Deno.env.get("HUGGINGFACE_API_TOKEN") || Deno.env.get("HUGGING_FACE_API_TOKEN") || Deno.env.get("HF_API_TOKEN");
 const MODELS = [
-  "HuggingFaceH4/zephyr-7b-beta",
-  "mistralai/Mistral-7B-Instruct-v0.2",
-  "google/gemma-2-2b-it",
+  "TinyLlama/TinyLlama-1.1B-Chat-v1.0", // very reliable public chat model
+  "Qwen/Qwen2.5-1.5B-Instruct",         // small, public instruct model
+  "mistralai/Mistral-7B-Instruct-v0.3", // widely mirrored; good fallback
 ]; // Try these in order and fall back on failures
 
 serve(async (req) => {
