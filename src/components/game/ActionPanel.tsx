@@ -9,6 +9,7 @@ import { ObservationDialog } from './ObservationDialog';
 import { SchemeDialog } from './SchemeDialog';
 import { DaySkipDialog } from './DaySkipDialog';
 import { ActivityDialog } from './ActivityDialog';
+import { TagConversationDialog } from './TagConversationDialog';
 
 interface ActionPanelProps {
   gameState: GameState;
@@ -16,12 +17,14 @@ interface ActionPanelProps {
   onAdvanceDay: () => void;
   onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
+  onTagTalk: (target: string, choiceId: string) => void;
 }
 
-export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply }: ActionPanelProps) => {
+export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk }: ActionPanelProps) => {
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
   const [forcedOpen, setForcedOpen] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
   const forcedItem = (gameState.forcedConversationsQueue || [])[0];
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
@@ -85,16 +88,27 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
             <div key={index} className="border border-border rounded p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium capitalize">{action.type.replace('_', ' ')}</h3>
-                <Button
-                  variant={(action.used || (action.usageCount && action.usageCount >= 2)) ? "disabled" : "action"}
-                  size="sm"
-                  used={action.used || (action.usageCount && action.usageCount >= 2)}
-                  onClick={() => handleActionClick(action.type)}
-                >
-                  {action.used || (action.usageCount && action.usageCount >= 2) 
-                    ? `Used ${action.usageCount || 1}/2` 
-                    : 'Select'}
-                </Button>
+                <div className="flex gap-2">
+                  {action.type === 'talk' && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setTagOpen(true)}
+                    >
+                      Tag Talk (Beta)
+                    </Button>
+                  )}
+                  <Button
+                    variant={(action.used || (action.usageCount && action.usageCount >= 2)) ? "disabled" : "action"}
+                    size="sm"
+                    used={action.used || (action.usageCount && action.usageCount >= 2)}
+                    onClick={() => handleActionClick(action.type)}
+                  >
+                    {action.used || (action.usageCount && action.usageCount >= 2) 
+                      ? `Used ${action.usageCount || 1}/2` 
+                      : 'Select'}
+                  </Button>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground">
                 {getActionDescription(action.type)}
@@ -209,6 +223,14 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         isOpen={activeDialog === 'activity'}
         onClose={handleDialogClose}
         onSubmit={(content) => handleActionSubmit('activity', undefined, content)}
+      />
+
+      <TagConversationDialog
+        isOpen={tagOpen}
+        onClose={() => setTagOpen(false)}
+        gameState={gameState}
+        contestants={gameState.contestants.filter(c => !c.isEliminated)}
+        onSubmit={(target, choiceId) => { onTagTalk(target, choiceId); setTagOpen(false); }}
       />
     </div>
   );

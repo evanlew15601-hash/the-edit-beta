@@ -87,6 +87,7 @@ export interface GameState {
   favoriteTally?: { [name: string]: number };
   // New: local interaction log for viral moments and memory tab
   interactionLog?: InteractionLogEntry[];
+  tagChoiceCooldowns?: { [key: string]: number };
 }
 
 export interface Confessional {

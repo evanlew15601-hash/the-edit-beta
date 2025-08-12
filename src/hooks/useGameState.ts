@@ -21,6 +21,8 @@ import { detectGameTalk, craftGameTalkReply } from '@/utils/gameTalkHeuristics';
 import { summarizeReaction } from '@/utils/reactionSummarizer';
 import { EmergentEventInterruptor, EmergentEvent } from '@/utils/emergentEventInterruptor';
 import { npcAutonomyEngine } from '@/utils/npcAutonomyEngine';
+import { TAG_CHOICES } from '@/data/tagChoices';
+import { evaluateChoice, pickVariant, getCooldownKey, reactionText } from '@/utils/tagDialogueEngine';
 const MINIMAL_AI = true; // Minimal, credit-free reaction mode
 const USE_REMOTE_AI = false; // Use free local + deterministic engines by default
 
@@ -57,6 +59,7 @@ const initialGameState = (): GameState => ({
   forcedConversationsQueue: [],
   favoriteTally: {},
   interactionLog: [],
+  tagChoiceCooldowns: {},
 });
 
 export const useGameState = () => {
@@ -1030,6 +1033,96 @@ export const useGameState = () => {
     setGameState(initialGameState());
   }, []);
 
+  const tagTalk = useCallback((target: string, choiceId: string) => {
+    setGameState(prev => {
+      const choice = TAG_CHOICES.find(c => c.choiceId === choiceId);
+      const npc = prev.contestants.find(c => c.name === target);
+      if (!choice || !npc) return prev;
+
+      const outcome = evaluateChoice(choice, npc, prev.playerName, prev);
+      const variant = pickVariant(choice, `${prev.currentDay}|${prev.playerName}|${npc.id}|${choice.choiceId}`);
+
+      const trustDelta = Math.round(outcome.trustDelta * 40);
+      const suspicionDelta = Math.round(outcome.suspicionDelta * 40);
+      const closenessDelta = Math.round((outcome.trustDelta - outcome.suspicionDelta) * 20);
+
+      const contestants = prev.contestants.map(c => {
+        if (c.id !== npc.id) return c;
+        return {
+          ...c,
+          psychProfile: {
+            ...c.psychProfile,
+            trustLevel: Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustDelta)),
+            suspicionLevel: Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta)),
+            emotionalCloseness: Math.max(0, Math.min(100, c.psychProfile.emotionalCloseness + closenessDelta)),
+          },
+          memory: [
+            ...c.memory,
+            {
+              day: prev.currentDay,
+              type: 'conversation' as const,
+              participants: [prev.playerName, c.name],
+              content: `[TAG intent=${choice.intent} topic=${choice.topics[0]} tone=${choice.tone}] ${variant}`,
+              emotionalImpact: Math.max(-10, Math.min(10, Math.round(outcome.trustDelta * 10))),
+              timestamp: prev.currentDay * 1000 + Math.random() * 1000,
+            },
+          ],
+        };
+      });
+
+      // mark talk usage
+      const newActions = prev.playerActions.map(a => {
+        if (a.type !== 'talk') return a;
+        const currentUsage = a.usageCount || 0;
+        return { ...a, used: currentUsage >= 1, usageCount: currentUsage + 1, target, content: variant, tone: choice.tone };
+      });
+
+      const key = `${prev.playerName}::${target}::${choice.choiceId}`;
+      const cooldownDays = choice.cooldownDays || 0;
+
+      const reaction = {
+        take: outcome.category === 'positive' ? 'positive' : outcome.category === 'neutral' ? 'neutral' : 'pushback',
+        context: 'public' as const,
+        notes: outcome.notes,
+      };
+
+      const aiText = reactionText(target, choice, outcome);
+
+      return {
+        ...prev,
+        contestants,
+        playerActions: newActions,
+        dailyActionCount: prev.dailyActionCount + 1,
+        lastAIReaction: reaction,
+        lastAIResponse: aiText,
+        lastActionTarget: target,
+        lastActionType: 'talk' as const,
+        tagChoiceCooldowns: {
+          ...(prev.tagChoiceCooldowns || {}),
+          ...(cooldownDays > 0 ? { [key]: prev.currentDay + cooldownDays } : {}),
+        },
+        interactionLog: [
+          ...((prev.interactionLog) || []),
+          {
+            day: prev.currentDay,
+            type: 'talk',
+            participants: [prev.playerName, target],
+            content: `[TAG intent=${choice.intent} topic=${choice.topics[0]}] ${variant}`,
+            tone: choice.tone,
+            source: 'player' as const,
+          },
+          {
+            day: prev.currentDay,
+            type: 'npc',
+            participants: [target, prev.playerName],
+            ai_response: aiText,
+            source: 'npc' as const,
+          }
+        ],
+      };
+    });
+  }, []);
+
   // Auto-save on any state change
   useEffect(() => {
     if (gameState.playerName) { // Only save if game has been started
@@ -1053,7 +1146,8 @@ export const useGameState = () => {
     continueFromElimination,
     continueFromWeeklyRecap,
     handleEmergentEventChoice,
-    resetGame
+    resetGame,
+    tagTalk,
   };
 };
 

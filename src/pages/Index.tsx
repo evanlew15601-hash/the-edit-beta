@@ -26,6 +26,7 @@ const Index = () => {
     resetGame,
     handleEmergentEventChoice,
     completePremiere,
+    tagTalk,
   } = useGameState();
 
   const renderScreen = () => {
@@ -37,13 +38,14 @@ const Index = () => {
       
       case 'daily':
         return (
-          <GameplayScreen
-             gameState={gameState}
-             onUseAction={useAction}
-             onAdvanceDay={advanceDay}
-             onEmergentEventChoice={handleEmergentEventChoice}
-             onForcedConversationReply={respondToForcedConversation}
-           />
+           <GameplayScreen
+              gameState={gameState}
+              onUseAction={useAction}
+              onAdvanceDay={advanceDay}
+              onEmergentEventChoice={handleEmergentEventChoice}
+              onForcedConversationReply={respondToForcedConversation}
+              onTagTalk={tagTalk}
+            />
         );
       
       case 'elimination':
