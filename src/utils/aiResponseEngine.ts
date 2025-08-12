@@ -366,9 +366,13 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
             }
           }
           const stop = new Set([
-            'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','know','feel','doing','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing'
+            'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','know','feel','doing','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing',
+            // Common prepositions and function words we should never surface as topics
+            'from','into','onto','over','under','after','before','around','through','against','between','within','without','upon','inside','outside','across','toward','towards','behind','beside','besides','above','below','near','off','out','in','on','at','for','to','of','as','by','up','down','over','under','via','per','per',
+            // Pronouns and auxiliaries
+            'you','your','yours','me','my','mine','we','our','ours','he','she','it','its','they','them','their','theirs','am','is','are','was','were','be','been','being'
           ]);
-          const candidates = (original.toLowerCase().match(/\b[a-z]{4,}\b/g) || []).filter(w => !stop.has(w));
+          const candidates = (original.toLowerCase().match(/\b[a-z]{3,}\b/g) || []).filter(w => !stop.has(w));
           return candidates[0] ? candidates[0] : null;
         };
 
@@ -382,17 +386,14 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
           }
         } else if (parsedInput.informationSeeking) {
           const phrase = extractTopicPhrase(content);
-          const prefix = phrase ? `About ${phrase}, ` : '';
-          responses.push(`${npc.name} weighs you. "${prefix}why are you asking?"`);
+          responses.push(`${npc.name} weighs you. "${phrase ? `Why are you asking about ${phrase}?` : 'Why are you asking?'}"`);
         } else {
-          const phrase = extractTopicPhrase(content);
-          const prefix = phrase ? `About ${phrase}, ` : '';
           if (npc.psychProfile.suspicionLevel > 60) {
-            responses.push(`${npc.name} stays guarded. "${prefix}I'm keeping distance until the dust settles."`);
+            responses.push(`${npc.name} stays guarded. "I am keeping distance until the dust settles."`);
           } else if (npc.psychProfile.trustLevel > 50) {
-            responses.push(`${npc.name} is candid. "${prefix}I'm steady—let's keep our footprint small and accurate."`);
+            responses.push(`${npc.name} is candid. "I am steady—let us keep our footprint small and accurate."`);
           } else {
-            responses.push(`${npc.name} keeps it brief. "${prefix}Let's play tight and avoid noise."`);
+            responses.push(`${npc.name} keeps it brief. "Let us be careful and avoid attention."`);
           }
         }
       }
