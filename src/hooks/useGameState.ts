@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { npcResponseEngine } from '@/utils/npcResponseEngine';
-import { GameState, Contestant, PlayerAction, Confessional, EditPerception, Alliance, VotingRecord } from '@/types/game';
+import { GameState, Contestant, PlayerAction, Confessional, EditPerception, Alliance, VotingRecord, ReactionSummary, ReactionTake } from '@/types/game';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { calculateEditPerception } from '@/utils/editEngine';
 import { processVoting } from '@/utils/votingEngine';
@@ -1080,9 +1080,10 @@ export const useGameState = () => {
       const key = `${prev.playerName}::${target}::${choice.choiceId}`;
       const cooldownDays = choice.cooldownDays || 0;
 
-      const reaction = {
-        take: outcome.category === 'positive' ? 'positive' : outcome.category === 'neutral' ? 'neutral' : 'pushback',
-        context: 'public' as const,
+      const take: ReactionTake = outcome.category === 'positive' ? 'positive' : outcome.category === 'neutral' ? 'neutral' : 'pushback';
+      const reaction: ReactionSummary = {
+        take,
+        context: 'public',
         notes: outcome.notes,
       };
 
