@@ -18,7 +18,9 @@ import {
 } from '@/utils/aiResponseEngine';
 import { generateLocalAIReply } from '@/utils/localLLM';
 import { detectGameTalk, craftGameTalkReply } from '@/utils/gameTalkHeuristics';
+import { summarizeReaction } from '@/utils/reactionSummarizer';
  
+const MINIMAL_AI = true; // Minimal, credit-free reaction mode
 const USE_REMOTE_AI = false; // Use free local + deterministic engines by default
 
 const initialGameState = (): GameState => ({
@@ -286,14 +288,22 @@ export const useGameState = () => {
         alliances: newAlliances,
         dailyActionCount: prev.dailyActionCount + 1,
         lastAIResponse: undefined,
+        lastAIAdditions: undefined,
         lastParsedInput: parsedInput,
         lastActionTarget: target,
-        lastActionType: actionType as PlayerAction['type']
+        lastActionType: actionType as PlayerAction['type'],
+        lastAIReaction: summarizeReaction(
+          actionType,
+          content || '',
+          parsedInput,
+          prev.contestants.find(c => c.name === target) || null,
+          actionType === 'dm' ? 'private' : actionType === 'talk' ? 'public' : (actionType === 'scheme' ? 'scheme' : (actionType === 'activity' ? 'activity' : 'public'))
+        )
       };
     });
 
     // Call generative AI via Supabase Edge Function and store interaction
-    if (target && content && ['talk','dm','scheme'].includes(actionType)) {
+    if (!MINIMAL_AI && target && content && ['talk','dm','scheme'].includes(actionType)) {
       (async () => {
         let aiText = '';
         let parsed: any = null;

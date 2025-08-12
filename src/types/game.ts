@@ -33,6 +33,14 @@ export interface PlayerAction {
   usageCount?: number;
 }
 
+export type ReactionTake = 'positive' | 'neutral' | 'deflect' | 'pushback' | 'suspicious' | 'curious';
+
+export interface ReactionSummary {
+  take: ReactionTake;
+  context: 'public' | 'private' | 'scheme' | 'activity';
+  notes?: string;
+}
+
 export interface GameState {
   currentDay: number;
   playerName: string;
@@ -54,6 +62,7 @@ export interface GameState {
     risk?: string;
     memory?: string;
   };
+  lastAIReaction?: ReactionSummary; // Minimal, credit-free reaction summary
   lastParsedInput?: any; // Store parsed input for debugging
   lastEmergentEvent?: any; // Store emergent event for UI display
   lastActionTarget?: string; // Most recent action target for UI context
