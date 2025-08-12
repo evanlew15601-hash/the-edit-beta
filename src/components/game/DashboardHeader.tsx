@@ -59,9 +59,16 @@ export const DashboardHeader = ({ gameState }: DashboardHeaderProps) => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-surveillance-active rounded-full animate-pulse"></div>
-            <span className="text-xs text-muted-foreground uppercase tracking-wide">Live</span>
+          <div className="flex items-center space-x-4">
+            {gameState.immunityWinner ? (
+              <div className="px-2 py-1 rounded-md border border-primary/30 bg-primary/10">
+                <span className="text-xs text-primary uppercase tracking-wide">Immunity: {gameState.immunityWinner}</span>
+              </div>
+            ) : null}
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-surveillance-active rounded-full animate-pulse"></div>
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">Live</span>
+            </div>
           </div>
         </div>
       </div>

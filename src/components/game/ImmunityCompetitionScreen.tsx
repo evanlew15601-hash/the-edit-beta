@@ -152,6 +152,8 @@ export const ImmunityCompetitionScreen = ({ gameState, onContinue }: ImmunityCom
     }
   ];
 
+  const leaderName = participants.length ? [...participants].sort((a,b)=>b.progress - a.progress)[0].name : '';
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -209,13 +211,22 @@ export const ImmunityCompetitionScreen = ({ gameState, onContinue }: ImmunityCom
 
           {(isRunning || winner) && (
             <div className="space-y-4">
-              <h3 className="font-medium">Competition Progress</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">Competition Progress</h3>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  {isRunning ? 'Running…' : winner ? 'Completed' : null}
+                </div>
+              </div>
               {participants.map(participant => (
-                <div key={participant.name} className="space-y-2">
+                <div key={participant.name} className={`space-y-2 rounded-md p-2 transition-colors ${isRunning && !winner && participant.name===leaderName ? 'bg-primary/5 border border-primary/30' : ''}`}>
                   <div className="flex justify-between items-center">
                     <span className={`font-medium ${participant.isPlayer ? 'text-primary' : ''}`}>
                       {participant.name}
                       {participant.isPlayer && ' (You)'}
+                      {isRunning && !winner && participant.name===leaderName ? (
+                        <span className="ml-2 text-[10px] uppercase tracking-wide text-accent">Leading</span>
+                      ) : null}
                     </span>
                     <span className="text-sm text-muted-foreground">
                       {Math.round(participant.progress)}%
