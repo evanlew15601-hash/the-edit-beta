@@ -17,6 +17,7 @@ const Index = () => {
     advanceDay,
     setImmunityWinner,
     submitFinaleSpeech,
+    submitPlayerVote,
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,

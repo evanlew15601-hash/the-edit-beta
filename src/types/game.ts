@@ -71,6 +71,10 @@ export interface GameState {
   juryMembers?: string[]; // Who is on the jury
   finaleSpeechesGiven?: boolean; // Track finale speeches
   aiSettings: AISettings; // Controls reply depth and additions
+  // New: queue of NPC-initiated forced conversations (at least one per day)
+  forcedConversationsQueue?: { from: string; topic: string; urgency: 'casual' | 'important'; day: number }[];
+  // New: running tally for America's Favorite Player signals (computed each week, surfaced at finale)
+  favoriteTally?: { [name: string]: number };
 }
 
 export interface Confessional {

@@ -53,7 +53,9 @@ const initialGameState = (): GameState => ({
   aiSettings: {
     depth: 'standard',
     additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
-  }
+  },
+  forcedConversationsQueue: [],
+  favoriteTally: {},
 });
 
 export const useGameState = () => {
@@ -318,7 +320,25 @@ export const useGameState = () => {
         lastParsedInput: parsedInput,
         lastActionTarget: target,
         lastActionType: actionType as PlayerAction['type'],
-        lastAIReaction: reaction
+        lastAIReaction: reaction,
+        forcedConversationsQueue: (() => {
+          const q = prev.forcedConversationsQueue || [];
+          const strongTrigger = parsedInput && (parsedInput.manipulationLevel > 55 || parsedInput.threatLevel > 55);
+          if (strongTrigger && target) {
+            return [
+              ...q,
+              { from: target, topic: 'We need to talk about that last move.', urgency: 'important' as const, day: prev.currentDay }
+            ];
+          }
+          // 25% chance casual pull-aside after any social action
+          if (['talk','dm','activity'].includes(actionType) && Math.random() < 0.25 && target) {
+            return [
+              ...q,
+              { from: target, topic: 'Quick hallway check-in.', urgency: 'casual' as const, day: prev.currentDay }
+            ];
+          }
+          return q;
+        })(),
       };
     });
 
@@ -693,6 +713,21 @@ export const useGameState = () => {
           currentDay: newDay,
           contestants: updatedContestants,
           gamePhase: 'player_vote' as const,
+          forcedConversationsQueue: (() => {
+            const q = prev.forcedConversationsQueue || [];
+            const pool = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+            const scored = pool.map(c => {
+              const recent = (c.memory || []).filter(m => m.participants.includes(prev.playerName)).slice(-5);
+              const score = recent.reduce((s, m) => s + Math.abs(m.emotionalImpact), 0) + (c.psychProfile.emotionalCloseness / 50);
+              return { name: c.name, score, topic: recent[recent.length - 1]?.content || 'Quick check-in' };
+            }).sort((a, b) => b.score - a.score);
+            const pick = scored[0] || { name: pool[0]?.name, topic: 'Quick check-in', score: 0 } as any;
+            if (!pick.name) return q;
+            return [
+              ...q,
+              { from: pick.name, topic: pick.topic, urgency: pick.score > 3 ? 'important' as const : 'casual' as const, day: newDay }
+            ];
+          })(),
         };
         saveGameState(newState);
         return newState;
