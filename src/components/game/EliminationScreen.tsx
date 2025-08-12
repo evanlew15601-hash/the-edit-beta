@@ -105,10 +105,7 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
                     <span className="text-muted-foreground">Days Survived:</span>
                     <span className="text-foreground">{eliminatedContestant.eliminationDay}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Final Trust Level:</span>
-                    <span className="text-foreground">{eliminatedContestant.psychProfile.trustLevel}</span>
-                  </div>
+                  
                 </div>
               </div>
               <div>

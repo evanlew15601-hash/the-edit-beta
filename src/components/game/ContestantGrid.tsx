@@ -24,7 +24,7 @@ export const ContestantGrid = ({ contestants }: ContestantGridProps) => {
     <div className="space-y-6 max-h-[80vh]">
       <Card className="p-6">
         <h2 className="text-xl font-light mb-4">Active Contestants</h2>
-        <ScrollArea className="max-h-[50vh]">
+        <ScrollArea className="max-h-[70vh]">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 pr-4">
           {activeContestants.map((contestant) => (
             <div key={contestant.id} className="border border-border rounded p-4 space-y-3">

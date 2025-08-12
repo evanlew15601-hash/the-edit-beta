@@ -58,7 +58,7 @@ export const DirectMessageDialog = ({ isOpen, onClose, contestants, onSubmit }: 
               <SelectContent>
                 {contestants.map((contestant) => (
                   <SelectItem key={contestant.id} value={contestant.name}>
-                    {contestant.name} - Trust Level: {contestant.psychProfile.trustLevel}
+                    {contestant.name}
                   </SelectItem>
                 ))}
               </SelectContent>
