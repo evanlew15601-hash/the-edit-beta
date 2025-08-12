@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { GameState, Contestant, PlayerAction, Confessional, EditPerception, Alliance, VotingRecord } from '@/types/game';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { calculateEditPerception } from '@/utils/editEngine';
@@ -264,6 +265,51 @@ export const useGameState = () => {
         lastActionType: actionType as PlayerAction['type']
       };
     });
+
+    // Call generative AI via Supabase Edge Function and store interaction
+    if (target && content && ['talk','dm','scheme'].includes(actionType)) {
+      (async () => {
+        try {
+          const npc = gameState.contestants.find(c => c.name === target);
+          const payload = {
+            playerMessage: content,
+            npc: npc ? {
+              name: npc.name,
+              publicPersona: npc.publicPersona,
+              psychProfile: npc.psychProfile,
+            } : undefined,
+            tone: tone || '',
+            conversationType: actionType === 'dm' ? 'private' : 'public'
+          };
+
+          const { data, error } = await supabase.functions.invoke('generate-ai-reply', {
+            body: payload,
+          });
+          if (error) throw error;
+
+          const aiText = (data as any)?.generatedText || '';
+
+          setGameState(prev => ({
+            ...prev,
+            lastAIResponse: aiText,
+          }));
+
+          await supabase.from('interactions').insert({
+            day: gameState.currentDay,
+            type: actionType,
+            participants: [gameState.playerName, target],
+            npc_name: target,
+            player_name: gameState.playerName,
+            player_message: content,
+            ai_response: aiText,
+            tone,
+          });
+        } catch (e) {
+          console.error('AI reply error:', e);
+          setGameState(prev => ({ ...prev, lastAIResponse: undefined }));
+        }
+      })();
+    }
   }, []);
 
   const submitConfessional = useCallback((content: string, tone: string) => {
