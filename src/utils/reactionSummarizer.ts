@@ -57,12 +57,24 @@ export function summarizeReaction(
     // Activities mostly vibe based
     take = trust + warmth * 50 > 40 ? 'positive' : 'neutral';
   } else if (actionType === 'dm' || actionType === 'talk') {
+    const isPhaticSmallTalk = (() => {
+      const l = (content || '').toLowerCase().trim();
+      if (!l) return false;
+      const greet = /^(hey|hi|hello|yo|sup)\b/.test(l);
+      const checkIn = /(how are you|how's it going|how is it going|what's up|how was your day)/i.test(l);
+      const excitedHere = /\bare you (excited|good|okay|alright|tired|hungry|nervous)\b/.test(l) && /\b(here|today|about|to be here|the house|the game)\b/.test(l);
+      const shortQ = /\?$/.test(l) && l.length <= 80 && /(excited|here|day|house|game|vibe|today)/.test(l) && !/(plan|vote|numbers|target|alliance|scheme)/.test(l);
+      return greet || checkIn || excitedHere || shortQ;
+    })();
+
     if (isGameTalk) {
       if (normalizedContext === 'public') {
         take = suspicion > 60 ? 'pushback' : suspicion > 35 ? 'deflect' : 'suspicious';
       } else {
         take = trust > 60 ? 'positive' : suspicion > 55 ? 'suspicious' : 'curious';
       }
+    } else if (isPhaticSmallTalk) {
+      take = trust + (Number(emotional?.sincerity ?? 50) / 2 + Number(emotional?.attraction ?? 0) * 0.4) / 2 > 30 ? 'positive' : 'neutral';
     } else if (/gossip/i.test(primary) || /(did you hear|rumor|apparently|they said)/i.test(lower)) {
       if (normalizedContext === 'public') {
         take = suspicion > 40 ? 'deflect' : 'suspicious';
