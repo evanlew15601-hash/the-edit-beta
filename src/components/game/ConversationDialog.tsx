@@ -51,9 +51,9 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, for
           <div className="space-y-6">
           <div className="space-y-2">
             <label className="text-sm font-medium">Select Target</label>
-            <Select value={selectedTarget} onValueChange={setSelectedTarget}>
+            <Select value={selectedTarget} onValueChange={setSelectedTarget} disabled={!!forced && !!presetTarget}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose who to talk to..." />
+                <SelectValue placeholder={forced && presetTarget ? presetTarget : 'Choose who to talk to...'} />
               </SelectTrigger>
               <SelectContent>
                 {contestants.map((contestant) => (
@@ -70,7 +70,7 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, for
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="What do you want to discuss? Your approach will be remembered..."
+              placeholder={forcedTopic ? forcedTopic : 'What do you want to discuss? Your approach will be remembered...'}
               className="min-h-[100px]"
             />
           </div>

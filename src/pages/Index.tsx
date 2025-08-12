@@ -19,6 +19,7 @@ const Index = () => {
     submitFinaleSpeech,
     submitPlayerVote,
     respondToForcedConversation,
+    submitAFPVote,
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,
@@ -74,6 +75,7 @@ const Index = () => {
           <FinaleEpisode
             gameState={gameState}
             onSubmitSpeech={submitFinaleSpeech}
+            onAFPVote={submitAFPVote}
           />
         );
       

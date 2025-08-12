@@ -5,14 +5,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Crown, Users, MessageSquare } from 'lucide-react';
 import { GameState } from '@/types/game';
+import { AFPCard } from './AFPCard';
 
 interface FinaleScreenProps {
   gameState: GameState;
   onSubmitSpeech: (speech: string) => void;
   onContinue: () => void;
+  onAFPVote: (choice: string) => void;
 }
 
-export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue }: FinaleScreenProps) => {
+export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote }: FinaleScreenProps) => {
   const [playerSpeech, setPlayerSpeech] = useState('');
   const [speechSubmitted, setSpeechSubmitted] = useState(false);
   const [npcSpeeches, setNpcSpeeches] = useState<{ name: string; speech: string }[]>([]);
@@ -151,6 +153,9 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue }: FinaleSc
                   ))}
                 </div>
               </Card>
+
+              {/* America's Favorite Player */}
+              <AFPCard gameState={gameState} onAFPVote={onAFPVote} />
 
               <Card className="p-6 text-center">
                 <Crown className="w-12 h-12 text-primary mx-auto mb-4" />

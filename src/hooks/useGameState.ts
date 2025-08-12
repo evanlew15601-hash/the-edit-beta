@@ -640,7 +640,11 @@ export const useGameState = () => {
         editPerception: newEditPerception,
         playerActions: prev.playerActions.map(action =>
           action.type === 'confessional' ? { ...action, used: true } : action
-        )
+        ),
+        favoriteTally: {
+          ...(prev.favoriteTally || {}),
+          [prev.playerName]: (prev.favoriteTally?.[prev.playerName] || 0) + (audienceScore || 0),
+        },
       };
     });
   }, []);
@@ -956,6 +960,34 @@ export const useGameState = () => {
     })();
   }, []);
 
+  const submitAFPVote = useCallback((choice: string) => {
+    setGameState(prev => ({
+      ...prev,
+      favoriteTally: {
+        ...(prev.favoriteTally || {}),
+        [choice]: (prev.favoriteTally?.[choice] || 0) + 10,
+      },
+      interactionLog: [
+        ...((prev.interactionLog) || []),
+        { day: prev.currentDay, type: 'system', participants: [choice], content: 'AFP vote cast', source: 'system' }
+      ],
+    }));
+    (async () => {
+      try {
+        await supabase.from('interactions').insert({
+          day: gameState.currentDay,
+          type: 'afp_vote',
+          participants: [choice],
+          player_name: gameState.playerName,
+          npc_name: choice,
+          tone: null,
+          player_message: null,
+          ai_response: null,
+        });
+      } catch {}
+    })();
+  }, []);
+
   const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }) => {
     setGameState(prev => ({
       ...prev,
@@ -1015,6 +1047,7 @@ export const useGameState = () => {
     submitFinaleSpeech,
     submitPlayerVote,
     respondToForcedConversation,
+    submitAFPVote,
     completePremiere,
     endGame,
     continueFromElimination,

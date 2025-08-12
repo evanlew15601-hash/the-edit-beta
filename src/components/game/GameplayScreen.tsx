@@ -4,7 +4,7 @@ import { ActionPanel } from './ActionPanel';
 import { ContestantGrid } from './ContestantGrid';
 import { TwistNotification } from './TwistNotification';
 import { AIResponseDisplay } from './AIResponseDisplay';
-// removed AISettingsPanel
+import { MemoryPanel } from './MemoryPanel';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -43,6 +43,7 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           </div>
           
           <div className="lg:col-span-1 space-y-6">
+            <MemoryPanel gameState={gameState} />
             <ContestantGrid contestants={gameState.contestants} />
           </div>
         </div>
