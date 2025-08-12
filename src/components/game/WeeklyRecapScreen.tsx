@@ -100,6 +100,18 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
           </div>
         </Card>
 
+        {/* Viral Moments (actually happened) */}
+        {weeklyEdit.viralMoments?.length ? (
+          <Card className="p-6">
+            <h3 className="text-xl font-light mb-4">Viral Moments</h3>
+            <div className="space-y-2">
+              {weeklyEdit.viralMoments.map((m, i) => (
+                <p key={i} className="text-sm text-foreground">• {m}</p>
+              ))}
+            </div>
+          </Card>
+        ) : null}
+
         {/* Reality vs Edit */}
         <Card className="p-6">
           <h3 className="text-xl font-light mb-4">Behind the Edit</h3>

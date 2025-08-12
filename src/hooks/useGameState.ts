@@ -20,7 +20,7 @@ import { generateLocalAIReply } from '@/utils/localLLM';
 import { detectGameTalk, craftGameTalkReply } from '@/utils/gameTalkHeuristics';
 import { summarizeReaction } from '@/utils/reactionSummarizer';
 import { EmergentEventInterruptor, EmergentEvent } from '@/utils/emergentEventInterruptor';
- 
+import { npcAutonomyEngine } from '@/utils/npcAutonomyEngine';
 const MINIMAL_AI = true; // Minimal, credit-free reaction mode
 const USE_REMOTE_AI = false; // Use free local + deterministic engines by default
 
@@ -56,6 +56,7 @@ const initialGameState = (): GameState => ({
   },
   forcedConversationsQueue: [],
   favoriteTally: {},
+  interactionLog: [],
 });
 
 export const useGameState = () => {
@@ -77,6 +78,7 @@ export const useGameState = () => {
 
   const startGame = useCallback((playerName: string) => {
     const contestants = generateContestants(11);
+    npcAutonomyEngine.initializeNPCs(contestants);
     setGameState(prev => ({
       ...prev,
       playerName,
@@ -339,6 +341,17 @@ export const useGameState = () => {
           }
           return q;
         })(),
+        interactionLog: [
+          ...((prev.interactionLog) || []),
+          {
+            day: prev.currentDay,
+            type: (actionType as any),
+            participants: target ? [prev.playerName, target] : [prev.playerName],
+            content: content,
+            tone: tone,
+            source: 'player' as const,
+          }
+        ],
       };
     });
 

@@ -11,9 +11,13 @@ interface ConversationDialogProps {
   onClose: () => void;
   contestants: Contestant[];
   onSubmit: (target: string, content: string, tone: string) => void;
+  // Forced pull-aside support
+  forced?: boolean;
+  presetTarget?: string;
+  forcedTopic?: string;
 }
 
-export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit }: ConversationDialogProps) => {
+export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, forced, presetTarget, forcedTopic }: ConversationDialogProps) => {
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [content, setContent] = useState('');
   const [tone, setTone] = useState<string>('');

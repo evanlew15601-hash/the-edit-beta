@@ -24,6 +24,16 @@ export interface GameMemory {
   timestamp: number;
 }
 
+export interface InteractionLogEntry {
+  day: number;
+  type: PlayerAction['type'] | 'npc' | 'system';
+  participants: string[];
+  content?: string;
+  tone?: string;
+  ai_response?: string;
+  source: 'player' | 'npc' | 'system';
+}
+
 export interface PlayerAction {
   type: 'talk' | 'dm' | 'confessional' | 'observe' | 'scheme' | 'activity';
   target?: string;
@@ -75,6 +85,8 @@ export interface GameState {
   forcedConversationsQueue?: { from: string; topic: string; urgency: 'casual' | 'important'; day: number }[];
   // New: running tally for America's Favorite Player signals (computed each week, surfaced at finale)
   favoriteTally?: { [name: string]: number };
+  // New: local interaction log for viral moments and memory tab
+  interactionLog?: InteractionLogEntry[];
 }
 
 export interface Confessional {
@@ -130,6 +142,7 @@ export interface WeeklyEdit {
   selectedQuote: string;
   approvalShift: number;
   eventMontage: string[];
+  viralMoments: string[];
   realityVsEdit: {
     whatHappened: string;
     whatWasShown: string;
