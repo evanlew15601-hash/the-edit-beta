@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageCircle, Users } from 'lucide-react';
 
 import type { ReactionSummary } from '@/types/game';
@@ -13,18 +12,18 @@ interface AIResponseDisplayProps {
   reactionSummary?: ReactionSummary;
 }
 
-export const AIResponseDisplay = ({ lastResponse, lastTarget, actionType, additions, reactionSummary }: AIResponseDisplayProps) => {
+export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: AIResponseDisplayProps) => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    if (lastResponse || reactionSummary) {
+    if (reactionSummary) {
       setIsVisible(true);
-      const timer = setTimeout(() => setIsVisible(false), 6000);
+      const timer = setTimeout(() => setIsVisible(false), 5000);
       return () => clearTimeout(timer);
     }
-  }, [lastResponse, reactionSummary]);
+  }, [reactionSummary]);
 
-  if ((!lastResponse && !reactionSummary) || !isVisible) return null;
+  if (!reactionSummary || !isVisible) return null;
 
   const getActionIcon = () => {
     switch (actionType) {
@@ -50,43 +49,27 @@ export const AIResponseDisplay = ({ lastResponse, lastTarget, actionType, additi
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
             <h4 className="font-medium text-surveillance-active">
-              {lastTarget} {lastResponse ? 'responds:' : 'acknowledged'}
+              {lastTarget} acknowledged
             </h4>
             <span className="text-xs text-muted-foreground uppercase tracking-wide">
               {actionType}
             </span>
           </div>
-          {lastResponse ? (
-            <ScrollArea className="max-h-24">
-              <p className="text-sm text-foreground italic">
-                "{lastResponse}"
-              </p>
-              {additions && (additions.strategy || additions.followUp || additions.risk || additions.memory) ? (
-                <div className="mt-3 text-xs text-muted-foreground space-y-1">
-                  {additions.strategy && <p><strong>Strategy:</strong> {additions.strategy.replace(/^Strategy:\s*/,'')}</p>}
-                  {additions.followUp && <p><strong>Follow-up:</strong> {additions.followUp.replace(/^Follow-up:\s*/,'')}</p>}
-                  {additions.risk && <p><strong>Risk:</strong> {additions.risk.replace(/^Leak risk:\s*/,'Leak risk: ')}</p>}
-                  {additions.memory && <p><strong>Memory:</strong> {additions.memory.replace(/^Memory impact:\s*/,'Impact: ')}</p>}
-                </div>
-              ) : null}
-            </ScrollArea>
-          ) : reactionSummary ? (
-            <div className="text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Take:</span>
-                <span className="px-2 py-0.5 rounded-md border text-xs capitalize">
-                  {reactionSummary.take}
-                </span>
-                <span className="text-muted-foreground">Context:</span>
-                <span className="px-2 py-0.5 rounded-md border text-xs capitalize">
-                  {reactionSummary.context}
-                </span>
-              </div>
-              {reactionSummary.notes ? (
-                <p className="mt-2 text-xs text-muted-foreground">{reactionSummary.notes}</p>
-              ) : null}
+          <div className="text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Take:</span>
+              <span className="px-2 py-0.5 rounded-md border text-xs capitalize">
+                {reactionSummary.take}
+              </span>
+              <span className="text-muted-foreground">Context:</span>
+              <span className="px-2 py-0.5 rounded-md border text-xs capitalize">
+                {reactionSummary.context}
+              </span>
             </div>
-          ) : null}
+            {reactionSummary.notes ? (
+              <p className="mt-2 text-xs text-muted-foreground">{reactionSummary.notes}</p>
+            ) : null}
+          </div>
         </div>
         <button
           onClick={() => setIsVisible(false)}
