@@ -33,7 +33,7 @@ serve(async (req) => {
     const persona = npc?.publicPersona ?? npc?.persona ?? "strategic contestant";
     const psych = npc?.psychProfile ?? npc?.psych ?? {};
 
-    const system = `You are ${npcName}, a cunning contestant in a high-stakes social strategy reality show.\nRespond ONLY as ${npcName}. Never reveal production notes or hidden information.\nUse the following context to be precise and situationally aware:\n- Player intent: ${parsedInput?.primary ?? 'unknown'} (manipulation ${parsedInput?.manipulationLevel ?? 0}, sincerity ${parsedInput?.sincerity ?? 0})\n- Dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}\n- Social context (day ${socialContext?.day ?? 'n/a'}): ${JSON.stringify(socialContext?.lastInteractions ?? []).slice(0, 400)}\nYour reply must:\n- Directly address the player's intent and content (avoid platitudes)\n- Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)\n- Keep it tight: 1–2 sentences with subtext\n- If pressed for secrets, deflect unless it benefits you\n- Never expose info the player couldn’t plausibly know`;
+    const system = `You are ${npcName}, a cunning contestant in a high-stakes social strategy reality show.\nRespond ONLY as ${npcName}. Never reveal production notes or hidden information.\nUse the following context to be precise and situationally aware:\n- Player intent: ${parsedInput?.primary ?? 'unknown'} (manipulation ${parsedInput?.manipulationLevel ?? 0}, sincerity ${parsedInput?.sincerity ?? 0})\n- Dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}\n- Social context (day ${socialContext?.day ?? 'n/a'}): ${JSON.stringify(socialContext?.lastInteractions ?? []).slice(0, 400)}\nYour reply must:\n- Directly address the player's intent and content (avoid platitudes)\n- Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)\n- Keep it tight: 1–2 sentences with subtext\n- If pressed for secrets, deflect unless it benefits you\n- Never expose info the player couldn’t plausibly know\nStyle constraints:\n- First-person voice only\n- No third-person narration, no stage directions\n- Do not include quotes or speaker labels\n- Formal, clear diction (no slang or contractions)`;
 
     const user = `Player says to ${npcName}: "${playerMessage}"\nTone hint: ${tone || 'neutral'} | Context: ${conversationType || 'public'}\nRespond strictly in-character with a concrete, situation-aware line.`;
     const prompt = `SYSTEM:\n${system}\n\nUSER:\n${user}\n\nASSISTANT:`;
@@ -84,15 +84,30 @@ serve(async (req) => {
       });
     }
 
-    // Safety post-processing: enforce 1–2 sentences max
+    // Safety post-processing: enforce direct first-person, no quotes, formal tone
     if (generatedText) {
-      const sentences = generatedText
-        .replace(/^"|"$/g, "")
-        .split(/(?<=[.!?])\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .join(" ");
-      generatedText = sentences;
+      let t = String(generatedText).trim();
+      // Remove surrounding quotes
+      t = t.replace(/^["'“”]+|["'“”]+$/g, "");
+      // If model narrated and included a quoted line, extract the quoted line
+      const q = t.match(/"([^\"]{3,})"/);
+      if (q) t = q[1];
+      // Strip speaker labels like "River:" at the start
+      t = t.replace(/^[A-Z][a-z]+:\s*/, "");
+      // Remove simple third-person narration prefixes
+      t = t.replace(/^[A-Z][a-z]+\s+(glances|keeps|says|whispers|mutters|shrugs|smiles)[^\.]*\.\s*/, "");
+      // Expand common contractions and fix broken forms
+      const pairs: [RegExp, string][] = [
+        [/\bcan't\b/gi, 'cannot'], [/\bwon't\b/gi, 'will not'], [/\bdon't\b/gi, 'do not'], [/\bdoesn't\b/gi, 'does not'], [/\bdidn't\b/gi, 'did not'],
+        [/\bI'm\b/gi, 'I am'], [/\bI've\b/gi, 'I have'], [/\bI'll\b/gi, 'I will'], [/\byou're\b/gi, 'you are'], [/\bthey're\b/gi, 'they are'], [/\bwe're\b/gi, 'we are'],
+        [/\bit's\b/gi, 'it is'], [/\bthat's\b/gi, 'that is'], [/\bthere's\b/gi, 'there is'], [/\bweren't\b/gi, 'were not'], [/\bwasn't\b/gi, 'was not'],
+        [/\bshouldn't\b/gi, 'should not'], [/\bwouldn't\b/gi, 'would not'], [/\bcouldn't\b/gi, 'could not'], [/\baren't\b/gi, 'are not'], [/\bisn't\b/gi, 'is not'],
+      ];
+      pairs.forEach(([re, rep]) => { t = t.replace(re, rep); });
+      t = t.replace(/\b(didn|couldn|wouldn|shouldn)\b\.?/gi, (m) => ({didn:'did not',couldn:'could not',wouldn:'would not',shouldn:'should not'}[m.toLowerCase().replace(/\./,'')] || m));
+      // Enforce 1–2 sentences
+      t = t.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
+      generatedText = t.trim();
     }
 
     return new Response(JSON.stringify({ generatedText }), {

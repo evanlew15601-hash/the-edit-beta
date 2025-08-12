@@ -17,7 +17,7 @@ import {
   generateAIResponse,
 } from '@/utils/aiResponseEngine';
 
-const USE_REMOTE_AI = false; // Disable remote LLMs for strict deterministic replies
+const USE_REMOTE_AI = true; // Enable remote LLMs for higher-quality replies (HF/OpenAI)
 
 const initialGameState = (): GameState => ({
   currentDay: 1,
@@ -292,18 +292,17 @@ export const useGameState = () => {
             psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 }
           };
 
-          // Short-circuit for small talk check-ins to avoid nonsense
+          // Short-circuit for small talk check-ins to avoid nonsense (only for talk/DM)
           const lower = content!.toLowerCase();
-          const isCheckIn = (/\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(lower) || /\bhow are you\b/.test(lower));
-          if (!aiText && parsed.primary === 'neutral_conversation' && isCheckIn) {
-            const nameSafe = npcEntity?.name || target!;
+          const isCheckIn = (/(?:\bhow('?s| is)?\b.*\b(today|day|going)\b)|\bhow are you\b/.test(lower));
+          if (!aiText && (actionType === 'talk' || actionType === 'dm') && parsed.primary === 'neutral_conversation' && isCheckIn) {
             const ps = npcEntity?.psychProfile;
             if (ps && ps.suspicionLevel > 60) {
-              aiText = `${nameSafe} glances around. "It's tense—people are sniffing for cracks. I'm staying quiet."`;
+              aiText = "It is tense—people are looking for missteps. I am staying quiet.";
             } else if (ps && ps.trustLevel > 50) {
-              aiText = `${nameSafe} softens. "Busy. A couple sparks in the kitchen, but I'm keeping us out of it."`;
+              aiText = "Busy. A couple of sparks in the kitchen, but I am keeping us out of it.";
             } else {
-              aiText = `${nameSafe} keeps it brief. "Fine. Reading the room and not overplaying anything."`;
+              aiText = "Fine. Reading the room and not overplaying anything.";
             }
           }
 
@@ -382,6 +381,33 @@ export const useGameState = () => {
               if (improved) aiText = improved;
             }
           } catch {}
+
+          // Final sanitization: direct speech, formal tone, no quotes/narration
+          const sanitizeAI = (text: string) => {
+            let t = String(text || '').trim();
+            // Prefer first quoted segment if present
+            const q = t.match(/"([^\"]{3,})"/);
+            if (q) t = q[1];
+            // Remove speaker labels like "River:" or dashes
+            t = t.replace(/^(?:[A-Z][a-z]+|You|I):\s*/, '');
+            // Expand broken and common contractions
+            const pairs: [RegExp, string][] = [
+              [/\bcan't\b/gi, 'cannot'], [/\bwon't\b/gi, 'will not'], [/\bdon't\b/gi, 'do not'], [/\bdoesn't\b/gi, 'does not'], [/\bdidn't\b/gi, 'did not'],
+              [/\bI'm\b/gi, 'I am'], [/\bI've\b/gi, 'I have'], [/\bI'll\b/gi, 'I will'], [/\byou're\b/gi, 'you are'], [/\bthey're\b/gi, 'they are'], [/\bwe're\b/gi, 'we are'],
+              [/\bit's\b/gi, 'it is'], [/\bthat's\b/gi, 'that is'], [/\bthere's\b/gi, 'there is'], [/\bweren't\b/gi, 'were not'], [/\bwasn't\b/gi, 'was not'],
+              [/\bshouldn't\b/gi, 'should not'], [/\bwouldn't\b/gi, 'would not'], [/\bcouldn't\b/gi, 'could not'], [/\baren't\b/gi, 'are not'], [/\bisn't\b/gi, 'is not'],
+            ];
+            pairs.forEach(([re, rep]) => { t = t.replace(re, rep); });
+            t = t.replace(/\b(didn|couldn|wouldn|shouldn)\b\.?/gi, (m) => ({didn:'did not',couldn:'could not',wouldn:'would not',shouldn:'should not'}[m.toLowerCase().replace(/\./,'')] || m));
+            // Strip remaining outer quotes
+            t = t.replace(/^["'“”]+|["'“”]+$/g, '');
+            // Remove simple third-person narration prefixes if present
+            t = t.replace(/^[A-Z][a-z]+\s+(glances|keeps|says|whispers|mutters|shrugs|smiles)[^\.]*\.\s*/, '');
+            // Enforce 1–2 sentences
+            t = t.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
+            return t.trim();
+          };
+          aiText = sanitizeAI(aiText);
 
           setGameState(prev => ({
             ...prev,
