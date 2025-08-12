@@ -264,10 +264,27 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
       break;
       
     default:
-      responses.push(`${npc.name} responds to your comment about "${content.substring(0, 30)}..."`);
-  }
-  
-  // Add emotional reactions based on subtext
+      {
+        const text = content.toLowerCase();
+        const checkIn = /\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(text) || /\bhow are you\b/.test(text);
+        if (parsedInput.primary === 'neutral_conversation' && checkIn) {
+          if (npc.psychProfile.suspicionLevel > 60) {
+            responses.push(`${npc.name} glances around. "It's tense—people are sniffing for cracks. I'm staying quiet."`);
+          } else if (npc.psychProfile.trustLevel > 50) {
+            responses.push(`${npc.name} softens. "Busy. A couple sparks in the kitchen, but I'm keeping us out of it."`);
+          } else {
+            responses.push(`${npc.name} keeps it brief. "Fine. Reading the room and not overplaying anything."`);
+          }
+        } else if (parsedInput.informationSeeking) {
+          responses.push(`${npc.name} weighs you. "Depends what you want to hear—why are you asking?"`);
+        } else {
+          responses.push(`${npc.name} shrugs it off. "Let's keep it simple—play tight and avoid noise."`);
+        }
+      }
+      break;
+    }
+    
+    // Add emotional reactions based on subtext
   if (parsedInput.emotionalSubtext.anger > 60 && bias.emotionalVolatility > 50) {
     responses.push(`${npc.name} notices your angry tone and becomes defensive.`);
   }

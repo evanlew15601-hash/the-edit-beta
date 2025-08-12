@@ -344,8 +344,26 @@ export const useGameState = () => {
           }
         }
 
-        // Publish to UI and analytics table (best-effort)
+        // Publish to UI and analytics table (best-effort) with quality filter
         if (aiText) {
+          try {
+            const looksGeneric = /responds to your comment|^\"?Noted\.?\"?$|^\W*$|\bresponds:\b/i.test(aiText) || aiText.length < 18;
+            if (looksGeneric) {
+              const npcEntity = gameState.contestants.find(c => c.name === target);
+              const npcForLocal: Contestant = npcEntity ?? {
+                id: `temp_${target}`,
+                name: target!,
+                publicPersona: 'strategic contestant',
+                psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 },
+                memory: [],
+                isEliminated: false,
+              } as Contestant;
+              const parsed2 = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
+              const improved = generateAIResponse(parsed2 as any, npcForLocal, content!);
+              if (improved) aiText = improved;
+            }
+          } catch {}
+
           setGameState(prev => ({
             ...prev,
             lastAIResponse: aiText,
