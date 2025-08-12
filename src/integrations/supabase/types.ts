@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      interactions: {
+        Row: {
+          ai_response: string | null
+          created_at: string
+          day: number | null
+          id: string
+          npc_name: string | null
+          participants: string[] | null
+          player_message: string | null
+          player_name: string | null
+          tone: string | null
+          type: string | null
+        }
+        Insert: {
+          ai_response?: string | null
+          created_at?: string
+          day?: number | null
+          id?: string
+          npc_name?: string | null
+          participants?: string[] | null
+          player_message?: string | null
+          player_name?: string | null
+          tone?: string | null
+          type?: string | null
+        }
+        Update: {
+          ai_response?: string | null
+          created_at?: string
+          day?: number | null
+          id?: string
+          npc_name?: string | null
+          participants?: string[] | null
+          player_message?: string | null
+          player_name?: string | null
+          tone?: string | null
+          type?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

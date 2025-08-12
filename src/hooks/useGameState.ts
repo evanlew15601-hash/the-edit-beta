@@ -11,8 +11,7 @@ import {
   calculateAITrustDelta, 
   calculateAISuspicionDelta, 
   calculateEmotionalDelta,
-  calculateAILeakChance,
-  generateAIResponse
+  calculateAILeakChance
 } from '@/utils/aiResponseEngine';
 
 const initialGameState = (): GameState => ({
@@ -253,21 +252,13 @@ export const useGameState = () => {
         }
       }
 
-      // Store AI response for UI display
-      let aiResponse = null;
-      if (target && content && parsedInput) {
-        const targetContestant = updatedContestants.find(c => c.name === target);
-        if (targetContestant) {
-          aiResponse = generateAIResponse(parsedInput, targetContestant, content);
-        }
-      }
-
+      // Defer AI response to external service (set asynchronously)
       return {
         ...prev,
         playerActions: newActions,
         contestants: updatedContestants,
         alliances: newAlliances,
-        lastAIResponse: aiResponse, // Store for UI to display
+        lastAIResponse: undefined,
         lastParsedInput: parsedInput, // Store for debugging
         lastActionTarget: target,
         lastActionType: actionType as PlayerAction['type']
