@@ -283,12 +283,21 @@ export const useGameState = () => {
             conversationType: actionType === 'dm' ? 'private' : 'public'
           };
 
-          const { data, error } = await supabase.functions.invoke('generate-ai-reply', {
+          // Primary: OpenAI edge function
+          const primary = await supabase.functions.invoke('generate-ai-reply', {
             body: payload,
           });
-          if (error) throw error;
+          if (primary.error) throw primary.error;
+          aiText = (primary.data as any)?.generatedText || '';
 
-          aiText = (data as any)?.generatedText || '';
+          // Fallback: Hugging Face Zephyr via edge function if no text
+          if (!aiText) {
+            const hfFallback = await supabase.functions.invoke('generate-ai-reply-hf', {
+              body: payload,
+            });
+            if (hfFallback.error) throw hfFallback.error;
+            aiText = (hfFallback.data as any)?.generatedText || '';
+          }
         } catch (e) {
           console.error('AI reply error:', e);
           // Fallback to local NPC response engine
