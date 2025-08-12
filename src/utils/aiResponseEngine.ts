@@ -346,6 +346,7 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
     default:
       {
         const text = content.toLowerCase();
+        const personalBackground = /(where\s+are\s+you\s+from|where\s+do\s+you\s+live|what\s+(city|state|country)\s+are\s+you\s+from)/i.test(content);
         const checkIn = /\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(text)
           || /\bhow (are you)\b/.test(text)
           || /\bhow (are you|you'?re)\s+(feeling|doing)\b/.test(text)
@@ -370,7 +371,7 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
             }
           }
           const stop = new Set([
-            'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','thinking','know','feel','feeling','doing','say','saying','ask','asking','talk','talking','chat','chatting','discuss','discussing','discussion','question','topic','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing','so','far',
+            'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','thinking','wonder','wondering','wondered','know','feel','feeling','doing','say','saying','ask','asking','talk','talking','chat','chatting','discuss','discussing','discussion','question','topic','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing','so','far',
             // Common prepositions and function words we should never surface as topics
             'from','into','onto','over','under','after','before','around','through','against','between','within','without','upon','inside','outside','across','toward','towards','behind','beside','besides','above','below','near','off','out','in','on','at','for','to','of','as','by','up','down','via','per',
             // Pronouns and auxiliaries
@@ -380,17 +381,23 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
           return candidates[0] ? candidates[0] : null;
         };
 
-        if (parsedInput.primary === 'neutral_conversation' && checkIn) {
+        if (personalBackground) {
           if (npc.psychProfile.suspicionLevel > 60) {
-            responses.push(`${npc.name} glances around. "It's tense—people are sniffing for cracks. I'm staying quiet."`);
+            responses.push(`${npc.name} keeps details tight. "I keep personal history off the table in here."`);
+          } else {
+            responses.push(`${npc.name} refocuses. "I would rather keep personal details private; the game is what matters."`);
+          }
+        } else if (parsedInput.primary === 'neutral_conversation' && checkIn) {
+          if (npc.psychProfile.suspicionLevel > 60) {
+            responses.push(`${npc.name} glances around. "It's tense—people are sniffing for cracks. I am staying quiet."`);
           } else if (npc.psychProfile.trustLevel > 50) {
-            responses.push(`${npc.name} softens. "Busy. A couple sparks in the kitchen, but I'm keeping us out of it."`);
+            responses.push(`${npc.name} softens. "Busy. A couple sparks in the kitchen, but I am keeping us out of it."`);
           } else {
             responses.push(`${npc.name} keeps it brief. "Fine. Reading the room and not overplaying anything."`);
           }
         } else if (parsedInput.informationSeeking) {
           const phrase = extractTopicPhrase(content);
-          responses.push(`${npc.name} weighs you. "${phrase ? `Why are you asking about ${phrase}?` : 'Why are you asking?'}"`);
+          responses.push(`${npc.name} probes. "${phrase ? `What exactly about ${phrase}?` : 'Be specific—alliances, votes, or trust?'}"`);
         } else {
           if (npc.psychProfile.suspicionLevel > 60) {
             responses.push(`${npc.name} stays guarded. "I am keeping distance until the dust settles."`);
@@ -415,6 +422,15 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
   
   const archetype = deriveArchetype(npc);
   const first = responses[0] || `${npc.name} keeps it brief. "I am considering that."`;
-  const toned = applyArchetypeTone(first, archetype, parsedInput, content);
-  return sanitizeAndFormalize(toned);
+  const toned = applyArchetypeTone(first, archetype, parsedInput, content).trim();
+
+  // Extract direct speech (first-person) and remove narration/prefixes
+  let out = toned;
+  const q = out.match(/"([^\"]{3,})"/);
+  if (q) out = q[1];
+  out = out.replace(/^[A-Z][a-z]+:\s*/, ''); // speaker label
+  out = out.replace(/^About\s+([a-z\-']{1,10})\s*,\s*/i, ''); // stale topic prefix safety
+  // Enforce 1–2 sentences
+  out = out.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
+  return sanitizeAndFormalize(out);
 }
