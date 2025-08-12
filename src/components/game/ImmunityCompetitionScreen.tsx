@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Progress } from '@/components/ui/progress';
@@ -45,39 +45,50 @@ export const ImmunityCompetitionScreen = ({ gameState, onContinue }: ImmunityCom
   const [isRunning, setIsRunning] = useState(false);
   const [winner, setWinner] = useState<string>('');
   const [playerChoice, setPlayerChoice] = useState<string>('');
+  const intervalRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
   const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
 
   useEffect(() => {
-    // Initialize participants
+    // Initialize participants (dedupe player)
     const initialParticipants = [
-      ...activeContestants.map(c => ({ name: c.name, progress: 0 })),
+      ...activeContestants.filter(c => c.name !== gameState.playerName).map(c => ({ name: c.name, progress: 0 })),
       { name: gameState.playerName, progress: 0, isPlayer: true }
     ];
     setParticipants(initialParticipants);
   }, [activeContestants, gameState.playerName]);
 
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
   const startCompetition = () => {
     setIsRunning(true);
-    
-    // Simulate competition progress
-    const interval = setInterval(() => {
+
+    // clear any existing timers
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+
+    intervalRef.current = window.setInterval(() => {
       setParticipants(prev => {
         const updated = prev.map(p => {
-          let progressIncrease = Math.random() * 15;
-          
-          // Player strategy affects their performance
+          let progressIncrease = 3 + Math.random() * 8;
+
           if (p.isPlayer) {
             switch (playerChoice) {
               case 'aggressive':
-                progressIncrease += 5; // Higher risk, higher reward
-                if (Math.random() < 0.1) progressIncrease -= 10; // Small chance of setback
+                progressIncrease += 4;
+                if (Math.random() < 0.1) progressIncrease = Math.max(1, progressIncrease - 6);
                 break;
               case 'steady':
-                progressIncrease += 2; // Consistent progress
+                progressIncrease += 2;
                 break;
               case 'conservative':
-                progressIncrease += 1; // Safe but slow
+                progressIncrease += 1;
                 break;
             }
           } else {
@@ -86,29 +97,38 @@ export const ImmunityCompetitionScreen = ({ gameState, onContinue }: ImmunityCom
             if (contestant) {
               const isCompetitive = contestant.psychProfile.disposition.includes('competitive');
               const isDriven = contestant.psychProfile.disposition.includes('driven');
-              if (isCompetitive || isDriven) progressIncrease += 3;
+              if (isCompetitive || isDriven) progressIncrease += 2.5;
             }
           }
-          
-          return {
-            ...p,
-            progress: Math.min(100, p.progress + progressIncrease)
-          };
+
+          const next = Math.max(0, Math.min(100, p.progress + progressIncrease));
+          return { ...p, progress: next };
         });
-        
-        // Check for winner
-        const winner = updated.find(p => p.progress >= 100);
-        if (winner) {
-          setWinner(winner.name);
-          clearInterval(interval);
+
+        const reachedWinner = updated.find(p => p.progress >= 100);
+        if (reachedWinner) {
+          setWinner(reachedWinner.name);
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
           setIsRunning(false);
         }
-        
+
         return updated;
       });
-    }, 500);
+    }, 450);
 
-    return () => clearInterval(interval);
+    // Failsafe: pick current leader after 20s if no winner
+    timeoutRef.current = window.setTimeout(() => {
+      setParticipants(prev => {
+        const leader = [...prev].sort((a, b) => b.progress - a.progress)[0];
+        if (leader) {
+          setWinner(leader.name);
+          setIsRunning(false);
+        }
+        return prev;
+      });
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }, 20000);
   };
 
   const strategies = [

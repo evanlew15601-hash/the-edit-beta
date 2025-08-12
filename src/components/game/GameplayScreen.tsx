@@ -4,7 +4,7 @@ import { ActionPanel } from './ActionPanel';
 import { ContestantGrid } from './ContestantGrid';
 import { TwistNotification } from './TwistNotification';
 import { AIResponseDisplay } from './AIResponseDisplay';
-import { AISettingsPanel } from './AISettingsPanel';
+// removed AISettingsPanel
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -23,10 +23,8 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay }: Gamepla
         
         {/* AI Response Display */}
         <AIResponseDisplay 
-          lastResponse={gameState.lastAIResponse}
           lastTarget={gameState.lastActionTarget}
           actionType={gameState.lastActionType}
-          additions={gameState.lastAIAdditions}
           reactionSummary={gameState.lastAIReaction}
         />
         
@@ -41,14 +39,6 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay }: Gamepla
           </div>
           
           <div className="lg:col-span-1 space-y-6">
-            <AISettingsPanel
-              depth={gameState.aiSettings.depth}
-              additions={gameState.aiSettings.additions}
-              onChange={(next) => {
-                // Note: This setter lives inside the hook; we dispatch a custom event to update
-                window.dispatchEvent(new CustomEvent('ai-settings:update', { detail: next }));
-              }}
-            />
             <ContestantGrid contestants={gameState.contestants} />
           </div>
         </div>

@@ -12,22 +12,28 @@ export function summarizeReaction(
   const trust = npc?.psychProfile.trustLevel ?? 0;
   const suspicion = npc?.psychProfile.suspicionLevel ?? 30;
 
-  const isGameTalk = /(ally|alliance|numbers|votes?|target|backdoor|flip|lock|majority|minority)/.test(lower);
+  const normalizedContext: ReactionSummary['context'] =
+    actionType === 'dm' ? 'private'
+    : actionType === 'scheme' ? 'scheme'
+    : actionType === 'activity' ? 'activity'
+    : conversationType;
+
+  const isGameTalk = /(ally|alliance|numbers|votes?|target|backdoor|flip|lock|majority|minority|leak|secret|plan|scheme|jury)/.test(lower);
 
   function pick<T>(vals: T[]): T { return vals[Math.floor(Math.random() * vals.length)]; }
 
   let take: ReactionSummary['take'] = 'neutral';
 
   if (actionType === 'scheme') {
-    take = suspicion > 50 ? 'pushback' : 'suspicious';
+    take = suspicion > 60 ? 'pushback' : suspicion > 40 ? 'suspicious' : 'curious';
   } else if (actionType === 'activity') {
     take = trust > 30 ? 'positive' : 'neutral';
   } else if (actionType === 'dm' || actionType === 'talk') {
     if (isGameTalk) {
-      if (conversationType === 'public') {
-        take = suspicion > 40 ? 'deflect' : 'suspicious';
+      if (normalizedContext === 'public') {
+        take = suspicion > 60 ? 'pushback' : suspicion > 35 ? 'deflect' : 'suspicious';
       } else {
-        take = trust > 50 ? 'positive' : 'curious';
+        take = trust > 60 ? 'positive' : suspicion > 60 ? 'suspicious' : 'curious';
       }
     } else {
       take = trust > 50 ? 'positive' : suspicion > 60 ? 'suspicious' : 'neutral';
@@ -55,5 +61,5 @@ export function summarizeReaction(
       notes = pick(['acknowledged', 'noted', 'no commitment']);
   }
 
-  return { take, context: conversationType, notes };
+  return { take, context: normalizedContext, notes };
 }
