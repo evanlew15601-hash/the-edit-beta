@@ -62,13 +62,21 @@ export function summarizeReaction(
       } else {
         take = trust > 60 ? 'positive' : suspicion > 55 ? 'suspicious' : 'curious';
       }
+    } else if (/gossip/i.test(primary) || /(did you hear|rumor|apparently|they said)/i.test(lower)) {
+      if (normalizedContext === 'public') {
+        take = suspicion > 40 ? 'deflect' : 'suspicious';
+      } else {
+        take = trust > 40 ? 'curious' : 'suspicious';
+      }
     } else if (infoSeeking || /information|question/i.test(primary)) {
       take = 'curious';
     } else if (trustBuilding || /expressing_trust|seeking_reassurance/i.test(primary)) {
       take = trust > 25 ? 'positive' : 'curious';
     } else {
-      // Small talk: use emotion to bias out of neutral
-      if (warmth > 0.45 && trust > 10) take = 'positive';
+      // Small talk and banter
+      if (/banter/i.test(primary)) {
+        take = trust > 20 ? 'positive' : 'neutral';
+      } else if (warmth > 0.45 && trust > 10) take = 'positive';
       else if (hostility > 0.35 || suspicion > 60) take = 'suspicious';
       else take = 'neutral';
     }

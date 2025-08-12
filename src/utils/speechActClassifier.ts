@@ -30,6 +30,8 @@ export type SpeechActType =
   | 'insulting'
   | 'confessing'
   | 'lying'
+  | 'gossiping'
+  | 'banter'
   | 'neutral_conversation';
 
 export type EmotionalSubtext = {
@@ -184,6 +186,16 @@ class SpeechActClassifier {
       /\b(bet you won't|come at me|bring it)\b/i,
     ]);
 
+    patterns.set('gossiping', [
+      /\b(did you hear|rumor|they said|apparently)\b/i,
+      /\b(secret|talking about|word is)\b/i,
+    ]);
+
+    patterns.set('banter', [
+      /\b(lol|haha|lmao|rofl)\b/i,
+      /\b(joking|kidding|just kidding|banter|funny)\b/i,
+    ]);
+
     return patterns;
   }
 
@@ -218,6 +230,16 @@ class SpeechActClassifier {
     // Hostile insults
     ['stupid', 'idiot', 'coward', 'snake', 'fake', 'useless', 'pathetic', 'weak'].forEach(word => {
       words.set(word, { anger: 85, fear: 0, attraction: 0, manipulation: 20, sincerity: 20, desperation: 15, confidence: 70 });
+    });
+
+    // Light banter / humor
+    ['lol', 'haha', 'lmao', 'rofl', 'kidding', 'joking', 'funny'].forEach(word => {
+      words.set(word, { anger: 0, fear: 0, attraction: 10, manipulation: 0, sincerity: 65, desperation: 0, confidence: 60 });
+    });
+
+    // Gossip-y markers (slightly manipulative, moderate sincerity)
+    ['rumor', 'apparently', 'secret'].forEach(word => {
+      words.set(word, { anger: 0, fear: 5, attraction: 0, manipulation: 40, sincerity: 40, desperation: 10, confidence: 50 });
     });
 
     return words;
