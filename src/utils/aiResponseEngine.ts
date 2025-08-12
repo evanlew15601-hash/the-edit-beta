@@ -276,9 +276,19 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
             responses.push(`${npc.name} keeps it brief. "Fine. Reading the room and not overplaying anything."`);
           }
         } else if (parsedInput.informationSeeking) {
-          responses.push(`${npc.name} weighs you. "Depends what you want to hear—why are you asking?"`);
+          const words = (content.toLowerCase().match(/\b[a-z]{4,}\b/g) || []);
+          const stop = new Set(['about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those']);
+          const topic = words.find(w => !stop.has(w));
+          responses.push(`${npc.name} weighs you. "${topic ? `About ${topic}, ` : ''}why are you asking?"`);
         } else {
-          responses.push(`${npc.name} shrugs it off. "Let's keep it simple—play tight and avoid noise."`);
+          const words = (content.toLowerCase().match(/\b[a-z]{4,}\b/g) || []);
+          const stop = new Set(['about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those']);
+          const topic = words.find(w => !stop.has(w));
+          if (npc.psychProfile.suspicionLevel > 60) {
+            responses.push(`${npc.name} keeps a read. "${topic ? topic[0].toUpperCase() + topic.slice(1) : 'That'}'s a live wire—I'm not overcommitting until I see where votes settle."`);
+          } else {
+            responses.push(`${npc.name} stays guarded. "Clocked. On ${topic || 'that'}, I’m keeping distance until the dust settles."`);
+          }
         }
       }
       break;

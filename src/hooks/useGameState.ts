@@ -17,6 +17,8 @@ import {
   generateAIResponse,
 } from '@/utils/aiResponseEngine';
 
+const USE_REMOTE_AI = false; // Disable remote LLMs for strict deterministic replies
+
 const initialGameState = (): GameState => ({
   currentDay: 1,
   playerName: '',
@@ -305,7 +307,7 @@ export const useGameState = () => {
             }
           }
 
-          if (!aiText) {
+          if (!aiText && USE_REMOTE_AI) {
             const payload = {
               playerMessage: content,
               parsedInput: parsed,
