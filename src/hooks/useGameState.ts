@@ -45,7 +45,11 @@ const initialGameState = (): GameState => ({
   twistsActivated: [],
   nextEliminationDay: 7,
   dailyActionCount: 0,
-  dailyActionCap: 10
+  dailyActionCap: 10,
+  aiSettings: {
+    depth: 'standard',
+    additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
+  }
 });
 
 export const useGameState = () => {
@@ -54,7 +58,17 @@ export const useGameState = () => {
     return initialGameState();
   });
 
-  const startGame = useCallback((playerName: string) => {
+  const updateAISettings = useCallback((partial: Partial<GameState['aiSettings']>) => {
+    setGameState(prev => ({
+      ...prev,
+      aiSettings: {
+        ...prev.aiSettings,
+        ...partial,
+        additions: { ...prev.aiSettings.additions, ...(partial.additions || {}) }
+      }
+    }));
+  }, []);
+
     const contestants = generateContestants(11);
     setGameState(prev => ({
       ...prev,
@@ -62,7 +76,11 @@ export const useGameState = () => {
       contestants,
       gamePhase: 'daily'
     }));
-  }, []);
+  useEffect(() => {
+    const handler = (e: any) => updateAISettings(e.detail || {});
+    window.addEventListener('ai-settings:update', handler);
+    return () => window.removeEventListener('ai-settings:update', handler);
+  }, [updateAISettings]);
 
   const useAction = useCallback((actionType: string, target?: string, content?: string, tone?: string) => {
     setGameState(prev => {
@@ -345,7 +363,10 @@ export const useGameState = () => {
           // 2.5) Local on-device LLM (WebGPU/WebCPU) as strong offline fallback
           if (!aiText) {
             try {
-              aiText = await generateLocalAIReply(payload);
+              aiText = await generateLocalAIReply(payload, {
+                maxSentences: gameState.aiSettings.depth === 'brief' ? 1 : gameState.aiSettings.depth === 'deep' ? 3 : 2,
+                maxNewTokens: gameState.aiSettings.depth === 'deep' ? 160 : 120,
+              });
             } catch {}
           }
         } catch (e) {
@@ -430,11 +451,38 @@ export const useGameState = () => {
             t = t.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
             return t.trim();
           };
+          // Final sanitization moved above; also use sentence cap for local model
           aiText = sanitizeAI(aiText);
+
+          // Compute optional additions based on settings
+          const adds: GameState['lastAIAdditions'] = {};
+          try {
+            const npcEntity = gameState.contestants.find(c => c.name === target);
+            const ps = npcEntity?.psychProfile;
+            if (gameState.aiSettings.additions.strategyHint) {
+              const intent = (parsed?.primary || '').replace(/_/g, ' ');
+              const strat = ps && ps.suspicionLevel > 60 ? 'deflect and test loyalty' : ps && ps.trustLevel > 50 ? 'share selectively and set a small ask' : 'seek information without commitment';
+              adds.strategy = `Strategy: ${strat} (detected: ${intent || 'neutral'}).`;
+            }
+            if (gameState.aiSettings.additions.followUp) {
+              const topic = /about\s+([^.!?]{3,40})/i.exec(content || '')?.[1]?.trim();
+              adds.followUp = `Follow-up: ${topic ? `What exactly about ${topic}?` : 'What do you need to know—alliances, votes, or trust?'}`;
+            }
+            if (gameState.aiSettings.additions.riskEstimate) {
+              const leak = parsed ? calculateAILeakChance(parsed as any, (ps || { disposition: [], trustLevel: 50 })) : 0.1;
+              const pct = Math.round(leak * 100);
+              adds.risk = `Leak risk: ${pct}% if pushed for secrets.`;
+            }
+            if (gameState.aiSettings.additions.memoryImpact) {
+              const impact = parsed ? Math.max(-10, Math.min(10, Math.round((parsed.emotionalSubtext.sincerity - parsed.emotionalSubtext.manipulation + parsed.emotionalSubtext.attraction - parsed.emotionalSubtext.anger) / 10))) : 0;
+              adds.memory = `Memory impact: ${impact >= 0 ? '+' : ''}${impact}.`;
+            }
+          } catch {}
 
           setGameState(prev => ({
             ...prev,
             lastAIResponse: aiText,
+            lastAIAdditions: adds,
           }));
           try {
             await supabase.from('interactions').insert({

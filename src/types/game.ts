@@ -48,6 +48,12 @@ export interface GameState {
   dailyActionCount: number; // actions used today
   dailyActionCap: number;   // max actions per day
   lastAIResponse?: string; // Store AI-generated response for UI
+  lastAIAdditions?: {
+    strategy?: string;
+    followUp?: string;
+    risk?: string;
+    memory?: string;
+  };
   lastParsedInput?: any; // Store parsed input for debugging
   lastEmergentEvent?: any; // Store emergent event for UI display
   lastActionTarget?: string; // Most recent action target for UI context
@@ -55,6 +61,7 @@ export interface GameState {
   immunityWinner?: string; // Who won immunity this week
   juryMembers?: string[]; // Who is on the jury
   finaleSpeechesGiven?: boolean; // Track finale speeches
+  aiSettings: AISettings; // Controls reply depth and additions
 }
 
 export interface Confessional {
@@ -104,5 +111,15 @@ export interface WeeklyEdit {
   realityVsEdit: {
     whatHappened: string;
     whatWasShown: string;
+  };
+}
+
+export interface AISettings {
+  depth: 'brief' | 'standard' | 'deep';
+  additions: {
+    strategyHint: boolean;
+    followUp: boolean;
+    riskEstimate: boolean;
+    memoryImpact: boolean;
   };
 }

@@ -7,9 +7,10 @@ interface AIResponseDisplayProps {
   lastResponse?: string;
   lastTarget?: string;
   actionType?: string;
+  additions?: { strategy?: string; followUp?: string; risk?: string; memory?: string };
 }
 
-export const AIResponseDisplay = ({ lastResponse, lastTarget, actionType }: AIResponseDisplayProps) => {
+export const AIResponseDisplay = ({ lastResponse, lastTarget, actionType, additions }: AIResponseDisplayProps) => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -57,6 +58,14 @@ export const AIResponseDisplay = ({ lastResponse, lastTarget, actionType }: AIRe
             <p className="text-sm text-foreground italic">
               "{lastResponse}"
             </p>
+            {additions && (additions.strategy || additions.followUp || additions.risk || additions.memory) ? (
+              <div className="mt-3 text-xs text-muted-foreground space-y-1">
+                {additions.strategy && <p><strong>Strategy:</strong> {additions.strategy.replace(/^Strategy:\s*/,'')}</p>}
+                {additions.followUp && <p><strong>Follow-up:</strong> {additions.followUp.replace(/^Follow-up:\s*/,'')}</p>}
+                {additions.risk && <p><strong>Risk:</strong> {additions.risk.replace(/^Leak risk:\s*/,'Leak risk: ')}</p>}
+                {additions.memory && <p><strong>Memory:</strong> {additions.memory.replace(/^Memory impact:\s*/,'Impact: ')}</p>}
+              </div>
+            ) : null}
           </ScrollArea>
         </div>
         <button
