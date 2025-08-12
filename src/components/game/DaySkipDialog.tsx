@@ -183,6 +183,7 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
                     Jump In Headfirst
                   </Button>
                 </div>
+              </div>
             )}
 
             <div className="flex gap-3">

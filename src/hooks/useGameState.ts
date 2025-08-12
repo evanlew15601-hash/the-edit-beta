@@ -79,7 +79,7 @@ export const useGameState = () => {
       ...prev,
       playerName,
       contestants,
-      gamePhase: 'daily'
+      gamePhase: 'premiere'
     }));
   }, []);
 
@@ -743,6 +743,13 @@ export const useGameState = () => {
     }));
   }, []);
 
+  const completePremiere = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      gamePhase: 'daily'
+    }));
+  }, []);
+
   const submitFinaleSpeech = useCallback((speech: string) => {
     setGameState(prev => ({
       ...prev,
@@ -802,6 +809,7 @@ export const useGameState = () => {
     advanceDay,
     setImmunityWinner,
     submitFinaleSpeech,
+    completePremiere,
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,

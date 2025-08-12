@@ -1,11 +1,12 @@
 import { useGameState } from '@/hooks/useGameState';
 import { IntroScreen } from '@/components/game/IntroScreen';
 import { GameplayScreen } from '@/components/game/GameplayScreen';
-import { EliminationScreen } from '@/components/game/EliminationScreen';
 import { WeeklyRecapScreen } from '@/components/game/WeeklyRecapScreen';
 import { ImmunityCompetitionScreen } from '@/components/game/ImmunityCompetitionScreen';
-import { FinaleScreen } from '@/components/game/FinaleScreen';
 import { JuryVoteScreen } from '@/components/game/JuryVoteScreen';
+import { PremiereCutscene } from '@/components/game/PremiereCutscene';
+import { EliminationEpisode } from '@/components/game/EliminationEpisode';
+import { FinaleEpisode } from '@/components/game/FinaleEpisode';
 
 const Index = () => {
   const {
@@ -19,13 +20,16 @@ const Index = () => {
     continueFromElimination,
     continueFromWeeklyRecap,
     resetGame,
-    handleEmergentEventChoice
+    handleEmergentEventChoice,
+    completePremiere,
   } = useGameState();
 
   const renderScreen = () => {
     switch (gameState.gamePhase) {
       case 'intro':
         return <IntroScreen onStartGame={startGame} />;
+      case 'premiere':
+        return <PremiereCutscene onComplete={completePremiere} />;
       
       case 'daily':
         return (
@@ -39,7 +43,7 @@ const Index = () => {
       
       case 'elimination':
         return (
-          <EliminationScreen
+          <EliminationEpisode
             gameState={gameState}
             onContinue={continueFromElimination}
           />
@@ -63,10 +67,9 @@ const Index = () => {
       
       case 'finale':
         return (
-          <FinaleScreen
+          <FinaleEpisode
             gameState={gameState}
             onSubmitSpeech={submitFinaleSpeech}
-            onContinue={() => {}} // Handled by submitFinaleSpeech
           />
         );
       
