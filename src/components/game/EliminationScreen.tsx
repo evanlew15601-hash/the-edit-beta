@@ -76,6 +76,31 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
           )}
         </Card>
 
+        {/* Tie-break Event (if any) */}
+        {latestElimination.tieBreak && (
+          <Card className="p-6">
+            <h3 className="text-xl font-light mb-4">Tie-Break Resolution</h3>
+            <div className="space-y-2 text-sm">
+              {latestElimination.tieBreak.log.map((line: string, idx: number) => (
+                <p key={idx} className="text-foreground">• {line}</p>
+              ))}
+            </div>
+            {latestElimination.tieBreak.revote && (
+              <div className="mt-4">
+                <h4 className="font-medium mb-2 text-muted-foreground">Revote Breakdown</h4>
+                <div className="space-y-1 text-sm">
+                  {Object.entries(latestElimination.tieBreak.revote.counts).map(([name, count]) => (
+                    <div key={name} className="flex justify-between">
+                      <span>{name}</span>
+                      <span className="text-muted-foreground">{count} votes</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* Voting Breakdown */}
         <Card className="p-6">
           <h3 className="text-xl font-light mb-4">Voting Results</h3>

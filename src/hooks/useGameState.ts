@@ -623,8 +623,25 @@ export const useGameState = () => {
           timestamp: newDay * 1000 + Math.random() * 1000
         }));
 
+        // Apply light social status effects from interactions
+        const trustDelta = relevantInteractions.reduce((sum, inter) => {
+          if (inter.type === 'conflict') return sum - 2;
+          if (inter.type === 'tension') return sum - 1;
+          return sum + 1;
+        }, 0);
+        const suspicionDelta = relevantInteractions.reduce((sum, inter) => {
+          if (inter.type === 'conflict') return sum + 2;
+          if (inter.type === 'tension') return sum + 1;
+          return sum;
+        }, 0);
+
         return {
           ...contestant,
+          psychProfile: {
+            ...contestant.psychProfile,
+            trustLevel: Math.max(-100, Math.min(100, contestant.psychProfile.trustLevel + trustDelta)),
+            suspicionLevel: Math.max(0, Math.min(100, contestant.psychProfile.suspicionLevel + suspicionDelta)),
+          },
           memory: [...contestant.memory, ...interactionMemories]
         };
       });

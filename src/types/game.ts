@@ -103,6 +103,14 @@ export interface VotingRecord {
   votes: { [voterName: string]: string };
   playerVote?: string;
   reason: string;
+  tieBreak?: {
+    tied: string[];
+    method: 'revote' | 'sudden_death';
+    revote?: { votes: { [voterName: string]: string }, counts: { [name: string]: number } };
+    suddenDeathWinner?: string;
+    suddenDeathLoser?: string;
+    log: string[];
+  };
 }
 
 export interface DialogueOption {

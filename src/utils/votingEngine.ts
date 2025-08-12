@@ -59,7 +59,7 @@ export const processVoting = (
     let targetName = '';
     let highestThreat = -Infinity;
     
-    [...activeContestants, { name: playerName }].forEach(target => {
+    [...activeContestants, { name: playerName } as any].forEach(target => {
       if (target.name === voter.name) return;
       if (target.name === immunityWinner) return; // Can't vote for immunity winner
       if (allianceMembers.has(target.name) && Math.random() > 0.1) return; // 90% alliance loyalty
@@ -99,15 +99,109 @@ export const processVoting = (
     }
   });
 
-  // If player received most votes, they're eliminated
+  // Detect ties at max
+  const tiedAtMax = [...voteCounts.entries()]
+    .filter(([name, count]) => count === maxVotes && name)
+    .map(([name]) => name);
+
+  let tieBreak: VotingRecord['tieBreak'] | undefined = undefined;
+
+  if (tiedAtMax.length > 1) {
+    // 1) Revote among tied only
+    const revoteCandidates = new Set(tiedAtMax);
+    const revoteVotes: { [voter: string]: string } = {};
+    const revoteCounts: { [name: string]: number } = {} as any;
+
+    activeContestants.forEach(voter => {
+      if (voter.name === playerName) return; // Player not simulated here
+      if (revoteCandidates.has(voter.name)) return; // Tied players can't vote for themselves usually; they abstain
+
+      // Choose among tied based on threat + relationships
+      let choice = '';
+      let bestScore = -Infinity;
+      tiedAtMax.forEach(candidate => {
+        if (candidate === immunityWinner) return; // still cannot target immune, though unlikely
+        let score = (threatLevels.get(candidate) || 0);
+        const relationship = voter.memory.filter(m => 
+          m.participants.includes(candidate) && m.type === 'conversation'
+        ).reduce((sum, m) => sum + m.emotionalImpact, 0);
+        score += -relationship * 5;
+        // Small random factor
+        score += (Math.random() - 0.5) * 5;
+        if (score > bestScore) { bestScore = score; choice = candidate; }
+      });
+
+      if (choice) {
+        revoteVotes[voter.name] = choice;
+        revoteCounts[choice] = (revoteCounts[choice] || 0) + 1;
+      }
+    });
+
+    // Determine revote winner/loser
+    const topRevote = Object.entries(revoteCounts).reduce((prev, cur) => cur[1] > prev[1] ? cur : prev, ['', -Infinity as any]);
+    const revoteMax = topRevote[1] as number;
+    const revoteTied = Object.entries(revoteCounts).filter(([, c]) => c === revoteMax).map(([n]) => n);
+
+    if (revoteTied.length === 1) {
+      eliminated = revoteTied[0];
+      tieBreak = {
+        tied: tiedAtMax,
+        method: 'revote',
+        revote: { votes: revoteVotes, counts: revoteCounts },
+        log: [
+          `Tie detected between ${tiedAtMax.join(', ')}. Conducted a revote among housemates (excluding tied).`,
+          `Revote result: ${revoteTied[0]} received the most votes in the tie-break.`
+        ]
+      };
+    } else {
+      // 2) Sudden-death mini-competition among revoteTied
+      const compScores = new Map<string, number>();
+      revoteTied.forEach(name => {
+        const person = activeContestants.find(c => c.name === name) || contestants.find(c => c.name === name);
+        let score = 50;
+        if (person) {
+          // Use disposition hints as lightweight ability weights
+          const disp = person.psychProfile.disposition;
+          if (disp.includes('competitive')) score += 15;
+          if (disp.includes('driven')) score += 10;
+          if (disp.includes('strategic')) score += 5;
+          score += (100 - person.psychProfile.suspicionLevel) * 0.1;
+          score += person.psychProfile.trustLevel * 0.05;
+        }
+        score += (Math.random() - 0.5) * 20;
+        compScores.set(name, score);
+      });
+      const suddenWinner = [...compScores.entries()].reduce((p, c) => c[1] > p[1] ? c : p)[0];
+      const suddenLoser = revoteTied.find(n => n !== suddenWinner) || revoteTied[0];
+      eliminated = suddenLoser;
+      tieBreak = {
+        tied: tiedAtMax,
+        method: 'sudden_death',
+        revote: { votes: revoteVotes, counts: revoteCounts },
+        suddenDeathWinner: suddenWinner,
+        suddenDeathLoser: suddenLoser,
+        log: [
+          `Tie persisted after revote between ${revoteTied.join(', ')}.`,
+          `A sudden-death mini-competition was held. ${suddenWinner} won; ${suddenLoser} was eliminated.`
+        ]
+      };
+    }
+  }
+
+  // If player received most votes and no tie-break changed it
   const reason = eliminated === playerName 
     ? 'You have been eliminated by the other contestants'
-    : `${eliminated} was seen as the biggest threat and received ${maxVotes} votes`;
+    : tieBreak
+      ? (tieBreak.method === 'revote'
+          ? `${eliminated} lost the tie-break revote and was eliminated`
+          : `${eliminated} lost the sudden-death tie-break and was eliminated`)
+      : `${eliminated} was seen as the biggest threat and received ${maxVotes} votes`;
 
   return {
     day: 0, // Will be set by caller
     eliminated,
     votes,
-    reason
+    reason,
+    tieBreak
   };
 };
