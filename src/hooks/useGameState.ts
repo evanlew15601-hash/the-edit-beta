@@ -18,7 +18,7 @@ import {
 } from '@/utils/aiResponseEngine';
 import { generateLocalAIReply } from '@/utils/localLLM';
 
-const USE_REMOTE_AI = true; // Enable remote LLMs for higher-quality replies (HF/OpenAI)
+const USE_REMOTE_AI = false; // Use free local + deterministic engines by default
 
 const initialGameState = (): GameState => ({
   currentDay: 1,
@@ -293,6 +293,24 @@ export const useGameState = () => {
             psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 }
           };
 
+          // Build payload once so we can reuse across backends
+          const payload = {
+            playerMessage: content,
+            parsedInput: parsed,
+            npc: npcPayload,
+            tone: tone || '',
+            socialContext: {
+              day: gameState.currentDay,
+              relationshipHint: npcEntity ? {
+                trust: npcEntity.psychProfile.trustLevel,
+                suspicion: npcEntity.psychProfile.suspicionLevel,
+                closeness: npcEntity.psychProfile.emotionalCloseness,
+              } : undefined,
+              lastInteractions: recentMemories,
+            },
+            conversationType: actionType === 'dm' ? 'private' : 'public'
+          } as const;
+
           // Short-circuit for small talk check-ins to avoid nonsense (only for talk/DM)
           const lower = content!.toLowerCase();
           const isCheckIn = (/(?:\bhow('?s| is)?\b.*\b(today|day|going)\b)|\bhow are you\b/.test(lower));
@@ -307,24 +325,8 @@ export const useGameState = () => {
             }
           }
 
+          // Remote backends (disabled by default)
           if (!aiText && USE_REMOTE_AI) {
-            const payload = {
-              playerMessage: content,
-              parsedInput: parsed,
-              npc: npcPayload,
-              tone: tone || '',
-              socialContext: {
-                day: gameState.currentDay,
-                relationshipHint: npcEntity ? {
-                  trust: npcEntity.psychProfile.trustLevel,
-                  suspicion: npcEntity.psychProfile.suspicionLevel,
-                  closeness: npcEntity.psychProfile.emotionalCloseness,
-                } : undefined,
-                lastInteractions: recentMemories,
-              },
-              conversationType: actionType === 'dm' ? 'private' : 'public'
-            };
-
             // 1) Try OpenAI
             const primary = await supabase.functions.invoke('generate-ai-reply', { body: payload });
             if (!primary.error) {
@@ -338,19 +340,32 @@ export const useGameState = () => {
                 aiText = (hf.data as any)?.generatedText || '';
               }
             }
+          }
 
-            // 2.5) Local on-device LLM (WebGPU/WebCPU) as strong offline fallback
-            if (!aiText) {
-              try {
-                aiText = await generateLocalAIReply(payload);
-              } catch {}
-            }
+          // 2.5) Local on-device LLM (WebGPU/WebCPU) as strong offline fallback
+          if (!aiText) {
+            try {
+              aiText = await generateLocalAIReply(payload);
+            } catch {}
           }
         } catch (e) {
           console.error('AI reply error:', e);
         }
 
-        // 3) Final fallback: deterministic persona templates using parsed intent
+        // 3) Final fallback chain: contextual engine then templates
+        if (!aiText) {
+          try {
+            const resp = npcResponseEngine.generateResponse(
+              content!,
+              target!,
+              gameState,
+              (actionType === 'dm' ? 'private' : 'public') as any
+            );
+            aiText = resp?.content || '';
+          } catch (e2) {
+            console.error('NPC engine fallback error:', e2);
+          }
+        }
         if (!aiText) {
           try {
             const npcEntity = gameState.contestants.find(c => c.name === target);
@@ -365,8 +380,8 @@ export const useGameState = () => {
             const parsedLocal = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
             const templated = generateAIResponse(parsedLocal as any, npcForLocal, content!);
             if (templated) aiText = templated;
-          } catch (e2) {
-            console.error('Local fallback error:', e2);
+          } catch (e3) {
+            console.error('Local template fallback error:', e3);
           }
         }
 
