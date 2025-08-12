@@ -273,7 +273,13 @@ export const useGameState = () => {
         let aiText = '';
         try {
           // Build NPC payload with safe defaults if target not in roster yet
+          const parsed = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
           const npcEntity = gameState.contestants.find(c => c.name === target);
+          const recentMemories = (npcEntity?.memory || [])
+            .filter(m => m.participants.includes(gameState.playerName))
+            .slice(-3)
+            .map(m => ({ day: m.day, type: m.type, content: m.content, impact: m.emotionalImpact }));
+
           const npcPayload = npcEntity ? {
             name: npcEntity.name,
             publicPersona: npcEntity.publicPersona,
@@ -286,8 +292,18 @@ export const useGameState = () => {
 
           const payload = {
             playerMessage: content,
+            parsedInput: parsed,
             npc: npcPayload,
             tone: tone || '',
+            socialContext: {
+              day: gameState.currentDay,
+              relationshipHint: npcEntity ? {
+                trust: npcEntity.psychProfile.trustLevel,
+                suspicion: npcEntity.psychProfile.suspicionLevel,
+                closeness: npcEntity.psychProfile.emotionalCloseness,
+              } : undefined,
+              lastInteractions: recentMemories,
+            },
             conversationType: actionType === 'dm' ? 'private' : 'public'
           };
 

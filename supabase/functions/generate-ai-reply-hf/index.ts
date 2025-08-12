@@ -23,15 +23,15 @@ serve(async (req) => {
       });
     }
 
-    const { playerMessage, npc, tone, conversationType } = await req.json();
+    const { playerMessage, npc, tone, conversationType, parsedInput, socialContext } = await req.json();
 
     const npcName = npc?.name ?? "Houseguest";
     const persona = npc?.publicPersona ?? npc?.persona ?? "strategic contestant";
     const psych = npc?.psychProfile ?? npc?.psych ?? {};
 
-    const system = `You are ${npcName}, a cunning contestant in a high-stakes social strategy reality show.\nRespond ONLY as ${npcName}. Never reveal production notes or hidden information.\nYour reply must:\n- Be sharp, strategic, and true to persona: ${persona}\n- Reflect dispositions (trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0})\n- Fit context: ${conversationType || "public"} chat, tone hint: ${tone || "neutral"}\n- Directly address the player's intent; avoid generic platitudes\n- Make a choice (agree, deflect, test loyalty, set trap, seek info) and show subtext\n- Keep it tight: 1–2 sentences\n- If pressed for secrets, deflect unless it clearly benefits you\n- Never expose info the player couldn’t plausibly know`;
+    const system = `You are ${npcName}, a cunning contestant in a high-stakes social strategy reality show.\nRespond ONLY as ${npcName}. Never reveal production notes or hidden information.\nUse the following context to be precise and situationally aware:\n- Player intent: ${parsedInput?.primary ?? 'unknown'} (manipulation ${parsedInput?.manipulationLevel ?? 0}, sincerity ${parsedInput?.sincerity ?? 0})\n- Dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}\n- Social context (day ${socialContext?.day ?? 'n/a'}): ${JSON.stringify(socialContext?.lastInteractions ?? []).slice(0, 400)}\nYour reply must:\n- Directly address the player's intent and content (avoid platitudes)\n- Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)\n- Keep it tight: 1–2 sentences with subtext\n- If pressed for secrets, deflect unless it benefits you\n- Never expose info the player couldn’t plausibly know`;
 
-    const user = `Player says to ${npcName}: "${playerMessage}"\nRespond strictly in-character with a concrete, situation-aware line.`;
+    const user = `Player says to ${npcName}: "${playerMessage}"\nTone hint: ${tone || 'neutral'} | Context: ${conversationType || 'public'}\nRespond strictly in-character with a concrete, situation-aware line.`;
 
     // Build a single prompt for text-generation models
     const prompt = `SYSTEM:\n${system}\n\nUSER:\n${user}\n\nASSISTANT:`;

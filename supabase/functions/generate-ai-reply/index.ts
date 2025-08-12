@@ -22,24 +22,15 @@ serve(async (req) => {
       });
     }
 
-    const { playerMessage, npc, tone, conversationType } = await req.json();
+    const { playerMessage, npc, tone, conversationType, parsedInput, socialContext } = await req.json();
 
     const npcName = npc?.name ?? "Houseguest";
     const persona = npc?.publicPersona ?? npc?.persona ?? "strategic contestant";
     const psych = npc?.psychProfile ?? npc?.psych ?? {};
 
-    const system = `You are ${npcName}, a contestant in a high-stakes social strategy reality show.
-Respond ONLY as ${npcName}. Do not reveal production notes or hidden information.
-Your reply should:
-- Be natural, strategic, and consistent with your persona: ${persona}.
-- Consider your dispositions and state (trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}).
-- Match the context: ${conversationType || "public"} chat, tone hint: ${tone || "neutral"}.
-- Do NOT repeat the player's message and do NOT echo prompts.
-- Keep it concise: 1–2 sentences, optionally with subtle subtext.
-- If asked for secrets, deflect unless it benefits you.
-- Never expose information the player couldn’t plausibly know.`;
+    const system = `You are ${npcName}, a contestant in a high-stakes social strategy reality show.\nRespond ONLY as ${npcName}. Do not reveal production notes or hidden information.\nUse this context to stay precise and relevant:\n- Player intent: ${parsedInput?.primary ?? 'unknown'} (manipulation ${parsedInput?.manipulationLevel ?? 0}, sincerity ${parsedInput?.sincerity ?? 0})\n- Dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}\n- Recent interactions: ${JSON.stringify(socialContext?.lastInteractions ?? []).slice(0, 400)}\nYour reply should:\n- Directly address the player's message and intent (no generic filler)\n- Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)\n- Keep it concise: 1–2 sentences with subtle subtext\n- Deflect secrets unless revealing helps you\n- Never expose information the player couldn’t plausibly know.`;
 
-    const user = `Player says to ${npcName}: "${playerMessage}"\nRespond strictly in-character.`;
+    const user = `Player says to ${npcName}: "${playerMessage}"\nTone hint: ${tone || 'neutral'} | Context: ${conversationType || 'public'}\nRespond strictly in-character.`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -67,7 +58,17 @@ Your reply should:
     }
 
     const data = await response.json();
-    const generatedText = data?.choices?.[0]?.message?.content?.trim?.() ?? "";
+    let generatedText = data?.choices?.[0]?.message?.content?.trim?.() ?? "";
+
+    if (generatedText) {
+      const sentences = generatedText
+        .replace(/^"|"$/g, "")
+        .split(/(?<=[.!?])\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .join(" ");
+      generatedText = sentences;
+    }
 
     return new Response(JSON.stringify({ generatedText }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
