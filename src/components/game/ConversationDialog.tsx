@@ -55,7 +55,7 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, for
               <SelectTrigger>
                 <SelectValue placeholder={forced && presetTarget ? presetTarget : 'Choose who to talk to...'} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-50 bg-popover text-popover-foreground">
                 {contestants.map((contestant) => (
                   <SelectItem key={contestant.id} value={contestant.name}>
                     {contestant.name} - {contestant.publicPersona}

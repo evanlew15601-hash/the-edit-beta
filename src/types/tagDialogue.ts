@@ -33,6 +33,7 @@ export type TopicTag =
   | 'Production';
 
 export type TargetType = 'Person' | 'Group' | 'Self' | 'Object' | 'Audience';
+export type InteractionType = 'talk' | 'dm' | 'scheme' | 'activity';
 
 export interface Choice {
   choiceId: string;
@@ -41,6 +42,7 @@ export interface Choice {
   tone: ToneTag;
   topics: TopicTag[];
   targetType: TargetType;
+  interactionTypes?: InteractionType[]; // which actions this line applies to
   visibilityRules?: { minTrust?: number; requiresEvent?: string | null };
   cooldownDays?: number; // default 0
   weight?: number; // used to pick text variant

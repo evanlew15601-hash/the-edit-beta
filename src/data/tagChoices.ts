@@ -11,6 +11,7 @@ export const TAG_CHOICES: Choice[] = [
     tone: 'Sincere',
     topics: ['Challenge','Strategy'],
     targetType: 'Person',
+    interactionTypes: ['talk','dm'],
     visibilityRules: { minTrust: -100 },
     cooldownDays: 2,
     weight: 1.0
@@ -25,6 +26,7 @@ export const TAG_CHOICES: Choice[] = [
     tone: 'Neutral',
     topics: ['Game','Rumor','Eviction'],
     targetType: 'Person',
+    interactionTypes: ['talk','dm'],
     cooldownDays: 1,
     weight: 1.0
   },
@@ -38,6 +40,7 @@ export const TAG_CHOICES: Choice[] = [
     tone: 'Sarcastic',
     topics: ['Rumor','Game'],
     targetType: 'Person',
+    interactionTypes: ['talk','dm'],
     cooldownDays: 3,
     weight: 1.0
   },
@@ -51,6 +54,7 @@ export const TAG_CHOICES: Choice[] = [
     tone: 'Playful',
     topics: ['Challenge'],
     targetType: 'Person',
+    interactionTypes: ['talk'],
     cooldownDays: 1,
     weight: 1.0
   },
@@ -64,6 +68,7 @@ export const TAG_CHOICES: Choice[] = [
     tone: 'Flirty',
     topics: ['Romance'],
     targetType: 'Person',
+    interactionTypes: ['talk','dm'],
     cooldownDays: 2,
     weight: 1.0
   },
@@ -77,6 +82,7 @@ export const TAG_CHOICES: Choice[] = [
     tone: 'Aggressive',
     topics: ['Game','Strategy'],
     targetType: 'Person',
+    interactionTypes: ['talk'],
     cooldownDays: 4,
     weight: 1.0
   },
@@ -90,6 +96,7 @@ export const TAG_CHOICES: Choice[] = [
     tone: 'Playful',
     topics: ['Food'],
     targetType: 'Group',
+    interactionTypes: ['talk','activity'],
     cooldownDays: 1,
     weight: 1.0
   },
@@ -103,6 +110,7 @@ export const TAG_CHOICES: Choice[] = [
     tone: 'Sincere',
     topics: ['PersonalHistory','Game'],
     targetType: 'Person',
+    interactionTypes: ['dm','talk'],
     cooldownDays: 5,
     weight: 1.0
   },
@@ -116,6 +124,7 @@ export const TAG_CHOICES: Choice[] = [
     tone: 'Dismissive',
     topics: ['Production','Game'],
     targetType: 'Person',
+    interactionTypes: ['talk','dm'],
     cooldownDays: 2,
     weight: 1.0
   }

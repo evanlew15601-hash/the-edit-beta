@@ -17,7 +17,7 @@ interface ActionPanelProps {
   onAdvanceDay: () => void;
   onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
-  onTagTalk: (target: string, choiceId: string) => void;
+  onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
 }
 
 export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk }: ActionPanelProps) => {
@@ -230,7 +230,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onClose={() => setTagOpen(false)}
         gameState={gameState}
         contestants={gameState.contestants.filter(c => !c.isEliminated)}
-        onSubmit={(target, choiceId) => { onTagTalk(target, choiceId); setTagOpen(false); }}
+        onSubmit={(target, choiceId, interaction) => { onTagTalk(target, choiceId, interaction); setTagOpen(false); }}
       />
     </div>
   );

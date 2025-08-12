@@ -1033,7 +1033,7 @@ export const useGameState = () => {
     setGameState(initialGameState());
   }, []);
 
-  const tagTalk = useCallback((target: string, choiceId: string) => {
+  const tagTalk = useCallback((target: string, choiceId: string, interactionType: 'talk' | 'dm' | 'scheme' | 'activity') => {
     setGameState(prev => {
       const choice = TAG_CHOICES.find(c => c.choiceId === choiceId);
       const npc = prev.contestants.find(c => c.name === target);
@@ -1045,6 +1045,9 @@ export const useGameState = () => {
       const trustDelta = Math.round(outcome.trustDelta * 40);
       const suspicionDelta = Math.round(outcome.suspicionDelta * 40);
       const closenessDelta = Math.round((outcome.trustDelta - outcome.suspicionDelta) * 20);
+
+      const memoryType = interactionType === 'dm' ? 'dm' : interactionType === 'scheme' ? 'scheme' : interactionType === 'activity' ? 'event' : 'conversation';
+      const context = interactionType === 'dm' ? 'private' : interactionType === 'scheme' ? 'scheme' : interactionType === 'activity' ? 'activity' : 'public';
 
       const contestants = prev.contestants.map(c => {
         if (c.id !== npc.id) return c;
@@ -1060,7 +1063,7 @@ export const useGameState = () => {
             ...c.memory,
             {
               day: prev.currentDay,
-              type: 'conversation' as const,
+              type: memoryType as any,
               participants: [prev.playerName, c.name],
               content: `[TAG intent=${choice.intent} topic=${choice.topics[0]} tone=${choice.tone}] ${variant}`,
               emotionalImpact: Math.max(-10, Math.min(10, Math.round(outcome.trustDelta * 10))),
@@ -1070,9 +1073,9 @@ export const useGameState = () => {
         };
       });
 
-      // mark talk usage
+      // mark appropriate action usage
       const newActions = prev.playerActions.map(a => {
-        if (a.type !== 'talk') return a;
+        if (a.type !== interactionType) return a;
         const currentUsage = a.usageCount || 0;
         return { ...a, used: currentUsage >= 1, usageCount: currentUsage + 1, target, content: variant, tone: choice.tone };
       });
@@ -1083,7 +1086,7 @@ export const useGameState = () => {
       const take: ReactionTake = outcome.category === 'positive' ? 'positive' : outcome.category === 'neutral' ? 'neutral' : 'pushback';
       const reaction: ReactionSummary = {
         take,
-        context: 'public',
+        context: context as any,
         notes: outcome.notes,
       };
 
@@ -1097,7 +1100,7 @@ export const useGameState = () => {
         lastAIReaction: reaction,
         lastAIResponse: aiText,
         lastActionTarget: target,
-        lastActionType: 'talk' as const,
+        lastActionType: interactionType as any,
         tagChoiceCooldowns: {
           ...(prev.tagChoiceCooldowns || {}),
           ...(cooldownDays > 0 ? { [key]: prev.currentDay + cooldownDays } : {}),
@@ -1106,7 +1109,7 @@ export const useGameState = () => {
           ...((prev.interactionLog) || []),
           {
             day: prev.currentDay,
-            type: 'talk',
+            type: interactionType,
             participants: [prev.playerName, target],
             content: `[TAG intent=${choice.intent} topic=${choice.topics[0]}] ${variant}`,
             tone: choice.tone,
