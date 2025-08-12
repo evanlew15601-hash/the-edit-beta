@@ -324,31 +324,23 @@ export const useGameState = () => {
           console.error('AI reply error:', e);
         }
 
-        // 3) Final fallback: local engine with concise, in-character reply
+        // 3) Final fallback: deterministic persona templates using parsed intent
         if (!aiText) {
           try {
-            const local = npcResponseEngine.generateResponse(
-              content!,
-              target!,
-              gameState,
-              actionType === 'dm' ? 'private' : 'public'
-            );
-            aiText = local.content;
+            const npcEntity = gameState.contestants.find(c => c.name === target);
+            const npcForLocal: Contestant = npcEntity ?? {
+              id: `temp_${target}`,
+              name: target!,
+              publicPersona: 'strategic contestant',
+              psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 },
+              memory: [],
+              isEliminated: false,
+            } as Contestant;
+            const parsedLocal = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
+            const templated = generateAIResponse(parsedLocal as any, npcForLocal, content!);
+            if (templated) aiText = templated;
           } catch (e2) {
             console.error('Local fallback error:', e2);
-            try {
-              const npcObj = gameState.contestants.find(c => c.name === target);
-              const parsed = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
-              if (npcObj && parsed) {
-                const alt = generateAIResponse(parsed, npcObj, content!);
-                if (alt) aiText = alt;
-              }
-            } catch (e3) {
-              console.error('Secondary local fallback error:', e3);
-            }
-            if (!aiText) {
-              aiText = `${target} weighs it, eyes narrowing. "Noted."`;
-            }
           }
         }
 
