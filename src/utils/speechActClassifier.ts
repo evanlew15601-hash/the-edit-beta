@@ -427,12 +427,29 @@ class SpeechActClassifier {
   }
 
   private isInformationSeeking(message: string): boolean {
-    const questionWords = ['what', 'who', 'when', 'where', 'why', 'how'];
-    const lowerMessage = message.toLowerCase();
-    
-    return questionWords.some(word => lowerMessage.includes(word)) || 
-           message.includes('?') ||
-           /\b(tell me|let me know|fill me in)\b/i.test(message);
+    const lower = message.toLowerCase().trim();
+
+    // Exclusions: statements containing "what" but not asking
+    const exclusionPatterns = [
+      /not what/i,
+      /that's what/i,
+      /what i (said|meant|did)/i,
+      /you know what/i,
+    ];
+    if (exclusionPatterns.some((p) => p.test(message))) {
+      // Only count as info-seeking if explicitly a question
+      return /\?/.test(message);
+    }
+
+    // Strong interrogative signals
+    const startsWithInterrogative = /^\s*(what|who|when|where|why|how)\b/i.test(message);
+    const startsWithAux = /^\s*(can|could|would|will|do|does|did|are|is|was|were|should|shall|have|has|had|may|might)\b/i.test(message);
+    const explicitAsk = /\b(tell me|let me know|fill me in|what's the plan|what's happening)\b/i.test(message);
+
+    if (/\?/.test(message)) return true;
+    if (startsWithInterrogative || startsWithAux || explicitAsk) return true;
+
+    return false;
   }
 
   private isTrustBuilding(message: string): boolean {

@@ -11,6 +11,7 @@ export function summarizeReaction(
   const lower = (content || '').toLowerCase();
   const trust = npc?.psychProfile.trustLevel ?? 0;
   const suspicion = npc?.psychProfile.suspicionLevel ?? 30;
+  const seemsQuestion = /\?\s*$/.test(content) || /^\s*(what|who|when|where|why|how|can|could|would|will|do|does|did|are|is|was|were|should|have|has|had|may|might)\b/i.test(content || '');
 
   const normalizedContext: ReactionSummary['context'] =
     actionType === 'dm' ? 'private'
@@ -68,7 +69,7 @@ export function summarizeReaction(
       } else {
         take = trust > 40 ? 'curious' : 'suspicious';
       }
-    } else if (infoSeeking || /information|question/i.test(primary)) {
+    } else if (infoSeeking || seemsQuestion) {
       take = 'curious';
     } else if (trustBuilding || /expressing_trust|seeking_reassurance/i.test(primary)) {
       take = trust > 25 ? 'positive' : 'curious';

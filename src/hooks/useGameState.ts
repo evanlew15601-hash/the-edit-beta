@@ -298,6 +298,8 @@ export const useGameState = () => {
           target,
           content,
           parsedPrimary: parsedInput?.primary,
+          infoSeeking: parsedInput?.informationSeeking,
+          trustBuilding: parsedInput?.trustBuilding,
           threat: parsedInput?.threatLevel,
           manipulation: parsedInput?.manipulationLevel,
           emotionKeys: parsedInput?.emotionalSubtext ? Object.keys(parsedInput.emotionalSubtext) : [],
