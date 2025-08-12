@@ -29,18 +29,9 @@ serve(async (req) => {
     const persona = npc?.publicPersona ?? npc?.persona ?? "strategic contestant";
     const psych = npc?.psychProfile ?? npc?.psych ?? {};
 
-    const system = `You are ${npcName}, a cunning contestant in a high-stakes social strategy reality show.
-Respond ONLY as ${npcName}. Never reveal production notes or hidden information.
-Your reply must:
-- Be sharp, strategic, and true to persona: ${persona}
-- Reflect dispositions (trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0})
-- Fit context: ${conversationType || "public"} chat, tone hint: ${tone || "neutral"}
-- Keep it tight: 1–2 sentences with subtle subtext
-- If pressed for secrets, deflect unless it clearly benefits you
-- Never expose info the player couldn’t plausibly know`;
+    const system = `You are ${npcName}, a cunning contestant in a high-stakes social strategy reality show.\nRespond ONLY as ${npcName}. Never reveal production notes or hidden information.\nYour reply must:\n- Be sharp, strategic, and true to persona: ${persona}\n- Reflect dispositions (trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0})\n- Fit context: ${conversationType || "public"} chat, tone hint: ${tone || "neutral"}\n- Directly address the player's intent; avoid generic platitudes\n- Make a choice (agree, deflect, test loyalty, set trap, seek info) and show subtext\n- Keep it tight: 1–2 sentences\n- If pressed for secrets, deflect unless it clearly benefits you\n- Never expose info the player couldn’t plausibly know`;
 
-    const user = `Player says to ${npcName}: "${playerMessage}"
-Respond strictly in-character.`;
+    const user = `Player says to ${npcName}: "${playerMessage}"\nRespond strictly in-character with a concrete, situation-aware line.`;
 
     // Build a single prompt for text-generation models
     const prompt = `SYSTEM:\n${system}\n\nUSER:\n${user}\n\nASSISTANT:`;

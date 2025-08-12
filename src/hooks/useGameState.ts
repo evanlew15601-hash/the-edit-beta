@@ -13,7 +13,8 @@ import {
   calculateAITrustDelta, 
   calculateAISuspicionDelta, 
   calculateEmotionalDelta,
-  calculateAILeakChance
+  calculateAILeakChance,
+  generateAIResponse,
 } from '@/utils/aiResponseEngine';
 
 const initialGameState = (): GameState => ({
@@ -319,7 +320,19 @@ export const useGameState = () => {
             aiText = local.content;
           } catch (e2) {
             console.error('Local fallback error:', e2);
-            aiText = `${target} gives a measured nod, keeping it close to the vest.`;
+            try {
+              const npcObj = gameState.contestants.find(c => c.name === target);
+              const parsed = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
+              if (npcObj && parsed) {
+                const alt = generateAIResponse(parsed, npcObj, content!);
+                if (alt) aiText = alt;
+              }
+            } catch (e3) {
+              console.error('Secondary local fallback error:', e3);
+            }
+            if (!aiText) {
+              aiText = `${target} weighs it, eyes narrowing. "Noted."`;
+            }
           }
         }
 
