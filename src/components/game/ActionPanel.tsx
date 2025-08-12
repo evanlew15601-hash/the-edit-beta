@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
 import { GameState } from '@/types/game';
@@ -15,11 +15,14 @@ interface ActionPanelProps {
   onUseAction: (actionType: string, target?: string, content?: string, tone?: string) => void;
   onAdvanceDay: () => void;
   onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
+  onForcedConversationReply: (from: string, content: string, tone: string) => void;
 }
 
-export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice }: ActionPanelProps) => {
+export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply }: ActionPanelProps) => {
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
+  const [forcedOpen, setForcedOpen] = useState(false);
+  const forcedItem = (gameState.forcedConversationsQueue || [])[0];
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
   const hasCompletedConfessional = gameState.playerActions.find(a => a.type === 'confessional')?.used;
@@ -58,6 +61,16 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
     onUseAction(actionType, target, content, tone);
     setActiveDialog(null);
   };
+
+  // Auto-open forced pull-aside if queued
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if ((gameState.forcedConversationsQueue || []).length > 0) {
+      setForcedOpen(true);
+    } else {
+      setForcedOpen(false);
+    }
+  }, [gameState.forcedConversationsQueue]);
 
   return (
     <div className="space-y-6">
@@ -135,6 +148,20 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
       </Card>
 
       {/* Dialog Components */}
+      {/* Forced Conversation */}
+      <ConversationDialog
+        isOpen={forcedOpen && !!forcedItem}
+        onClose={() => { /* forced; do not allow closing without reply */ }}
+        contestants={gameState.contestants.filter(c => !c.isEliminated)}
+        onSubmit={(target, content, tone) => {
+          onForcedConversationReply(target, content, tone);
+          setForcedOpen(false);
+        }}
+        forced
+        presetTarget={forcedItem?.from}
+        forcedTopic={forcedItem?.topic}
+      />
+
       <ConversationDialog
         isOpen={activeDialog === 'talk'}
         onClose={handleDialogClose}

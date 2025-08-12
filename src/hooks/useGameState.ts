@@ -759,7 +759,23 @@ export const useGameState = () => {
           { type: 'scheme', used: false, usageCount: 0 },
           { type: 'activity', used: false, usageCount: 0 }
             ] as PlayerAction[],
-            dailyActionCount: 0
+            dailyActionCount: 0,
+            forcedConversationsQueue: (() => {
+              const q = prev.forcedConversationsQueue || [];
+              const pool = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+              if (!pool.length) return q;
+              const scored = pool.map(c => {
+                const recent = (c.memory || []).filter(m => m.participants.includes(prev.playerName)).slice(-5);
+                const score = recent.reduce((s, m) => s + Math.abs(m.emotionalImpact), 0) + (c.psychProfile.emotionalCloseness / 50);
+                return { name: c.name, score, topic: recent[recent.length - 1]?.content || 'Quick check-in' };
+              }).sort((a, b) => b.score - a.score);
+              const pick = scored[0] || { name: pool[0]?.name, topic: 'Quick check-in', score: 0 } as any;
+              if (!pick.name) return q;
+              return [
+                ...q,
+                { from: pick.name, topic: pick.topic, urgency: pick.score > 3 ? 'important' as const : 'casual' as const, day: newDay }
+              ];
+            })(),
       };
 
       // Save game state
@@ -779,7 +795,19 @@ export const useGameState = () => {
   const completePremiere = useCallback(() => {
     setGameState(prev => ({
       ...prev,
-      gamePhase: 'daily'
+      gamePhase: 'daily',
+      forcedConversationsQueue: (() => {
+        const pool = prev.contestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+        if (!pool.length) return [] as NonNullable<GameState['forcedConversationsQueue']>;
+        const scored = pool.map(c => {
+          const recent = (c.memory || []).filter(m => m.participants.includes(prev.playerName)).slice(-5);
+          const score = recent.reduce((s, m) => s + Math.abs(m.emotionalImpact), 0) + (c.psychProfile.emotionalCloseness / 50);
+          return { name: c.name, score, topic: recent[recent.length - 1]?.content || 'Quick check-in' };
+        }).sort((a, b) => b.score - a.score);
+        const pick = scored[0] || { name: pool[0]?.name, topic: 'Quick check-in', score: 0 } as any;
+        if (!pick.name) return [] as NonNullable<GameState['forcedConversationsQueue']>;
+        return [{ from: pick.name, topic: pick.topic, urgency: pick.score > 3 ? 'important' as const : 'casual' as const, day: prev.currentDay }];
+      })(),
     }));
   }, []);
 
@@ -848,6 +876,86 @@ export const useGameState = () => {
     });
   }, []);
 
+  const respondToForcedConversation = useCallback((from: string, content: string, tone: string) => {
+    setGameState(prev => {
+      const targetName = from;
+      const parsedInput = content ? speechActClassifier.classifyMessage(content, 'Player', { target: targetName, actionType: 'talk' }) : null;
+      const updatedContestants = prev.contestants.map(contestant => {
+        if (contestant.name !== targetName || !parsedInput) return contestant;
+        const npcPersonalityBias = getNPCPersonalityBias(contestant);
+        const trustDelta = calculateAITrustDelta(parsedInput, npcPersonalityBias);
+        const suspicionDelta = calculateAISuspicionDelta(parsedInput, npcPersonalityBias);
+        const emotionalDelta = calculateEmotionalDelta(parsedInput, npcPersonalityBias);
+        return {
+          ...contestant,
+          psychProfile: {
+            ...contestant.psychProfile,
+            trustLevel: Math.max(-100, Math.min(100, contestant.psychProfile.trustLevel + trustDelta)),
+            suspicionLevel: Math.max(0, Math.min(100, contestant.psychProfile.suspicionLevel + suspicionDelta)),
+            emotionalCloseness: Math.max(0, Math.min(100, contestant.psychProfile.emotionalCloseness + emotionalDelta))
+          },
+          memory: [...contestant.memory, {
+            day: prev.currentDay,
+            type: 'conversation' as const,
+            participants: [prev.playerName, contestant.name],
+            content: `${content} [FORCED CHECK-IN]`,
+            emotionalImpact: trustDelta / 5,
+            timestamp: prev.currentDay * 1000 + Math.random() * 1000
+          }]
+        };
+      });
+
+      const reaction = summarizeReaction(
+        'talk',
+        content || '',
+        parsedInput,
+        updatedContestants.find(c => c.name === targetName) || null,
+        'public'
+      );
+
+      const newQueue = [...(prev.forcedConversationsQueue || [])];
+      const idx = newQueue.findIndex(it => it.from === from);
+      if (idx >= 0) newQueue.splice(idx, 1);
+
+      const newState: GameState = {
+        ...prev,
+        contestants: updatedContestants,
+        lastAIReaction: reaction,
+        lastActionTarget: targetName,
+        lastActionType: 'talk',
+        forcedConversationsQueue: newQueue,
+        interactionLog: [
+          ...((prev.interactionLog) || []),
+          {
+            day: prev.currentDay,
+            type: 'talk',
+            participants: [prev.playerName, targetName],
+            content,
+            tone,
+            source: 'player' as const,
+          }
+        ],
+      };
+      return newState;
+    });
+
+    // Best-effort DB log
+    (async () => {
+      try {
+        await supabase.from('interactions').insert({
+          day: gameState.currentDay,
+          type: 'talk',
+          participants: [gameState.playerName, from],
+          npc_name: from,
+          player_name: gameState.playerName,
+          player_message: content,
+          ai_response: null,
+          tone,
+        });
+      } catch {}
+    })();
+  }, []);
+
   const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }) => {
     setGameState(prev => ({
       ...prev,
@@ -906,6 +1014,7 @@ export const useGameState = () => {
     setImmunityWinner,
     submitFinaleSpeech,
     submitPlayerVote,
+    respondToForcedConversation,
     completePremiere,
     endGame,
     continueFromElimination,

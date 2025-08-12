@@ -18,8 +18,8 @@ interface ConversationDialogProps {
 }
 
 export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, forced, presetTarget, forcedTopic }: ConversationDialogProps) => {
-  const [selectedTarget, setSelectedTarget] = useState<string>('');
-  const [content, setContent] = useState('');
+  const [selectedTarget, setSelectedTarget] = useState<string>(presetTarget || '');
+  const [content, setContent] = useState(forcedTopic || '');
   const [tone, setTone] = useState<string>('');
 
   const handleSubmit = () => {

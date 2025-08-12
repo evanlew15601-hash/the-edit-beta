@@ -18,6 +18,7 @@ const Index = () => {
     setImmunityWinner,
     submitFinaleSpeech,
     submitPlayerVote,
+    respondToForcedConversation,
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,
@@ -40,6 +41,7 @@ const Index = () => {
              onUseAction={useAction}
              onAdvanceDay={advanceDay}
              onEmergentEventChoice={handleEmergentEventChoice}
+             onForcedConversationReply={respondToForcedConversation}
            />
         );
       
