@@ -344,6 +344,7 @@ export const useGameState = () => {
         }
       })();
     }
+  }, []);
   const submitConfessional = useCallback((content: string, tone: string) => {
     setGameState(prev => {
       const confessional: Confessional = {
