@@ -50,7 +50,7 @@ export interface GameState {
   editPerception: EditPerception;
   alliances: Alliance[];
   votingHistory: VotingRecord[];
-  gamePhase: 'intro' | 'daily' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote';
+  gamePhase: 'intro' | 'premiere' | 'daily' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote';
   twistsActivated: string[];
   nextEliminationDay: number;
   dailyActionCount: number; // actions used today

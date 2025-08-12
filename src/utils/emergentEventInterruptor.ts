@@ -2,7 +2,7 @@ import { GameState, Contestant } from '@/types/game';
 
 export interface EmergentEvent {
   id: string;
-  type: 'drama' | 'alliance_betrayal' | 'elimination_twist' | 'production_intervention';
+  type: 'drama' | 'alliance_betrayal' | 'npc_check_in' | 'production_intervention';
   title: string;
   description: string;
   involvedContestants: string[];
@@ -12,6 +12,7 @@ export interface EmergentEvent {
     longTerm: string;
   };
 }
+
 
 export class EmergentEventInterruptor {
   static checkForEventInterruption(gameState: GameState): EmergentEvent | null {
@@ -70,18 +71,19 @@ export class EmergentEventInterruptor {
       }
     }
 
-    // Production twist events
-    if (gameState.currentDay > 5) {
+    // NPC check-in events (simple pull-aside conversation)
+    if (Math.random() < 0.25 && contestants.length > 0) {
+      const confidant = contestants[Math.floor(Math.random() * contestants.length)];
       events.push({
-        id: 'surprise_twist',
-        type: 'production_intervention',
-        title: 'Unexpected Twist',
-        description: 'Production calls everyone to the living room for an emergency announcement. A new twist is being introduced that will change the game forever. You can\'t avoid being part of this moment.',
-        involvedContestants: contestants.map(c => c.name),
+        id: `npc_check_in_${confidant.name}`,
+        type: 'npc_check_in',
+        title: 'Pulled Aside',
+        description: `${confidant.name} catches you in the hallway for a quick check-in. They want to feel you out without making a scene.`,
+        involvedContestants: [confidant.name],
         requiresPlayerAction: true,
         impact: {
-          immediate: 'Game rules change dramatically',
-          longTerm: 'New strategic considerations emerge'
+          immediate: 'Your tone will affect trust and closeness with them',
+          longTerm: 'Sets the tone for future one-on-one conversations'
         }
       });
     }
@@ -109,38 +111,78 @@ export class EmergentEventInterruptor {
     return events;
   }
 
-  static applyEventInterruption(event: EmergentEvent, gameState: GameState): GameState {
-    // Apply immediate effects of the emergent event
-    const updatedContestants = gameState.contestants.map(contestant => {
-      if (event.involvedContestants.includes(contestant.name)) {
-        // Add event to contestant memory
-        const eventMemory = {
-          day: gameState.currentDay,
-          type: 'event' as const,
-          participants: event.involvedContestants,
-          content: `Emergent Event: ${event.title} - ${event.description}`,
-          emotionalImpact: event.type === 'drama' ? -3 : event.type === 'alliance_betrayal' ? -5 : 2,
-          timestamp: gameState.currentDay * 1000 + Math.random() * 1000
-        };
+  static applyEventInterruption(event: EmergentEvent, gameState: GameState, choice: 'pacifist' | 'headfirst'): GameState {
+    const favorName = event.involvedContestants[0] || '';
 
-        return {
-          ...contestant,
-          memory: [...contestant.memory, eventMemory],
-          psychProfile: {
-            ...contestant.psychProfile,
-            // Emergent events increase tension and suspicion
-            suspicionLevel: Math.min(100, contestant.psychProfile.suspicionLevel + 
-              (event.type === 'alliance_betrayal' ? 15 : event.type === 'drama' ? 10 : 5))
+    const updatedContestants = gameState.contestants.map(contestant => {
+      const isInvolved = event.involvedContestants.includes(contestant.name);
+      const baseMemory = {
+        day: gameState.currentDay,
+        type: 'event' as const,
+        participants: event.involvedContestants,
+        content: `Emergent Event: ${event.title} (${choice}) - ${event.description}`,
+        emotionalImpact: 0,
+        timestamp: gameState.currentDay * 1000 + Math.random() * 1000
+      };
+
+      if (!isInvolved) return contestant;
+
+      let trustDelta = 0;
+      let suspicionDelta = 0;
+      let closenessDelta = 0;
+
+      switch (event.type) {
+        case 'drama':
+        case 'alliance_betrayal': {
+          if (choice === 'pacifist') {
+            trustDelta += 3;
+            suspicionDelta -= 4;
+            baseMemory.emotionalImpact = 2;
+          } else {
+            const favored = contestant.name === favorName;
+            trustDelta += favored ? 5 : -2;
+            suspicionDelta += favored ? -2 : 7;
+            baseMemory.emotionalImpact = favored ? 3 : -3;
           }
-        };
+          break;
+        }
+        case 'npc_check_in': {
+          if (choice === 'pacifist') {
+            closenessDelta += 3;
+            trustDelta += 1;
+            baseMemory.emotionalImpact = 1;
+          } else {
+            closenessDelta += 8;
+            trustDelta += 4;
+            suspicionDelta -= 2;
+            baseMemory.emotionalImpact = 4;
+          }
+          break;
+        }
+        case 'production_intervention': {
+          // Keep neutral, no twist language; light tension regardless of choice
+          suspicionDelta += choice === 'headfirst' ? 3 : 1;
+          baseMemory.emotionalImpact = -1;
+          break;
+        }
       }
-      return contestant;
+
+      return {
+        ...contestant,
+        psychProfile: {
+          ...contestant.psychProfile,
+          trustLevel: Math.max(-100, Math.min(100, contestant.psychProfile.trustLevel + trustDelta)),
+          suspicionLevel: Math.max(0, Math.min(100, contestant.psychProfile.suspicionLevel + suspicionDelta)),
+          emotionalCloseness: Math.max(0, Math.min(100, contestant.psychProfile.emotionalCloseness + closenessDelta))
+        },
+        memory: [...contestant.memory, baseMemory]
+      };
     });
 
     return {
       ...gameState,
       contestants: updatedContestants,
-      lastEmergentEvent: event // Store for UI display
+      lastEmergentEvent: event
     };
   }
 }

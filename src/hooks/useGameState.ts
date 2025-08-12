@@ -19,6 +19,7 @@ import {
 import { generateLocalAIReply } from '@/utils/localLLM';
 import { detectGameTalk, craftGameTalkReply } from '@/utils/gameTalkHeuristics';
 import { summarizeReaction } from '@/utils/reactionSummarizer';
+import { EmergentEventInterruptor, EmergentEvent } from '@/utils/emergentEventInterruptor';
  
 const MINIMAL_AI = true; // Minimal, credit-free reaction mode
 const USE_REMOTE_AI = false; // Use free local + deterministic engines by default
@@ -758,10 +759,17 @@ export const useGameState = () => {
   }, []);
 
   const continueFromElimination = useCallback(() => {
-    setGameState(prev => ({
-      ...prev,
-      gamePhase: prev.currentDay % 7 === 0 ? 'weekly_recap' : 'daily'
-    }));
+    setGameState(prev => {
+      const latest = prev.votingHistory[prev.votingHistory.length - 1];
+      const playerEliminated = latest?.eliminated === prev.playerName;
+      if (playerEliminated) {
+        return initialGameState();
+      }
+      return {
+        ...prev,
+        gamePhase: prev.currentDay % 7 === 0 ? 'weekly_recap' : 'daily'
+      };
+    });
   }, []);
 
   const continueFromWeeklyRecap = useCallback(() => {
@@ -769,6 +777,10 @@ export const useGameState = () => {
       ...prev,
       gamePhase: 'daily'
     }));
+  }, []);
+
+  const handleEmergentEventChoice = useCallback((event: EmergentEvent, choice: 'pacifist' | 'headfirst') => {
+    setGameState(prev => EmergentEventInterruptor.applyEventInterruption(event, prev, choice));
   }, []);
 
   const resetGame = useCallback(() => {
@@ -793,6 +805,7 @@ export const useGameState = () => {
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,
+    handleEmergentEventChoice,
     resetGame
   };
 };

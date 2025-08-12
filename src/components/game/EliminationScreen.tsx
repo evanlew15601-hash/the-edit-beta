@@ -157,7 +157,7 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
             size="wide" 
             onClick={onContinue}
           >
-            {isPlayerEliminated ? 'View Final Edit' : 'Continue Game'}
+            {isPlayerEliminated ? 'Restart Game' : 'Continue Game'}
           </Button>
         </div>
         </div>

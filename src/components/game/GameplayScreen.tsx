@@ -10,9 +10,10 @@ interface GameplayScreenProps {
   gameState: GameState;
   onUseAction: (actionType: string, target?: string, content?: string, tone?: string) => void;
   onAdvanceDay: () => void;
+  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
 }
 
-export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay }: GameplayScreenProps) => {
+export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice }: GameplayScreenProps) => {
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader gameState={gameState} />
@@ -35,6 +36,7 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay }: Gamepla
               gameState={gameState}
               onUseAction={onUseAction}
               onAdvanceDay={onAdvanceDay}
+              onEmergentEventChoice={onEmergentEventChoice}
             />
           </div>
           

@@ -18,7 +18,8 @@ const Index = () => {
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,
-    resetGame
+    resetGame,
+    handleEmergentEventChoice
   } = useGameState();
 
   const renderScreen = () => {
@@ -29,10 +30,11 @@ const Index = () => {
       case 'daily':
         return (
           <GameplayScreen
-            gameState={gameState}
-            onUseAction={useAction}
-            onAdvanceDay={advanceDay}
-          />
+             gameState={gameState}
+             onUseAction={useAction}
+             onAdvanceDay={advanceDay}
+             onEmergentEventChoice={handleEmergentEventChoice}
+           />
         );
       
       case 'elimination':

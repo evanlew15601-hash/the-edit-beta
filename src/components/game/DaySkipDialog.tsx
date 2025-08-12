@@ -12,9 +12,10 @@ interface DaySkipDialogProps {
   onConfirmSkip: () => void;
   currentDay: number;
   gameState: GameState;
+  onEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
 }
 
-export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, gameState }: DaySkipDialogProps) => {
+export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, gameState, onEventChoice }: DaySkipDialogProps) => {
   const [isSkipping, setIsSkipping] = useState(false);
   const [emergentEvent, setEmergentEvent] = useState<any>(null);
   const [selectedReason, setSelectedReason] = useState<string>('');
@@ -38,12 +39,14 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
     setIsSkipping(false);
   };
 
-  const handleEventResponse = () => {
+  const handleChoice = (choice: 'pacifist' | 'headfirst') => {
+    if (emergentEvent) {
+      onEventChoice(emergentEvent, choice);
+    }
     setEmergentEvent(null);
+    onConfirmSkip();
     onClose();
-    // Player is pulled back into action
   };
-
   const skipReasons = [
     {
       title: 'Rest & Observe',
@@ -110,16 +113,16 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
               ))}
             </div>
 
-            <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
+            <div className="bg-accent/10 border border-accent/20 rounded p-4">
               <div className="flex items-start gap-3">
-                <Zap className="w-5 h-5 text-destructive mt-0.5" />
+                <Zap className="w-5 h-5 text-accent mt-0.5" />
                 <div>
-                  <p className="text-sm text-destructive font-medium mb-2">
-                    AI Event Possibility
+                  <p className="text-sm text-accent font-medium mb-2">
+                    Unscripted Moments Can Happen
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Even when trying to lay low, dramatic events might force you back into action. 
-                    The producers and other contestants might not let you stay invisible.
+                    Even when trying to lay low, moments might force you back into action. 
+                    Staying calm or stepping in will both shape how others see you.
                   </p>
                 </div>
               </div>
@@ -164,14 +167,22 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
                     </div>
                   </div>
                 </div>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleEventResponse} 
-                  className="w-full"
-                >
-                  Get Involved in the Drama
-                </Button>
-              </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => handleChoice('pacifist')} 
+                    className="w-full"
+                  >
+                    Stay Pacifist
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => handleChoice('headfirst')} 
+                    className="w-full"
+                  >
+                    Jump In Headfirst
+                  </Button>
+                </div>
             )}
 
             <div className="flex gap-3">

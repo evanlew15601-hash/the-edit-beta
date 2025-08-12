@@ -14,9 +14,10 @@ interface ActionPanelProps {
   gameState: GameState;
   onUseAction: (actionType: string, target?: string, content?: string, tone?: string) => void;
   onAdvanceDay: () => void;
+  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
 }
 
-export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPanelProps) => {
+export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice }: ActionPanelProps) => {
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
   
@@ -169,12 +170,13 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
       />
 
       <DaySkipDialog
-        isOpen={showSkipDialog}
-        onClose={() => setShowSkipDialog(false)}
-        onConfirmSkip={onAdvanceDay}
-        currentDay={gameState.currentDay}
-        gameState={gameState}
-      />
+         isOpen={showSkipDialog}
+         onClose={() => setShowSkipDialog(false)}
+         onConfirmSkip={onAdvanceDay}
+         currentDay={gameState.currentDay}
+         gameState={gameState}
+         onEventChoice={onEmergentEventChoice}
+       />
 
       <ActivityDialog
         isOpen={activeDialog === 'activity'}
