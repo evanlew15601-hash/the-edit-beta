@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { npcResponseEngine } from '@/utils/npcResponseEngine';
 import { GameState, Contestant, PlayerAction, Confessional, EditPerception, Alliance, VotingRecord } from '@/types/game';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { calculateEditPerception } from '@/utils/editEngine';
@@ -38,7 +39,9 @@ const initialGameState = (): GameState => ({
   votingHistory: [],
   gamePhase: 'intro',
   twistsActivated: [],
-  nextEliminationDay: 7
+  nextEliminationDay: 7,
+  dailyActionCount: 0,
+  dailyActionCap: 10
 });
 
 export const useGameState = () => {
@@ -59,6 +62,9 @@ export const useGameState = () => {
 
   const useAction = useCallback((actionType: string, target?: string, content?: string, tone?: string) => {
     setGameState(prev => {
+      // Enforce daily action cap
+      if (prev.dailyActionCount >= prev.dailyActionCap) return prev;
+
       const newActions = prev.playerActions.map(action => {
         if (action.type === actionType) {
           const currentUsage = action.usageCount || 0;
@@ -88,7 +94,6 @@ export const useGameState = () => {
         switch (actionType) {
           case 'talk':
             if (contestant.name === target && parsedInput) {
-              // Use AI classification to determine NPC reaction
               const npcPersonalityBias = getNPCPersonalityBias(contestant);
               const trustDelta = calculateAITrustDelta(parsedInput, npcPersonalityBias);
               const suspicionDelta = calculateAISuspicionDelta(parsedInput, npcPersonalityBias);
@@ -138,7 +143,6 @@ export const useGameState = () => {
                 }]
               };
 
-              // AI-driven leak based on actual content interpretation
               if (Math.random() < leakChance) {
                 prev.contestants.forEach(otherContestant => {
                   if (otherContestant.name !== contestant.name && otherContestant.name !== prev.playerName && !otherContestant.isEliminated) {
@@ -157,7 +161,6 @@ export const useGameState = () => {
             break;
 
           case 'observe':
-            // Observation gives player information but may be noticed by contestants
             const observationMemory = {
               day: prev.currentDay,
               type: 'observation' as const,
@@ -167,7 +170,6 @@ export const useGameState = () => {
               timestamp: prev.currentDay * 1000 + Math.random() * 1000
             };
             
-            // Small chance contestants notice being observed
             if (Math.random() < 0.15) {
               updatedContestant = {
                 ...updatedContestant,
@@ -186,7 +188,7 @@ export const useGameState = () => {
               const schemeDetected = parsedInput.manipulationLevel > 40 || parsedInput.primary === 'sabotaging';
               const schemeSuccess = !schemeDetected && npcPersonalityBias.manipulationDetection < 60;
               
-              const trustDelta = schemeSuccess ? -5 : -20; // Failed schemes hurt more
+              const trustDelta = schemeSuccess ? -5 : -20;
               const suspicionDelta = schemeDetected ? 35 : 15;
               
               updatedContestant = {
@@ -209,7 +211,6 @@ export const useGameState = () => {
             break;
 
           case 'activity':
-            // Group task participation: small positive social effects
             if (!contestant.isEliminated && Math.random() < 0.35) {
               updatedContestant = {
                 ...updatedContestant,
@@ -234,7 +235,6 @@ export const useGameState = () => {
         return updatedContestant;
       });
 
-      // Handle alliance formation from DMs or schemes
       const newAlliances = [...prev.alliances];
       if (actionType === 'dm' && tone === 'alliance' && target) {
         const existingAlliance = newAlliances.find(a => a.members.includes(prev.playerName) && a.members.includes(target));
@@ -253,14 +253,14 @@ export const useGameState = () => {
         }
       }
 
-      // Defer AI response to external service (set asynchronously)
       return {
         ...prev,
         playerActions: newActions,
         contestants: updatedContestants,
         alliances: newAlliances,
+        dailyActionCount: prev.dailyActionCount + 1,
         lastAIResponse: undefined,
-        lastParsedInput: parsedInput, // Store for debugging
+        lastParsedInput: parsedInput,
         lastActionTarget: target,
         lastActionType: actionType as PlayerAction['type']
       };
@@ -269,6 +269,7 @@ export const useGameState = () => {
     // Call generative AI via Supabase Edge Function and store interaction
     if (target && content && ['talk','dm','scheme'].includes(actionType)) {
       (async () => {
+        let aiText = '';
         try {
           const npc = gameState.contestants.find(c => c.name === target);
           const payload = {
@@ -287,26 +288,41 @@ export const useGameState = () => {
           });
           if (error) throw error;
 
-          const aiText = (data as any)?.generatedText || '';
-
-          setGameState(prev => ({
-            ...prev,
-            lastAIResponse: aiText,
-          }));
-
-          await supabase.from('interactions').insert({
-            day: gameState.currentDay,
-            type: actionType,
-            participants: [gameState.playerName, target],
-            npc_name: target,
-            player_name: gameState.playerName,
-            player_message: content,
-            ai_response: aiText,
-            tone,
-          });
+          aiText = (data as any)?.generatedText || '';
         } catch (e) {
           console.error('AI reply error:', e);
-          setGameState(prev => ({ ...prev, lastAIResponse: undefined }));
+          // Fallback to local NPC response engine
+          try {
+            const local = npcResponseEngine.generateResponse(
+              content!,
+              target!,
+              gameState,
+              actionType === 'dm' ? 'private' : 'public'
+            );
+            aiText = local.content;
+          } catch (e2) {
+            console.error('Local fallback error:', e2);
+            aiText = '';
+          }
+        } finally {
+          if (aiText) {
+            setGameState(prev => ({
+              ...prev,
+              lastAIResponse: aiText,
+            }));
+            try {
+              await supabase.from('interactions').insert({
+                day: gameState.currentDay,
+                type: actionType,
+                participants: [gameState.playerName, target],
+                npc_name: target,
+                player_name: gameState.playerName,
+                player_message: content,
+                ai_response: aiText,
+                tone,
+              });
+            } catch {}
+          }
         }
       })();
     }
@@ -417,15 +433,16 @@ export const useGameState = () => {
             juryMembers: prev.contestants.filter(c => 
               c.isEliminated && c.eliminationDay && c.eliminationDay >= newDay - 14
             ).map(c => c.name),
-            playerActions: [
-              { type: 'talk', used: false, usageCount: 0 },
-              { type: 'dm', used: false, usageCount: 0 },
-              { type: 'confessional', used: false, usageCount: 0 },
-              { type: 'observe', used: false, usageCount: 0 },
-              { type: 'scheme', used: false, usageCount: 0 },
-              { type: 'activity', used: false, usageCount: 0 }
-            ] as PlayerAction[]
-          };
+        playerActions: [
+          { type: 'talk', used: false, usageCount: 0 },
+          { type: 'dm', used: false, usageCount: 0 },
+          { type: 'confessional', used: false, usageCount: 0 },
+          { type: 'observe', used: false, usageCount: 0 },
+          { type: 'scheme', used: false, usageCount: 0 },
+          { type: 'activity', used: false, usageCount: 0 }
+        ] as PlayerAction[],
+        dailyActionCount: 0
+      };
           saveGameState(newState);
           return newState;
         }
@@ -445,8 +462,9 @@ export const useGameState = () => {
             { type: 'confessional', used: false, usageCount: 0 },
             { type: 'observe', used: false, usageCount: 0 },
             { type: 'scheme', used: false, usageCount: 0 },
-            { type: 'activity', used: false, usageCount: 0 }
-          ] as PlayerAction[]
+              { type: 'activity', used: false, usageCount: 0 }
+            ] as PlayerAction[],
+            dailyActionCount: 0
         };
 
         // Save game state
@@ -466,7 +484,8 @@ export const useGameState = () => {
           { type: 'observe', used: false, usageCount: 0 },
           { type: 'scheme', used: false, usageCount: 0 },
           { type: 'activity', used: false, usageCount: 0 }
-        ] as PlayerAction[]
+            ] as PlayerAction[],
+            dailyActionCount: 0
       };
 
       // Save game state

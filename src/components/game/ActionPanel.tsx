@@ -20,7 +20,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay }: ActionPane
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
   
-  const allActionsUsed = gameState.playerActions.every(action => action.used || (action.usageCount && action.usageCount >= 2));
+  const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
   const hasCompletedConfessional = gameState.playerActions.find(a => a.type === 'confessional')?.used;
 
   const getActionDescription = (type: string) => {

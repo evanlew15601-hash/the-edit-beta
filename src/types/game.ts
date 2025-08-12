@@ -45,6 +45,8 @@ export interface GameState {
   gamePhase: 'intro' | 'daily' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote';
   twistsActivated: string[];
   nextEliminationDay: number;
+  dailyActionCount: number; // actions used today
+  dailyActionCap: number;   // max actions per day
   lastAIResponse?: string; // Store AI-generated response for UI
   lastParsedInput?: any; // Store parsed input for debugging
   lastEmergentEvent?: any; // Store emergent event for UI display
