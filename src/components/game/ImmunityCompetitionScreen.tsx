@@ -51,13 +51,17 @@ export const ImmunityCompetitionScreen = ({ gameState, onContinue }: ImmunityCom
   const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
 
   useEffect(() => {
-    // Initialize participants (dedupe player)
+    // Initialize participants (dedupe player) once per roster change; avoid infinite loops
     const initialParticipants = [
       ...activeContestants.filter(c => c.name !== gameState.playerName).map(c => ({ name: c.name, progress: 0 })),
       { name: gameState.playerName, progress: 0, isPlayer: true }
     ];
-    setParticipants(initialParticipants);
-  }, [activeContestants, gameState.playerName]);
+    setParticipants(prev => {
+      const prevNames = prev.map(p => p.name).sort().join('|');
+      const nextNames = initialParticipants.map(p => p.name).sort().join('|');
+      return prevNames === nextNames ? prev : initialParticipants;
+    });
+  }, [gameState.contestants, gameState.playerName]);
 
   useEffect(() => {
     return () => {

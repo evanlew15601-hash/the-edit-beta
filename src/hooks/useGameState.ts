@@ -240,13 +240,13 @@ export const useGameState = () => {
             break;
 
           case 'activity':
-            if (!contestant.isEliminated && Math.random() < 0.35) {
+            if (!contestant.isEliminated && Math.random() < 0.7) {
               updatedContestant = {
                 ...updatedContestant,
                 psychProfile: {
                   ...updatedContestant.psychProfile,
-                  trustLevel: Math.min(100, updatedContestant.psychProfile.trustLevel + 2),
-                  suspicionLevel: Math.max(0, updatedContestant.psychProfile.suspicionLevel - 2)
+                  trustLevel: Math.min(100, updatedContestant.psychProfile.trustLevel + 3),
+                  suspicionLevel: Math.max(0, updatedContestant.psychProfile.suspicionLevel - 1)
                 },
                 memory: [...updatedContestant.memory, {
                   day: prev.currentDay,
@@ -788,21 +788,27 @@ export const useGameState = () => {
     setGameState(prev => {
       const latest = prev.votingHistory[prev.votingHistory.length - 1];
       const playerEliminated = latest?.eliminated === prev.playerName;
-      if (playerEliminated) {
-        return initialGameState();
-      }
+      // Always show end-of-week recap after elimination, even if the player was eliminated
       return {
         ...prev,
-        gamePhase: prev.currentDay % 7 === 0 ? 'weekly_recap' : 'daily'
+        gamePhase: 'weekly_recap' as const
       };
     });
   }, []);
 
   const continueFromWeeklyRecap = useCallback(() => {
-    setGameState(prev => ({
-      ...prev,
-      gamePhase: 'daily'
-    }));
+    setGameState(prev => {
+      const latest = prev.votingHistory[prev.votingHistory.length - 1];
+      const playerEliminated = latest?.eliminated === prev.playerName;
+      if (playerEliminated) {
+        // After showing the recap for the elimination week, reset the game
+        return initialGameState();
+      }
+      return {
+        ...prev,
+        gamePhase: 'daily' as const
+      };
+    });
   }, []);
 
   const handleEmergentEventChoice = useCallback((event: EmergentEvent, choice: 'pacifist' | 'headfirst') => {

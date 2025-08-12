@@ -41,8 +41,21 @@ export const processVoting = (
     threatLevels.set(contestant.name, threat);
   });
 
-  // Add player to threat calculation
-  const playerThreat = 50 + (Math.random() - 0.5) * 30;
+  // Add player to threat calculation with mitigation
+  const playerEntity = activeContestants.find(c => c.name === playerName);
+  let playerThreat = 0;
+  if (playerEntity) {
+    playerThreat += playerEntity.psychProfile.trustLevel * 0.15;
+    playerThreat += playerEntity.psychProfile.suspicionLevel * 0.25;
+    const playerAlliances = alliances.filter(a => a.members.includes(playerName));
+    playerThreat += playerAlliances.length * 6;
+    playerThreat -= playerEntity.psychProfile.editBias * 2;
+  }
+  playerThreat += (Math.random() - 0.5) * 15;
+  // Bias mitigation: unless clearly suspicious, dampen player targeting
+  if (playerEntity && playerEntity.psychProfile.suspicionLevel < 55 && playerThreat > 0) {
+    playerThreat *= 0.7;
+  }
   threatLevels.set(playerName, playerThreat);
 
   // Generate votes based on relationships and threat levels
@@ -68,12 +81,10 @@ export const processVoting = (
       
       // Factor in personal relationships
       let personalModifier = 0;
-      if (target.name !== playerName) {
-        const relationship = voter.memory.filter(m => 
-          m.participants.includes(target.name) && m.type === 'conversation'
-        ).reduce((sum, m) => sum + m.emotionalImpact, 0);
-        personalModifier = -relationship * 5;
-      }
+      const relationship = voter.memory.filter(m => 
+        m.participants.includes(target.name) && m.type === 'conversation'
+      ).reduce((sum, m) => sum + m.emotionalImpact, 0);
+      personalModifier = -relationship * 5;
       
       const finalThreat = threat + personalModifier;
       

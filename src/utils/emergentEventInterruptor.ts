@@ -16,8 +16,8 @@ export interface EmergentEvent {
 
 export class EmergentEventInterruptor {
   static checkForEventInterruption(gameState: GameState): EmergentEvent | null {
-    // 20% chance of emergent event interrupting a day skip
-    if (Math.random() > 0.2) return null;
+    // 35% chance of emergent event interrupting a day skip
+    if (Math.random() > 0.35) return null;
 
     const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
     const possibleEvents = this.generatePossibleEvents(gameState, activeContestants);
@@ -72,7 +72,7 @@ export class EmergentEventInterruptor {
     }
 
     // NPC check-in events (simple pull-aside conversation)
-    if (Math.random() < 0.25 && contestants.length > 0) {
+    if (Math.random() < 0.5 && contestants.length > 0) {
       const confidant = contestants[Math.floor(Math.random() * contestants.length)];
       events.push({
         id: `npc_check_in_${confidant.name}`,
