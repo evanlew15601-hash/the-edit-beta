@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState, WeeklyEdit } from '@/types/game';
 import { generateFanReactions } from '@/utils/fanReactions';
+import { buildWeeklyEdit } from '@/utils/weeklyEditBuilder';
 
 interface WeeklyRecapScreenProps {
   gameState: GameState;
@@ -15,23 +16,8 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
     c => c.day > (currentWeek - 1) * 7 && c.day <= currentWeek * 7
   );
 
-  // Generate weekly edit summary
-  const weeklyEdit: WeeklyEdit = {
-    week: currentWeek,
-    playerPersona: gameState.editPerception.persona,
-    selectedQuote: gameState.editPerception.weeklyQuote || 'No significant confessionals this week',
-    approvalShift: gameState.editPerception.lastEditShift,
-    eventMontage: [
-      'Strategic conversations in the common area',
-      'Heated discussion about loyalty and trust',
-      'Private alliance meetings in the dead of night',
-      'Emotional confessions in the diary room'
-    ],
-    realityVsEdit: {
-      whatHappened: 'Complex web of relationships, strategic planning, and genuine emotional moments',
-      whatWasShown: 'Edited to emphasize drama, conflict, and your current narrative arc'
-    }
-  };
+  // Generate weekly edit summary (data-driven)
+  const weeklyEdit: WeeklyEdit = buildWeeklyEdit(gameState);
 
   const fanReactions = generateFanReactions(gameState);
 
@@ -52,16 +38,14 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
       <ScrollArea className="h-screen">
         <div className="max-w-4xl mx-auto px-6 py-12 space-y-8 pr-4">
         
-        {/* Header */}
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-light tracking-wide text-foreground">
-            WEEKLY EDIT
-          </h1>
+          <h1 className="text-4xl font-light tracking-wide text-foreground">Weekly Edit Recap</h1>
           <div className="w-24 h-px bg-primary mx-auto"></div>
           <p className="text-sm text-muted-foreground font-light tracking-wider uppercase">
             Week {currentWeek} Recap
           </p>
         </div>
+
 
         {/* Player Edit Summary */}
         <Card className="p-8 space-y-6">

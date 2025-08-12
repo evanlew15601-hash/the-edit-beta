@@ -15,32 +15,38 @@ export const calculateEditPerception = (
     };
   }
 
-  // Calculate impact from confessional tones
+  // Calculate impact from confessional tones with light recency weighting
   const toneImpacts = recentConfessionals.reduce((acc, conf) => {
+    const recencyBoost = conf.day === currentDay ? 2 : conf.day === currentDay - 1 ? 1.5 : 1;
     switch (conf.tone) {
       case 'strategic':
-        acc.screenTime += 8;
-        acc.approval += 2;
+        acc.screenTime += 6 * recencyBoost;
+        acc.approval += 2 * recencyBoost;
         break;
       case 'aggressive':
-        acc.screenTime += 12;
-        acc.approval -= 8;
+        acc.screenTime += 10 * recencyBoost;
+        acc.approval -= 6 * recencyBoost;
         break;
       case 'vulnerable':
-        acc.screenTime += 6;
-        acc.approval += 10;
+        acc.screenTime += 5 * recencyBoost;
+        acc.approval += 8 * recencyBoost;
         break;
       case 'humorous':
-        acc.screenTime += 4;
-        acc.approval += 6;
+        acc.screenTime += 4 * recencyBoost;
+        acc.approval += 5 * recencyBoost;
         break;
       case 'dramatic':
-        acc.screenTime += 15;
-        acc.approval -= 3;
+        acc.screenTime += 12 * recencyBoost;
+        acc.approval -= 2 * recencyBoost;
         break;
       default:
-        acc.screenTime += 2;
-        acc.approval += 1;
+        acc.screenTime += 2 * recencyBoost;
+        acc.approval += 1 * recencyBoost;
+    }
+    // Leverage explicit editImpact when present
+    if (typeof (conf as any).editImpact === 'number') {
+      acc.screenTime += Math.max(0, (conf as any).editImpact);
+      acc.approval += Math.sign((conf as any).editImpact) * Math.min(5, Math.abs((conf as any).editImpact));
     }
     return acc;
   }, { screenTime: 0, approval: 0 });
@@ -74,6 +80,9 @@ export const calculateEditPerception = (
     audienceApproval: newApproval,
     persona,
     lastEditShift: newApproval - currentPerception.audienceApproval,
-    weeklyQuote: recentConfessionals[recentConfessionals.length - 1]?.content.slice(0, 80)
+    weeklyQuote: (recentConfessionals
+      .slice()
+      .sort((a, b) => (b.editImpact ?? 0) - (a.editImpact ?? 0) || (b.content?.length ?? 0) - (a.content?.length ?? 0) || b.day - a.day)[0]?.content || '')
+      .slice(0, 160)
   };
 };
