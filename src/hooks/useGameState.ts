@@ -282,6 +282,29 @@ export const useGameState = () => {
         }
       }
 
+      const reaction = summarizeReaction(
+        actionType,
+        content || '',
+        parsedInput,
+        updatedContestants.find(c => c.name === target) || null,
+        actionType === 'dm' ? 'private' : actionType === 'talk' ? 'public' : (actionType === 'scheme' ? 'scheme' : (actionType === 'activity' ? 'activity' : 'public'))
+      );
+
+      // Debug: inspect parsing and resulting take
+      try {
+        console.debug('[ActionProcessed]', {
+          day: prev.currentDay,
+          actionType,
+          target,
+          content,
+          parsedPrimary: parsedInput?.primary,
+          threat: parsedInput?.threatLevel,
+          manipulation: parsedInput?.manipulationLevel,
+          emotionKeys: parsedInput?.emotionalSubtext ? Object.keys(parsedInput.emotionalSubtext) : [],
+          reaction
+        });
+      } catch (e) {}
+
       return {
         ...prev,
         playerActions: newActions,
@@ -293,13 +316,7 @@ export const useGameState = () => {
         lastParsedInput: parsedInput,
         lastActionTarget: target,
         lastActionType: actionType as PlayerAction['type'],
-        lastAIReaction: summarizeReaction(
-          actionType,
-          content || '',
-          parsedInput,
-          prev.contestants.find(c => c.name === target) || null,
-          actionType === 'dm' ? 'private' : actionType === 'talk' ? 'public' : (actionType === 'scheme' ? 'scheme' : (actionType === 'activity' ? 'activity' : 'public'))
-        )
+        lastAIReaction: reaction
       };
     });
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -47,6 +47,7 @@ export const ActivityDialog = ({ isOpen, onClose, onSubmit }: ActivityDialogProp
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Start a House Activity</DialogTitle>
+          <DialogDescription>Low-stakes social actions that subtly shift dynamics.</DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="max-h-[60vh] pr-4">

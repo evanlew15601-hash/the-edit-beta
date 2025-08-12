@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,6 +36,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit }: ConfessionalDi
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Diary Room Confessional</DialogTitle>
+          <DialogDescription>What you say affects your edit and audience perception.</DialogDescription>
         </DialogHeader>
         
         <ScrollArea className="max-h-[60vh] pr-4">

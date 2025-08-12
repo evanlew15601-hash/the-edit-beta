@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,6 +40,7 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit }: C
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Start a Conversation</DialogTitle>
+          <DialogDescription>Open a strategic or social chat that may impact relationships.</DialogDescription>
         </DialogHeader>
         
         <ScrollArea className="max-h-[60vh] pr-4">
