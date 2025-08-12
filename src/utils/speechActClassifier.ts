@@ -152,6 +152,38 @@ class SpeechActClassifier {
       /\b(moving on|whatever|so what)\b/i
     ]);
 
+    // Added depth: more social/game speech acts
+    patterns.set('expressing_trust', [
+      /\b(trust you|i trust|honest|be straight|be real)\b/i,
+      /\b(open with you|transparent|no games)\b/i,
+      /\b(promise|i swear|you have my word)\b/i,
+    ]);
+
+    patterns.set('complimenting', [
+      /\b(respect|impressed|smart|strong|social|well played)\b/i,
+      /\b(good read|nice move|great game|admire)\b/i,
+    ]);
+
+    patterns.set('insulting', [
+      /\b(stupid|idiot|coward|snake|fake|two-faced)\b/i,
+      /\b(useless|pathetic|weak|annoying)\b/i,
+    ]);
+
+    patterns.set('confessing', [
+      /\b(i lied|i messed up|i was wrong|my fault|i'm sorry|apologize)\b/i,
+      /\b(confess|truth is|to be honest)\b/i,
+    ]);
+
+    patterns.set('lying', [
+      /\b(honestly|truth is)\b(?!)/i, // weak heuristic; strengthened by context elsewhere
+      /\b(swore i didn't|never happened|that's not true)\b/i,
+    ]);
+
+    patterns.set('provoking', [
+      /\b(try me|say it to my face|do something|make me)\b/i,
+      /\b(bet you won't|come at me|bring it)\b/i,
+    ]);
+
     return patterns;
   }
 
@@ -173,9 +205,19 @@ class SpeechActClassifier {
       words.set(word, { anger: 0, fear: 0, attraction: 90, manipulation: 30, sincerity: 60, desperation: 20, confidence: 70 });
     });
 
-    // Manipulation words
-    ['convince', 'persuade', 'manipulate', 'trick', 'deceive', 'fool'].forEach(word => {
-      words.set(word, { anger: 10, fear: 0, attraction: 0, manipulation: 90, sincerity: 10, desperation: 40, confidence: 80 });
+    // Sincerity/repair/thanks
+    ['sorry', 'apologize', 'apologies', 'forgive', 'thank', 'thanks', 'appreciate', 'grateful', 'honest', 'truth'].forEach(word => {
+      words.set(word, { anger: 0, fear: 0, attraction: 0, manipulation: 0, sincerity: 85, desperation: 10, confidence: 55 });
+    });
+
+    // Respect/admiration
+    ['respect', 'admire', 'impressed', 'well played'].forEach(word => {
+      words.set(word, { anger: 0, fear: 0, attraction: 20, manipulation: 10, sincerity: 75, desperation: 5, confidence: 60 });
+    });
+
+    // Hostile insults
+    ['stupid', 'idiot', 'coward', 'snake', 'fake', 'useless', 'pathetic', 'weak'].forEach(word => {
+      words.set(word, { anger: 85, fear: 0, attraction: 0, manipulation: 20, sincerity: 20, desperation: 15, confidence: 70 });
     });
 
     return words;
