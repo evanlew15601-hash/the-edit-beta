@@ -342,9 +342,25 @@ export const useGameState = () => {
             if (ps && ps.suspicionLevel > 60) {
               aiText = "It is tense—people are looking for missteps. I am staying quiet.";
             } else if (ps && ps.trustLevel > 50) {
-              aiText = "Busy. A couple of sparks in the kitchen, but I am keeping us out of it.";
+              aiText = "Good. A couple sparks in the kitchen, but I am keeping us out of it.";
             } else {
               aiText = "Fine. Reading the room and not overplaying anything.";
+            }
+          }
+
+          // Sentiment/greeting handler ("excited to be here", "glad to be here", etc.)
+          if (!aiText && (actionType === 'talk' || actionType === 'dm') && parsed.primary === 'neutral_conversation') {
+            const sentiment = /(excited|glad|happy|thrilled|pumped|nervous)\b.*\b(here|to be here)?\b/.test(lower) && !/[?]/.test(content!);
+            const greeting = /^(hey|hi|hello|yo)\b/.test(lower) && content!.length <= 40;
+            if (sentiment || greeting) {
+              const ps = npcEntity?.psychProfile;
+              if (ps && ps.suspicionLevel > 60) {
+                aiText = "Good. Keep it quiet and read the room.";
+              } else if (ps && ps.trustLevel > 50) {
+                aiText = "Good—channel it into quiet moves. We stay measured.";
+              } else {
+                aiText = "Good. Energy is useful; do not draw fire.";
+              }
             }
           }
 
@@ -398,13 +414,16 @@ export const useGameState = () => {
         // 3) Final fallback chain: contextual engine then templates
         if (!aiText) {
           try {
-            const resp = npcResponseEngine.generateResponse(
-              content!,
-              target!,
-              gameState,
-              (actionType === 'dm' ? 'private' : 'public') as any
-            );
-            aiText = resp?.content || '';
+            const npcInRoster = gameState.contestants.some(c => c.name === target);
+            if (npcInRoster) {
+              const resp = npcResponseEngine.generateResponse(
+                content!,
+                target!,
+                gameState,
+                (actionType === 'dm' ? 'private' : 'public') as any
+              );
+              aiText = resp?.content || '';
+            }
           } catch (e2) {
             console.error('NPC engine fallback error:', e2);
           }

@@ -375,7 +375,9 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
             // Common prepositions and function words we should never surface as topics
             'from','into','onto','over','under','after','before','around','through','against','between','within','without','upon','inside','outside','across','toward','towards','behind','beside','besides','above','below','near','off','out','in','on','at','for','to','of','as','by','up','down','via','per',
             // Pronouns and auxiliaries
-            'you','your','yours','me','my','mine','we','our','ours','he','she','it','its','they','them','their','theirs','am','is','are','was','were','be','been','being'
+            'you','your','yours','me','my','mine','we','our','ours','he','she','it','its','they','them','their','theirs','am','is','are','was','were','be','been','being',
+            // Sentiment adjectives we should not echo as topics
+            'excited','happy','glad','nervous','thrilled','pumped','here'
           ]);
           const candidates = (original.toLowerCase().match(/\b[a-z]{3,}\b/g) || []).filter(w => !stop.has(w));
           return candidates[0] ? candidates[0] : null;

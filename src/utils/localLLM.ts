@@ -31,9 +31,9 @@ async function ensureGenerator() {
             lastErr = e;
           }
         }
-        // Fallback to WebCPU if WebGPU path failed entirely
+        // Fallback to WASM if WebGPU path failed entirely
         const gen = await pipeline("text-generation", modelIdCandidates[0], {
-          device: "cpu",
+          device: "wasm",
           dtype: "auto",
         } as any);
         generator = gen;
