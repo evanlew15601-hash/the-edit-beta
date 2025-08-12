@@ -17,7 +17,8 @@ import {
   generateAIResponse,
 } from '@/utils/aiResponseEngine';
 import { generateLocalAIReply } from '@/utils/localLLM';
-
+import { detectGameTalk, craftGameTalkReply } from '@/utils/gameTalkHeuristics';
+ 
 const USE_REMOTE_AI = false; // Use free local + deterministic engines by default
 
 const initialGameState = (): GameState => ({
@@ -344,6 +345,23 @@ export const useGameState = () => {
               aiText = "Busy. A couple of sparks in the kitchen, but I am keeping us out of it.";
             } else {
               aiText = "Fine. Reading the room and not overplaying anything.";
+            }
+          }
+
+          // Domain heuristic: talking game / alliances / votes / numbers
+          if (!aiText) {
+            const tags = detectGameTalk(content!);
+            if (tags.isGameTalk) {
+              aiText = craftGameTalkReply(content!, tags, {
+                conversationType: payload.conversationType,
+                npc: npcEntity ? {
+                  name: npcEntity.name,
+                  trustLevel: npcEntity.psychProfile.trustLevel,
+                  suspicionLevel: npcEntity.psychProfile.suspicionLevel,
+                  closeness: npcEntity.psychProfile.emotionalCloseness,
+                } : null,
+                day: gameState.currentDay,
+              });
             }
           }
 
