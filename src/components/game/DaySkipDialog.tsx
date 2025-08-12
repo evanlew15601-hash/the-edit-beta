@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, Clock, Zap } from 'lucide-react';
@@ -64,12 +64,15 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
+      <DialogContent className="max-w-2xl max-h-[90vh]" aria-describedby="skip-dialog-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5" />
             Skip Day {currentDay}
           </DialogTitle>
+          <DialogDescription id="skip-dialog-description">
+            Skipping advances the day without spending actions. Events may still occur.
+          </DialogDescription>
         </DialogHeader>
         
         <ScrollArea className="max-h-[60vh] pr-4">

@@ -271,6 +271,7 @@ export const useGameState = () => {
       (async () => {
         let aiText = '';
         try {
+          // Build NPC payload with safe defaults if target not in roster yet
           const npcEntity = gameState.contestants.find(c => c.name === target);
           const npcPayload = npcEntity ? {
             name: npcEntity.name,
@@ -281,46 +282,77 @@ export const useGameState = () => {
             publicPersona: 'strategic contestant',
             psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 }
           };
+
           const payload = {
             playerMessage: content,
             npc: npcPayload,
             tone: tone || '',
             conversationType: actionType === 'dm' ? 'private' : 'public'
           };
-          // Primary: OpenAI edge function
-          const primary = await supabase.functions.invoke('generate-ai-reply', {
-            body: payload,
-          });
-          if (primary.error) throw primary.error;
-          aiText = (primary.data as any)?.generatedText || '';
 
-          // Fallback: Hugging Face Zephyr via edge function if no text
+          // 1) Try OpenAI
+          const primary = await supabase.functions.invoke('generate-ai-reply', { body: payload });
+          if (!primary.error) {
+            aiText = (primary.data as any)?.generatedText || '';
+          }
+
+          // 2) Fallback to Hugging Face if needed
           if (!aiText) {
-            const hfFallback = await supabase.functions.invoke('generate-ai-reply-hf', {
-              body: payload,
-            });
-            if (hfFallback.error) throw hfFallback.error;
-            aiText = (hfFallback.data as any)?.generatedText || '';
+            const hf = await supabase.functions.invoke('generate-ai-reply-hf', { body: payload });
+            if (!hf.error) {
+              aiText = (hf.data as any)?.generatedText || '';
+            }
           }
         } catch (e) {
           console.error('AI reply error:', e);
-          // Fallback order: Hugging Face edge function -> local engine
+        }
+
+        // 3) Final fallback: local engine with concise, in-character reply
+        if (!aiText) {
           try {
-            const npcEntity = gameState.contestants.find(c => c.name === target);
-            const hfPayload = {
-              playerMessage: content,
-              npc: npcEntity ? {
-                name: npcEntity.name,
-                publicPersona: npcEntity.publicPersona,
-                psychProfile: npcEntity.psychProfile,
-              } : {
-                name: target!,
-                publicPersona: 'strategic contestant',
-                psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 }
-              },
-              tone: tone || '',
-              conversationType: actionType === 'dm' ? 'private' : 'public'
-            };
+            const local = npcResponseEngine.generateResponse(
+              content!,
+              target!,
+              gameState,
+              actionType === 'dm' ? 'private' : 'public'
+            );
+            aiText = local.content;
+          } catch (e2) {
+            console.error('Local fallback error:', e2);
+            aiText = `${target} gives a measured nod, keeping it close to the vest.`;
+          }
+        }
+
+        // Publish to UI and analytics table (best-effort)
+        if (aiText) {
+          setGameState(prev => ({
+            ...prev,
+            lastAIResponse: aiText,
+          }));
+          try {
+            await supabase.from('interactions').insert({
+              day: gameState.currentDay,
+              type: actionType,
+              participants: [gameState.playerName, target],
+              npc_name: target,
+              player_name: gameState.playerName,
+              player_message: content,
+              ai_response: aiText,
+              tone,
+            });
+          } catch {}
+        }
+      })();
+    }
+  const submitConfessional = useCallback((content: string, tone: string) => {
+    setGameState(prev => {
+      const confessional: Confessional = {
+        day: prev.currentDay,
+        content,
+        tone,
+        editImpact: tone === 'strategic' ? 5 : tone === 'aggressive' ? -3 : 2
+      };
+
       const newEditPerception = calculateEditPerception(
         [...prev.confessionals, confessional],
         prev.editPerception,
