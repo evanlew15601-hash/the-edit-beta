@@ -181,8 +181,8 @@ export class EmergentEventInterruptor {
 
     return {
       ...gameState,
-      contestants: updatedContestants,
-      lastEmergentEvent: event
+      contestants: updatedContestants
+      // Don't store lastEmergentEvent to prevent UI lockup
     };
   }
 }

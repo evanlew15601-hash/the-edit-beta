@@ -1026,7 +1026,11 @@ export const useGameState = () => {
   }, []);
 
   const handleEmergentEventChoice = useCallback((event: EmergentEvent, choice: 'pacifist' | 'headfirst') => {
-    setGameState(prev => EmergentEventInterruptor.applyEventInterruption(event, prev, choice));
+    setGameState(prev => {
+      const updatedState = EmergentEventInterruptor.applyEventInterruption(event, prev, choice);
+      // Clear the emergent event after handling to prevent UI lockup
+      return { ...updatedState, lastEmergentEvent: undefined };
+    });
   }, []);
 
   const resetGame = useCallback(() => {
