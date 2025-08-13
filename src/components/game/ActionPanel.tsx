@@ -8,6 +8,7 @@ import { ConfessionalDialog } from './ConfessionalDialog';
 import { ObservationDialog } from './ObservationDialog';
 import { SchemeDialog } from './SchemeDialog';
 import { DaySkipDialog } from './DaySkipDialog';
+import { EmergentEventDialog } from './EmergentEventDialog';
 import { ActivityDialog } from './ActivityDialog';
 import { TagConversationDialog } from './TagConversationDialog';
 
@@ -231,6 +232,22 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         gameState={gameState}
         contestants={gameState.contestants.filter(c => !c.isEliminated)}
         onSubmit={(target, choiceId, interaction) => { onTagTalk(target, choiceId, interaction); setTagOpen(false); }}
+      />
+
+      <EmergentEventDialog
+        event={gameState.lastEmergentEvent}
+        isOpen={!!gameState.lastEmergentEvent}
+        onChoice={(choice) => {
+          if (gameState.lastEmergentEvent) {
+            onEmergentEventChoice(gameState.lastEmergentEvent, choice);
+          }
+        }}
+        onClose={() => {
+          // Clear the emergent event to prevent lockup
+          if (gameState.lastEmergentEvent) {
+            onEmergentEventChoice(gameState.lastEmergentEvent, 'pacifist'); // Default choice to clear
+          }
+        }}
       />
     </div>
   );
