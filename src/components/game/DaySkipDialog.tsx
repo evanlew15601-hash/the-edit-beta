@@ -42,6 +42,10 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
   const handleChoice = (choice: 'pacifist' | 'headfirst') => {
     if (emergentEvent) {
       onEventChoice(emergentEvent, choice);
+      // After handling emergent event, proceed with day skip
+      setTimeout(() => {
+        onConfirmSkip();
+      }, 100);
     }
     setEmergentEvent(null);
     setIsSkipping(false);
