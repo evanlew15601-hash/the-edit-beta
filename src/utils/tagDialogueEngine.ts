@@ -1,40 +1,62 @@
 import { BaseEffectEntry, Choice, ComputedOutcome, ReactionProfile, TopicTag, ToneTag } from '@/types/tagDialogue';
 import { Contestant, GameState } from '@/types/game';
 
-// Base effects per intent-topic (sparse table; fallbacks apply)
+// Base effects per intent-topic (comprehensive coverage)
 const BASE_EFFECTS: Partial<Record<Choice['intent'], Partial<Record<TopicTag, BaseEffectEntry>>>> = {
   BuildAlliance: {
     Challenge: { trust: 0.06, suspicion: -0.01, entertainment: 0.02, influence: 0.04 },
     Strategy: { trust: 0.05, suspicion: -0.01, entertainment: 0.01, influence: 0.05 },
+    Sleep: { trust: 0.04, suspicion: -0.01, entertainment: 0.02, influence: 0.02 },
+    Food: { trust: 0.03, suspicion: 0.00, entertainment: 0.03, influence: 0.02 },
+    PersonalHistory: { trust: 0.05, suspicion: -0.01, entertainment: 0.01, influence: 0.03 },
   },
   ProbeForInfo: {
     Game: { trust: 0.01, suspicion: 0.02, entertainment: 0, influence: 0.03 },
     Rumor: { trust: -0.01, suspicion: 0.03, entertainment: 0.01, influence: 0.02 },
     Eviction: { trust: 0, suspicion: 0.02, entertainment: 0, influence: 0.03 },
+    Sleep: { trust: 0.01, suspicion: 0.01, entertainment: 0.02, influence: 0.01 },
+    Strategy: { trust: -0.01, suspicion: 0.04, entertainment: 0.01, influence: 0.03 },
   },
   SowDoubt: {
     Rumor: { trust: -0.03, suspicion: 0.04, entertainment: 0.03, influence: 0.03 },
+    Strategy: { trust: -0.04, suspicion: 0.05, entertainment: 0.02, influence: 0.04 },
+    Game: { trust: -0.02, suspicion: 0.03, entertainment: 0.01, influence: 0.02 },
   },
   BoostMorale: {
     Challenge: { trust: 0.03, suspicion: -0.02, entertainment: 0.03, influence: 0.01 },
+    Game: { trust: 0.04, suspicion: -0.01, entertainment: 0.03, influence: 0.02 },
+    PersonalHistory: { trust: 0.05, suspicion: -0.02, entertainment: 0.02, influence: 0.01 },
   },
   Flirt: {
     Romance: { trust: 0.03, suspicion: 0.01, entertainment: 0.03, influence: 0.02 },
+    Sleep: { trust: 0.02, suspicion: 0.02, entertainment: 0.04, influence: 0.03 },
+    Food: { trust: 0.01, suspicion: 0.01, entertainment: 0.05, influence: 0.02 },
   },
   Insult: {
     Game: { trust: -0.05, suspicion: 0.05, entertainment: 0.02, influence: -0.03 },
     Strategy: { trust: -0.05, suspicion: 0.05, entertainment: 0.02, influence: -0.03 },
+    Romance: { trust: -0.04, suspicion: 0.03, entertainment: 0.03, influence: -0.02 },
   },
   MakeJoke: {
     Food: { trust: 0.01, suspicion: -0.01, entertainment: 0.05, influence: 0.01 },
+    Production: { trust: 0.02, suspicion: 0.00, entertainment: 0.06, influence: 0.02 },
+    Eviction: { trust: 0.00, suspicion: 0.01, entertainment: 0.04, influence: 0.01 },
+    Game: { trust: 0.01, suspicion: -0.01, entertainment: 0.05, influence: 0.01 },
   },
   RevealSecret: {
     PersonalHistory: { trust: 0.05, suspicion: -0.02, entertainment: 0.02, influence: 0.05 },
     Game: { trust: 0.03, suspicion: -0.01, entertainment: 0.01, influence: 0.04 },
+    Strategy: { trust: 0.04, suspicion: 0.02, entertainment: 0.02, influence: 0.06 },
   },
   Deflect: {
     Production: { trust: 0, suspicion: -0.02, entertainment: -0.01, influence: 0 },
     Game: { trust: -0.01, suspicion: -0.01, entertainment: -0.01, influence: 0 },
+    Eviction: { trust: 0.00, suspicion: -0.01, entertainment: 0.00, influence: 0.00 },
+  },
+  Divert: {
+    Food: { trust: 0.01, suspicion: -0.01, entertainment: 0.02, influence: 0.00 },
+    PersonalHistory: { trust: 0.02, suspicion: -0.01, entertainment: 0.01, influence: 0.01 },
+    Production: { trust: 0.00, suspicion: 0.00, entertainment: 0.01, influence: 0.00 },
   },
 };
 
@@ -181,13 +203,19 @@ export const reactionText = (
 ) => {
   const intent = choice.intent;
   const topic = choice.topics[0];
+  const tone = choice.tone;
   const cat = outcome.category;
+  
+  // Intent-based reactions with topic/tone nuances
   if (intent === 'BuildAlliance') {
+    if (topic === 'Sleep' && cat === 'positive') return `${npcName}: Late night bonding? I'm down.`;
     if (cat === 'positive') return `${npcName}: I can work with that. Let's see it through.`;
     if (cat === 'neutral') return `${npcName}: Maybe. Depends how the next challenge plays.`;
     return `${npcName}: Not buying it—timing feels off.`;
   }
   if (intent === 'ProbeForInfo') {
+    if (topic === 'Sleep' && cat === 'positive') return `${npcName}: Dreams are weird here. People talk.`;
+    if (topic === 'Eviction' && cat === 'positive') return `${npcName}: Names are floating. Come find me later.`;
     if (cat === 'positive') return `${npcName}: I'm hearing a few names—come talk later.`;
     if (cat === 'neutral') return `${npcName}: Nothing solid yet.`;
     return `${npcName}: Why are you asking me?`;
@@ -198,26 +226,33 @@ export const reactionText = (
     return `${npcName}: That's a reach.`;
   }
   if (intent === 'BoostMorale') {
+    if (topic === 'PersonalHistory' && cat === 'positive') return `${npcName}: You're right. This is why I'm here.`;
     if (cat === 'positive') return `${npcName}: Okay, let's reset and hit it.`;
     if (cat === 'neutral') return `${npcName}: We'll see.`;
     return `${npcName}: Pep talks don't win votes.`;
   }
   if (intent === 'Flirt') {
+    if (topic === 'Food' && cat === 'positive') return `${npcName}: Is this your move? Making dinner look good?`;
+    if (topic === 'Sleep' && cat === 'positive') return `${npcName}: Dangerous territory. I like it.`;
     if (cat === 'positive') return `${npcName}: Careful—you'll make me blush.`;
     if (cat === 'neutral') return `${npcName}: Ha. You're trouble.`;
     return `${npcName}: Not the time.`;
   }
   if (intent === 'Insult') {
+    if (topic === 'Romance' && cat === 'negative') return `${npcName}: My love life isn't your business.`;
     if (cat === 'positive') return `${npcName}: Say that again and see what happens.`;
     if (cat === 'neutral') return `${npcName}: Noted.`;
     return `${npcName}: Cross the line again and it's war.`;
   }
   if (intent === 'MakeJoke') {
+    if (topic === 'Production' && cat === 'positive') return `${npcName}: They're probably loving this conversation.`;
+    if (topic === 'Eviction' && tone === 'Dismissive') return `${npcName}: Dark humor. I respect it.`;
     if (cat === 'positive') return `${npcName}: Finally, someone said it.`;
     if (cat === 'neutral') return `${npcName}: Heh.`;
     return `${npcName}: Not in the mood.`;
   }
   if (intent === 'RevealSecret') {
+    if (topic === 'Strategy' && cat === 'positive') return `${npcName}: That changes things. Keep talking.`;
     if (cat === 'positive') return `${npcName}: That means something. I'm listening.`;
     if (cat === 'neutral') return `${npcName}: Not sure what to do with that.`;
     return `${npcName}: Keep your secrets.`;
@@ -227,5 +262,12 @@ export const reactionText = (
     if (cat === 'neutral') return `${npcName}: Hm.`;
     return `${npcName}: That's dodge-y.`;
   }
-  return `${npcName}: ...`;
+  if (intent === 'Divert') {
+    if (cat === 'positive') return `${npcName}: Good call. Let's focus on this instead.`;
+    if (cat === 'neutral') return `${npcName}: Sure, whatever.`;
+    return `${npcName}: Not really working.`;
+  }
+  
+  // Fallback for any missed combinations
+  return `${npcName}: Interesting choice.`;
 };

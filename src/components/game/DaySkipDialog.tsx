@@ -44,7 +44,7 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
       onEventChoice(emergentEvent, choice);
     }
     setEmergentEvent(null);
-    onConfirmSkip();
+    setIsSkipping(false);
     onClose();
   };
   const skipReasons = [
