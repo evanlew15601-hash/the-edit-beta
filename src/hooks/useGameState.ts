@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { npcResponseEngine } from '@/utils/npcResponseEngine';
 import { GameState, Contestant, PlayerAction, Confessional, EditPerception, Alliance, VotingRecord, ReactionSummary, ReactionTake } from '@/types/game';
+import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { calculateEditPerception } from '@/utils/editEngine';
 import { processVoting } from '@/utils/votingEngine';
@@ -609,45 +610,60 @@ export const useGameState = () => {
   }, []);
   const submitConfessional = useCallback((content: string, tone: string) => {
     setGameState(prev => {
-      const baseToneScore: Record<string, number> = {
-        strategic: 6,
-        vulnerable: 10,
-        humorous: 7,
-        dramatic: 3,
-        aggressive: -6,
-        evasive: -2,
-      };
-      const base = baseToneScore[tone] ?? 1;
-      const lenBonus = Math.min(8, Math.floor((content?.length || 0) / 80));
-      const approvalBonus = Math.round((prev.editPerception.audienceApproval || 0) / 10);
-      const noise = Math.round((Math.random() - 0.5) * 2);
-      const audienceScore = Math.max(0, Math.min(100, base + lenBonus + approvalBonus + noise));
-
+      // Create the confessional
       const confessional: Confessional = {
         day: prev.currentDay,
         content,
         tone,
-        editImpact: tone === 'strategic' ? 5 : tone === 'aggressive' ? -3 : 2,
+        editImpact: 0, // Will be calculated below
+        audienceScore: 0, // Will be calculated below
+      };
+
+      // Determine if this confessional makes the edit
+      const madeEdit = ConfessionalEngine.selectConfessionalForEdit(confessional, prev);
+      
+      // Calculate edit impact based on whether it made the show
+      const editImpact = ConfessionalEngine.calculateEditImpact(confessional, prev, madeEdit);
+      
+      // Calculate audience score
+      const audienceScore = ConfessionalEngine.generateAudienceScore(confessional, editImpact);
+      
+      // Update confessional with calculated values
+      const finalConfessional: Confessional = {
+        ...confessional,
+        editImpact,
         audienceScore,
       };
 
       const newEditPerception = calculateEditPerception(
-        [...prev.confessionals, confessional],
+        [...prev.confessionals, finalConfessional],
         prev.editPerception,
         prev.currentDay
       );
 
+      // Add interaction log entry
+      const newInteractionLog = [...(prev.interactionLog || []), {
+        day: prev.currentDay,
+        type: 'confessional' as const,
+        participants: [prev.playerName],
+        content: madeEdit ? content : "[Confessional not aired]",
+        tone,
+        source: 'player' as const,
+      }];
+
       return {
         ...prev,
-        confessionals: [...prev.confessionals, confessional],
+        confessionals: [...prev.confessionals, finalConfessional],
         editPerception: newEditPerception,
         playerActions: prev.playerActions.map(action =>
           action.type === 'confessional' ? { ...action, used: true } : action
         ),
         favoriteTally: {
           ...(prev.favoriteTally || {}),
-          [prev.playerName]: (prev.favoriteTally?.[prev.playerName] || 0) + (audienceScore || 0),
+          [prev.playerName]: (prev.favoriteTally?.[prev.playerName] || 0) + (madeEdit ? audienceScore : 0),
         },
+        interactionLog: newInteractionLog,
+        dailyActionCount: prev.dailyActionCount + 1,
       };
     });
   }, []);

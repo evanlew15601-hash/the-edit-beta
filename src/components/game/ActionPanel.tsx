@@ -189,6 +189,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         isOpen={activeDialog === 'confessional'}
         onClose={handleDialogClose}
         onSubmit={(content, tone) => handleActionSubmit('confessional', undefined, content, tone)}
+        gameState={gameState}
       />
       
       <ObservationDialog
