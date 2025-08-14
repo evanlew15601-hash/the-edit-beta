@@ -25,7 +25,8 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
   const [forcedOpen, setForcedOpen] = useState(false);
-  const [tagOpen, setTagOpen] = useState(false);
+  const [tagTalkOpen, setTagTalkOpen] = useState(false);
+  const [tagTalkType, setTagTalkType] = useState<'talk' | 'dm' | 'scheme' | 'activity'>('talk');
   const forcedItem = (gameState.forcedConversationsQueue || [])[0];
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
@@ -52,8 +53,6 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
   };
 
   const handleActionClick = (actionType: string) => {
-    const action = gameState.playerActions.find(a => a.type === actionType);
-    if (action?.used || (action?.usageCount && action.usageCount >= 2)) return;
     setActiveDialog(actionType);
   };
 
@@ -90,35 +89,30 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium capitalize">{action.type.replace('_', ' ')}</h3>
                 <div className="flex gap-2">
-                  {action.type === 'talk' && (
+                  {(action.type === 'talk' || action.type === 'dm' || action.type === 'scheme' || action.type === 'activity') && (
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => setTagOpen(true)}
+                      onClick={() => {
+                        setTagTalkType(action.type as 'talk' | 'dm' | 'scheme' | 'activity');
+                        setTagTalkOpen(true);
+                      }}
                     >
-                      Tag Talk (Beta)
+                      Tag {action.type.charAt(0).toUpperCase() + action.type.slice(1)}
                     </Button>
                   )}
                   <Button
-                    variant={(action.used || (action.usageCount && action.usageCount >= 2)) ? "disabled" : "action"}
+                    variant="action"
                     size="sm"
-                    used={action.used || (action.usageCount && action.usageCount >= 2)}
                     onClick={() => handleActionClick(action.type)}
                   >
-                    {action.used || (action.usageCount && action.usageCount >= 2) 
-                      ? `Used ${action.usageCount || 1}/2` 
-                      : 'Select'}
+                    Select
                   </Button>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">
                 {getActionDescription(action.type)}
               </p>
-              {(action.used || (action.usageCount && action.usageCount > 0)) && action.target && (
-                <p className="text-xs text-surveillance-active mt-2">
-                  Last used on: {action.target}
-                </p>
-              )}
             </div>
           ))}
         </div>
@@ -227,11 +221,14 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
       />
 
       <TagConversationDialog
-        isOpen={tagOpen}
-        onClose={() => setTagOpen(false)}
+        isOpen={tagTalkOpen}
+        onClose={() => setTagTalkOpen(false)}
         gameState={gameState}
         contestants={gameState.contestants.filter(c => !c.isEliminated)}
-        onSubmit={(target, choiceId, interaction) => { onTagTalk(target, choiceId, interaction); setTagOpen(false); }}
+        onSubmit={(target, choiceId, interaction) => { 
+          onTagTalk(target, choiceId, tagTalkType); 
+          setTagTalkOpen(false); 
+        }}
       />
 
       <EmergentEventDialog
