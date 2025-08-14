@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,9 +18,18 @@ interface ConversationDialogProps {
 }
 
 export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, forced, presetTarget, forcedTopic }: ConversationDialogProps) => {
-  const [selectedTarget, setSelectedTarget] = useState<string>(presetTarget || '');
-  const [content, setContent] = useState(forcedTopic || '');
+  const [selectedTarget, setSelectedTarget] = useState<string>('');
+  const [content, setContent] = useState('');
   const [tone, setTone] = useState<string>('');
+
+  // Set preset values when dialog opens or props change
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedTarget(presetTarget || '');
+      setContent(forcedTopic || '');
+      setTone('');
+    }
+  }, [isOpen, presetTarget, forcedTopic]);
 
   const handleSubmit = () => {
     if (selectedTarget && content && tone) {
