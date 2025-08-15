@@ -97,6 +97,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
                         setTagTalkType(action.type as 'talk' | 'dm' | 'scheme' | 'activity');
                         setTagTalkOpen(true);
                       }}
+                      disabled={allActionsUsed}
                     >
                       Tag {action.type.charAt(0).toUpperCase() + action.type.slice(1)}
                     </Button>
@@ -230,6 +231,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
           onTagTalk(target, choiceId, tagTalkType); 
           setTagTalkOpen(false); 
         }}
+        interactionType={tagTalkType}
       />
 
       <EmergentEventDialog

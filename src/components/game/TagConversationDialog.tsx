@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,9 +15,10 @@ interface TagConversationDialogProps {
   gameState: GameState;
   contestants: Contestant[];
   onSubmit: (target: string, choiceId: string, interaction: InteractionType) => void;
+  interactionType?: InteractionType; // New prop to set the interaction type
 }
 
-export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants, onSubmit }: TagConversationDialogProps) => {
+export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants, onSubmit, interactionType }: TagConversationDialogProps) => {
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [selectedChoiceId, setSelectedChoiceId] = useState<string>('');
   const [intent, setIntent] = useState<IntentTag | ''>('');
@@ -25,6 +26,23 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
   const [topic, setTopic] = useState<TopicTag | ''>('');
   const [targetType, setTargetType] = useState<TargetType>('Person');
   const [interaction, setInteraction] = useState<InteractionType>('talk');
+
+  // Auto-set interaction type when component opens based on dialog type
+  useEffect(() => {
+    if (isOpen) {
+      // Reset selections
+      setSelectedTarget('');
+      setSelectedChoiceId('');
+      setIntent('');
+      setTone('');
+      setTopic('');
+      setTargetType('Person');
+      // Set interaction type from prop if provided
+      if (interactionType) {
+        setInteraction(interactionType);
+      }
+    }
+  }, [isOpen, interactionType]);
 
   const targetContestant = useMemo(() => contestants.find(c => c.name === selectedTarget), [contestants, selectedTarget]);
 
@@ -53,26 +71,16 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
   const targetTypes: TargetType[] = ['Person','Group','Self','Object','Audience'];
   const interactions: InteractionType[] = ['talk','dm','scheme','activity'];
 
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Tag Conversation (Beta)</DialogTitle>
+          <DialogTitle>Tag {interaction.charAt(0).toUpperCase() + interaction.slice(1)}</DialogTitle>
           <DialogDescription>Pick tags to shape your intent, tone, topic, and target.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Interaction</label>
-              <Select value={interaction} onValueChange={(v) => setInteraction(v as InteractionType)}>
-                <SelectTrigger><SelectValue placeholder="Choose..." /></SelectTrigger>
-                <SelectContent className="z-50 bg-popover text-popover-foreground">
-                  {interactions.map(it => (
-                    <SelectItem key={it} value={it}>{it}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm font-medium">Intent</label>
               <Select value={intent} onValueChange={(v) => setIntent(v as IntentTag)}>
