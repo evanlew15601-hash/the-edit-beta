@@ -76,7 +76,15 @@ export const processVoting = (
     [...activeContestants, { name: playerName } as any].forEach(target => {
       if (target.name === voter.name) return;
       if (target.name === immunityWinner) return; // Can't vote for immunity winner
-      if (allianceMembers.has(target.name) && Math.random() > 0.1) return; // 90% alliance loyalty
+      // Improved alliance loyalty - consider trust and personality
+      if (allianceMembers.has(target.name)) {
+        const isGenuinelyLoyal = voter.psychProfile.trustLevel > 60 && voter.psychProfile.suspicionLevel < 40;
+        const highTrustWithPlayer = voter.psychProfile.trustLevel > 70;
+        
+        // If they're genuinely loyal AND trust the player highly, they CAN be swayed
+        if (isGenuinelyLoyal && highTrustWithPlayer && Math.random() > 0.3) return; // 70% chance to ignore alliance
+        else if (allianceMembers.has(target.name) && Math.random() > 0.05) return; // 95% loyalty otherwise
+      }
       
       const threat = threatLevels.get(target.name) || 0;
       

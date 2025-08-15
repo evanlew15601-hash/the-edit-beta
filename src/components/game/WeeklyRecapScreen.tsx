@@ -11,9 +11,12 @@ interface WeeklyRecapScreenProps {
 }
 
 export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenProps) => {
-  const currentWeek = Math.floor(gameState.currentDay / 7);
+  const currentWeek = Math.floor((gameState.currentDay - 1) / 7) + 1;
+  const weekStartDay = (currentWeek - 1) * 7 + 1;
+  const weekEndDay = currentWeek * 7;
+  
   const weeklyConfessionals = gameState.confessionals.filter(
-    c => c.day > (currentWeek - 1) * 7 && c.day <= currentWeek * 7
+    c => c.day >= weekStartDay && c.day <= weekEndDay
   );
 
   // Generate weekly edit summary (data-driven)

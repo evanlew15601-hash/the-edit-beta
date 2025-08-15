@@ -10,6 +10,7 @@ import { SchemeDialog } from './SchemeDialog';
 import { DaySkipDialog } from './DaySkipDialog';
 import { EmergentEventDialog } from './EmergentEventDialog';
 import { ActivityDialog } from './ActivityDialog';
+import { AllianceMeetingDialog } from './AllianceMeetingDialog';
 import { TagConversationDialog } from './TagConversationDialog';
 
 interface ActionPanelProps {
@@ -19,14 +20,16 @@ interface ActionPanelProps {
   onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
   onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
+  onAllianceMeeting: (allianceId: string, agenda: string, tone: string) => void;
 }
 
-export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk }: ActionPanelProps) => {
+export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk, onAllianceMeeting }: ActionPanelProps) => {
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
   const [forcedOpen, setForcedOpen] = useState(false);
   const [tagTalkOpen, setTagTalkOpen] = useState(false);
   const [tagTalkType, setTagTalkType] = useState<'talk' | 'dm' | 'scheme' | 'activity'>('talk');
+  const [allianceMeetingOpen, setAllianceMeetingOpen] = useState(false);
   const forcedItem = (gameState.forcedConversationsQueue || [])[0];
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
@@ -138,6 +141,23 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
           </div>
         )}
 
+        {gameState.alliances.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-border">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium">Alliance Actions</h3>
+              <p className="text-xs text-muted-foreground">{gameState.alliances.length} active alliance{gameState.alliances.length > 1 ? 's' : ''}</p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setAllianceMeetingOpen(true)}
+              disabled={allActionsUsed}
+              className="w-full"
+            >
+              Call Alliance Meeting
+            </Button>
+          </div>
+        )}
+
         {!allActionsUsed && (
           <div className="mt-6 pt-6 border-t border-border">
             <div className="flex items-center justify-between">
@@ -232,6 +252,17 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
           setTagTalkOpen(false); 
         }}
         interactionType={tagTalkType}
+      />
+
+      <AllianceMeetingDialog
+        isOpen={allianceMeetingOpen}
+        onClose={() => setAllianceMeetingOpen(false)}
+        alliances={gameState.alliances}
+        contestants={gameState.contestants.filter(c => !c.isEliminated)}
+        onSubmit={(allianceId, agenda, tone) => {
+          onAllianceMeeting(allianceId, agenda, tone);
+          setAllianceMeetingOpen(false);
+        }}
       />
 
       <EmergentEventDialog

@@ -656,14 +656,14 @@ export const useGameState = () => {
         confessionals: [...prev.confessionals, finalConfessional],
         editPerception: newEditPerception,
         playerActions: prev.playerActions.map(action =>
-          action.type === 'confessional' ? { ...action, used: true } : action
+          action.type === 'confessional' ? { ...action, used: true, usageCount: action.usageCount + 1 } : action
         ),
+        dailyActionCount: (prev.dailyActionCount || 0) + 1,
+        interactionLog: newInteractionLog,
         favoriteTally: {
           ...(prev.favoriteTally || {}),
           [prev.playerName]: (prev.favoriteTally?.[prev.playerName] || 0) + (madeEdit ? audienceScore : 0),
         },
-        interactionLog: newInteractionLog,
-        dailyActionCount: prev.dailyActionCount + 1,
       };
     });
   }, []);

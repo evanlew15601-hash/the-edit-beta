@@ -41,6 +41,7 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
               onEmergentEventChoice={onEmergentEventChoice}
               onForcedConversationReply={onForcedConversationReply}
               onTagTalk={onTagTalk}
+              onAllianceMeeting={() => {}} // Placeholder - implement later
             />
           </div>
           

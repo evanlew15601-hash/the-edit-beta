@@ -10,10 +10,12 @@ function truncate(text: string, max = 140) {
 }
 
 export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
-  const week = Math.max(1, Math.floor(gameState.currentDay / 7));
+  const week = Math.max(1, Math.floor((gameState.currentDay - 1) / 7) + 1);
+  const weekStartDay = (week - 1) * 7 + 1;
+  const weekEndDay = week * 7;
   const { confessionals, alliances, votingHistory, editPerception, playerName, contestants } = gameState;
 
-  const weeklyConfs = confessionals.filter(c => withinWeek(c.day, week));
+  const weeklyConfs = confessionals.filter(c => c.day >= weekStartDay && c.day <= weekEndDay);
 
   // Tone distribution and dominant tone
   const toneCounts = weeklyConfs.reduce<Record<string, number>>((acc, c) => {
@@ -32,11 +34,11 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   );
 
   // Alliance events this week
-  const alliancesFormed = alliances.filter(a => withinWeek(a.formed, week));
-  const alliancesActive = alliances.filter(a => withinWeek(a.lastActivity, week));
+  const alliancesFormed = alliances.filter(a => a.formed >= weekStartDay && a.formed <= weekEndDay);
+  const alliancesActive = alliances.filter(a => a.lastActivity >= weekStartDay && a.lastActivity <= weekEndDay);
 
   // Elimination this week
-  const elim = votingHistory.find(v => withinWeek(v.day, week));
+  const elim = votingHistory.find(v => v.day >= weekStartDay && v.day <= weekEndDay);
   const elimLine = elim
     ? `Elimination: ${elim.eliminated} left after a ${Object.values(elim.votes || {}).length}-vote.`
     : undefined;
@@ -48,7 +50,7 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   // Scan contestant memories
   for (const c of contestants) {
     for (const m of c.memory || []) {
-      if (!withinWeek(m.day, week)) continue;
+      if (m.day < weekStartDay || m.day > weekEndDay) continue;
       if (m.type === 'scheme' && m.emotionalImpact >= 3) {
         const line = `A scheme brews involving ${m.participants.join(', ')}.`;
         notableMoments.push(line);
@@ -68,7 +70,7 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   }
 
   // Include logged interactions between player and NPCs
-  const logs = (gameState.interactionLog || []).filter(l => withinWeek(l.day, week) && l.participants?.includes(playerName));
+  const logs = (gameState.interactionLog || []).filter(l => l.day >= weekStartDay && l.day <= weekEndDay && l.participants?.includes(playerName));
   const ranked = logs
     .map(l => ({
       score: (l.type === 'scheme' ? 5 : l.type === 'dm' ? 3 : l.type === 'talk' ? 2 : 1) + (l.ai_response ? 1 : 0) + (l.content ? Math.min(3, Math.floor((l.content.length || 0) / 60)) : 0),
