@@ -24,6 +24,9 @@ import { EmergentEventInterruptor, EmergentEvent } from '@/utils/emergentEventIn
 import { npcAutonomyEngine } from '@/utils/npcAutonomyEngine';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { evaluateChoice, pickVariant, getCooldownKey, reactionText } from '@/utils/tagDialogueEngine';
+import { memoryEngine } from '@/utils/memoryEngine';
+import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
+
 const MINIMAL_AI = true; // Minimal, credit-free reaction mode
 const USE_REMOTE_AI = false; // Use free local + deterministic engines by default
 
@@ -83,8 +86,15 @@ export const useGameState = () => {
   const startGame = useCallback((playerName: string) => {
     const contestants = generateContestants(11);
     npcAutonomyEngine.initializeNPCs(contestants);
-    memoryEngine.initializeJournals(contestants);
-    relationshipGraphEngine.initializeRelationships(contestants);
+    
+    // Initialize memory systems
+    try {
+      memoryEngine.initializeJournals(contestants);
+      relationshipGraphEngine.initializeRelationships(contestants);
+    } catch (error) {
+      console.warn('Memory system initialization failed:', error);
+    }
+    
     setGameState(prev => ({
       ...prev,
       playerName,
@@ -98,6 +108,30 @@ export const useGameState = () => {
     window.addEventListener('ai-settings:update', handler);
     return () => window.removeEventListener('ai-settings:update', handler);
   }, [updateAISettings]);
+
+  // Helper function to record memory events
+  const recordMemoryEvent = useCallback((
+    day: number,
+    type: 'conversation' | 'alliance_form' | 'promise' | 'betrayal',
+    participants: string[],
+    content: string,
+    emotionalImpact: number = 0,
+    strategicImportance: number = 5
+  ) => {
+    try {
+      memoryEngine.recordEvent({
+        day,
+        type,
+        participants,
+        content,
+        emotionalImpact,
+        reliability: 'confirmed',
+        strategicImportance
+      });
+    } catch (error) {
+      console.warn('Failed to record memory event:', error);
+    }
+  }, []);
 
   const useAction = useCallback((actionType: string, target?: string, content?: string, tone?: string) => {
     setGameState(prev => {
@@ -155,6 +189,16 @@ export const useGameState = () => {
                   timestamp: prev.currentDay * 1000 + Math.random() * 1000
                 }]
               };
+              
+              // Record in memory engine
+              recordMemoryEvent(
+                prev.currentDay,
+                'conversation',
+                [prev.playerName, contestant.name],
+                `${content} [AI Detected: ${parsedInput.primary}]`,
+                trustDelta / 5,
+                Math.abs(trustDelta) > 10 ? 7 : 4
+              );
             }
             break;
 
@@ -286,6 +330,16 @@ export const useGameState = () => {
             formed: prev.currentDay,
             lastActivity: prev.currentDay
           });
+          
+          // Record alliance formation in memory
+          recordMemoryEvent(
+            prev.currentDay,
+            'alliance_form',
+            [prev.playerName, target],
+            `Secret alliance formed between ${prev.playerName} and ${target}`,
+            5,
+            9
+          );
         } else {
           existingAlliance.strength = Math.min(100, existingAlliance.strength + 10);
           existingAlliance.lastActivity = prev.currentDay;
@@ -554,7 +608,7 @@ export const useGameState = () => {
             pairs.forEach(([re, rep]) => { t = t.replace(re, rep); });
             t = t.replace(/\b(didn|couldn|wouldn|shouldn)\b\.?/gi, (m) => ({didn:'did not',couldn:'could not',wouldn:'would not',shouldn:'should not'}[m.toLowerCase().replace(/\./,'')] || m));
             // Strip remaining outer quotes
-            t = t.replace(/^["'“”]+|["'“”]+$/g, '');
+            t = t.replace(/^["'""]+|["'""]+$/g, '');
             // Remove simple third-person narration prefixes if present
             t = t.replace(/^[A-Z][a-z]+\s+(glances|keeps|says|whispers|mutters|shrugs|smiles)[^\.]*\.\s*/, '');
             // Enforce 1–2 sentences
@@ -609,7 +663,8 @@ export const useGameState = () => {
         }
       })();
     }
-  }, []);
+  }, [recordMemoryEvent]);
+
   const submitConfessional = useCallback((content: string, tone: string) => {
     setGameState(prev => {
       // Create the confessional
@@ -1174,6 +1229,47 @@ export const useGameState = () => {
     handleEmergentEventChoice,
     resetGame,
     tagTalk,
+    submitAllianceMeeting: useCallback((allianceId: string, agenda: string, tone: string) => {
+      setGameState(prev => {
+        const alliance = prev.alliances.find(a => a.id === allianceId);
+        if (!alliance) return prev;
+
+        // Record meeting in memory
+        recordMemoryEvent(
+          prev.currentDay,
+          'alliance_form',
+          alliance.members,
+          `Alliance meeting: ${agenda} (tone: ${tone})`,
+          tone === 'warning' ? -2 : tone === 'reassuring' ? 3 : 1,
+          8
+        );
+
+        // Update alliance strength based on meeting tone
+        const strengthDelta = tone === 'reassuring' ? 5 : tone === 'warning' ? -2 : 2;
+        const updatedAlliances = prev.alliances.map(a => 
+          a.id === allianceId 
+            ? { ...a, strength: Math.max(0, Math.min(100, a.strength + strengthDelta)), lastActivity: prev.currentDay }
+            : a
+        );
+
+        return {
+          ...prev,
+          alliances: updatedAlliances,
+          dailyActionCount: prev.dailyActionCount + 1,
+          interactionLog: [
+            ...((prev.interactionLog) || []),
+            {
+              day: prev.currentDay,
+              type: 'alliance_meeting' as any,
+              participants: alliance.members,
+              content: `Meeting agenda: ${agenda}`,
+              tone,
+              source: 'player' as const,
+            }
+          ]
+        };
+      });
+    }, [recordMemoryEvent])
   };
 };
 
