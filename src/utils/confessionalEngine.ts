@@ -1,4 +1,6 @@
 import { GameState, Contestant, Confessional } from '@/types/game';
+import { memoryEngine } from '@/utils/memoryEngine';
+import { MemoryQuery } from '@/types/memory';
 
 export interface ConfessionalPrompt {
   id: string;
@@ -15,6 +17,18 @@ export class ConfessionalEngine {
     const prompts: ConfessionalPrompt[] = [];
     const { contestants, currentDay, alliances, votingHistory, editPerception } = gameState;
     const activeContestants = contestants.filter(c => !c.isEliminated);
+    
+    // Get memory-driven context
+    const playerMemory = memoryEngine.queryMemory(gameState.playerName, {
+      dayRange: { start: currentDay - 3, end: currentDay },
+      minImportance: 5
+    });
+
+    const recentAlliances = alliances.filter(a => 
+      a.members.includes(gameState.playerName) && a.lastActivity >= currentDay - 3
+    );
+
+    const upcomingElimination = currentDay >= gameState.nextEliminationDay - 1;
     
     // Strategy prompts based on game state
     if (currentDay > 5 && alliances.length > 0) {
@@ -124,6 +138,94 @@ export class ConfessionalEngine {
         prompt: `How do you think America is seeing your game right now?`,
         followUp: 'Are you playing for the cameras or staying true to yourself?',
         suggestedTones: ['strategic', 'vulnerable', 'humorous'],
+        editPotential: 7
+      });
+    }
+
+    // Memory-driven prompts
+    prompts.push(...this.generateMemoryBasedPrompts(playerMemory, gameState));
+    
+    // Alliance-driven prompts
+    prompts.push(...this.generateAlliancePrompts(recentAlliances, gameState));
+    
+    // Voting strategy prompts
+    prompts.push(...this.generateVotingPrompts(votingHistory.slice(-2), upcomingElimination, gameState));
+
+    return prompts.slice(0, 8); // Increased variety
+  }
+
+  private static generateMemoryBasedPrompts(playerMemory: any, gameState: GameState): ConfessionalPrompt[] {
+    const prompts: ConfessionalPrompt[] = [];
+
+    // Recent betrayals or promises
+    playerMemory.events.filter((e: any) => e.type === 'betrayal' || e.type === 'promise').forEach((event: any) => {
+      prompts.push({
+        id: `memory-${event.id}`,
+        category: 'strategy',
+        prompt: `Talk about ${event.content.toLowerCase()}. How does this affect your game moving forward?`,
+        suggestedTones: ['strategic', 'vulnerable', 'aggressive'],
+        editPotential: 8
+      });
+    });
+
+    // Recent conversations with high emotional impact
+    playerMemory.events.filter((e: any) => Math.abs(e.emotionalImpact) > 5).forEach((event: any) => {
+      prompts.push({
+        id: `emotional-${event.id}`,
+        category: 'relationships',
+        prompt: `Reflect on your recent interaction with ${event.participants.join(' and ')}. What's your read on them now?`,
+        suggestedTones: ['vulnerable', 'strategic', 'humorous'],
+        editPotential: 7
+      });
+    });
+
+    return prompts;
+  }
+
+  private static generateAlliancePrompts(alliances: any[], gameState: GameState): ConfessionalPrompt[] {
+    const prompts: ConfessionalPrompt[] = [];
+
+    alliances.forEach(alliance => {
+      prompts.push({
+        id: `alliance-${alliance.id}`,
+        category: 'strategy',
+        prompt: `How solid is your alliance with ${alliance.members.filter((m: string) => m !== gameState.playerName).join(', ')}? Can you trust them going forward?`,
+        suggestedTones: ['strategic', 'vulnerable'],
+        editPotential: 8
+      });
+    });
+
+    return prompts;
+  }
+
+  private static generateVotingPrompts(recentVotes: any[], upcomingElimination: boolean, gameState: GameState): ConfessionalPrompt[] {
+    const prompts: ConfessionalPrompt[] = [];
+
+    if (upcomingElimination) {
+      prompts.push({
+        id: 'voting-plan',
+        category: 'strategy',
+        prompt: 'Who are you thinking of voting for in the upcoming elimination? Walk us through your reasoning.',
+        suggestedTones: ['strategic', 'dramatic'],
+        editPotential: 9
+      });
+
+      prompts.push({
+        id: 'safety-concern',
+        category: 'emotions',
+        prompt: 'How safe do you feel going into this vote? What are your biggest concerns?',
+        suggestedTones: ['vulnerable', 'strategic'],
+        editPotential: 8
+      });
+    }
+
+    if (recentVotes.length > 0) {
+      const lastVote = recentVotes[recentVotes.length - 1];
+      prompts.push({
+        id: 'vote-reflection',
+        category: 'game_reflection',
+        prompt: `Looking back at the ${lastVote.eliminated} elimination, do you think you made the right choice? Any regrets?`,
+        suggestedTones: ['strategic', 'vulnerable', 'defensive'],
         editPotential: 7
       });
     }

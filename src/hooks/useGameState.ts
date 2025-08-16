@@ -83,6 +83,8 @@ export const useGameState = () => {
   const startGame = useCallback((playerName: string) => {
     const contestants = generateContestants(11);
     npcAutonomyEngine.initializeNPCs(contestants);
+    memoryEngine.initializeJournals(contestants);
+    relationshipGraphEngine.initializeRelationships(contestants);
     setGameState(prev => ({
       ...prev,
       playerName,
@@ -844,7 +846,7 @@ export const useGameState = () => {
 
   const submitPlayerVote = useCallback((choice: string) => {
     setGameState(prev => {
-      const votingResult = processVoting(prev.contestants, prev.playerName, prev.alliances, prev.immunityWinner, choice);
+      const votingResult = processVoting(prev.contestants, prev.playerName, prev.alliances, prev, prev.immunityWinner, choice);
       const newDay = prev.currentDay; // already incremented on advanceDay
 
       const finalContestants = prev.contestants.map(c =>
