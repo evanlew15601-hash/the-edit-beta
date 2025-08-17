@@ -1,82 +1,155 @@
 import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Contestant } from '@/types/game';
+import { Heart, Shield, Eye, Zap, AlertTriangle } from 'lucide-react';
+import { memoryEngine } from '@/utils/memoryEngine';
 
 interface ContestantGridProps {
   contestants: Contestant[];
+  playerName?: string;
 }
 
-export const ContestantGrid = ({ contestants }: ContestantGridProps) => {
+export const ContestantGrid = ({ contestants, playerName }: ContestantGridProps) => {
   const activeContestants = contestants.filter(c => !c.isEliminated);
-  const eliminatedContestants = contestants.filter(c => c.isEliminated);
+  
+  const getRelationshipData = (contestant: Contestant) => {
+    if (!playerName) return null;
+    
+    const journal = memoryEngine.getMemorySystem().privateJournals[playerName];
+    if (!journal) return null;
+    
+    return {
+      threat: journal.threatAssessment[contestant.name] || 0,
+      bond: journal.personalBonds[contestant.name] || 0,
+      trust: contestant.psychProfile.trustLevel,
+      suspicion: contestant.psychProfile.suspicionLevel
+    };
+  };
 
-  const getTrustColor = (trustLevel: number) => {
-    if (trustLevel > 30) return 'text-edit-hero';
-    if (trustLevel < -30) return 'text-edit-villain';
+  const getThreatColor = (level: number) => {
+    if (level >= 8) return 'text-destructive';
+    if (level >= 5) return 'text-yellow-600';
     return 'text-muted-foreground';
   };
 
-  const getDispositionText = (disposition: string[]) => {
-    return disposition.join(', ');
+  const getRecentActivity = (contestant: Contestant) => {
+    const recentMemory = contestant.memory
+      .filter(m => m.participants?.includes(playerName || ''))
+      .slice(-1)[0];
+    
+    if (!recentMemory) return null;
+    
+    const daysSince = Math.max(1, (Date.now() / 86400000) - recentMemory.day);
+    return {
+      type: recentMemory.type,
+      impact: recentMemory.emotionalImpact,
+      recency: daysSince
+    };
   };
 
   return (
-    <div className="space-y-6 max-h-[80vh]">
-      <Card className="p-6">
-        <h2 className="text-xl font-light mb-4">Active Contestants</h2>
-        <ScrollArea className="max-h-[70vh]">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 pr-4">
-          {activeContestants.map((contestant) => (
-            <div key={contestant.id} className="border border-border rounded p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-foreground">{contestant.name}</h3>
-                <div className="w-2 h-2 bg-surveillance-active rounded-full"></div>
-              </div>
-              
-              <p className="text-sm text-muted-foreground">{contestant.publicPersona}</p>
-              
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Disposition:</span>
-                  <span className="text-foreground">
-                    {getDispositionText(contestant.psychProfile.disposition)}
-                  </span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Interactions:</span>
-                  <span className="text-foreground">
-                    {contestant.memory.length}
-                  </span>
-                </div>
-              </div>
+    <Card className="p-4">
+      <h3 className="text-lg font-light mb-4">Contestants</h3>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {activeContestants.map((contestant) => {
+            const relationshipData = getRelationshipData(contestant);
+            const recentActivity = getRecentActivity(contestant);
+            const isHighThreat = relationshipData && relationshipData.threat >= 7;
+            const isCloseAlly = relationshipData && relationshipData.bond >= 3;
+            
+            return (
+              <Card 
+                key={contestant.id} 
+                className={`p-4 transition-all duration-300 hover-scale ${
+                  isHighThreat ? 'border-destructive/50 bg-destructive/5' : 
+                  isCloseAlly ? 'border-green-500/50 bg-green-500/5' : ''
+                }`}
+              >
+                <div className="space-y-3">
+                  {/* Header with name and status indicators */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-sm">{contestant.name}</h4>
+                      <p className="text-xs text-muted-foreground">{contestant.publicPersona}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {isHighThreat && <AlertTriangle className="w-4 h-4 text-destructive" />}
+                      {isCloseAlly && <Heart className="w-4 h-4 text-green-500" />}
+                      {recentActivity && recentActivity.recency <= 2 && (
+                        <Zap className="w-3 h-3 text-yellow-500 animate-pulse" />
+                      )}
+                    </div>
+                  </div>
 
-            </div>
-          ))}
-          </div>
-        </ScrollArea>
-      </Card>
+                  {/* Relationship metrics */}
+                  {relationshipData && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3 h-3 text-blue-500" />
+                        <span className="text-xs">Trust</span>
+                        <Progress 
+                          value={Math.max(0, relationshipData.trust + 100) / 2} 
+                          className="flex-1 h-1"
+                        />
+                        <span className="text-xs w-8">{relationshipData.trust}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-3 h-3 text-orange-500" />
+                        <span className="text-xs">Suspicion</span>
+                        <Progress 
+                          value={relationshipData.suspicion} 
+                          className="flex-1 h-1"
+                        />
+                        <span className="text-xs w-8">{relationshipData.suspicion}</span>
+                      </div>
+                      
+                      {relationshipData.threat > 0 && (
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-3 h-3 text-destructive" />
+                          <span className="text-xs">Threat Level</span>
+                          <span className={`text-xs font-medium ${getThreatColor(relationshipData.threat)}`}>
+                            {relationshipData.threat}/10
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-      {eliminatedContestants.length > 0 && (
-        <Card className="p-6">
-          <h2 className="text-xl font-light mb-4">Eliminated</h2>
-          <ScrollArea className="max-h-[30vh]">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pr-4">
-            {eliminatedContestants.map((contestant) => (
-              <div key={contestant.id} className="border border-border rounded p-3 opacity-60">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium text-muted-foreground">{contestant.name}</h3>
-                  <div className="w-2 h-2 bg-surveillance-inactive rounded-full"></div>
+                  {/* Recent activity indicator */}
+                  {recentActivity && (
+                    <div className="pt-2 border-t border-border">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Recent:</span>
+                        <Badge 
+                          variant={recentActivity.impact > 0 ? "secondary" : recentActivity.impact < 0 ? "destructive" : "outline"}
+                          className="text-xs"
+                        >
+                          {recentActivity.type}
+                        </Badge>
+                        {recentActivity.recency <= 1 && (
+                          <span className="text-xs text-yellow-600">Fresh</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Disposition tags */}
+                  <div className="flex flex-wrap gap-1">
+                    {contestant.psychProfile.disposition.slice(0, 2).map((trait, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {trait}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Day {contestant.eliminationDay}
-                </p>
-              </div>
-            ))}
-            </div>
-          </ScrollArea>
-        </Card>
-      )}
-    </div>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
   );
 };

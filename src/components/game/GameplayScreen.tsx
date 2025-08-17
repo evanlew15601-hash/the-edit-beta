@@ -5,6 +5,7 @@ import { ContestantGrid } from './ContestantGrid';
 import { TwistNotification } from './TwistNotification';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { MemoryPanel } from './MemoryPanel';
+import { AmbientNPCActivity } from './AmbientNPCActivity';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -49,7 +50,12 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           
           <div className="lg:col-span-1 space-y-6">
             <MemoryPanel gameState={gameState} />
-            <ContestantGrid contestants={gameState.contestants} />
+            <AmbientNPCActivity 
+              contestants={gameState.contestants}
+              currentDay={gameState.currentDay}
+              playerName={gameState.playerName}
+            />
+            <ContestantGrid contestants={gameState.contestants} playerName={gameState.playerName} />
           </div>
         </div>
       </div>
