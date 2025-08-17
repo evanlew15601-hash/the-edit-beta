@@ -1,6 +1,8 @@
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { GameState } from '@/types/game';
+import { memoryEngine } from '@/utils/memoryEngine';
 
 interface MemoryPanelProps {
   gameState: GameState;
@@ -8,6 +10,9 @@ interface MemoryPanelProps {
 
 export const MemoryPanel = ({ gameState }: MemoryPanelProps) => {
   const player = gameState.playerName;
+
+  // Get strategic context from memory engine
+  const strategicContext = memoryEngine.getStrategicContext(player, gameState);
 
   // Collect player-present memories from contestants' memories
   const mems = gameState.contestants
@@ -18,7 +23,7 @@ export const MemoryPanel = ({ gameState }: MemoryPanelProps) => {
   const logs = (gameState.interactionLog || []).filter(l => l.participants?.includes(player));
 
   // Normalize into a unified feed
-  type FeedItem = { day: number; kind: string; text: string };
+  type FeedItem = { day: number; kind: string; text: string; importance?: number };
   const feed: FeedItem[] = [];
 
   mems.forEach(m => {
@@ -47,19 +52,62 @@ export const MemoryPanel = ({ gameState }: MemoryPanelProps) => {
 
   return (
     <Card className="p-4">
-      <h3 className="text-lg font-light mb-3">Your Memory Log</h3>
-      <ScrollArea className="h-80 pr-3">
+      <h3 className="text-lg font-light mb-3">Strategic Memory</h3>
+      
+      {/* Strategic Overview */}
+      {strategicContext && (
+        <div className="mb-4 p-3 bg-muted border border-border rounded">
+          <div className="space-y-2">
+            <div>
+              <span className="text-xs text-muted-foreground">Current Strategy:</span>
+              <p className="text-sm font-medium">{strategicContext.currentStrategy}</p>
+            </div>
+            
+            {strategicContext.topThreats.length > 0 && (
+              <div>
+                <span className="text-xs text-muted-foreground">Top Threats:</span>
+                <div className="flex gap-1 mt-1">
+                  {strategicContext.topThreats.map(threat => (
+                    <Badge key={threat} variant="destructive" className="text-xs">{threat}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {strategicContext.allies.length > 0 && (
+              <div>
+                <span className="text-xs text-muted-foreground">Closest Allies:</span>
+                <div className="flex gap-1 mt-1">
+                  {strategicContext.allies.map(ally => (
+                    <Badge key={ally} variant="secondary" className="text-xs">{ally}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <ScrollArea className="h-60 pr-3">
         <div className="space-y-2">
           {feed.length === 0 ? (
             <p className="text-sm text-muted-foreground">No memories yet. Your actions and nearby events will appear here.</p>
           ) : (
-            feed.map((f, idx) => (
-              <div key={idx} className="text-sm">
-                <span className="text-muted-foreground mr-2">Day {f.day}</span>
-                <span className="font-medium mr-2">{f.kind}</span>
-                <span className="text-foreground">{f.text}</span>
-              </div>
-            ))
+            feed
+              .sort((a, b) => b.day - a.day) // Most recent first
+              .slice(0, 20) // Show last 20 events
+              .map((f, idx) => (
+                <div key={idx} className="text-sm border-l-2 border-muted pl-3 py-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-muted-foreground text-xs">Day {f.day}</span>
+                    <Badge variant="outline" className="text-xs">{f.kind}</Badge>
+                    {f.importance && f.importance > 7 && (
+                      <Badge variant="destructive" className="text-xs">Important</Badge>
+                    )}
+                  </div>
+                  <span className="text-foreground text-sm">{f.text}</span>
+                </div>
+              ))
           )}
         </div>
       </ScrollArea>

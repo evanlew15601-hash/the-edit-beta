@@ -50,6 +50,8 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         return 'Attempt to manipulate votes, spread rumors, or form secret alliances.';
       case 'activity':
         return 'Start a light house activity to build rapport and stir subtle dynamics.';
+      case 'alliance_meeting':
+        return 'Call a private meeting with your alliance members to strategize.';
       default:
         return '';
     }

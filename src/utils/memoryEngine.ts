@@ -292,9 +292,14 @@ export class MemoryEngine {
     return Math.max(...this.memory.sharedMemory.map(e => e.day), 1);
   }
 
-  getStrategicContext(contestantId: string, gameState: GameState): string {
+  getStrategicContext(contestantId: string, gameState: GameState): {
+    currentStrategy: string;
+    recentEvents: string[];
+    topThreats: string[];
+    allies: string[];
+  } | null {
     const journal = this.memory.privateJournals[contestantId];
-    if (!journal) return '';
+    if (!journal) return null;
 
     const recentEvents = journal.memoryEvents
       .filter(e => e.day >= gameState.currentDay - 3)
@@ -302,16 +307,20 @@ export class MemoryEngine {
 
     const topThreats = Object.entries(journal.threatAssessment)
       .sort(([,a], [,b]) => b - a)
-      .slice(0, 3);
+      .slice(0, 3)
+      .map(([name]) => name);
 
     const closestAllies = Object.entries(journal.personalBonds)
       .filter(([,bond]) => bond > 2)
-      .sort(([,a], [,b]) => b - a);
+      .sort(([,a], [,b]) => b - a)
+      .map(([name]) => name);
 
-    return `Current strategy: ${journal.currentStrategy}. ` +
-           `Recent key events: ${recentEvents.slice(0, 2).map(e => e.content).join('; ')}. ` +
-           `Top threats: ${topThreats.map(([name, threat]) => `${name}(${threat})`).join(', ')}. ` +
-           `Closest allies: ${closestAllies.map(([name]) => name).join(', ')}.`;
+    return {
+      currentStrategy: journal.currentStrategy,
+      recentEvents: recentEvents.slice(0, 3).map(e => e.content),
+      topThreats,
+      allies: closestAllies
+    };
   }
 
   getMemorySystem(): MemorySystem {

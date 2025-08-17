@@ -40,7 +40,8 @@ const initialGameState = (): GameState => ({
     { type: 'confessional', used: false, usageCount: 0 },
     { type: 'observe', used: false, usageCount: 0 },
     { type: 'scheme', used: false, usageCount: 0 },
-    { type: 'activity', used: false, usageCount: 0 }
+    { type: 'activity', used: false, usageCount: 0 },
+    { type: 'alliance_meeting', used: false, usageCount: 0 }
   ],
   confessionals: [],
   editPerception: {
@@ -289,6 +290,25 @@ export const useGameState = () => {
                   emotionalImpact: schemeSuccess ? -2 : -8,
                   timestamp: prev.currentDay * 1000 + Math.random() * 1000
                 }]
+              };
+            }
+            break;
+
+          case 'alliance_meeting':
+            // Alliance members gain positive memory from the meeting
+            if (target && target.includes(contestant.name)) { // target is allianceId, check if contestant is in this alliance
+              const meetingMemory = {
+                day: prev.currentDay,
+                type: 'conversation' as const,
+                participants: target.split(','), // Alliance member names
+                content: `Alliance meeting: ${content}`,
+                emotionalImpact: tone === 'reassuring' ? 2 : tone === 'warning' ? -1 : 1,
+                timestamp: prev.currentDay * 1000 + Math.random() * 1000
+              };
+              
+              updatedContestant = {
+                ...updatedContestant,
+                memory: [...updatedContestant.memory, meetingMemory]
               };
             }
             break;
@@ -1149,6 +1169,16 @@ export const useGameState = () => {
           ],
         };
       });
+
+      // Record in memory engine for strategic AI use
+      recordMemoryEvent(
+        prev.currentDay,
+        memoryType as any,
+        [prev.playerName, target],
+        `[TAG intent=${choice.intent}] ${variant}`,
+        Math.max(-10, Math.min(10, Math.round(outcome.trustDelta * 10))),
+        Math.abs(trustDelta) > 20 ? 8 : 5
+      );
 
       // mark appropriate action usage
       const newActions = prev.playerActions.map(a => {

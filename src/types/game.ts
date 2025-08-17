@@ -35,7 +35,7 @@ export interface InteractionLogEntry {
 }
 
 export interface PlayerAction {
-  type: 'talk' | 'dm' | 'confessional' | 'observe' | 'scheme' | 'activity';
+  type: 'talk' | 'dm' | 'confessional' | 'observe' | 'scheme' | 'activity' | 'alliance_meeting';
   target?: string;
   content?: string;
   tone?: string;
