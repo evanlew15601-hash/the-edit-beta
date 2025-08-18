@@ -192,30 +192,32 @@ export const useGameState = () => {
               };
               
               // Record in memory engine
-              recordMemoryEvent(
-                prev.currentDay,
-                'conversation',
-                [prev.playerName, contestant.name],
-                `${content} [AI Detected: ${parsedInput.primary}]`,
-                trustDelta / 5,
-                Math.abs(trustDelta) > 10 ? 7 : 4
-              );
+              memoryEngine.recordEvent({
+                day: prev.currentDay,
+                type: 'conversation',
+                participants: [prev.playerName, contestant.name],
+                content: `${content} [AI Detected: ${parsedInput.primary}]`,
+                emotionalImpact: trustDelta / 5,
+                reliability: 'confirmed',
+                strategicImportance: Math.abs(trustDelta) > 10 ? 7 : 3
+              });
             }
             break;
 
           case 'dm':
             if (contestant.name === target && parsedInput) {
               const npcPersonalityBias = getNPCPersonalityBias(contestant);
-              const trustImpact = calculateAITrustDelta(parsedInput, npcPersonalityBias);
-              const suspicionImpact = calculateAISuspicionDelta(parsedInput, npcPersonalityBias);
-              const leakChance = calculateAILeakChance(parsedInput, contestant.psychProfile);
-              
+              const trustImpact = parsedInput.trustworthiness * 0.2;
+              const leakChance = calculateAILeakChance(parsedInput, npcPersonalityBias);
+
               updatedContestant = {
                 ...updatedContestant,
                 psychProfile: {
                   ...updatedContestant.psychProfile,
                   trustLevel: Math.max(-100, Math.min(100, updatedContestant.psychProfile.trustLevel + trustImpact)),
-                  suspicionLevel: Math.max(0, Math.min(100, updatedContestant.psychProfile.suspicionLevel + suspicionImpact))
+                  suspicionLevel: parsedInput.manipulationLevel > 50 ? 
+                    Math.min(100, updatedContestant.psychProfile.suspicionLevel + 10) : 
+                    updatedContestant.psychProfile.suspicionLevel
                 },
                 memory: [...updatedContestant.memory, {
                   day: prev.currentDay,
@@ -240,24 +242,9 @@ export const useGameState = () => {
                     });
                   }
                 });
-          }
-        }
-        break;
-
-        case 'alliance_meeting':
-          // Record alliance meeting in memory
-          memoryEngine.recordEvent({
-            day: prev.currentDay,
-            type: 'alliance_form',
-            participants: gameState.alliances.find(a => a.id === target)?.members || [prev.playerName],
-            content: `Alliance meeting: "${content}"`,
-            emotionalImpact: 2,
-            reliability: 'confirmed',
-            strategicImportance: 8
-          });
-          break;
-      }
-      break;
+              }
+            }
+            break;
 
           case 'observe':
             const observationMemory = {
@@ -274,9 +261,8 @@ export const useGameState = () => {
                 ...updatedContestant,
                 psychProfile: {
                   ...updatedContestant.psychProfile,
-                  suspicionLevel: Math.min(100, updatedContestant.psychProfile.suspicionLevel + 5)
-                },
-                memory: [...updatedContestant.memory, observationMemory]
+                  trustLevel: Math.max(-100, updatedContestant.psychProfile.trustLevel - 2)
+                }
               };
             }
             break;
@@ -288,8 +274,8 @@ export const useGameState = () => {
               const schemeSuccess = !schemeDetected && npcPersonalityBias.manipulationDetection < 60;
               
               const trustDelta = schemeSuccess ? -5 : -20;
-              const suspicionDelta = schemeDetected ? 35 : 15;
-              
+              const suspicionDelta = schemeDetected ? 15 : 0;
+
               updatedContestant = {
                 ...updatedContestant,
                 psychProfile: {
@@ -301,8 +287,8 @@ export const useGameState = () => {
                   day: prev.currentDay,
                   type: 'scheme' as const,
                   participants: [prev.playerName, contestant.name],
-                  content: `[AI-SCHEME-${schemeSuccess ? 'SUCCESS' : 'DETECTED'}] ${content}`,
-                  emotionalImpact: schemeSuccess ? -2 : -8,
+                  content: schemeDetected ? `Player tried to manipulate me: ${content}` : `Had a conversation with ${prev.playerName}: ${content}`,
+                  emotionalImpact: schemeDetected ? -5 : 0,
                   timestamp: prev.currentDay * 1000 + Math.random() * 1000
                 }]
               };
@@ -310,48 +296,43 @@ export const useGameState = () => {
             break;
 
           case 'alliance_meeting':
-            // Alliance members gain positive memory from the meeting
-            if (target && target.includes(contestant.name)) { // target is allianceId, check if contestant is in this alliance
-              const meetingMemory = {
-                day: prev.currentDay,
-                type: 'conversation' as const,
-                participants: target.split(','), // Alliance member names
-                content: `Alliance meeting: ${content}`,
-                emotionalImpact: tone === 'reassuring' ? 2 : tone === 'warning' ? -1 : 1,
-                timestamp: prev.currentDay * 1000 + Math.random() * 1000
-              };
-              
-              updatedContestant = {
-                ...updatedContestant,
-                memory: [...updatedContestant.memory, meetingMemory]
-              };
-            }
+            // Record alliance meeting in memory
+            memoryEngine.recordEvent({
+              day: prev.currentDay,
+              type: 'alliance_form',
+              participants: gameState.alliances.find(a => a.id === target)?.members || [prev.playerName],
+              content: `Alliance meeting: "${content}"`,
+              emotionalImpact: 2,
+              reliability: 'confirmed',
+              strategicImportance: 8
+            });
             break;
 
           case 'activity':
-            if (!contestant.isEliminated && Math.random() < 0.7) {
+            if (contestant.name === target) {
+              const activityMemory = {
+                day: prev.currentDay,
+                type: 'event' as const,
+                participants: [prev.playerName, contestant.name],
+                content: `Did ${content} activity together`,
+                emotionalImpact: 2,
+                timestamp: prev.currentDay * 1000 + Math.random() * 1000
+              };
+
               updatedContestant = {
                 ...updatedContestant,
+                memory: [...updatedContestant.memory, activityMemory],
                 psychProfile: {
                   ...updatedContestant.psychProfile,
-                  trustLevel: Math.min(100, updatedContestant.psychProfile.trustLevel + 3),
-                  suspicionLevel: Math.max(0, updatedContestant.psychProfile.suspicionLevel - 1)
-                },
-                memory: [...updatedContestant.memory, {
-                  day: prev.currentDay,
-                  type: 'event' as const,
-                  participants: [prev.playerName, contestant.name],
-                  content: 'Joined a house group task together',
-                  emotionalImpact: 2,
-                  timestamp: prev.currentDay * 1000 + Math.random() * 1000
-                }]
+                  emotionalCloseness: Math.min(100, updatedContestant.psychProfile.emotionalCloseness + 3)
+                }
               };
             }
             break;
         }
 
         return updatedContestant;
-      });
+    });
 
       const newAlliances = [...prev.alliances];
       if (actionType === 'dm' && tone === 'alliance' && target) {
