@@ -240,9 +240,24 @@ export const useGameState = () => {
                     });
                   }
                 });
-              }
-            }
-            break;
+          }
+        }
+        break;
+
+        case 'alliance_meeting':
+          // Record alliance meeting in memory
+          memoryEngine.recordEvent({
+            day: prev.currentDay,
+            type: 'alliance_form',
+            participants: gameState.alliances.find(a => a.id === target)?.members || [prev.playerName],
+            content: `Alliance meeting: "${content}"`,
+            emotionalImpact: 2,
+            reliability: 'confirmed',
+            strategicImportance: 8
+          });
+          break;
+      }
+      break;
 
           case 'observe':
             const observationMemory = {
