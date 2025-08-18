@@ -1,4 +1,5 @@
 import { GameState, WeeklyEdit } from '@/types/game';
+import { memoryEngine } from './memoryEngine';
 
 function withinWeek(day: number, week: number) {
   return day > (week - 1) * 7 && day <= week * 7;
@@ -15,17 +16,38 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   const weekEndDay = week * 7;
   const { confessionals, alliances, votingHistory, editPerception, playerName, contestants } = gameState;
 
+  // Get confessionals from memory system for this week
+  const memorySystem = memoryEngine.getMemorySystem();
+  const weeklyEvents = memorySystem.weeklyEvents[week] || [];
+  const confessionalEvents = weeklyEvents.filter(e => 
+    e.type === 'confessional' && 
+    e.participants.includes(playerName)
+  );
+
+  // Also get stored confessionals
   const weeklyConfs = confessionals.filter(c => c.day >= weekStartDay && c.day <= weekEndDay);
 
+  // Ensure we have confessionals to work with
+  const allConfessionals = weeklyConfs.length > 0 ? weeklyConfs : 
+    confessionalEvents.map(e => ({
+      id: `event-${e.id}`,
+      day: e.day,
+      content: e.content.replace(/^Confessional \([^)]+\): "/, '').replace(/"$/, ''),
+      tone: e.content.match(/Confessional \(([^)]+)\):/)?.[1] || 'neutral',
+      editImpact: e.strategicImportance,
+      audienceScore: e.emotionalImpact * 10,
+      selected: e.strategicImportance > 5
+    }));
+
   // Tone distribution and dominant tone
-  const toneCounts = weeklyConfs.reduce<Record<string, number>>((acc, c) => {
+  const toneCounts = allConfessionals.reduce<Record<string, number>>((acc, c) => {
     acc[c.tone] = (acc[c.tone] || 0) + 1;
     return acc;
   }, {});
   const dominantTone = Object.entries(toneCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
 
   // Featured quote: highest audienceScore, then editImpact, then length, then latest
-  const featured = [...weeklyConfs]
+  const featured = [...allConfessionals]
     .sort((a, b) => (b.audienceScore ?? -Infinity) - (a.audienceScore ?? -Infinity) || (b.editImpact ?? 0) - (a.editImpact ?? 0) || (b.content?.length ?? 0) - (a.content?.length ?? 0) || b.day - a.day)[0];
 
   const selectedQuote = truncate(
@@ -98,7 +120,7 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   ].filter(Boolean) as string[];
 
   const whatHappenedBits: string[] = [];
-  if (weeklyConfs.length) whatHappenedBits.push(`${weeklyConfs.length} confessionals with ${dominantTone || 'mixed'} tone.`);
+  if (allConfessionals.length) whatHappenedBits.push(`${allConfessionals.length} confessionals with ${dominantTone || 'mixed'} tone.`);
   if (alliancesFormed.length) whatHappenedBits.push(`New alliance${alliancesFormed.length > 1 ? 's' : ''} formed.`);
   if (elim) whatHappenedBits.push(`${elim.eliminated} eliminated.`);
 

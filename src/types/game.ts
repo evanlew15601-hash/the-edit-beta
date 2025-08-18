@@ -91,11 +91,13 @@ export interface GameState {
 }
 
 export interface Confessional {
+  id: string;
   day: number;
   content: string;
   tone: string;
   editImpact: number;
   audienceScore?: number;
+  selected: boolean; // Whether it made the final edit
 }
 
 export interface EditPerception {

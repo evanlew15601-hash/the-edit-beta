@@ -210,6 +210,9 @@ export const useGameState = () => {
               const trustImpact = parsedInput.trustworthiness * 0.2;
               const leakChance = calculateAILeakChance(parsedInput, npcPersonalityBias);
 
+              // CRITICAL: DMs should have much lower leak chance to preserve privacy
+              const adjustedLeakChance = Math.min(leakChance * 0.3, 0.15); // Max 15% leak chance
+
               updatedContestant = {
                 ...updatedContestant,
                 psychProfile: {
@@ -223,25 +226,46 @@ export const useGameState = () => {
                   day: prev.currentDay,
                   type: 'dm' as const,
                   participants: [prev.playerName, contestant.name],
-                  content: `[DM-AI:${parsedInput.primary}] ${content}`,
+                  content: `[PRIVATE DM] ${content}`,
                   emotionalImpact: trustImpact / 3,
                   timestamp: prev.currentDay * 1000 + Math.random() * 1000
                 }]
               };
 
-              if (Math.random() < leakChance) {
+              // Record in memory engine with privacy marker
+              memoryEngine.recordEvent({
+                day: prev.currentDay,
+                type: 'conversation',
+                participants: [prev.playerName, contestant.name],
+                content: `Private DM: "${content}"`,
+                emotionalImpact: trustImpact / 3,
+                reliability: 'confirmed',
+                strategicImportance: 7,
+                witnessed: [] // Empty - this was private
+              });
+
+              // Only leak to others if failed privacy check
+              if (Math.random() < adjustedLeakChance) {
                 prev.contestants.forEach(otherContestant => {
                   if (otherContestant.name !== contestant.name && otherContestant.name !== prev.playerName && !otherContestant.isEliminated) {
                     otherContestant.memory.push({
                       day: prev.currentDay,
                       type: 'observation' as const,
                       participants: [prev.playerName, contestant.name],
-                      content: `Heard ${contestant.name} got a suspicious DM from ${prev.playerName}`,
+                      content: `Noticed ${contestant.name} acting suspicious after talking to ${prev.playerName}`,
                       emotionalImpact: -1,
                       timestamp: prev.currentDay * 1000 + Math.random() * 1000
                     });
                   }
                 });
+
+                // Record gossip about the DM leak
+                memoryEngine.spreadGossip(
+                  `${contestant.name} seemed weird after talking privately with ${prev.playerName}`,
+                  'House observation',
+                  prev.currentDay,
+                  'rumor'
+                );
               }
             }
             break;
@@ -683,13 +707,15 @@ export const useGameState = () => {
 
   const submitConfessional = useCallback((content: string, tone: string) => {
     setGameState(prev => {
-      // Create the confessional
+      // Create the confessional with proper ID
       const confessional: Confessional = {
+        id: `conf-${prev.currentDay}-${Date.now()}`,
         day: prev.currentDay,
         content,
         tone,
         editImpact: 0, // Will be calculated below
         audienceScore: 0, // Will be calculated below
+        selected: false // Will be determined below
       };
 
       // Determine if this confessional makes the edit
@@ -706,7 +732,19 @@ export const useGameState = () => {
         ...confessional,
         editImpact,
         audienceScore,
+        selected: madeEdit
       };
+
+      // Record confessional in memory system with proper metadata
+      memoryEngine.recordEvent({
+        day: prev.currentDay,
+        type: 'confessional',
+        participants: [prev.playerName],
+        content: `Confessional (${tone}): "${content}"`,
+        emotionalImpact: editImpact > 0 ? 3 : editImpact < 0 ? -2 : 0,
+        reliability: 'confirmed',
+        strategicImportance: tone === 'strategic' ? 8 : tone === 'dramatic' ? 6 : 4
+      });
 
       const newEditPerception = calculateEditPerception(
         [...prev.confessionals, finalConfessional],

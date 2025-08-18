@@ -3,7 +3,7 @@
 export interface GameMemoryEvent {
   id: string;
   day: number;
-  type: 'alliance_form' | 'alliance_break' | 'promise' | 'betrayal' | 'gossip' | 'vote' | 'conversation' | 'scheme' | 'challenge' | 'elimination';
+  type: 'alliance_form' | 'alliance_break' | 'promise' | 'betrayal' | 'gossip' | 'vote' | 'conversation' | 'scheme' | 'challenge' | 'elimination' | 'confessional';
   participants: string[];
   content: string;
   emotionalImpact: number; // -10 to 10

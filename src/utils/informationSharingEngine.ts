@@ -120,19 +120,19 @@ export class InformationSharingEngine {
     gameState.contestants
       .filter(c => !c.isEliminated && c.name !== gameState.playerName)
       .forEach(contestant => {
-        // Try to share voting plan
+        // Try to share voting plan (higher trust required)
         const votingInfo = this.generateVotingPlanInfo(contestant, gameState);
         if (votingInfo && this.canShareInformation(contestant.name, gameState.playerName, votingInfo)) {
           sharedInfo.push(votingInfo);
         }
 
-        // Try to share alliance doubts
+        // Try to share alliance doubts (medium trust required)
         const doubtInfo = this.generateAllianceDoubtInfo(contestant, gameState);
         if (doubtInfo && this.canShareInformation(contestant.name, gameState.playerName, doubtInfo)) {
           sharedInfo.push(doubtInfo);
         }
 
-        // Try to share strategic concerns
+        // Try to share strategic concerns (lower trust required)
         const concernInfo = this.generateStrategicConcernInfo(contestant, gameState);
         if (concernInfo && this.canShareInformation(contestant.name, gameState.playerName, concernInfo)) {
           sharedInfo.push(concernInfo);
@@ -145,10 +145,11 @@ export class InformationSharingEngine {
         day: gameState.currentDay,
         type: 'conversation',
         participants: [info.source, info.target],
-        content: `${info.source} shared: "${info.content}" (${info.reliability})`,
+        content: `${info.source} shared intel: "${info.content}" (${info.reliability})`,
         emotionalImpact: info.type === 'alliance_doubt' ? -2 : 1,
-        reliability: 'confirmed',
-        strategicImportance: info.type === 'voting_plan' ? 9 : info.type === 'alliance_doubt' ? 7 : 5
+        reliability: info.reliability === 'truth' ? 'confirmed' : info.reliability === 'lie' ? 'rumor' : 'speculation',
+        strategicImportance: info.type === 'voting_plan' ? 9 : info.type === 'alliance_doubt' ? 7 : 5,
+        witnessed: [] // Information sharing is typically private
       });
     });
 
