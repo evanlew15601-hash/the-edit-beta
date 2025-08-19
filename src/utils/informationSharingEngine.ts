@@ -53,7 +53,7 @@ export class InformationSharingEngine {
       target: gameState.playerName,
       content: willLie ? lieVotingPlan : actualVotingPlan,
       reliability: willLie ? 'lie' : 'truth',
-      trustRequired: 6
+      trustRequired: 7 // Increased for more selective sharing
     };
   }
 
@@ -85,7 +85,7 @@ export class InformationSharingEngine {
       target: gameState.playerName,
       content: `I'm starting to worry about ${doubt.person}. They seem too focused on their own game lately.`,
       reliability: 'truth',
-      trustRequired: 7
+      trustRequired: 8 // Increased for more selective sharing
     };
   }
 
@@ -109,18 +109,22 @@ export class InformationSharingEngine {
       target: gameState.playerName,
       content: concerns[Math.floor(Math.random() * concerns.length)],
       reliability: 'truth',
-      trustRequired: 5
+      trustRequired: 6 // Increased for more selective sharing
     };
   }
 
-  // Share information if trust threshold is met
+  // Share information if trust threshold is met - now only returns meaningful info
   shareInformationWithPlayer(gameState: GameState): SharedInformation[] {
     const sharedInfo: SharedInformation[] = [];
     
     gameState.contestants
       .filter(c => !c.isEliminated && c.name !== gameState.playerName)
       .forEach(contestant => {
-        // Try to share voting plan (higher trust required)
+        // Only try if we have a significant relationship
+        const relationship = relationshipGraphEngine.getRelationship(contestant.name, gameState.playerName);
+        if (!relationship || relationship.trust < 6) return;
+
+        // Try to share voting plan (highest trust required)
         const votingInfo = this.generateVotingPlanInfo(contestant, gameState);
         if (votingInfo && this.canShareInformation(contestant.name, gameState.playerName, votingInfo)) {
           sharedInfo.push(votingInfo);

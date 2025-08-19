@@ -13,6 +13,9 @@ export const PlayerVoteScreen = ({ gameState, onSubmitVote }: PlayerVoteScreenPr
 
   const active = gameState.contestants.filter(c => !c.isEliminated);
   const eligible = active.filter(c => c.name !== gameState.playerName && c.name !== gameState.immunityWinner);
+  
+  // Hide other votes unless shared via trust/alliances
+  const hideOtherVotes = true;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -33,6 +36,9 @@ export const PlayerVoteScreen = ({ gameState, onSubmitVote }: PlayerVoteScreenPr
                 <div>
                   <div className="font-medium text-foreground">{c.name}</div>
                   <div className="text-xs text-muted-foreground">{c.publicPersona}</div>
+                  {hideOtherVotes && (
+                    <div className="text-xs text-surveillance-inactive mt-1">Vote intentions hidden</div>
+                  )}
                 </div>
                 <input
                   type="radio"

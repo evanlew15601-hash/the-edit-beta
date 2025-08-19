@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState, WeeklyEdit } from '@/types/game';
 import { generateFanReactions } from '@/utils/fanReactions';
-import { buildWeeklyEdit } from '@/utils/weeklyEditBuilder';
+import { buildEnhancedWeeklyEdit } from '@/utils/enhancedMemoryRecap';
 
 interface WeeklyRecapScreenProps {
   gameState: GameState;
@@ -19,8 +19,8 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
     c => c.day >= weekStartDay && c.day <= weekEndDay
   );
 
-  // Generate weekly edit summary (data-driven)
-  const weeklyEdit: WeeklyEdit = buildWeeklyEdit(gameState);
+  // Generate weekly edit summary (memory-driven)
+  const weeklyEdit: WeeklyEdit = buildEnhancedWeeklyEdit(gameState);
 
   const fanReactions = generateFanReactions(gameState);
 

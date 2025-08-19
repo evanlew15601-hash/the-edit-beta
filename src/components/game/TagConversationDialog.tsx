@@ -140,7 +140,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
             </div>
           </div>
 
-          <ScrollArea className="max-h-[50vh] pr-4">
+          <ScrollArea className="max-h-[50vh] pr-4 overflow-y-auto">
             <div className="grid grid-cols-1 gap-3">
               {filtered.map((ch) => {
                 const seed = `${gameState.currentDay}|${gameState.playerName}|${selectedTarget}|${ch.choiceId}`;
@@ -169,7 +169,14 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
 
           <div className="flex gap-3">
             <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button variant="action" onClick={handleSubmit} disabled={!selectedChoiceId || targetType !== 'Person' || (targetType === 'Person' && !selectedTarget)} className="flex-1">Send</Button>
+            <Button 
+              variant="action" 
+              onClick={handleSubmit} 
+              disabled={!selectedChoiceId || (targetType === 'Person' && !selectedTarget)} 
+              className="flex-1"
+            >
+              Send
+            </Button>
           </div>
         </div>
       </DialogContent>
