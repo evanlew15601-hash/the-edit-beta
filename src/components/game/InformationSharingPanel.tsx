@@ -18,10 +18,10 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
         <div className="text-center space-y-2">
           <EyeOff className="w-8 h-8 mx-auto text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            No one trusts you enough to share information yet.
+            Build trust with contestants to unlock intel.
           </p>
           <p className="text-xs text-muted-foreground">
-            Build stronger relationships to unlock intel.
+            Trust Level 6+ required for information sharing.
           </p>
         </div>
       </Card>

@@ -11,8 +11,9 @@ export class MemoryEngine {
 
   initializeJournals(contestants: Contestant[]): void {
     contestants.forEach(contestant => {
-      this.memory.privateJournals[contestant.id] = {
-        contestantId: contestant.id,
+      // Use name as key instead of id for consistency
+      this.memory.privateJournals[contestant.name] = {
+        contestantId: contestant.name,
         currentStrategy: this.generateInitialStrategy(contestant),
         shortTermGoals: this.generateInitialGoals(contestant, 'short'),
         longTermGoals: this.generateInitialGoals(contestant, 'long'),
@@ -292,13 +293,13 @@ export class MemoryEngine {
     return Math.max(...this.memory.sharedMemory.map(e => e.day), 1);
   }
 
-  getStrategicContext(contestantId: string, gameState: GameState): {
+  getStrategicContext(contestantName: string, gameState: GameState): {
     currentStrategy: string;
     recentEvents: string[];
     topThreats: string[];
     allies: string[];
   } | null {
-    const journal = this.memory.privateJournals[contestantId];
+    const journal = this.memory.privateJournals[contestantName];
     if (!journal) return null;
 
     const recentEvents = journal.memoryEvents

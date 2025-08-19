@@ -124,6 +124,13 @@ export class InformationSharingEngine {
         const relationship = relationshipGraphEngine.getRelationship(contestant.name, gameState.playerName);
         if (!relationship || relationship.trust < 6) return;
 
+        // Ensure memory journal exists for this contestant
+        const memory = memoryEngine.getMemorySystem();
+        if (!memory.privateJournals[contestant.name]) {
+          // Initialize if missing
+          memoryEngine.initializeJournals([contestant]);
+        }
+
         // Try to share voting plan (highest trust required)
         const votingInfo = this.generateVotingPlanInfo(contestant, gameState);
         if (votingInfo && this.canShareInformation(contestant.name, gameState.playerName, votingInfo)) {

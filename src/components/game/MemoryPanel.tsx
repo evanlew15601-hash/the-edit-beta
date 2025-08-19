@@ -16,11 +16,14 @@ export const MemoryPanel = ({ gameState }: MemoryPanelProps) => {
 
   // Collect player-present memories from contestants' memories
   const mems = gameState.contestants
-    .flatMap(c => c.memory.map(m => ({ ...m, owner: c.name })))
-    .filter(m => m.participants?.includes(player));
+    .flatMap(c => c.memory?.map(m => ({ ...m, owner: c.name })) || [])
+    .filter(m => m.participants?.includes(player))
+    .filter(m => m.day >= gameState.currentDay - 7); // Only show recent events
 
-  // Collect interaction log entries
-  const logs = (gameState.interactionLog || []).filter(l => l.participants?.includes(player));
+  // Collect interaction log entries (recent only)
+  const logs = (gameState.interactionLog || [])
+    .filter(l => l.participants?.includes(player))
+    .filter(l => l.day >= gameState.currentDay - 7);
 
   // Normalize into a unified feed
   type FeedItem = { day: number; kind: string; text: string; importance?: number };
