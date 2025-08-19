@@ -736,6 +736,7 @@ export const useGameState = () => {
       };
 
       // Record confessional in memory system with proper metadata
+      console.log('Recording confessional:', content.slice(0, 50), 'tone:', tone, 'editImpact:', editImpact);
       memoryEngine.recordEvent({
         day: prev.currentDay,
         type: 'confessional',

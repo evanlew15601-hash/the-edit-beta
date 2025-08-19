@@ -18,6 +18,8 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
   const weeklyConfessionals = gameState.confessionals.filter(
     c => c.day >= weekStartDay && c.day <= weekEndDay
   );
+  
+  console.log(`Week ${currentWeek} confessionals:`, weeklyConfessionals.length, 'from days', weekStartDay, 'to', weekEndDay);
 
   // Generate weekly edit summary (memory-driven)
   const weeklyEdit: WeeklyEdit = buildEnhancedWeeklyEdit(gameState);
