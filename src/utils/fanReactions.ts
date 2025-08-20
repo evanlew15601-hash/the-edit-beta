@@ -19,32 +19,45 @@ export function generateFanReactions(gameState: GameState): string[] {
   // Generate reactions based on actual events
   const reactions: string[] = [];
 
-  // Event-specific reactions
+  // Event-specific reactions with more variety
+  const eventReactionPool: Record<string, string[]> = {
+    alliance_form: [
+      `Smart alliance move or desperate reach for safety?`,
+      `New power bloc forming - could shake up the house`,
+      `Strategic partnership or just convenience?`,
+      `Alliance timing feels calculated but risky`
+    ],
+    betrayal: [
+      `That betrayal was cold but effective television`,
+      `Trust broken - but was it worth the fallout?`,
+      `Messy move but might have been necessary`,
+      `Villain moment that fans will remember`
+    ],
+    challenge: [
+      `Challenge performance shows real competitor spirit`,
+      `Physical game matching the strategic play`,
+      `Competition win changes house dynamics`,
+      `That challenge result shifts power balance`
+    ],
+    scheme: [
+      `Strategic gameplay coming together nicely`,
+      `Behind-the-scenes moves finally paying off`,
+      `Calculated risk-taking at the right time`,
+      `Social maneuvering shows game awareness`
+    ],
+    vote: [
+      `Vote choice shows strong strategic thinking`,
+      `Elimination decision reflects house dynamics`,
+      `Voting pattern reveals true alliances`,
+      `Smart positioning for next phase`
+    ]
+  };
+
   playerEvents.forEach(event => {
-    switch (event.type) {
-      case 'alliance_form':
-        reactions.push(`#Week${week} • New alliance forming - smart positioning or desperation move?`);
-        break;
-      case 'betrayal':
-        reactions.push(`#Week${week} • The betrayal was messy but made for good TV. Villain edit incoming?`);
-        break;
-      case 'challenge':
-        if (event.emotionalImpact > 5) {
-          reactions.push(`#Week${week} • That challenge win was clutch. Hero moment right there.`);
-        } else if (event.emotionalImpact < -3) {
-          reactions.push(`#Week${week} • Challenge flop. The edit won't be kind about this one.`);
-        }
-        break;
-      case 'scheme':
-        reactions.push(`#Week${week} • Strategic gameplay finally showing. About time we see some moves.`);
-        break;
-      case 'vote':
-        if (event.emotionalImpact > 3) {
-          reactions.push(`#Week${week} • Solid vote - reading the room correctly.`);
-        } else if (event.emotionalImpact < -3) {
-          reactions.push(`#Week${week} • That vote choice might come back to haunt them.`);
-        }
-        break;
+    const eventReactions = eventReactionPool[event.type];
+    if (eventReactions) {
+      const randomReaction = eventReactions[Math.floor(Math.random() * eventReactions.length)];
+      reactions.push(`#Week${week} • ${randomReaction}`);
     }
   });
 

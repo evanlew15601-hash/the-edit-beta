@@ -42,8 +42,9 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   const featuredConfessional = allConfessionals
     .sort((a, b) => (b.audienceScore || 0) - (a.audienceScore || 0) || (b.editImpact || 0) - (a.editImpact || 0))[0];
   
+  // Generate dynamic quotes based on actual week events and persona
   const selectedQuote = featuredConfessional?.content?.slice(0, 160) || 
-    "I'm playing this game one move at a time.";
+    this.generateDynamicQuote(gameState, week, playerEvents);
 
   // Build event montage from real events
   const eventMontage: string[] = [];
@@ -129,4 +130,35 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
       whatWasShown,
     },
   };
+}
+
+function generateDynamicQuote(gameState: GameState, week: number, playerEvents: any[]): string {
+  const { editPerception, alliances, contestants } = gameState;
+  const activeCount = contestants.filter(c => !c.isEliminated).length;
+  
+  // Base quotes on persona and week activity
+  if (playerEvents.length > 3) {
+    // Active week quotes
+    const quotes = [
+      `This week has been intense. I've had to make some difficult decisions but I think I'm positioning myself well.`,
+      `A lot is happening right now and I need to stay focused on my long-term strategy while handling the immediate threats.`,
+      `I'm playing multiple angles this week. Sometimes you have to create chaos to find opportunity.`,
+      `The game is accelerating and I'm ready for it. This is where the real players separate from the followers.`
+    ];
+    return quotes[Math.floor(Math.random() * quotes.length)];
+  }
+  
+  // Persona-based quotes
+  switch (editPerception.persona) {
+    case 'Hero':
+      return `I'm trying to play with integrity while still making the moves I need to make. It's a fine line to walk.`;
+    case 'Villain':
+      return `I know people see me as ruthless, but this is a game and I'm here to win. I'll do what's necessary.`;
+    case 'Underedited':
+      return `I may not be getting much screen time, but I'm observing everything and my moment will come.`;
+    case 'Dark Horse':
+      return `People are starting to notice my game, which means I need to be even more strategic about my next moves.`;
+    default:
+      return `Day ${week * 7} and I'm still here. Every day is a victory and I'm not taking anything for granted.`;
+  }
 }

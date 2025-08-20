@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState } from '@/types/game';
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
+import { generateResponseOptions } from '@/utils/confessionalResponseGenerator';
 import { RefreshCw, Zap } from 'lucide-react';
 
 interface ConfessionalDialogProps {
@@ -111,30 +112,21 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Your Response</label>
-            {selectedPrompt?.responseOptions?.length > 0 ? (
-              <div className="space-y-2">
-                {selectedPrompt.responseOptions.map((option: any, index: number) => (
-                  <button
-                    key={index}
-                    onClick={() => setContent(option)}
-                    className={`p-3 text-left border border-border rounded transition-colors w-full ${
-                      content === option 
-                        ? 'bg-surveillance-confessional/10 border-surveillance-confessional' 
-                        : 'hover:bg-muted'
-                    }`}
-                  >
-                    <div className="text-sm">{option}</div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <Textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder={selectedPrompt ? "Respond to the prompt above..." : "Share your thoughts about the game, other contestants, your strategy, or anything else on your mind..."}
-                className="min-h-[150px]"
-              />
-            )}
+            <div className="space-y-2">
+              {selectedPrompt && generateResponseOptions(selectedPrompt, gameState).map((option: string, index: number) => (
+                <button
+                  key={index}
+                  onClick={() => setContent(option)}
+                  className={`p-3 text-left border border-border rounded transition-colors w-full ${
+                    content === option 
+                      ? 'bg-surveillance-confessional/10 border-surveillance-confessional' 
+                      : 'hover:bg-muted'
+                  }`}
+                >
+                  <div className="text-sm">{option}</div>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">

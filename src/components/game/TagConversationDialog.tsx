@@ -58,8 +58,9 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
   }, [intent, tone, topic, targetType, interaction, targetContestant, gameState]);
 
   const handleSubmit = () => {
-    if (selectedTarget && selectedChoiceId) {
-      onSubmit(selectedTarget, selectedChoiceId, interaction);
+    const target = targetType === 'Person' ? selectedTarget : targetType.toLowerCase();
+    if (selectedChoiceId && (targetType !== 'Person' || target)) {
+      onSubmit(target, selectedChoiceId, interaction);
       setSelectedTarget('');
       setSelectedChoiceId('');
     }
@@ -140,7 +141,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
             </div>
           </div>
 
-          <ScrollArea className="max-h-[50vh] pr-4 overflow-y-auto">
+          <ScrollArea className="max-h-[50vh] pr-4">
             <div className="grid grid-cols-1 gap-3">
               {filtered.map((ch) => {
                 const seed = `${gameState.currentDay}|${gameState.playerName}|${selectedTarget}|${ch.choiceId}`;
@@ -172,7 +173,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
             <Button 
               variant="action" 
               onClick={handleSubmit} 
-              disabled={!selectedChoiceId || (targetType === 'Person' && !selectedTarget)} 
+              disabled={!selectedChoiceId || (targetType === 'Person' && !selectedTarget) || (targetType !== 'Person' && targetType !== 'Audience' && targetType !== 'Group' && targetType !== 'Self' && targetType !== 'Object')} 
               className="flex-1"
             >
               Send

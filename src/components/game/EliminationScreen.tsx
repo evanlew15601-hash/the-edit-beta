@@ -101,19 +101,20 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
           </Card>
         )}
 
-        {/* Voting Breakdown */}
+        {/* Voting Summary - Keep votes private */}
         <Card className="p-6">
-          <h3 className="text-xl font-light mb-4">Voting Results</h3>
+          <h3 className="text-xl font-light mb-4">Elimination Summary</h3>
           <div className="space-y-3">
-            {Object.entries(latestElimination.votes).map(([voter, target]) => (
-              <div key={voter} className="flex justify-between items-center py-2 border-b border-border last:border-b-0">
-                <span className="text-foreground">{voter}</span>
-                <span className="text-muted-foreground">voted for</span>
-                <span className={`font-medium ${target === latestElimination.eliminated ? 'text-destructive' : 'text-foreground'}`}>
-                  {target}
-                </span>
-              </div>
-            ))}
+            <div className="text-center">
+              <p className="text-2xl font-light text-destructive">{latestElimination.eliminated}</p>
+              <p className="text-sm text-muted-foreground">has been eliminated</p>
+              <p className="text-lg font-medium">by tribal council vote</p>
+            </div>
+            <div className="bg-muted/50 border border-border rounded p-3 text-center">
+              <p className="text-xs text-muted-foreground">
+                Individual votes remain secret until the finale
+              </p>
+            </div>
           </div>
         </Card>
 

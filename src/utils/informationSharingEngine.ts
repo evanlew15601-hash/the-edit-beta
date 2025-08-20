@@ -53,7 +53,7 @@ export class InformationSharingEngine {
       target: gameState.playerName,
       content: willLie ? lieVotingPlan : actualVotingPlan,
       reliability: willLie ? 'lie' : 'truth',
-      trustRequired: 7 // Increased for more selective sharing
+      trustRequired: 50 // Trust level 50+
     };
   }
 
@@ -85,7 +85,7 @@ export class InformationSharingEngine {
       target: gameState.playerName,
       content: `I'm starting to worry about ${doubt.person}. They seem too focused on their own game lately.`,
       reliability: 'truth',
-      trustRequired: 8 // Increased for more selective sharing
+      trustRequired: 65 // Higher trust needed
     };
   }
 
@@ -109,7 +109,7 @@ export class InformationSharingEngine {
       target: gameState.playerName,
       content: concerns[Math.floor(Math.random() * concerns.length)],
       reliability: 'truth',
-      trustRequired: 6 // Increased for more selective sharing
+      trustRequired: 45 // Modest trust needed
     };
   }
 
@@ -122,7 +122,7 @@ export class InformationSharingEngine {
       .forEach(contestant => {
         // Only try if we have a significant relationship
         const relationship = relationshipGraphEngine.getRelationship(contestant.name, gameState.playerName);
-        if (!relationship || relationship.trust < 6) return;
+        if (!relationship || relationship.trust < 40) return;
 
         // Ensure memory journal exists for this contestant
         const memory = memoryEngine.getMemorySystem();

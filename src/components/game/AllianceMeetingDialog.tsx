@@ -106,7 +106,7 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
                         <span className="text-sm">{member}</span>
                         {contestant && (
                           <span className="text-xs text-muted-foreground">
-                            (Trust: {contestant.psychProfile.trustLevel})
+                            (Trust: {Math.round(contestant.psychProfile.trustLevel || 50)})
                           </span>
                         )}
                       </div>
