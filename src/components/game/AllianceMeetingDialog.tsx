@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Alliance, Contestant } from '@/types/game';
+import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { Users, Shield, Eye } from 'lucide-react';
 
 interface AllianceMeetingDialogProps {
@@ -13,10 +14,11 @@ interface AllianceMeetingDialogProps {
   onClose: () => void;
   alliances: Alliance[];
   contestants: Contestant[];
+  playerName: string;
   onSubmit: (allianceId: string, agenda: string, tone: string) => void;
 }
 
-export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants, onSubmit }: AllianceMeetingDialogProps) => {
+export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants, playerName, onSubmit }: AllianceMeetingDialogProps) => {
   const [selectedAlliance, setSelectedAlliance] = useState<string>('');
   const [agenda, setAgenda] = useState('');
   const [tone, setTone] = useState<string>('');
@@ -104,11 +106,15 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
                     return (
                       <div key={member} className="flex items-center gap-1 bg-background border border-border rounded px-2 py-1">
                         <span className="text-sm">{member}</span>
-                        {contestant && (
-                          <span className="text-xs text-muted-foreground">
-                            (Trust: {Math.round(contestant.psychProfile.trustLevel || 50)})
-                          </span>
-                        )}
+                        {(() => {
+                          const relationship = relationshipGraphEngine.getRelationship(playerName, member);
+                          const trustLevel = relationship?.trust || 50;
+                          return (
+                            <span className="text-xs text-muted-foreground">
+                              (Trust: {Math.round(trustLevel)})
+                            </span>
+                          );
+                        })()}
                       </div>
                     );
                   })}

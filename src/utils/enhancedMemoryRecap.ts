@@ -42,9 +42,8 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   const featuredConfessional = allConfessionals
     .sort((a, b) => (b.audienceScore || 0) - (a.audienceScore || 0) || (b.editImpact || 0) - (a.editImpact || 0))[0];
   
-  // Generate dynamic quotes based on actual week events and persona
   const selectedQuote = featuredConfessional?.content?.slice(0, 160) || 
-    this.generateDynamicQuote(gameState, week, playerEvents);
+    generateDynamicQuote(gameState, week, playerEvents);
 
   // Build event montage from real events
   const eventMontage: string[] = [];
@@ -80,30 +79,62 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
     eventMontage.push(`${weekElimination.eliminated} eliminated`);
   }
 
-  // Build viral moments from high-impact events
+  // Build varied viral moments from high-impact events
   const viralMoments: string[] = [];
   
+  const viralMomentTemplates = {
+    scheme: [
+      `Your strategic planning session went viral on social media`,
+      `Fans are dissecting your scheming techniques frame by frame`,
+      `Your behind-the-scenes maneuvering became a trending hashtag`,
+      `Viewers called your scheming session "masterclass television"`
+    ],
+    betrayal: [
+      `The betrayal moment sparked heated debates across fan communities`,
+      `Your betrayal move divided the fanbase - some love it, some hate it`,
+      `The betrayal clip became the most-watched moment of the season`,
+      `Fans are still arguing about whether your betrayal was justified`
+    ],
+    alliance_form: [
+      `Your alliance formation strategy is being analyzed by superfans`,
+      `New alliance news broke the internet with speculation posts`,
+      `Fans are creating alliance charts to track your partnerships`,
+      `Your alliance move got featured in multiple recap podcasts`
+    ],
+    conversation: [
+      `Your conversation became the most-quoted moment of the week`,
+      `One line from your conversation launched a thousand memes`,
+      `Fans are obsessing over the subtext in your conversation`,
+      `Your conversation clip hit a million views in 24 hours`
+    ],
+    vote: [
+      `Your voting strategy sparked analysis videos across YouTube`,
+      `Fans are praising your calculated voting decision`,
+      `Your vote choice became a case study in strategic gameplay`,
+      `The voting moment you created is being called iconic`
+    ],
+    confessional: [
+      `Your confessional segment went viral for its raw honesty`,
+      `Fans are quoting your confessional lines in their bios`,
+      `Your confessional became required viewing for strategy analysis`,
+      `The confessional clip broke viewing records for the episode`
+    ]
+  };
+
   playerEvents
-    .filter(e => e.emotionalImpact >= 6)
+    .filter(e => e.emotionalImpact >= 4) // Lowered threshold for more viral moments
     .sort((a, b) => b.emotionalImpact - a.emotionalImpact)
-    .slice(0, 4)
+    .slice(0, 5) // Increased to 5 potential moments
     .forEach(event => {
-      switch (event.type) {
-        case 'scheme':
-          viralMoments.push(`Your scheming session caught viewers' attention`);
-          break;
-        case 'betrayal':
-          viralMoments.push(`The betrayal moment sparked social media debates`);
-          break;
-        case 'alliance_form':
-          viralMoments.push(`Fans are analyzing your new alliance strategy`);
-          break;
-        case 'conversation':
-          viralMoments.push(`Your conversation became a trending topic`);
-          break;
-        default:
-          viralMoments.push(`This moment had fans talking`);
-      }
+      const templates = viralMomentTemplates[event.type as keyof typeof viralMomentTemplates] || [
+        `This moment had fans talking across all platforms`,
+        `Your gameplay moment became essential viewing`,
+        `Fans are calling this moment television gold`,
+        `This scene became the highlight of the episode`
+      ];
+      
+      const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
+      viralMoments.push(randomTemplate);
     });
 
   // Reality vs Edit comparison

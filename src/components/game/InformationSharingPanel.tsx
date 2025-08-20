@@ -21,7 +21,7 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
             Build trust with contestants to unlock intel.
           </p>
           <p className="text-xs text-muted-foreground">
-            Trust Level 6+ required for information sharing.
+            Trust level 40+ required for information sharing.
           </p>
         </div>
       </Card>

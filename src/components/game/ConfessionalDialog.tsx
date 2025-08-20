@@ -111,22 +111,28 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Your Response</label>
-            <div className="space-y-2">
-              {selectedPrompt && generateResponseOptions(selectedPrompt, gameState).map((option: string, index: number) => (
-                <button
-                  key={index}
-                  onClick={() => setContent(option)}
-                  className={`p-3 text-left border border-border rounded transition-colors w-full ${
-                    content === option 
-                      ? 'bg-surveillance-confessional/10 border-surveillance-confessional' 
-                      : 'hover:bg-muted'
-                  }`}
-                >
-                  <div className="text-sm">{option}</div>
-                </button>
-              ))}
-            </div>
+            <label className="text-sm font-medium">Choose Your Response</label>
+            {selectedPrompt ? (
+              <div className="space-y-2">
+                {generateResponseOptions(selectedPrompt, gameState).map((option: string, index: number) => (
+                  <button
+                    key={index}
+                    onClick={() => setContent(option)}
+                    className={`p-3 text-left border border-border rounded transition-colors w-full ${
+                      content === option 
+                        ? 'bg-surveillance-confessional/10 border-surveillance-confessional' 
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <div className="text-sm">{option}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-muted-foreground border border-border rounded">
+                Select a prompt above to see response options
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

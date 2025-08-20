@@ -173,7 +173,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
             <Button 
               variant="action" 
               onClick={handleSubmit} 
-              disabled={!selectedChoiceId || (targetType === 'Person' && !selectedTarget) || (targetType !== 'Person' && targetType !== 'Audience' && targetType !== 'Group' && targetType !== 'Self' && targetType !== 'Object')} 
+              disabled={!selectedChoiceId || (targetType === 'Person' && !selectedTarget)} 
               className="flex-1"
             >
               Send

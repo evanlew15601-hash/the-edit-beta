@@ -261,6 +261,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onClose={() => setAllianceMeetingOpen(false)}
         alliances={gameState.alliances}
         contestants={gameState.contestants.filter(c => !c.isEliminated)}
+        playerName={gameState.playerName}
         onSubmit={(allianceId, agenda, tone) => {
           onAllianceMeeting(allianceId, agenda, tone);
           setAllianceMeetingOpen(false);
