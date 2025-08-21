@@ -113,107 +113,130 @@ export class InformationSharingEngine {
     };
   }
 
-  // Generate dynamic information based on game state
+  // Generate dynamic information based on game state with proper integration
   shareInformationWithPlayer(gameState: GameState): SharedInformation[] {
     const sharedInfo: SharedInformation[] = [];
     
     gameState.contestants
       .filter(c => !c.isEliminated && c.name !== gameState.playerName)
       .forEach(contestant => {
-        // Use psychological trust levels directly from contestants
-        const trustLevel = contestant.psychProfile?.trustLevel || 0;
-        const suspicionLevel = contestant.psychProfile?.suspicionLevel || 50;
+        // Check both relationship graph AND psychological profiles
+        const relationship = relationshipGraphEngine.getRelationship(contestant.name, gameState.playerName);
+        const psychTrust = contestant.psychProfile?.trustLevel || 0;
+        const psychSuspicion = contestant.psychProfile?.suspicionLevel || 50;
         
-        // Base willingness to share on actual psychological state
-        const baseTrust = Math.max(0, trustLevel + 100) / 2; // Convert -100-100 to 0-100
-        const adjustedTrust = Math.max(0, baseTrust - suspicionLevel * 0.3);
+        // Use relationship graph trust if available, otherwise fall back to psych profile
+        let finalTrust = 50;
+        if (relationship && !isNaN(relationship.trust)) {
+          finalTrust = relationship.trust;
+        } else if (!isNaN(psychTrust)) {
+          // Convert psychological trust (-100 to 100) to normal scale (0 to 100)
+          finalTrust = Math.max(0, Math.min(100, (psychTrust + 100) / 2));
+        }
         
-        if (adjustedTrust < 30) return; // Need minimum trust
+        // Minimum trust threshold
+        if (finalTrust < 35) return;
+        
+        console.log(`[InfoSharing] ${contestant.name} -> ${gameState.playerName}: trust=${finalTrust}, psychTrust=${psychTrust}, relTrust=${relationship?.trust || 'N/A'}`);
 
-        // Generate voting intel
-        if (adjustedTrust >= 40 && Math.random() < 0.7) {
-          const willLie = adjustedTrust < 60 || suspicionLevel > 70;
+        // Generate voting plans (highest trust requirement)
+        if (finalTrust >= 45 && Math.random() < 0.6) {
           const targets = gameState.contestants.filter(c => 
             !c.isEliminated && c.name !== contestant.name && c.name !== gameState.playerName
           );
           
           if (targets.length > 0) {
+            const willLie = finalTrust < 65 || psychSuspicion > 65;
             const target = targets[Math.floor(Math.random() * targets.length)];
-            const truthfulPlan = `I'm considering voting for ${target.name} - they're playing too hard`;
-            const deceptivePlan = `I'm thinking about ${gameState.playerName} but don't tell anyone`;
+            
+            const truthfulPlans = [
+              `I'm planning to vote for ${target.name} - they're getting too powerful`,
+              `${target.name} is my target tonight. They've been playing too hard`,
+              `I think we should get ${target.name} out before they make a big move`,
+              `${target.name} has been throwing my name around, so they have to go`
+            ];
+            
+            const deceptivePlans = [
+              `I'm totally loyal to our alliance, not targeting anyone specific`,
+              `I haven't decided yet, probably going with the group`,
+              `Maybe ${gameState.playerName}? Just kidding! I'm voting with you`,
+              `I trust you completely, we're in this together`
+            ];
             
             sharedInfo.push({
               type: 'voting_plan',
               source: contestant.name,
               target: gameState.playerName,
-              content: willLie ? deceptivePlan : truthfulPlan,
+              content: willLie ? 
+                deceptivePlans[Math.floor(Math.random() * deceptivePlans.length)] :
+                truthfulPlans[Math.floor(Math.random() * truthfulPlans.length)],
               reliability: willLie ? 'lie' : 'truth',
-              trustRequired: 40
+              trustRequired: 45
             });
           }
         }
 
-        // Share alliance concerns
-        if (adjustedTrust >= 50 && gameState.alliances.length > 0 && Math.random() < 0.5) {
-          const playerAlliances = gameState.alliances.filter(a => 
-            a.members.includes(contestant.name) && a.members.includes(gameState.playerName)
-          );
+        // Generate alliance intelligence (medium trust)
+        if (finalTrust >= 40 && gameState.alliances.length > 0 && Math.random() < 0.5) {
+          const concernOptions = [
+            `I think there's a secret alliance I'm not part of`,
+            `Someone in our group has been acting shady lately`,
+            `I'm worried about people making side deals`,
+            `There might be a power couple running things`,
+            `I've noticed some people whispering when I'm not around`
+          ];
           
-          if (playerAlliances.length > 0) {
-            const alliance = playerAlliances[0];
-            const otherMembers = alliance.members.filter(m => m !== contestant.name && m !== gameState.playerName);
-            
-            if (otherMembers.length > 0) {
-              const concernedAbout = otherMembers[Math.floor(Math.random() * otherMembers.length)];
-              sharedInfo.push({
-                type: 'alliance_doubt',
-                source: contestant.name,
-                target: gameState.playerName,
-                content: `I'm worried about ${concernedAbout}. They've been acting differently lately`,
-                reliability: 'truth',
-                trustRequired: 50
-              });
-            }
-          }
+          sharedInfo.push({
+            type: 'alliance_doubt',
+            source: contestant.name,
+            target: gameState.playerName,
+            content: concernOptions[Math.floor(Math.random() * concernOptions.length)],
+            reliability: 'truth',
+            trustRequired: 40
+          });
         }
 
-        // Share strategic observations
-        if (adjustedTrust >= 35 && Math.random() < 0.8) {
-          const strategicObservations = [
-            "There's definitely a power alliance I'm not part of",
-            "Someone has been spreading rumors about me",
-            "I think there might be a secret final two deal somewhere",
-            "The vote tonight feels like it could go either way"
+        // Generate strategic observations (lower trust)
+        if (finalTrust >= 35 && Math.random() < 0.7) {
+          const strategicOptions = [
+            `The vote tonight could go either way`,
+            `I feel like the house is divided right now`,
+            `People are getting paranoid about big moves`,
+            `I think someone's going to make a bold play soon`,
+            `The dynamics are shifting and I'm trying to stay flexible`,
+            `I'm keeping my options open for now`,
+            `Things feel tense lately, like something big is coming`
           ];
           
           sharedInfo.push({
             type: 'strategic_concern',
             source: contestant.name,
             target: gameState.playerName,
-            content: strategicObservations[Math.floor(Math.random() * strategicObservations.length)],
+            content: strategicOptions[Math.floor(Math.random() * strategicOptions.length)],
             reliability: 'truth',
             trustRequired: 35
           });
         }
       });
 
-    // Record information sharing in memory
+    // Record information sharing in memory with proper event tracking
     sharedInfo.forEach(info => {
       memoryEngine.recordEvent({
         day: gameState.currentDay,
         type: 'conversation',
         participants: [info.source, info.target],
-        content: `${info.source} shared intel: "${info.content}" (${info.reliability})`,
-        emotionalImpact: info.type === 'alliance_doubt' ? -2 : 1,
+        content: `Intel shared: "${info.content}" (${info.reliability})`,
+        emotionalImpact: info.type === 'voting_plan' ? 5 : info.type === 'alliance_doubt' ? 3 : 1,
         reliability: info.reliability === 'truth' ? 'confirmed' : info.reliability === 'lie' ? 'rumor' : 'speculation',
         strategicImportance: info.type === 'voting_plan' ? 9 : info.type === 'alliance_doubt' ? 7 : 5,
-        witnessed: [] // Information sharing is typically private
+        witnessed: [] // Information sharing is private
       });
     });
 
-    return sharedInfo;
+    console.log(`[InfoSharing] Generated ${sharedInfo.length} intelligence items for day ${gameState.currentDay}`);
+    return sharedInfo.slice(0, 4); // Limit to prevent overwhelming
   }
-
+  
   private generateFakeVotingPlan(gameState: GameState, contestant: Contestant): string {
     // Generate a plausible but false voting target
     const otherContestants = gameState.contestants
