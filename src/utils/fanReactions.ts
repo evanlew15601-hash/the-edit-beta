@@ -2,125 +2,47 @@ import { GameState } from '@/types/game';
 import { memoryEngine } from './memoryEngine';
 
 export function generateFanReactions(gameState: GameState): string[] {
-  const { editPerception, currentDay } = gameState;
+  const { editPerception, currentDay, confessionals, playerActions } = gameState;
   const week = Math.floor(currentDay / 7) || 1;
+  const uniqueKey = `${week}_${currentDay}_${confessionals.length}_${Date.now()}`;
 
   const base = editPerception.audienceApproval;
   const persona = editPerception.persona;
   const screen = gameState.editPerception.screenTimeIndex;
 
-  // Get memory-driven events from this week
-  const memory = memoryEngine.getMemorySystem();
-  const weeklyEvents = memory.weeklyEvents[week] || [];
-  const playerEvents = weeklyEvents.filter(event => 
-    event.participants.includes(gameState.playerName)
-  );
-
-  // Generate reactions based on actual events
+  // Generate dynamic reactions based on actual gameplay
   const reactions: string[] = [];
-
-  // Event-specific reactions with more variety
-  const eventReactionPool: Record<string, string[]> = {
-    alliance_form: [
-      `Smart alliance move or desperate reach for safety?`,
-      `New power bloc forming - could shake up the house`,
-      `Strategic partnership or just convenience?`,
-      `Alliance timing feels calculated but risky`
-    ],
-    betrayal: [
-      `That betrayal was cold but effective television`,
-      `Trust broken - but was it worth the fallout?`,
-      `Messy move but might have been necessary`,
-      `Villain moment that fans will remember`
-    ],
-    challenge: [
-      `Challenge performance shows real competitor spirit`,
-      `Physical game matching the strategic play`,
-      `Competition win changes house dynamics`,
-      `That challenge result shifts power balance`
-    ],
-    scheme: [
-      `Strategic gameplay coming together nicely`,
-      `Behind-the-scenes moves finally paying off`,
-      `Calculated risk-taking at the right time`,
-      `Social maneuvering shows game awareness`
-    ],
-    vote: [
-      `Vote choice shows strong strategic thinking`,
-      `Elimination decision reflects house dynamics`,
-      `Voting pattern reveals true alliances`,
-      `Smart positioning for next phase`
-    ]
-  };
-
-  playerEvents.forEach(event => {
-    const eventReactions = eventReactionPool[event.type];
-    if (eventReactions) {
-      const randomReaction = eventReactions[Math.floor(Math.random() * eventReactions.length)];
-      reactions.push(`#Week${week} • ${randomReaction}`);
-    }
-  });
-
-  // Persona-based reactions
-  const byPersona: Record<string, string[]> = {
-    Hero: [
-      `Hero arc tracking—confessionals match outcomes.`,
-      `Trustworthy beat: clear intent, clean execution.`,
-    ],
-    Villain: [
-      `Compelling chaos—moves land even if messy.`,
-      `Owns the screen; sharp edges but watchable.`,
-    ],
-    Underedited: [
-      `Blink-and-miss—want more context for these moves.`,
-      `Low presence but seeds are planted.`,
-    ],
-    Ghosted: [
-      `Barely there—curious what the cameras are saving.`,
-      `Story parked; waiting on a narrative turn.`,
-    ],
-    'Comic Relief': [
-      `Levity landed; timing breaks the tension.`,
-      `Fun beats that keep the episode breathing.`,
-    ],
-    'Dark Horse': [
-      `Quiet competence—payoff brewing.`,
-      `Shadows arc—few scenes, strong read.`,
-    ],
-  };
-
-  // Fill remaining slots with persona/approval reactions
-  const personaAdds = byPersona[persona] || [];
-  const remainingSlots = Math.max(0, 4 - reactions.length);
   
-  const templatesPositive = [
-    `Confessional clarity this week. ${persona} energy without forcing it.`,
-    `Edit feels earned—steady screen time and a clean social read.`,
-    `Subtle but effective moves; the audience can see the throughline now.`,
+  // Recent action-based reactions
+  const recentActions = playerActions.filter(a => a.usageCount > 0);
+  const totalActions = recentActions.reduce((sum, a) => sum + (a.usageCount || 0), 0);
+
+  // Dynamic action-based reactions
+  const actionReactions = [
+    `${totalActions} moves this week - ${totalActions > 15 ? 'aggressive' : totalActions > 8 ? 'steady' : 'quiet'} gameplay`,
+    `${recentActions.length} different tactics used - ${recentActions.length > 4 ? 'versatile player' : 'focused strategy'}`,
+    `Day ${currentDay} energy: ${screen > 70 ? 'main character vibes' : screen > 40 ? 'solid presence' : 'background player'}`,
+    `${confessionals.length} confessionals so far - ${confessionals.length > 10 ? 'story narrator' : confessionals.length > 5 ? 'good storyteller' : 'keeping quiet'}`
   ];
 
-  const templatesNeutral = [
-    `Quiet cut but intentional. Edging toward momentum.`,
-    `Low screen-time, but the story still tracks.`,
-    `Neutral edit: nothing invented, just vibes and small shifts.`,
+  // Add time-sensitive reactions
+  const weeklyReactions = [
+    `Week ${week}: ${base > 10 ? 'fan favorite arc' : base < -10 ? 'villain trajectory' : 'neutral edit'} developing`,
+    `${gameState.alliances.length} alliance${gameState.alliances.length !== 1 ? 's' : ''} - ${gameState.alliances.length > 2 ? 'overconnected?' : gameState.alliances.length > 0 ? 'strategic positioning' : 'playing solo'}`,
+    `${gameState.contestants.filter(c => !c.isEliminated).length} left - ${currentDay > 14 ? 'endgame time' : 'still early but heating up'}`,
+    `Approval rating ${base > 0 ? '+' : ''}${base} - ${Math.abs(base) > 20 ? 'strong reactions' : 'mixed feelings'} from viewers`
   ];
 
-  const templatesNegative = [
-    `Tone is slipping. Choices read messy in the cut.`,
-    `Screen time without payoff isn't helping.`,
-    `Confessional didn't land; narrative feels off-balance.`,
+  reactions.push(...actionReactions.slice(0, 2));
+  reactions.push(...weeklyReactions.slice(0, 2));
+
+  // Add persona-specific context
+  const personaReactions = [
+    `${persona} edit in full swing - ${persona === 'Hero' ? 'America loves the integrity' : persona === 'Villain' ? 'villains make good TV' : 'flying under the radar strategy'}`,
+    `Current trajectory: ${base > 15 ? 'redemption arc possible' : base < -15 ? 'heel turn complete' : 'still defining the narrative'}`
   ];
 
-  let pool = templatesNeutral;
-  if (base > 20) pool = templatesPositive;
-  if (base < -20) pool = templatesNegative;
+  reactions.push(...personaReactions);
 
-  for (let i = 0; i < remainingSlots; i++) {
-    const core = pool[Math.floor(Math.random() * pool.length)];
-    const add = personaAdds.length ? ` ${personaAdds[Math.floor(Math.random() * personaAdds.length)]}` : '';
-    const screenHint = screen > 60 ? ' • High presence this week.' : screen < 20 ? ' • Minimal presence.' : '';
-    reactions.push(`#Week${week} • ${core}${add}${screenHint}`);
-  }
-
-  return reactions.slice(0, 6); // Limit to 6 reactions
+  return reactions.slice(0, 6); // Return 6 unique reactions
 }

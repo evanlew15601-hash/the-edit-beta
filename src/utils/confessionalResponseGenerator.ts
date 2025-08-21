@@ -4,6 +4,22 @@ import { ConfessionalPrompt } from './confessionalEngine';
 export function generateResponseOptions(prompt: ConfessionalPrompt, gameState: GameState): string[] {
   const { contestants, currentDay, alliances, editPerception } = gameState;
   const activeContestants = contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName);
+  const remainingCount = activeContestants.length + 1;
+  const daysLeft = Math.max(0, gameState.nextEliminationDay - currentDay);
+  
+  // Create more variety with expanded options
+  const baseOptions = generateBaseResponsesForPrompt(prompt, gameState);
+  const tonalVariations = generateTonalVariations(prompt, gameState);
+  const gameStateSpecific = generateGameStateSpecificOptions(prompt, gameState);
+  
+  // Combine and shuffle for variety
+  const allOptions = [...baseOptions, ...tonalVariations, ...gameStateSpecific];
+  return shuffleArray(allOptions).slice(0, 4);
+}
+
+function generateBaseResponsesForPrompt(prompt: ConfessionalPrompt, gameState: GameState): string[] {
+  const { contestants, currentDay, alliances, editPerception } = gameState;
+  const activeContestants = contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName);
   
   switch (prompt.id) {
     case 'alliance_dynamics':
@@ -88,4 +104,68 @@ export function generateResponseOptions(prompt: ConfessionalPrompt, gameState: G
         `Every decision here has consequences. I'm trying to think three steps ahead while dealing with today.`
       ];
   }
+}
+
+function generateTonalVariations(prompt: ConfessionalPrompt, gameState: GameState): string[] {
+  const { editPerception, currentDay } = gameState;
+  const intensity = editPerception.screenTimeIndex > 60 ? 'high' : editPerception.screenTimeIndex > 30 ? 'medium' : 'low';
+  
+  switch (prompt.id) {
+    case 'alliance_dynamics':
+      return [
+        `My alliance feels secure but in this game, feelings don't matter - only actions do.`,
+        `I trust my alliance as much as you can trust anyone here, which honestly isn't saying much.`,
+        `Alliances are temporary partnerships. I'm committed until I'm not.`,
+        `Working with my alliance is strategic, but I never forget everyone's playing for themselves.`
+      ];
+    case 'threat_assessment':
+      return [
+        `Some people here are playing chess while others are playing checkers. I see the difference.`,
+        `There are obvious threats and hidden threats. The hidden ones worry me more.`,
+        `Being paranoid in this game isn't paranoia - it's survival instinct.`,
+        `I'm watching everyone but trying not to look like I'm watching everyone.`
+      ];
+    default:
+      return [
+        `The energy in the house shifts daily. You have to adapt or get left behind.`,
+        `I came here with a plan but this game teaches you that plans are just starting points.`,
+        `Every conversation here has layers. Nothing is ever just what it seems.`,
+        `The pressure is getting to everyone differently. Some crack, some thrive.`
+      ];
+  }
+}
+
+function generateGameStateSpecificOptions(prompt: ConfessionalPrompt, gameState: GameState): string[] {
+  const { contestants, alliances, currentDay } = gameState;
+  const remainingCount = contestants.filter(c => !c.isEliminated).length;
+  const phase = remainingCount > 8 ? 'early' : remainingCount > 5 ? 'middle' : 'endgame';
+  
+  const phaseSpecific = {
+    early: [
+      `It's still early but the foundation I'm building now will matter later.`,
+      `Right now it's about positioning. Making big moves too early is dangerous.`,
+      `Early game is about observation and relationship building. The strategy comes later.`
+    ],
+    middle: [
+      `We're hitting the point where alliances start to fracture. I need to be ready.`,
+      `The middle game is when your early positioning either pays off or destroys you.`,
+      `This is when you find out who you can really trust in this game.`
+    ],
+    endgame: [
+      `Every decision now directly impacts my path to the end. No room for error.`,
+      `Endgame means jury management becomes just as important as strategy.`,
+      `The finish line is close enough to see but far enough to lose everything.`
+    ]
+  };
+  
+  return phaseSpecific[phase] || [];
+}
+
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
 }

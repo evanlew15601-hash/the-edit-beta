@@ -12,6 +12,8 @@ import { EmergentEventDialog } from './EmergentEventDialog';
 import { ActivityDialog } from './ActivityDialog';
 import { AllianceMeetingDialog } from './AllianceMeetingDialog';
 import { TagConversationDialog } from './TagConversationDialog';
+import { CreateAllianceDialog } from './CreateAllianceDialog';
+import { Plus } from 'lucide-react';
 
 interface ActionPanelProps {
   gameState: GameState;
@@ -30,6 +32,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
   const [tagTalkOpen, setTagTalkOpen] = useState(false);
   const [tagTalkType, setTagTalkType] = useState<'talk' | 'dm' | 'scheme' | 'activity'>('talk');
   const [allianceMeetingOpen, setAllianceMeetingOpen] = useState(false);
+  const [createAllianceOpen, setCreateAllianceOpen] = useState(false);
   const forcedItem = (gameState.forcedConversationsQueue || [])[0];
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
@@ -143,22 +146,32 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
           </div>
         )}
 
-        {gameState.alliances.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium">Alliance Actions</h3>
-              <p className="text-xs text-muted-foreground">{gameState.alliances.length} active alliance{gameState.alliances.length > 1 ? 's' : ''}</p>
-            </div>
+        <div className="mt-6 pt-6 border-t border-border">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium">Alliance Management</h3>
+            <p className="text-xs text-muted-foreground">{gameState.alliances.length} active alliance{gameState.alliances.length > 1 ? 's' : ''}</p>
+          </div>
+          <div className="flex gap-2">
+            {gameState.alliances.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => setAllianceMeetingOpen(true)}
+                disabled={allActionsUsed}
+                className="flex-1"
+              >
+                Call Alliance Meeting
+              </Button>
+            )}
             <Button
-              variant="outline"
-              onClick={() => setAllianceMeetingOpen(true)}
+              variant="action"
+              onClick={() => setCreateAllianceOpen(true)}
               disabled={allActionsUsed}
-              className="w-full"
+              className={gameState.alliances.length > 0 ? "" : "w-full"}
             >
-              Call Alliance Meeting
+              {gameState.alliances.length > 0 ? 'New Alliance' : 'Create Alliance'}
             </Button>
           </div>
-        )}
+        </div>
 
         {!allActionsUsed && (
           <div className="mt-6 pt-6 border-t border-border">
@@ -265,6 +278,17 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onSubmit={(allianceId, agenda, tone) => {
           onAllianceMeeting(allianceId, agenda, tone);
           setAllianceMeetingOpen(false);
+        }}
+      />
+
+      <CreateAllianceDialog
+        isOpen={createAllianceOpen}
+        onClose={() => setCreateAllianceOpen(false)}
+        contestants={gameState.contestants}
+        playerName={gameState.playerName}
+        onSubmit={(name, members) => {
+          onUseAction('create_alliance', name, members.join(','), 'strategic');
+          setCreateAllianceOpen(false);
         }}
       />
 

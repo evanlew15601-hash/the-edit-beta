@@ -4,10 +4,33 @@ import { generateFanReactions } from './fanReactions';
 
 // Enhanced recap that truly pulls from memory and creates compelling content
 export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
-  const week = Math.max(1, Math.floor((gameState.currentDay - 1) / 7) + 1);
+  const currentWeek = Math.max(1, Math.floor((gameState.currentDay - 1) / 7) + 1);
+  const week = currentWeek;
   const weekStartDay = (week - 1) * 7 + 1;
   const weekEndDay = week * 7;
   const { confessionals, alliances, votingHistory, editPerception, playerName } = gameState;
+
+  // Create unique quotes based on game state and week
+  const dynamicQuotes = [
+    `Day ${gameState.currentDay} and I'm still here fighting. That says something about my game.`,
+    `${gameState.alliances.length} alliance${gameState.alliances.length !== 1 ? 's' : ''} and counting. I'm positioning myself for the long haul.`,
+    `${gameState.contestants.filter(c => !c.isEliminated).length} of us left. Every decision matters now.`,
+    `My strategy is evolving with the game. What worked week one won't work now.`,
+    `The edit can say what it wants - I know what really happened in these conversations.`,
+    `Week ${currentWeek} has been a test of everything I've learned so far.`,
+    `I'm not the same player who walked in here. This game changes you.`,
+    `Trust is currency in here, and I'm learning who's worth investing in.`
+  ];
+  
+  // Get recent confessionals for this week
+  const recentConfessionals = gameState.confessionals.filter(c => 
+    c.day >= weekStartDay && c.day <= weekEndDay
+  );
+  
+  // Use actual confessional or generate dynamic quote
+  const selectedQuote = recentConfessionals.length > 0 
+    ? recentConfessionals[recentConfessionals.length - 1].content 
+    : dynamicQuotes[Math.floor(Math.random() * dynamicQuotes.length)];
 
   // Get memory events for this week
   const memorySystem = memoryEngine.getMemorySystem();
@@ -42,8 +65,8 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   const featuredConfessional = allConfessionals
     .sort((a, b) => (b.audienceScore || 0) - (a.audienceScore || 0) || (b.editImpact || 0) - (a.editImpact || 0))[0];
   
-  const selectedQuote = featuredConfessional?.content?.slice(0, 160) || 
-    generateDynamicQuote(gameState, week, playerEvents);
+  const finalQuote = featuredConfessional?.content?.slice(0, 160) || 
+    generateDynamicQuote(gameState, week, playerEvents) || selectedQuote;
 
   // Build event montage from real events
   const eventMontage: string[] = [];
@@ -152,7 +175,7 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   return {
     week,
     playerPersona: editPerception.persona,
-    selectedQuote,
+    selectedQuote: finalQuote,
     approvalShift: editPerception.lastEditShift,
     eventMontage: eventMontage.slice(0, 6),
     viralMoments: viralMoments.slice(0, 4),

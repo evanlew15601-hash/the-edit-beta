@@ -113,40 +113,87 @@ export class InformationSharingEngine {
     };
   }
 
-  // Share information if trust threshold is met - now only returns meaningful info
+  // Generate dynamic information based on game state
   shareInformationWithPlayer(gameState: GameState): SharedInformation[] {
     const sharedInfo: SharedInformation[] = [];
     
     gameState.contestants
       .filter(c => !c.isEliminated && c.name !== gameState.playerName)
       .forEach(contestant => {
-        // Only try if we have a significant relationship
-        const relationship = relationshipGraphEngine.getRelationship(contestant.name, gameState.playerName);
-        if (!relationship || relationship.trust < 40) return;
+        // Use psychological trust levels directly from contestants
+        const trustLevel = contestant.psychProfile?.trustLevel || 0;
+        const suspicionLevel = contestant.psychProfile?.suspicionLevel || 50;
+        
+        // Base willingness to share on actual psychological state
+        const baseTrust = Math.max(0, trustLevel + 100) / 2; // Convert -100-100 to 0-100
+        const adjustedTrust = Math.max(0, baseTrust - suspicionLevel * 0.3);
+        
+        if (adjustedTrust < 30) return; // Need minimum trust
 
-        // Ensure memory journal exists for this contestant
-        const memory = memoryEngine.getMemorySystem();
-        if (!memory.privateJournals[contestant.name]) {
-          // Initialize if missing
-          memoryEngine.initializeJournals([contestant]);
+        // Generate voting intel
+        if (adjustedTrust >= 40 && Math.random() < 0.7) {
+          const willLie = adjustedTrust < 60 || suspicionLevel > 70;
+          const targets = gameState.contestants.filter(c => 
+            !c.isEliminated && c.name !== contestant.name && c.name !== gameState.playerName
+          );
+          
+          if (targets.length > 0) {
+            const target = targets[Math.floor(Math.random() * targets.length)];
+            const truthfulPlan = `I'm considering voting for ${target.name} - they're playing too hard`;
+            const deceptivePlan = `I'm thinking about ${gameState.playerName} but don't tell anyone`;
+            
+            sharedInfo.push({
+              type: 'voting_plan',
+              source: contestant.name,
+              target: gameState.playerName,
+              content: willLie ? deceptivePlan : truthfulPlan,
+              reliability: willLie ? 'lie' : 'truth',
+              trustRequired: 40
+            });
+          }
         }
 
-        // Try to share voting plan (highest trust required)
-        const votingInfo = this.generateVotingPlanInfo(contestant, gameState);
-        if (votingInfo && this.canShareInformation(contestant.name, gameState.playerName, votingInfo)) {
-          sharedInfo.push(votingInfo);
+        // Share alliance concerns
+        if (adjustedTrust >= 50 && gameState.alliances.length > 0 && Math.random() < 0.5) {
+          const playerAlliances = gameState.alliances.filter(a => 
+            a.members.includes(contestant.name) && a.members.includes(gameState.playerName)
+          );
+          
+          if (playerAlliances.length > 0) {
+            const alliance = playerAlliances[0];
+            const otherMembers = alliance.members.filter(m => m !== contestant.name && m !== gameState.playerName);
+            
+            if (otherMembers.length > 0) {
+              const concernedAbout = otherMembers[Math.floor(Math.random() * otherMembers.length)];
+              sharedInfo.push({
+                type: 'alliance_doubt',
+                source: contestant.name,
+                target: gameState.playerName,
+                content: `I'm worried about ${concernedAbout}. They've been acting differently lately`,
+                reliability: 'truth',
+                trustRequired: 50
+              });
+            }
+          }
         }
 
-        // Try to share alliance doubts (medium trust required)
-        const doubtInfo = this.generateAllianceDoubtInfo(contestant, gameState);
-        if (doubtInfo && this.canShareInformation(contestant.name, gameState.playerName, doubtInfo)) {
-          sharedInfo.push(doubtInfo);
-        }
-
-        // Try to share strategic concerns (lower trust required)
-        const concernInfo = this.generateStrategicConcernInfo(contestant, gameState);
-        if (concernInfo && this.canShareInformation(contestant.name, gameState.playerName, concernInfo)) {
-          sharedInfo.push(concernInfo);
+        // Share strategic observations
+        if (adjustedTrust >= 35 && Math.random() < 0.8) {
+          const strategicObservations = [
+            "There's definitely a power alliance I'm not part of",
+            "Someone has been spreading rumors about me",
+            "I think there might be a secret final two deal somewhere",
+            "The vote tonight feels like it could go either way"
+          ];
+          
+          sharedInfo.push({
+            type: 'strategic_concern',
+            source: contestant.name,
+            target: gameState.playerName,
+            content: strategicObservations[Math.floor(Math.random() * strategicObservations.length)],
+            reliability: 'truth',
+            trustRequired: 35
+          });
         }
       });
 
