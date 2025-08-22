@@ -139,6 +139,49 @@ export const useGameState = () => {
       // Enforce daily action cap
       if (prev.dailyActionCount >= prev.dailyActionCap) return prev;
 
+      // Handle alliance creation before any other processing
+      if (actionType === 'create_alliance') {
+        const allianceName = target!;
+        const memberNames = content!.split(',');
+        const allianceId = `alliance_${Date.now()}`;
+        
+        const newAlliance: Alliance = {
+          id: allianceId,
+          members: memberNames,
+          strength: 75,
+          secret: false,
+          formed: prev.currentDay,
+          lastActivity: prev.currentDay
+        };
+
+        // Update relationship graph for alliance members
+        memberNames.forEach(member1 => {
+          memberNames.forEach(member2 => {
+            if (member1 !== member2) {
+              relationshipGraphEngine.formAlliance(member1, member2, 75);
+            }
+          });
+        });
+
+        console.log(`[Alliance] Created "${allianceName}" with members: ${memberNames.join(', ')}`);
+
+        return {
+          ...prev,
+          alliances: [...prev.alliances, newAlliance],
+          dailyActionCount: prev.dailyActionCount + 1,
+          interactionLog: [
+            ...((prev.interactionLog) || []),
+            {
+              day: prev.currentDay,
+              type: 'alliance_meeting' as any,
+              participants: memberNames,
+              content: `Alliance "${allianceName}" formed`,
+              source: 'player' as const,
+            }
+          ]
+        };
+      }
+
       const newActions = prev.playerActions.map(action => {
         if (action.type === actionType) {
           const currentUsage = action.usageCount || 0;

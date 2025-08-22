@@ -74,19 +74,26 @@ class RelationshipGraphEngine {
     const relationship = this.getRelationship(source, target);
     if (!relationship) return;
 
-    // Enhanced trust changes based on recent interaction patterns
+    // Enhanced trust changes based on recent interaction patterns and game context
     const recentInteractions = relationship.interactionHistory
       .filter(event => currentDay - event.day <= 2)
       .length;
     
-    // Trust builds slowly but can be damaged quickly
+    const recentNegativeInteractions = relationship.interactionHistory
+      .filter(event => currentDay - event.day <= 2 && event.impact < 0)
+      .length;
+    
+    // Trust builds slowly but can be damaged quickly, with compounding effects
     let adjustedTrustDelta = trustDelta;
     if (trustDelta > 0) {
-      // Positive trust builds slower with more frequent interactions
-      adjustedTrustDelta = trustDelta * Math.max(0.3, 1 - (recentInteractions * 0.1));
+      // Positive trust builds slower with more frequent interactions, but faster early on
+      const frequencyPenalty = Math.max(0.2, 1 - (recentInteractions * 0.15));
+      const earlyGameBonus = currentDay <= 5 ? 1.3 : 1.0; // Trust builds faster early
+      adjustedTrustDelta = trustDelta * frequencyPenalty * earlyGameBonus;
     } else {
-      // Negative trust hits harder with repeated negative interactions
-      adjustedTrustDelta = trustDelta * (1 + (recentInteractions * 0.2));
+      // Negative trust compounds with repeated negative interactions
+      const compoundingFactor = 1 + (recentNegativeInteractions * 0.3);
+      adjustedTrustDelta = trustDelta * compoundingFactor;
     }
 
     // Apply deltas with bounds checking

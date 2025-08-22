@@ -142,28 +142,34 @@ export class InformationSharingEngine {
         
         console.log(`[InfoSharing] ${contestant.name} -> ${gameState.playerName}: trust=${finalTrust}, suspicion=${suspicion}`);
 
-        // Generate contextual voting intelligence based on recent events
-        if (finalTrust >= 50 && Math.random() < 0.7) {
+        // Generate contextual voting intelligence based on recent events (more frequent, higher trust requirement)
+        if (finalTrust >= 55 && Math.random() < 0.8) {
           const otherContestants = gameState.contestants.filter(c => 
             !c.isEliminated && c.name !== contestant.name && c.name !== gameState.playerName
           );
           
           if (otherContestants.length > 0) {
-            // Base lie likelihood on trust and recent interactions
-            const recentConflict = recentInteractions.some(log => 
-              log.participants.includes(contestant.name) && log.tone === 'aggressive'
+            // More sophisticated lie detection
+            const hasRecentConflict = recentInteractions.some(log => 
+              (log.participants.includes(contestant.name) || log.participants.includes(gameState.playerName)) && 
+              (log.tone === 'aggressive' || log.content?.includes('scheme'))
             );
-            const willLie = finalTrust < 70 || suspicion > 50 || recentConflict;
+            const willLie = finalTrust < 75 || suspicion > 45 || hasRecentConflict || 
+              contestant.psychProfile?.disposition.includes('Deceptive');
             
-            // Pick targets based on recent game events
+            // Pick targets based on actual game events and relationships
             const targetOptions = otherContestants.filter(c => {
-              // Prefer targets mentioned in recent memories or high-trust contestants
+              // Prefer targets based on: recent mentions, alliance threats, or relationship tensions
               const mentionedRecently = recentMemories.some(m => 
-                m.content.toLowerCase().includes(c.name.toLowerCase())
+                m.content.toLowerCase().includes(c.name.toLowerCase()) &&
+                (m.type === 'scheme' || m.type === 'conversation')
               );
-              const hasHighTrust = gameState.contestants.find(cont => cont.name === c.name)
-                ?.psychProfile?.trustLevel > 20;
-              return mentionedRecently || hasHighTrust;
+              const allianceThreat = gameState.alliances.some(alliance => 
+                alliance.members.includes(c.name) && !alliance.members.includes(contestant.name)
+              );
+              const relationshipTension = relationshipGraphEngine.getRelationship(contestant.name, c.name)?.suspicion > 60;
+              
+              return mentionedRecently || allianceThreat || relationshipTension;
             });
             
             const target = targetOptions.length > 0 ? 
@@ -171,17 +177,17 @@ export class InformationSharingEngine {
               otherContestants[Math.floor(Math.random() * otherContestants.length)];
             
             const truthfulPlans = [
-              `I'm targeting ${target.name} - they're playing everyone`,
-              `${target.name} is dangerous, we need to get them out`,
-              `I heard ${target.name} mention your name, they might come for you next`,
-              `${target.name} has too many connections, time to cut them loose`
+              `I'm targeting ${target.name} tonight - they're becoming too dangerous`,
+              `${target.name} needs to go, they're playing everyone against each other`,
+              `I've been hearing ${target.name} mention your name, we should strike first`,
+              `${target.name} is the biggest threat left in this game, time to make a move`
             ];
             
             const deceptivePlans = [
-              `I'm sticking with our group, haven't picked a target yet`,
-              `Probably just going with the house this time`,
-              `I trust you completely, we're voting together right?`,
-              `Still deciding, but definitely not you!`
+              `I'm completely loyal to our alliance, just following the group vote`,
+              `Haven't really thought about it yet, probably whoever the house wants`,
+              `I trust your judgment completely, who do you think we should target?`,
+              `Definitely not you! We're sticking together no matter what`
             ];
             
             sharedInfo.push({
@@ -192,7 +198,7 @@ export class InformationSharingEngine {
                 deceptivePlans[Math.floor(Math.random() * deceptivePlans.length)] :
                 truthfulPlans[Math.floor(Math.random() * truthfulPlans.length)],
               reliability: willLie ? 'lie' : 'truth',
-              trustRequired: 50
+              trustRequired: 55 // Higher threshold for voting plans
             });
           }
         }

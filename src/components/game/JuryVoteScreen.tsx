@@ -21,9 +21,10 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     gameState.juryMembers?.includes(c.name)
   );
   
-  // Auto-advance to final 2 if more than 2 are left when entering jury
-  if (finalTwo.length > 2) {
-    // Simulate rapid eliminations to get to final 2
+  // Only auto-advance to final 2 if the player was eliminated when jury phase started
+  const playerEliminated = gameState.contestants.find(c => c.name === gameState.playerName)?.isEliminated;
+  if (playerEliminated && finalTwo.length > 2) {
+    // Simulate rapid eliminations to get to final 2 when player is watching from jury
     const autoEliminated = finalTwo.slice(2); // Everyone except first 2
     autoEliminated.forEach(contestant => {
       contestant.isEliminated = true;

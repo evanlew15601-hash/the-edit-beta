@@ -1,54 +1,105 @@
 import { GameState } from '@/types/game';
 import { memoryEngine } from './memoryEngine';
 
+// Track what's been shown to avoid repetition
+const shownPosts = new Set<string>();
+
+export const generateFanReaction = (gameState: GameState): string => {
+  // Generate unique reactions based on current game state
+  const recentEvents = gameState.interactionLog
+    ?.filter(log => log.day >= gameState.currentDay - 1)
+    ?.slice(-10) || [];
+  
+  const recentConfessionals = gameState.confessionals
+    .filter(c => c.day >= gameState.currentDay - 2)
+    .slice(-3);
+  
+  const contestants = gameState.contestants.filter(c => !c.isEliminated);
+  const player = contestants.find(c => c.name === gameState.playerName);
+  
+  let posts: string[] = [];
+  
+  // Event-based reactions
+  if (gameState.immunityWinner) {
+    posts.push(`@${gameState.immunityWinner.replace(/\s+/g, '')} winning immunity changes EVERYTHING! #GameChanger`);
+    posts.push(`${gameState.immunityWinner} really needed that immunity win! Smart timing! 🛡️`);
+  }
+  
+  if (gameState.alliances.length > 0) {
+    const latestAlliance = gameState.alliances[gameState.alliances.length - 1];
+    if (latestAlliance.formed >= gameState.currentDay - 1) {
+      posts.push(`New alliance forming? 👀 The house dynamics are SHIFTING!`);
+      posts.push(`Love seeing new partnerships! This is getting spicy 🔥`);
+    }
+  }
+  
+  // Player-specific reactions based on edit perception
+  if (player) {
+    const edit = gameState.editPerception;
+    if (edit.persona === 'Hero' && edit.audienceApproval > 40) {
+      posts.push(`${player.name} is playing with such integrity! What a role model ✨`);
+      posts.push(`LIVING for ${player.name}'s strategic mind! Playing the perfect game 🎯`);
+    } else if (edit.persona === 'Villain' && edit.audienceApproval < -30) {
+      posts.push(`${player.name} is ruthless but I can't look away! Iconic villain era 😈`);
+      posts.push(`The way ${player.name} just manipulated that conversation... COLD 🥶`);
+    } else if (edit.persona === 'Comic Relief') {
+      posts.push(`${player.name} has me DYING 😂 Best personality in the house!`);
+      posts.push(`We need more ${player.name} content! Pure comedy gold 🤣`);
+    }
+  }
+  
+  // Confessional reactions
+  if (recentConfessionals.length > 0) {
+    const latest = recentConfessionals[recentConfessionals.length - 1];
+    if (latest.tone === 'dramatic') {
+      posts.push(`That confessional was INTENSE! ${gameState.playerName} is not holding back 🔥`);
+    } else if (latest.tone === 'strategic') {
+      posts.push(`${gameState.playerName}'s strategy talk has me taking notes 📝 Big brain moves!`);
+    } else if (latest.tone === 'vulnerable') {
+      posts.push(`My heart 💔 ${gameState.playerName} opening up like that was so raw and real`);
+    }
+  }
+  
+  // Voting/elimination drama
+  if (gameState.votingHistory.length > 0) {
+    const lastVote = gameState.votingHistory[gameState.votingHistory.length - 1];
+    if (lastVote.day >= gameState.currentDay - 2) {
+      posts.push(`Still not over that elimination! ${lastVote.eliminated} didn't see it coming 😱`);
+      posts.push(`The house vote was MESSY! Everyone's scrambling now 🌪️`);
+    }
+  }
+  
+  // Generic but dynamic reactions based on day
+  const dayBasedReactions = [
+    `Day ${gameState.currentDay} and the tension is THICK! Who's making the next move? 👀`,
+    `The social game is everything right now! These relationships are make or break 💥`,
+    `Someone's about to make a BIG move, I can feel it! The calm before the storm 🌊`,
+    `The strategy talks are getting HEATED! Everyone's plotting 🗡️`,
+    `House dynamics shifting every episode! Can't predict what happens next 🎲`
+  ];
+  
+  posts.push(...dayBasedReactions);
+  
+  // Filter out already shown posts
+  const availablePosts = posts.filter(post => !shownPosts.has(post));
+  
+  if (availablePosts.length === 0) {
+    // If all posts have been shown, clear the set and use all posts
+    shownPosts.clear();
+    return posts[Math.floor(Math.random() * posts.length)];
+  }
+  
+  const selectedPost = availablePosts[Math.floor(Math.random() * availablePosts.length)];
+  shownPosts.add(selectedPost);
+  
+  return selectedPost;
+};
+
 export function generateFanReactions(gameState: GameState): string[] {
-  const { editPerception, currentDay, confessionals, playerActions } = gameState;
-  const week = Math.floor(currentDay / 7) || 1;
-  
-  // Create unique seed for each call to ensure different reactions
-  const seed = `${currentDay}_${confessionals.length}_${playerActions.reduce((sum, a) => sum + (a.usageCount || 0), 0)}_${Date.now() % 1000}`;
-  const base = editPerception.audienceApproval;
-  const persona = editPerception.persona;
-  const screen = gameState.editPerception.screenTimeIndex;
-
-  console.log(`[FanReactions] Generating for Day ${currentDay}, Week ${week}, Seed: ${seed}`);
-
-  // Generate truly dynamic reactions based on current game state
+  // Generate multiple fan reactions for display
   const reactions: string[] = [];
-  
-  // Recent action-based reactions
-  const recentActions = playerActions.filter(a => (a.usageCount || 0) > 0);
-  const totalActions = recentActions.reduce((sum, a) => sum + (a.usageCount || 0), 0);
-  const remainingPlayers = gameState.contestants.filter(c => !c.isEliminated).length;
-  
-  // Time-sensitive dynamic reactions
-  const gamePhaseReactions = [
-    `Day ${currentDay}: ${totalActions} moves made so far - ${totalActions > 15 ? 'hyperactive' : totalActions > 8 ? 'strategic' : 'subtle'} gameplay style`,
-    `${remainingPlayers} players left and the ${remainingPlayers < 8 ? 'endgame intensity' : remainingPlayers < 12 ? 'middle game tension' : 'early game chaos'} is showing`,
-    `Week ${week} update: ${base > 10 ? 'fan favorite trajectory' : base < -10 ? 'villain arc solidifying' : 'neutral edit but intriguing'} based on recent moves`,
-  ];
-  
-  reactions.push(...gamePhaseReactions.slice(0, 2));
-
-  // Alliance and relationship specific reactions
-  const allianceReactions = [
-    `${gameState.alliances.length} alliance${gameState.alliances.length !== 1 ? 's' : ''} active - ${gameState.alliances.length > 2 ? 'overplaying?' : gameState.alliances.length > 0 ? 'smart positioning' : 'lone wolf strategy'}`,
-    `Confessional count: ${confessionals.length} - ${confessionals.length > 12 ? 'main character energy' : confessionals.length > 6 ? 'good narrator' : 'mysteriously quiet'}`,
-    `Current edit reads as ${persona.toLowerCase()} with ${Math.abs(base) > 20 ? 'strong' : 'mixed'} audience reactions (${base > 0 ? '+' : ''}${base})`,
-  ];
-  
-  reactions.push(allianceReactions[Math.floor(Math.random() * allianceReactions.length)]);
-
-  // Persona and mood-based reactions with variety
-  const moodBasedReactions = [
-    `Screen time at ${screen}% - ${screen > 70 ? 'commanding the narrative' : screen > 40 ? 'steady presence' : 'flying under the radar'}`,
-    `${persona} energy with ${base > 15 ? 'strong approval' : base < -15 ? 'polarizing reactions' : 'neutral-to-mixed reception'} from fans`,
-    `Playing ${totalActions > 12 ? 'aggressively' : totalActions > 6 ? 'strategically' : 'conservatively'} this week compared to others`,
-  ];
-  
-  reactions.push(moodBasedReactions[Math.floor(Math.random() * moodBasedReactions.length)]);
-
-  // Randomize final selection to ensure variety
-  const shuffledReactions = reactions.sort(() => Math.random() - 0.5);
-  return shuffledReactions.slice(0, 6);
+  for (let i = 0; i < 5; i++) {
+    reactions.push(generateFanReaction(gameState));
+  }
+  return reactions;
 }
