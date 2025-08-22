@@ -60,7 +60,7 @@ class RelationshipGraphEngine {
     return sourceRelations.get(target) || null;
   }
 
-  // Update relationship based on an interaction
+  // Update relationship based on an interaction with enhanced dynamics
   updateRelationship(
     source: string, 
     target: string, 
@@ -74,8 +74,23 @@ class RelationshipGraphEngine {
     const relationship = this.getRelationship(source, target);
     if (!relationship) return;
 
+    // Enhanced trust changes based on recent interaction patterns
+    const recentInteractions = relationship.interactionHistory
+      .filter(event => currentDay - event.day <= 2)
+      .length;
+    
+    // Trust builds slowly but can be damaged quickly
+    let adjustedTrustDelta = trustDelta;
+    if (trustDelta > 0) {
+      // Positive trust builds slower with more frequent interactions
+      adjustedTrustDelta = trustDelta * Math.max(0.3, 1 - (recentInteractions * 0.1));
+    } else {
+      // Negative trust hits harder with repeated negative interactions
+      adjustedTrustDelta = trustDelta * (1 + (recentInteractions * 0.2));
+    }
+
     // Apply deltas with bounds checking
-    relationship.trust = Math.max(-100, Math.min(100, relationship.trust + trustDelta));
+    relationship.trust = Math.max(-100, Math.min(100, relationship.trust + adjustedTrustDelta));
     relationship.suspicion = Math.max(0, Math.min(100, relationship.suspicion + suspicionDelta));
     relationship.emotionalCloseness = Math.max(0, Math.min(100, relationship.emotionalCloseness + emotionalDelta));
     
@@ -84,7 +99,7 @@ class RelationshipGraphEngine {
     relationship.interactionHistory.push({
       day: currentDay,
       type: eventType,
-      impact: trustDelta + emotionalDelta - suspicionDelta,
+      impact: adjustedTrustDelta + emotionalDelta - suspicionDelta,
       description
     });
 
@@ -97,7 +112,7 @@ class RelationshipGraphEngine {
     const mutualRelationship = this.getRelationship(target, source);
     if (mutualRelationship) {
       // Mutual updates are usually smaller and sometimes different
-      const mutualTrustDelta = trustDelta * 0.7;
+      const mutualTrustDelta = adjustedTrustDelta * 0.7;
       const mutualSuspicionDelta = suspicionDelta * 0.8;
       const mutualEmotionalDelta = emotionalDelta * 0.6;
 
@@ -117,6 +132,8 @@ class RelationshipGraphEngine {
         mutualRelationship.interactionHistory = mutualRelationship.interactionHistory.slice(-10);
       }
     }
+
+    console.log(`[RelationshipEngine] ${source} -> ${target}: trust ${relationship.trust.toFixed(1)} (${adjustedTrustDelta > 0 ? '+' : ''}${adjustedTrustDelta.toFixed(1)}), suspicion ${relationship.suspicion.toFixed(1)}`);
   }
 
   // Form alliance between contestants

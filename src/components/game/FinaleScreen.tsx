@@ -40,13 +40,27 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
   };
 
   const generateNPCSpeech = (contestant: any, gameState: GameState) => {
+    // Generate contextual speech based on their game journey
+    const playerInteractions = contestant.memory.filter(m => 
+      m.participants.includes(gameState.playerName)
+    ).length;
+    
+    const allianceCount = gameState.alliances.filter(a => 
+      a.members.includes(contestant.name)
+    ).length;
+    
     const speeches = [
-      `I've played this game with honesty and integrity. Every move I made was strategic but never personal. I deserve to win because I stayed true to myself while adapting to every twist.`,
-      `This game has been the ultimate test of strategy and social skills. I formed genuine connections while making the tough decisions needed to get here. I earned my spot in this finale.`,
-      `I've faced elimination multiple times but fought my way here through pure determination. My journey proves that you can overcome any obstacle with the right mindset and strategy.`,
-      `Every alliance I made, every vote I cast, every conversation I had was part of my larger strategy. I played a complete game and deserve your votes to crown me the winner.`,
-      `I know I made enemies along the way, but that's because I was willing to make the hard choices. I played to win, not to be liked, and that's why I'm sitting here today.`
+      `I built meaningful relationships in this house while staying true to my strategy. ${playerInteractions > 10 ? `My conversations with ${gameState.playerName} shaped my game.` : 'I navigated every challenge with integrity.'} You should vote for someone who played with both heart and mind.`,
+      
+      `This game tested every part of me - strategically, socially, and emotionally. ${allianceCount > 1 ? 'I worked with multiple groups but never betrayed my core values.' : 'I stayed loyal to my alliances throughout.'} I earned this spot through consistent gameplay and tough decisions.`,
+      
+      `I've survived ${gameState.currentDay} days by adapting to every twist while keeping my word. ${contestant.psychProfile?.trustLevel > 50 ? 'I built trust through honesty' : 'I made the hard moves when necessary'}. That's the kind of winner this game deserves.`,
+      
+      `Every move I made was calculated but never cruel. I formed genuine connections - ${playerInteractions > 5 ? `especially with ${gameState.playerName} - ` : ''}and used strategy without losing my humanity. I played the game the right way.`,
+      
+      `I know some of you may hold grudges, but I played to win while respecting each of you. ${gameState.immunityWinner === contestant.name ? 'My immunity win shows I can compete' : 'I fought my way here through pure social game'}. Vote for the player who deserves it most.`
     ];
+    
     return speeches[Math.floor(Math.random() * speeches.length)];
   };
 

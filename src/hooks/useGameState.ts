@@ -750,7 +750,8 @@ export const useGameState = () => {
       const newEditPerception = calculateEditPerception(
         [...prev.confessionals, finalConfessional],
         prev.editPerception,
-        prev.currentDay
+        prev.currentDay,
+        prev
       );
 
       // Add interaction log entry

@@ -31,7 +31,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
       setContent('');
       setTone('');
     }
-  }, [isOpen, gameState]);
+  }, [isOpen]);
 
   const handleSubmit = () => {
     if (content && tone) {
@@ -81,13 +81,16 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const randomPrompt = availablePrompts[Math.floor(Math.random() * availablePrompts.length)];
+                    const newPrompts = ConfessionalEngine.generateDynamicPrompts(gameState);
+                    setAvailablePrompts(newPrompts);
+                    const randomPrompt = newPrompts[Math.floor(Math.random() * newPrompts.length)];
                     setSelectedPrompt(randomPrompt);
+                    setContent(''); // Clear previous response when new prompt generated
                   }}
                   className="flex items-center gap-1"
                 >
                   <RefreshCw className="w-3 h-3" />
-                  Different Prompt
+                  Generate New Prompt
                 </Button>
               </div>
               

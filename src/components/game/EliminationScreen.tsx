@@ -101,20 +101,43 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
           </Card>
         )}
 
-        {/* Voting Summary - Keep votes private */}
+        {/* Voting Summary */}
         <Card className="p-6">
           <h3 className="text-xl font-light mb-4">Elimination Summary</h3>
           <div className="space-y-3">
             <div className="text-center">
               <p className="text-2xl font-light text-destructive">{latestElimination.eliminated}</p>
               <p className="text-sm text-muted-foreground">has been eliminated</p>
-              <p className="text-lg font-medium">by tribal council vote</p>
+              <p className="text-lg font-medium">by house vote</p>
             </div>
-            <div className="bg-muted/50 border border-border rounded p-3 text-center">
-              <p className="text-xs text-muted-foreground">
-                Individual votes remain secret until the finale
-              </p>
-            </div>
+            
+            {/* Show votes only if player was eliminated */}
+            {isPlayerEliminated ? (
+              <div className="space-y-3">
+                <h4 className="font-medium text-center">How the house voted:</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {Object.entries(latestElimination.votes).map(([voter, target]) => (
+                    <div key={voter} className="flex justify-between border border-border rounded p-2">
+                      <span className="text-foreground">{voter}</span>
+                      <span className={target === gameState.playerName ? 'text-destructive' : 'text-muted-foreground'}>
+                        → {target}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-destructive/10 border border-destructive/20 rounded p-3 text-center">
+                  <p className="text-xs text-destructive">
+                    Now that you're eliminated, you can see how everyone voted
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-muted/50 border border-border rounded p-3 text-center">
+                <p className="text-xs text-muted-foreground">
+                  Individual votes remain secret until finale or elimination
+                </p>
+              </div>
+            )}
           </div>
         </Card>
 

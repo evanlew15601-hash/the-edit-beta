@@ -113,54 +113,75 @@ export class InformationSharingEngine {
     };
   }
 
-  // Generate dynamic information based on game state with proper integration
+  // Generate relevant, game-tied information based on current events
   shareInformationWithPlayer(gameState: GameState): SharedInformation[] {
     const sharedInfo: SharedInformation[] = [];
+    
+    // Get recent game events for context
+    const recentMemories = gameState.contestants
+      .filter(c => !c.isEliminated)
+      .flatMap(c => c.memory || [])
+      .filter(m => m.day >= gameState.currentDay - 2)
+      .sort((a, b) => b.day - a.day);
+
+    const recentInteractions = gameState.interactionLog
+      ?.filter(log => log.day >= gameState.currentDay - 1) || [];
     
     gameState.contestants
       .filter(c => !c.isEliminated && c.name !== gameState.playerName)
       .forEach(contestant => {
-        // Check both relationship graph AND psychological profiles
+        // Use relationship graph for accurate trust
         const relationship = relationshipGraphEngine.getRelationship(contestant.name, gameState.playerName);
-        const psychTrust = contestant.psychProfile?.trustLevel || 0;
-        const psychSuspicion = contestant.psychProfile?.suspicionLevel || 50;
+        if (!relationship) return;
         
-        // Use relationship graph trust if available, otherwise fall back to psych profile
-        let finalTrust = 50;
-        if (relationship && !isNaN(relationship.trust)) {
-          finalTrust = relationship.trust;
-        } else if (!isNaN(psychTrust)) {
-          // Convert psychological trust (-100 to 100) to normal scale (0 to 100)
-          finalTrust = Math.max(0, Math.min(100, (psychTrust + 100) / 2));
-        }
+        const finalTrust = relationship.trust;
+        const suspicion = relationship.suspicion;
         
-        // Minimum trust threshold
-        if (finalTrust < 35) return;
+        // Minimum trust threshold - must have some relationship
+        if (finalTrust < 40) return;
         
-        console.log(`[InfoSharing] ${contestant.name} -> ${gameState.playerName}: trust=${finalTrust}, psychTrust=${psychTrust}, relTrust=${relationship?.trust || 'N/A'}`);
+        console.log(`[InfoSharing] ${contestant.name} -> ${gameState.playerName}: trust=${finalTrust}, suspicion=${suspicion}`);
 
-        // Generate voting plans (highest trust requirement)
-        if (finalTrust >= 45 && Math.random() < 0.6) {
-          const targets = gameState.contestants.filter(c => 
+        // Generate contextual voting intelligence based on recent events
+        if (finalTrust >= 50 && Math.random() < 0.7) {
+          const otherContestants = gameState.contestants.filter(c => 
             !c.isEliminated && c.name !== contestant.name && c.name !== gameState.playerName
           );
           
-          if (targets.length > 0) {
-            const willLie = finalTrust < 65 || psychSuspicion > 65;
-            const target = targets[Math.floor(Math.random() * targets.length)];
+          if (otherContestants.length > 0) {
+            // Base lie likelihood on trust and recent interactions
+            const recentConflict = recentInteractions.some(log => 
+              log.participants.includes(contestant.name) && log.tone === 'aggressive'
+            );
+            const willLie = finalTrust < 70 || suspicion > 50 || recentConflict;
+            
+            // Pick targets based on recent game events
+            const targetOptions = otherContestants.filter(c => {
+              // Prefer targets mentioned in recent memories or high-trust contestants
+              const mentionedRecently = recentMemories.some(m => 
+                m.content.toLowerCase().includes(c.name.toLowerCase())
+              );
+              const hasHighTrust = gameState.contestants.find(cont => cont.name === c.name)
+                ?.psychProfile?.trustLevel > 20;
+              return mentionedRecently || hasHighTrust;
+            });
+            
+            const target = targetOptions.length > 0 ? 
+              targetOptions[Math.floor(Math.random() * targetOptions.length)] :
+              otherContestants[Math.floor(Math.random() * otherContestants.length)];
             
             const truthfulPlans = [
-              `I'm planning to vote for ${target.name} - they're getting too powerful`,
-              `${target.name} is my target tonight. They've been playing too hard`,
-              `I think we should get ${target.name} out before they make a big move`,
-              `${target.name} has been throwing my name around, so they have to go`
+              `I'm targeting ${target.name} - they're playing everyone`,
+              `${target.name} is dangerous, we need to get them out`,
+              `I heard ${target.name} mention your name, they might come for you next`,
+              `${target.name} has too many connections, time to cut them loose`
             ];
             
             const deceptivePlans = [
-              `I'm totally loyal to our alliance, not targeting anyone specific`,
-              `I haven't decided yet, probably going with the group`,
-              `Maybe ${gameState.playerName}? Just kidding! I'm voting with you`,
-              `I trust you completely, we're in this together`
+              `I'm sticking with our group, haven't picked a target yet`,
+              `Probably just going with the house this time`,
+              `I trust you completely, we're voting together right?`,
+              `Still deciding, but definitely not you!`
             ];
             
             sharedInfo.push({
@@ -171,70 +192,103 @@ export class InformationSharingEngine {
                 deceptivePlans[Math.floor(Math.random() * deceptivePlans.length)] :
                 truthfulPlans[Math.floor(Math.random() * truthfulPlans.length)],
               reliability: willLie ? 'lie' : 'truth',
+              trustRequired: 50
+            });
+          }
+        }
+
+        // Generate alliance-specific intel based on actual alliance membership
+        if (finalTrust >= 45 && gameState.alliances.length > 0 && Math.random() < 0.6) {
+          const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName));
+          const contestantAlliances = gameState.alliances.filter(a => a.members.includes(contestant.name));
+          
+          // Different intel based on alliance relationship
+          let allianceIntel = '';
+          if (playerAlliances.some(pa => contestantAlliances.some(ca => ca.id === pa.id))) {
+            // Same alliance - insider information
+            const otherAlliances = gameState.alliances.filter(a => 
+              !a.members.includes(gameState.playerName) && !a.members.includes(contestant.name)
+            );
+            if (otherAlliances.length > 0) {
+              const targetAlliance = otherAlliances[Math.floor(Math.random() * otherAlliances.length)];
+              allianceIntel = `I think ${targetAlliance.members.join(' and ')} are working together behind our backs`;
+            } else {
+              allianceIntel = `Some people are getting suspicious of our alliance, we need to lay low`;
+            }
+          } else {
+            // Different alliances - more general suspicion
+            const suspiciousMembers = gameState.alliances
+              .flatMap(a => a.members)
+              .filter(m => m !== contestant.name && m !== gameState.playerName);
+            if (suspiciousMembers.length > 0) {
+              const suspect = suspiciousMembers[Math.floor(Math.random() * suspiciousMembers.length)];
+              allianceIntel = `I'm worried ${suspect} is playing multiple sides`;
+            } else {
+              allianceIntel = `I think there are secret deals happening that we don't know about`;
+            }
+          }
+          
+          if (allianceIntel) {
+            sharedInfo.push({
+              type: 'alliance_doubt',
+              source: contestant.name,
+              target: gameState.playerName,
+              content: allianceIntel,
+              reliability: 'truth',
               trustRequired: 45
             });
           }
         }
 
-        // Generate alliance intelligence (medium trust)
-        if (finalTrust >= 40 && gameState.alliances.length > 0 && Math.random() < 0.5) {
-          const concernOptions = [
-            `I think there's a secret alliance I'm not part of`,
-            `Someone in our group has been acting shady lately`,
-            `I'm worried about people making side deals`,
-            `There might be a power couple running things`,
-            `I've noticed some people whispering when I'm not around`
-          ];
+        // Generate event-based strategic concerns
+        if (finalTrust >= 40 && Math.random() < 0.8) {
+          let strategicConcern = '';
           
-          sharedInfo.push({
-            type: 'alliance_doubt',
-            source: contestant.name,
-            target: gameState.playerName,
-            content: concernOptions[Math.floor(Math.random() * concernOptions.length)],
-            reliability: 'truth',
-            trustRequired: 40
-          });
-        }
-
-        // Generate strategic observations (lower trust)
-        if (finalTrust >= 35 && Math.random() < 0.7) {
-          const strategicOptions = [
-            `The vote tonight could go either way`,
-            `I feel like the house is divided right now`,
-            `People are getting paranoid about big moves`,
-            `I think someone's going to make a bold play soon`,
-            `The dynamics are shifting and I'm trying to stay flexible`,
-            `I'm keeping my options open for now`,
-            `Things feel tense lately, like something big is coming`
-          ];
+          // Base concerns on recent game events
+          if (gameState.currentDay > 10 && gameState.contestants.filter(c => !c.isEliminated).length < 8) {
+            strategicConcern = `We're getting close to finale - people are going to start making big moves`;
+          } else if (recentMemories.some(m => m.type === 'scheme')) {
+            strategicConcern = `Someone's been scheming lately, I can feel the tension in the house`;
+          } else if (gameState.immunityWinner) {
+            strategicConcern = `${gameState.immunityWinner} winning immunity changes everything for tonight`;
+          } else if (gameState.alliances.length > 2) {
+            strategicConcern = `There are too many alliances in this house, someone's playing multiple sides`;
+          } else {
+            const defaultConcerns = [
+              `The house dynamics are shifting, I need to stay flexible`,
+              `People are getting paranoid - everyone's watching everyone`,
+              `I feel like a big move is coming soon`,
+              `The power balance could flip at any moment`
+            ];
+            strategicConcern = defaultConcerns[Math.floor(Math.random() * defaultConcerns.length)];
+          }
           
           sharedInfo.push({
             type: 'strategic_concern',
             source: contestant.name,
             target: gameState.playerName,
-            content: strategicOptions[Math.floor(Math.random() * strategicOptions.length)],
+            content: strategicConcern,
             reliability: 'truth',
-            trustRequired: 35
+            trustRequired: 40
           });
         }
       });
 
-    // Record information sharing in memory with proper event tracking
+    // Record information sharing events
     sharedInfo.forEach(info => {
-      memoryEngine.recordEvent({
-        day: gameState.currentDay,
-        type: 'conversation',
-        participants: [info.source, info.target],
-        content: `Intel shared: "${info.content}" (${info.reliability})`,
-        emotionalImpact: info.type === 'voting_plan' ? 5 : info.type === 'alliance_doubt' ? 3 : 1,
-        reliability: info.reliability === 'truth' ? 'confirmed' : info.reliability === 'lie' ? 'rumor' : 'speculation',
-        strategicImportance: info.type === 'voting_plan' ? 9 : info.type === 'alliance_doubt' ? 7 : 5,
-        witnessed: [] // Information sharing is private
-      });
+      if (gameState.interactionLog) {
+        gameState.interactionLog.push({
+          day: gameState.currentDay,
+          type: 'npc',
+          participants: [info.source, info.target],
+          content: `${info.source} shared intel: "${info.content}"`,
+          source: 'npc'
+        });
+      }
     });
 
-    console.log(`[InfoSharing] Generated ${sharedInfo.length} intelligence items for day ${gameState.currentDay}`);
-    return sharedInfo.slice(0, 4); // Limit to prevent overwhelming
+    console.log(`[InfoSharing] Generated ${sharedInfo.length} relevant intelligence items for day ${gameState.currentDay}`);
+    return sharedInfo.slice(0, 3); // Limit to most important
   }
   
   private generateFakeVotingPlan(gameState: GameState, contestant: Contestant): string {
