@@ -110,6 +110,7 @@ export interface EditPerception {
 
 export interface Alliance {
   id: string;
+  name?: string; // Alliance name
   members: string[];
   strength: number; // 0 to 100
   secret: boolean;

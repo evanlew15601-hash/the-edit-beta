@@ -76,24 +76,24 @@ class RelationshipGraphEngine {
 
     // Enhanced trust changes based on recent interaction patterns and game context
     const recentInteractions = relationship.interactionHistory
-      .filter(event => currentDay - event.day <= 2)
+      .filter(event => currentDay - event.day <= 3)
       .length;
     
     const recentNegativeInteractions = relationship.interactionHistory
-      .filter(event => currentDay - event.day <= 2 && event.impact < 0)
+      .filter(event => currentDay - event.day <= 3 && event.impact < 0)
       .length;
     
-    // Trust builds slowly but can be damaged quickly, with compounding effects
+    // Accelerated trust dynamics - trust moves faster in both directions
     let adjustedTrustDelta = trustDelta;
     if (trustDelta > 0) {
-      // Positive trust builds slower with more frequent interactions, but faster early on
-      const frequencyPenalty = Math.max(0.2, 1 - (recentInteractions * 0.15));
-      const earlyGameBonus = currentDay <= 5 ? 1.3 : 1.0; // Trust builds faster early
-      adjustedTrustDelta = trustDelta * frequencyPenalty * earlyGameBonus;
+      // Positive trust builds faster but still has some frequency penalty
+      const frequencyPenalty = Math.max(0.4, 1 - (recentInteractions * 0.1));
+      const earlyGameBonus = currentDay <= 7 ? 1.5 : 1.2; // Stronger early game bonus
+      adjustedTrustDelta = trustDelta * frequencyPenalty * earlyGameBonus * 1.5; // 50% faster trust building
     } else {
-      // Negative trust compounds with repeated negative interactions
-      const compoundingFactor = 1 + (recentNegativeInteractions * 0.3);
-      adjustedTrustDelta = trustDelta * compoundingFactor;
+      // Negative trust compounds more aggressively
+      const compoundingFactor = 1 + (recentNegativeInteractions * 0.4);
+      adjustedTrustDelta = trustDelta * compoundingFactor * 1.3; // 30% faster trust loss
     }
 
     // Apply deltas with bounds checking

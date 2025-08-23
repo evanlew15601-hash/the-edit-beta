@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState } from '@/types/game';
-import { informationSharingEngine, SharedInformation } from '@/utils/informationSharingEngine';
+import { generateIntelligenceNetwork, IntelligenceItem } from '@/utils/informationSharingEngine';
 import { Eye, EyeOff, MessageSquare, AlertTriangle } from 'lucide-react';
 
 interface InformationSharingPanelProps {

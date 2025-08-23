@@ -77,18 +77,19 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">Producer Prompt</label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const newPrompts = ConfessionalEngine.generateDynamicPrompts(gameState);
-                    setAvailablePrompts(newPrompts);
-                    const randomPrompt = newPrompts[Math.floor(Math.random() * newPrompts.length)];
-                    setSelectedPrompt(randomPrompt);
-                    setContent(''); // Clear previous response when new prompt generated
-                  }}
-                  className="flex items-center gap-1"
-                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newPrompts = ConfessionalEngine.generateDynamicPrompts(gameState);
+                      setAvailablePrompts(newPrompts);
+                      const randomPrompt = newPrompts[Math.floor(Math.random() * newPrompts.length)];
+                      setSelectedPrompt(randomPrompt);
+                      setContent(''); // Clear previous response when new prompt generated
+                      setTone(''); // Also clear tone when new prompt generated
+                    }}
+                    className="flex items-center gap-1"
+                  >
                   <RefreshCw className="w-3 h-3" />
                   Generate New Prompt
                 </Button>
