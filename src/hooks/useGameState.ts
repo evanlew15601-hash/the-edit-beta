@@ -4,7 +4,7 @@ import { npcResponseEngine } from '@/utils/npcResponseEngine';
 import { GameState, Contestant, PlayerAction, Confessional, EditPerception, Alliance, VotingRecord, ReactionSummary, ReactionTake } from '@/types/game';
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
-import { calculateEditPerception } from '@/utils/editEngine';
+import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { processVoting } from '@/utils/votingEngine';
 import { getTrustDelta, getSuspicionDelta, calculateLeakChance, calculateSchemeSuccess, generateNPCInteractions } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
