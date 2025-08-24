@@ -10,7 +10,7 @@ interface InformationSharingPanelProps {
 }
 
 export const InformationSharingPanel = ({ gameState }: InformationSharingPanelProps) => {
-  const sharedInfo = informationSharingEngine.shareInformationWithPlayer(gameState);
+  const sharedInfo = generateIntelligenceNetwork(gameState);
 
   if (sharedInfo.length === 0) {
     return (
@@ -28,22 +28,19 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
     );
   }
 
-  const getInfoIcon = (type: SharedInformation['type']) => {
+  const getInfoIcon = (type: IntelligenceItem['type']) => {
     switch (type) {
       case 'voting_plan': return <AlertTriangle className="w-4 h-4" />;
-      case 'alliance_doubt': return <Eye className="w-4 h-4" />;
-      case 'strategic_concern': return <MessageSquare className="w-4 h-4" />;
+      case 'alliance_info': return <Eye className="w-4 h-4" />;
+      case 'threat_assessment': return <MessageSquare className="w-4 h-4" />;
       default: return <MessageSquare className="w-4 h-4" />;
     }
   };
 
-  const getReliabilityColor = (reliability: string) => {
-    switch (reliability) {
-      case 'truth': return 'text-edit-hero';
-      case 'lie': return 'text-edit-villain';
-      case 'half_truth': return 'text-foreground';
-      default: return 'text-muted-foreground';
-    }
+  const getReliabilityColor = (reliability: number) => {
+    if (reliability >= 80) return 'text-edit-hero';
+    if (reliability <= 40) return 'text-edit-villain';
+    return 'text-foreground';
   };
 
   return (
@@ -67,7 +64,7 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
                     {info.type.replace('_', ' ')}
                   </Badge>
                   <span className={`text-xs ${getReliabilityColor(info.reliability)}`}>
-                    {info.reliability === 'truth' ? '✓' : info.reliability === 'lie' ? '✗' : '?'}
+                    {info.reliability >= 80 ? '✓' : info.reliability <= 40 ? '✗' : '?'}
                   </span>
                 </div>
               </div>
@@ -76,7 +73,7 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
                 "{info.content}"
               </p>
 
-              {info.reliability === 'lie' && (
+              {info.reliability <= 40 && (
                 <p className="text-xs text-edit-villain">
                   🎭 This person is being deceptive
                 </p>
