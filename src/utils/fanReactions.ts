@@ -96,10 +96,69 @@ export const generateFanReaction = (gameState: GameState): string => {
 };
 
 export function generateFanReactions(gameState: GameState): string[] {
-  // Generate multiple fan reactions for display
+  // Generate multiple targeted fan reactions for display
+  const { interactionLog = [], currentDay, contestants, playerName, alliances } = gameState;
   const reactions: string[] = [];
-  for (let i = 0; i < 5; i++) {
-    reactions.push(generateFanReaction(gameState));
+  
+  // Get recent player actions for specific reactions
+  const recentActions = interactionLog
+    .filter(entry => entry.day >= currentDay - 1 && entry.participants.includes(playerName))
+    .slice(-5);
+
+  // Analyze specific moves for targeted reactions
+  recentActions.forEach(action => {
+    switch (action.type) {
+      case 'scheme':
+        const target = action.participants.find(p => p !== playerName);
+        reactions.push(`Absolutely LIVING for this strategic gameplay! ${playerName} is not playing around`);
+        reactions.push(`This move against ${target} could be game-changing or game-ending. High risk, high reward!`);
+        break;
+      case 'alliance_meeting':
+        const allies = action.participants.filter(p => p !== playerName);
+        reactions.push(`Smart alliance building with ${allies.join(' and ')}. This could be the power structure we needed`);
+        reactions.push(`Love seeing ${playerName} secure their position. Alliance game is everything`);
+        break;
+      case 'talk':
+        if (action.tone === 'aggressive') {
+          const opponent = action.participants.find(p => p !== playerName);
+          reactions.push(`The drama with ${opponent}! This tension has been building for DAYS`);
+          reactions.push(`${playerName} is not backing down from ${opponent}. I respect the backbone!`);
+        } else {
+          const friend = action.participants.find(p => p !== playerName);
+          reactions.push(`The bond between ${playerName} and ${friend} is so genuine. Love this friendship`);
+          reactions.push(`${playerName}'s social game is underrated. Building real connections`);
+        }
+        break;
+      case 'activity':
+        const partner = action.participants.find(p => p !== playerName);
+        reactions.push(`Love seeing ${playerName} bonding with ${partner}. These moments matter`);
+        reactions.push(`Smart of ${playerName} to strengthen bonds outside of pure strategy talk`);
+        break;
+    }
+  });
+
+  // Add strategic analysis reactions
+  const playerAlliances = alliances.filter(a => a.members.includes(playerName));
+  
+  if (playerAlliances.length > 1) {
+    reactions.push(`${playerName} is playing multiple sides. Risky strategy but could pay off big time`);
   }
-  return reactions;
+  
+  if (playerAlliances.length === 0 && gameState.nextEliminationDay - currentDay <= 3) {
+    reactions.push(`${playerName} needs to make a move FAST. Being on the bottom is dangerous`);
+  }
+  
+  // Recent activity level
+  if (recentActions.length >= 4) {
+    reactions.push(`${playerName} is EVERYWHERE this week. Playing hard and we're here for it!`);
+  } else if (recentActions.length <= 1) {
+    reactions.push(`${playerName} has been way too quiet lately. Invisibility edit incoming?`);
+  }
+
+  // Return unique reactions or fallback
+  return reactions.length > 0 ? reactions.slice(0, 5) : [
+    `Day ${currentDay} and the tension is THICK! Who's making the next move? 👀`,
+    `The social game is everything right now! These relationships are make or break 💥`,
+    `Someone's about to make a BIG move, I can feel it! The calm before the storm 🌊`
+  ];
 }

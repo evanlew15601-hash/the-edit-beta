@@ -1,6 +1,89 @@
-import { EditPerception, Confessional } from '@/types/game';
+import { EditPerception, Confessional, GameState } from '@/types/game';
 
-export const calculateEditPerception = (
+export type EditType = 'invisible' | 'minimal' | 'moderate' | 'positive' | 'dramatic' | 'strategic' | 'hero' | 'villain' | 'mastermind';
+
+export const calculateEditPerception = (gameState: GameState): EditType => {
+  const { interactionLog = [], currentDay, playerName, contestants, alliances } = gameState;
+  
+  // Get recent actions (last 2 days for more responsive updates)
+  const recentActions = interactionLog
+    .filter(entry => entry.day >= currentDay - 2 && entry.participants.includes(playerName))
+    .slice(-10);
+
+  let editScore = 0;
+  let strategicWeight = 0;
+  let conflictWeight = 0;
+  let socialWeight = 0;
+
+  // Analyze each action with significant scoring
+  recentActions.forEach(action => {
+    switch (action.type) {
+      case 'scheme':
+        editScore += 25; // Major strategic content
+        strategicWeight += 30;
+        break;
+      case 'alliance_meeting':
+        editScore += 20; // Important strategic moment
+        strategicWeight += 25;
+        break;
+      case 'talk':
+        if (action.tone === 'aggressive') {
+          editScore += 22; // Conflict drives viewership
+          conflictWeight += 25;
+        } else {
+          editScore += 12; // Regular social content
+          socialWeight += 15;
+        }
+        break;
+      case 'activity':
+        editScore += 8; // Background content
+        socialWeight += 10;
+        break;
+      case 'confessional':
+        editScore += 15; // Direct audience connection
+        strategicWeight += 10;
+        break;
+    }
+  });
+
+  // Bonus for strategic positioning
+  const playerAlliances = alliances.filter(a => a.members.includes(playerName));
+  if (playerAlliances.length > 1) {
+    editScore += 20; // Playing multiple sides
+    strategicWeight += 20;
+  }
+  
+  // Bonus for conflict creation
+  const conflicts = recentActions.filter(a => a.tone === 'aggressive').length;
+  if (conflicts >= 2) {
+    editScore += 25; // Drama creator
+    conflictWeight += 30;
+  }
+
+  // High activity bonus
+  if (recentActions.length >= 6) {
+    editScore += 15; // Very active player
+  }
+
+  // Determine edit type based on weights and score
+  if (editScore >= 80) {
+    if (strategicWeight > conflictWeight) return 'mastermind';
+    if (conflictWeight > strategicWeight) return 'villain';
+    return 'hero';
+  } else if (editScore >= 60) {
+    if (strategicWeight >= 40) return 'strategic';
+    if (conflictWeight >= 30) return 'dramatic';
+    return 'positive';
+  } else if (editScore >= 40) {
+    return 'moderate';
+  } else if (editScore >= 20) {
+    return 'minimal';
+  } else {
+    return 'invisible';
+  }
+};
+
+export const calculateLegacyEditPerception = (
   confessionals: Confessional[],
   currentPerception: EditPerception,
   currentDay: number,
@@ -20,76 +103,76 @@ export const calculateEditPerception = (
     const recentAlliances = gameState.alliances?.filter(a => 
       a.formed >= currentDay - 1 && a.members.includes(gameState.playerName)
     ) || [];
-    strategicBonus += recentAlliances.length * 8;
+    strategicBonus += recentAlliances.length * 15; // Increased bonus
     
     // Recent voting or elimination involvement
     if (gameState.votingHistory?.length > 0) {
       const lastVote = gameState.votingHistory[gameState.votingHistory.length - 1];
       if (lastVote.day >= currentDay - 1) {
         // Involved in recent voting drama
-        strategicBonus += 10;
+        strategicBonus += 20; // Increased bonus
         
         // If player's vote was decisive or surprising
         if (lastVote.playerVote && lastVote.playerVote !== lastVote.eliminated) {
-          strategicBonus += 5; // Voting against the house
+          strategicBonus += 15; // Voting against the house
         }
       }
     }
     
     // Immunity winner gets screen time
     if (gameState.immunityWinner === gameState.playerName) {
-      strategicBonus += 15;
-      approvalChange += 5;
+      strategicBonus += 25; // Increased bonus
+      approvalChange += 8;
     }
     
     // High interaction count = more screen time
     const recentInteractions = gameState.interactionLog?.filter(log => 
       log.day >= currentDay - 1 && log.participants.includes(gameState.playerName)
     )?.length || 0;
-    strategicBonus += Math.min(20, recentInteractions * 2);
+    strategicBonus += Math.min(30, recentInteractions * 3); // Increased multiplier
   }
   
   if (recentConfessionals.length === 0) {
     // Apply strategic bonus even without confessionals
-    screenTimeChange = strategicBonus - 3; // Small penalty for no confessionals
+    screenTimeChange = strategicBonus - 1; // Reduced penalty
   } else {
     // Calculate impact from confessional tones with strategic context
     const toneImpacts = recentConfessionals.reduce((acc, conf) => {
-      const recencyBoost = conf.day === currentDay ? 2.5 : conf.day === currentDay - 1 ? 1.8 : 1.2;
+      const recencyBoost = conf.day === currentDay ? 3 : conf.day === currentDay - 1 ? 2.2 : 1.5;
       switch (conf.tone) {
         case 'strategic':
-          acc.screenTime += 8 * recencyBoost;
-          acc.approval += 3 * recencyBoost;
+          acc.screenTime += 12 * recencyBoost; // Increased
+          acc.approval += 4 * recencyBoost;
           break;
         case 'aggressive':
-          acc.screenTime += 12 * recencyBoost;
-          acc.approval -= 7 * recencyBoost;
+          acc.screenTime += 18 * recencyBoost; // Increased
+          acc.approval -= 5 * recencyBoost;
           break;
         case 'vulnerable':
-          acc.screenTime += 6 * recencyBoost;
-          acc.approval += 10 * recencyBoost;
+          acc.screenTime += 10 * recencyBoost; // Increased
+          acc.approval += 12 * recencyBoost;
           break;
         case 'humorous':
-          acc.screenTime += 5 * recencyBoost;
-          acc.approval += 6 * recencyBoost;
+          acc.screenTime += 8 * recencyBoost; // Increased
+          acc.approval += 8 * recencyBoost;
           break;
         case 'dramatic':
-          acc.screenTime += 15 * recencyBoost;
+          acc.screenTime += 22 * recencyBoost; // Increased
           acc.approval -= 1 * recencyBoost;
           break;
         case 'evasive':
-          acc.screenTime += 1 * recencyBoost;
-          acc.approval -= 3 * recencyBoost;
+          acc.screenTime += 3 * recencyBoost; // Increased
+          acc.approval -= 2 * recencyBoost;
           break;
         default:
-          acc.screenTime += 3 * recencyBoost;
-          acc.approval += 1 * recencyBoost;
+          acc.screenTime += 5 * recencyBoost; // Increased
+          acc.approval += 2 * recencyBoost;
       }
       
       // Leverage explicit editImpact when present
       if (typeof (conf as any).editImpact === 'number') {
-        acc.screenTime += Math.max(0, (conf as any).editImpact);
-        acc.approval += Math.sign((conf as any).editImpact) * Math.min(8, Math.abs((conf as any).editImpact));
+        acc.screenTime += Math.max(0, (conf as any).editImpact * 1.5); // Increased impact
+        acc.approval += Math.sign((conf as any).editImpact) * Math.min(10, Math.abs((conf as any).editImpact));
       }
       return acc;
     }, { screenTime: 0, approval: 0 });
@@ -108,17 +191,17 @@ export const calculateEditPerception = (
 
   // Enhanced persona determination
   let persona: EditPerception['persona'];
-  if (newScreenTime < 15) {
+  if (newScreenTime < 10) { // Lowered threshold
     persona = 'Ghosted';
-  } else if (newScreenTime < 35) {
+  } else if (newScreenTime < 25) { // Lowered threshold
     persona = 'Underedited';
-  } else if (newApproval > 40) {
+  } else if (newApproval > 30) { // Lowered threshold
     persona = 'Hero';
-  } else if (newApproval < -40) {
+  } else if (newApproval < -30) { // Lowered threshold
     persona = 'Villain';
-  } else if (recentConfessionals.some(c => c.tone === 'humorous') && newApproval > 10) {
+  } else if (recentConfessionals.some(c => c.tone === 'humorous') && newApproval > 5) {
     persona = 'Comic Relief';
-  } else if (newScreenTime > 60 && Math.abs(newApproval) < 30) {
+  } else if (newScreenTime > 50 && Math.abs(newApproval) < 25) { // Lowered thresholds
     persona = 'Dark Horse';
   } else {
     persona = 'Dark Horse';

@@ -790,7 +790,7 @@ export const useGameState = () => {
         strategicImportance: tone === 'strategic' ? 8 : tone === 'dramatic' ? 6 : 4
       });
 
-      const newEditPerception = calculateEditPerception(
+      const newEditPerception = calculateLegacyEditPerception(
         [...prev.confessionals, finalConfessional],
         prev.editPerception,
         prev.currentDay,
