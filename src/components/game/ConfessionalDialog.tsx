@@ -20,6 +20,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
   const [tone, setTone] = useState<string>('');
   const [selectedPrompt, setSelectedPrompt] = useState<any>(null);
   const [availablePrompts, setAvailablePrompts] = useState<any[]>([]);
+  const [responseOptions, setResponseOptions] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -27,11 +28,20 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
       setAvailablePrompts(prompts);
       if (prompts.length > 0) {
         setSelectedPrompt(prompts[0]);
+        // Generate response options once when prompt is selected
+        setResponseOptions(generateResponseOptions(prompts[0], gameState));
       }
       setContent('');
       setTone('');
     }
   }, [isOpen]);
+
+  // Update response options only when prompt changes
+  useEffect(() => {
+    if (selectedPrompt) {
+      setResponseOptions(generateResponseOptions(selectedPrompt, gameState));
+    }
+  }, [selectedPrompt]);
 
   const handleSubmit = () => {
     if (content && tone) {
@@ -85,8 +95,9 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
                       setAvailablePrompts(newPrompts);
                       const randomPrompt = newPrompts[Math.floor(Math.random() * newPrompts.length)];
                       setSelectedPrompt(randomPrompt);
-                      setContent(''); // Clear previous response when new prompt generated
-                      setTone(''); // Also clear tone when new prompt generated
+                      // Clear selections when new prompt is generated
+                      setContent('');
+                      setTone('');
                     }}
                     className="flex items-center gap-1"
                   >
@@ -118,9 +129,9 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
             <label className="text-sm font-medium">Choose Your Response</label>
             {selectedPrompt ? (
               <div className="space-y-2">
-                {generateResponseOptions(selectedPrompt, gameState).map((option: string, index: number) => (
+                {responseOptions.map((option: string, index: number) => (
                   <button
-                    key={index}
+                    key={`${selectedPrompt.id}-${index}`}
                     onClick={() => setContent(option)}
                     className={`p-3 text-left border border-border rounded transition-colors w-full ${
                       content === option 
