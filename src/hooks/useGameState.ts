@@ -5,6 +5,8 @@ import { GameState, Contestant, PlayerAction, Confessional, EditPerception, Alli
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
+import { AllianceManager } from '@/utils/allianceManager';
+import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { processVoting } from '@/utils/votingEngine';
 import { getTrustDelta, getSuspicionDelta, calculateLeakChance, calculateSchemeSuccess, generateNPCInteractions } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
@@ -55,6 +57,7 @@ const initialGameState = (): GameState => ({
   gamePhase: 'intro',
   twistsActivated: [],
   nextEliminationDay: 7,
+  daysUntilJury: 28, // Jury starts when 9 contestants remain (after day 28)
   dailyActionCount: 0,
   dailyActionCap: 10,
   aiSettings: {
@@ -1017,7 +1020,7 @@ export const useGameState = () => {
           contestants: finalContestants,
           votingHistory: [...prev.votingHistory, { ...votingResult, day: newDay, playerVote: choice }],
           gamePhase: 'finale' as const,
-          juryMembers: prev.contestants.filter(c => c.isEliminated && c.eliminationDay && c.eliminationDay >= newDay - 14).map(c => c.name),
+          juryMembers: prev.contestants.filter(c => c.isEliminated && c.eliminationDay && c.eliminationDay >= newDay - 14).map(c => c.name).slice(0, 7), // Ensure odd number (max 7)
           playerActions: [
             { type: 'talk', used: false, usageCount: 0 },
             { type: 'dm', used: false, usageCount: 0 },

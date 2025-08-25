@@ -63,6 +63,7 @@ export interface GameState {
   gamePhase: 'intro' | 'premiere' | 'daily' | 'player_vote' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote';
   twistsActivated: string[];
   nextEliminationDay: number;
+  daysUntilJury?: number; // Days until jury phase starts
   dailyActionCount: number; // actions used today
   dailyActionCap: number;   // max actions per day
   lastAIResponse?: string; // Store AI-generated response for UI
@@ -78,7 +79,7 @@ export interface GameState {
   lastActionTarget?: string; // Most recent action target for UI context
   lastActionType?: PlayerAction['type']; // Most recent action type for UI context
   immunityWinner?: string; // Who won immunity this week
-  juryMembers?: string[]; // Who is on the jury
+  juryMembers?: string[]; // Who is on the jury (odd number to avoid ties)
   finaleSpeechesGiven?: boolean; // Track finale speeches
   aiSettings: AISettings; // Controls reply depth and additions
   // New: queue of NPC-initiated forced conversations (at least one per day)

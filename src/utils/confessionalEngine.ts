@@ -15,7 +15,7 @@ export class ConfessionalEngine {
   
   static generateDynamicPrompts(gameState: GameState): ConfessionalPrompt[] {
     const prompts: ConfessionalPrompt[] = [];
-    const { contestants, currentDay, alliances, votingHistory, editPerception } = gameState;
+    const { contestants, currentDay, alliances, votingHistory, editPerception, interactionLog } = gameState;
     const activeContestants = contestants.filter(c => !c.isEliminated);
     
     // Get memory-driven context
@@ -92,6 +92,64 @@ export class ConfessionalEngine {
         followUp: 'When do you plan to make your move?',
         suggestedTones: ['strategic', 'vulnerable', 'dramatic'],
         editPotential: 6
+      });
+    }
+
+    // Dynamic prompts based on recent player activity
+    const recentActions = interactionLog?.filter(log => 
+      log.day >= currentDay - 2 && 
+      log.participants.includes(gameState.playerName)
+    ) || [];
+
+    // Scheme-based prompts
+    const recentSchemes = recentActions.filter(a => a.type === 'scheme');
+    if (recentSchemes.length > 0) {
+      prompts.push({
+        id: 'scheme_reflection',
+        category: 'strategy',
+        prompt: `You've been making some strategic moves lately. Walk us through your thought process.`,
+        followUp: 'Do you think anyone suspects what you\'re up to?',
+        suggestedTones: ['strategic', 'dramatic', 'evasive'],
+        editPotential: 9
+      });
+    }
+
+    // Conversation aftermath
+    const recentConversations = recentActions.filter(a => a.type === 'talk');
+    if (recentConversations.length > 1) {
+      const recentPartner = recentConversations[recentConversations.length - 1].participants.find(p => p !== gameState.playerName);
+      prompts.push({
+        id: 'conversation_debrief',
+        category: 'relationships', 
+        prompt: `You've been talking a lot with ${recentPartner} lately. What's your read on them?`,
+        followUp: 'Are they someone you can work with long-term?',
+        suggestedTones: ['strategic', 'vulnerable', 'humorous'],
+        editPotential: 7
+      });
+    }
+
+    // Information sharing follow-up
+    const recentInfoSharing = recentActions.filter(a => a.type === 'dm');
+    if (recentInfoSharing.length > 0) {
+      prompts.push({
+        id: 'information_strategy',
+        category: 'strategy',
+        prompt: `You've been sharing some intel around the house. What's your information strategy?`,
+        followUp: 'Are you trying to build trust or create chaos?',
+        suggestedTones: ['strategic', 'dramatic', 'aggressive'],
+        editPotential: 8
+      });
+    }
+
+    // Voting week intensity
+    if (currentDay >= gameState.nextEliminationDay - 2) {
+      prompts.push({
+        id: 'voting_pressure',
+        category: 'current_events',
+        prompt: `Elimination is coming up soon. How are you feeling about the vote?`,
+        followUp: 'Do you know where you stand with people?',
+        suggestedTones: ['vulnerable', 'strategic', 'dramatic'],
+        editPotential: 8
       });
     }
 
