@@ -159,20 +159,29 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
     ]
   };
 
+  // Generate diverse viral moments based on actual strategic play
+  const viralMomentsByType = new Map<string, number>();
+  
   playerEvents
-    .filter(e => e.emotionalImpact >= 4) // Lowered threshold for more viral moments
+    .filter(e => e.emotionalImpact >= 3) // Lowered threshold for more variety
     .sort((a, b) => b.emotionalImpact - a.emotionalImpact)
-    .slice(0, 5) // Increased to 5 potential moments
+    .slice(0, 6) // Increased potential moments
     .forEach(event => {
+      // Track how many times we've used this event type
+      const currentCount = viralMomentsByType.get(event.type) || 0;
+      viralMomentsByType.set(event.type, currentCount + 1);
+      
+      // Use different templates based on how many times we've seen this type
       const templates = viralMomentTemplates[event.type as keyof typeof viralMomentTemplates] || [
-        `This moment had fans talking across all platforms`,
-        `Your gameplay moment became essential viewing`,
-        `Fans are calling this moment television gold`,
-        `This scene became the highlight of the episode`
+        `This strategic moment had fans talking across all platforms`,
+        `Your gameplay move became essential viewing this week`,
+        `Fans are calling this scene television gold`,
+        `This moment became the highlight of the episode for viewers`
       ];
       
-      const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
-      viralMoments.push(randomTemplate);
+      // Rotate through templates to avoid repetition
+      const templateIndex = currentCount % templates.length;
+      viralMoments.push(templates[templateIndex]);
     });
 
   // Reality vs Edit comparison

@@ -178,7 +178,7 @@ class GameSystemIntegrator {
         'Initiated friendly conversation',
         gameState.currentDay
       );
-    }
+}
   }
 
   private processNPCDirectMessage(decision: NPCDecision, gameState: GameState): void {

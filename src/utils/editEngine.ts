@@ -96,8 +96,74 @@ export const calculateLegacyEditPerception = (
   let screenTimeChange = 0;
   let approvalChange = 0;
   
-  // Strategic moment bonuses - high-impact gameplay gets more screen time
+  // Strategic moment bonuses - responsive to actual gameplay
   let strategicBonus = 0;
+  
+  if (gameState) {
+    const { interactionLog = [], alliances = [], currentDay, playerName } = gameState;
+    
+    // Recent strategic activity (last 2 days for immediate responsiveness)
+    const recentStrategic = interactionLog
+      .filter(entry => entry.day >= currentDay - 2 && entry.participants.includes(playerName))
+      .filter(entry => ['scheme', 'alliance_meeting'].includes(entry.type));
+    
+    strategicBonus += recentStrategic.length * 8; // +8 screen time per strategic action
+    
+    // Multi-alliance bonus
+    const playerAlliances = alliances.filter(a => a.members.includes(playerName));
+    if (playerAlliances.length > 1) {
+      strategicBonus += 15; // Playing multiple sides = more screen time
+    }
+    
+    // Vote week activity bonus
+    if (currentDay >= gameState.nextEliminationDay - 2) {
+      const voteWeekActivity = interactionLog
+        .filter(entry => entry.day >= currentDay - 1 && entry.participants.includes(playerName));
+      strategicBonus += voteWeekActivity.length * 3; // Increased activity during voting
+    }
+    
+    // Conflict engagement bonus
+    const conflicts = interactionLog
+      .filter(entry => entry.day >= currentDay - 3 && entry.participants.includes(playerName))
+      .filter(entry => entry.tone === 'aggressive');
+    strategicBonus += conflicts.length * 10; // Drama = screen time
+    
+    // Information sharing bonus
+    const infoSharing = interactionLog
+      .filter(entry => entry.day >= currentDay - 2 && entry.participants.includes(playerName))
+      .filter(entry => entry.type === 'dm');
+    strategicBonus += infoSharing.length * 5; // Intel networks = content
+  }
+
+  // Confessional impact on edit
+  recentConfessionals.forEach(conf => {
+    switch (conf.tone) {
+      case 'strategic':
+        screenTimeChange += 12;
+        approvalChange += conf.audienceScore ? (conf.audienceScore - 50) / 10 : 5;
+        break;
+      case 'dramatic':
+        screenTimeChange += 18; // Drama gets major screen time
+        approvalChange += conf.audienceScore ? (conf.audienceScore - 50) / 8 : -2;
+        break;
+      case 'vulnerable':
+        screenTimeChange += 8;
+        approvalChange += conf.audienceScore ? (conf.audienceScore - 50) / 5 : 8;
+        break;
+      case 'aggressive':
+        screenTimeChange += 15;
+        approvalChange += conf.audienceScore ? (conf.audienceScore - 50) / 12 : -8;
+        break;
+      case 'humorous':
+        screenTimeChange += 6;
+        approvalChange += conf.audienceScore ? (conf.audienceScore - 50) / 6 : 6;
+        break;
+      case 'evasive':
+        screenTimeChange += 2; // Boring content
+        approvalChange += conf.audienceScore ? (conf.audienceScore - 50) / 15 : -3;
+        break;
+    }
+  });
   if (gameState) {
     // Recent alliance activity
     const recentAlliances = gameState.alliances?.filter(a => 

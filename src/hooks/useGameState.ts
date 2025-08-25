@@ -7,6 +7,7 @@ import { generateContestants } from '@/utils/contestantGenerator';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { AllianceManager } from '@/utils/allianceManager';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
+import { gameSystemIntegrator } from '@/utils/gameSystemIntegrator';
 import { processVoting } from '@/utils/votingEngine';
 import { getTrustDelta, getSuspicionDelta, calculateLeakChance, calculateSchemeSuccess, generateNPCInteractions } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
