@@ -1,0 +1,493 @@
+import { useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/enhanced-button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { GameState } from '@/types/game';
+import { Crown, Trophy, Target, Heart, TrendingUp, Calendar, Users, Zap } from 'lucide-react';
+
+interface PostSeasonRecapScreenProps {
+  gameState: GameState;
+  winner: string;
+  finalVotes: { [juryMember: string]: string };
+  onRestart: () => void;
+}
+
+export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart }: PostSeasonRecapScreenProps) => {
+  const [activeTab, setActiveTab] = useState('overview');
+
+  const allContestants = gameState.contestants.sort((a, b) => {
+    if (a.isEliminated !== b.isEliminated) {
+      return a.isEliminated ? 1 : -1;
+    }
+    return (b.eliminationDay || gameState.currentDay) - (a.eliminationDay || gameState.currentDay);
+  });
+
+  const playerStats = calculatePlayerStats(gameState);
+  const seasonHighlights = generateSeasonHighlights(gameState);
+  const awards = calculateSeasonAwards(gameState);
+
+  return (
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Winner Announcement */}
+        <Card className="p-8 text-center bg-primary/10 border-primary/20">
+          <Crown className="w-16 h-16 text-primary mx-auto mb-4" />
+          <h1 className="text-4xl font-light mb-2">Season Complete</h1>
+          <h2 className="text-2xl font-medium mb-4">
+            {winner} is the Winner!
+          </h2>
+          <p className="text-muted-foreground">
+            {winner === gameState.playerName 
+              ? 'Congratulations! You played the perfect game and won the jury vote.'
+              : `${winner} outplayed, outwitted, and outlasted everyone to claim victory.`
+            }
+          </p>
+        </Card>
+
+        {/* Tabbed Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="stats">Statistics</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="awards">Awards</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            {/* Final Standings */}
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-primary" />
+                <h3 className="text-xl font-medium">Final Standings</h3>
+              </div>
+              <div className="space-y-3">
+                {allContestants.map((contestant, index) => (
+                  <div 
+                    key={contestant.id}
+                    className={`flex items-center justify-between p-3 border rounded ${
+                      contestant.name === gameState.playerName 
+                        ? 'border-primary/20 bg-primary/10' 
+                        : 'border-border'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                        index === 0 ? 'bg-primary text-primary-foreground' :
+                        index === 1 ? 'bg-muted text-muted-foreground' :
+                        'bg-muted/50 text-muted-foreground'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="font-medium">
+                          {contestant.name}
+                          {contestant.name === gameState.playerName && ' (You)'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {contestant.publicPersona}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">
+                        {contestant.isEliminated 
+                          ? `Day ${contestant.eliminationDay}` 
+                          : 'Winner'
+                        }
+                      </div>
+                      {index === 0 && (
+                        <Badge variant="default" className="mt-1">
+                          <Crown className="w-3 h-3 mr-1" />
+                          Winner
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Your Journey Summary */}
+            <Card className="p-6">
+              <h3 className="text-xl font-medium mb-4">Your Season Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 border border-border rounded">
+                  <div className="text-2xl font-bold text-primary">{playerStats.daysPlayed}</div>
+                  <div className="text-sm text-muted-foreground">Days Played</div>
+                </div>
+                <div className="text-center p-4 border border-border rounded">
+                  <div className="text-2xl font-bold text-primary">{playerStats.allianceCount}</div>
+                  <div className="text-sm text-muted-foreground">Alliances Formed</div>
+                </div>
+                <div className="text-center p-4 border border-border rounded">
+                  <div className="text-2xl font-bold text-primary">{playerStats.finalPlacement}</div>
+                  <div className="text-sm text-muted-foreground">Final Placement</div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Season Highlights */}
+            <Card className="p-6">
+              <h3 className="text-xl font-medium mb-4">Season Highlights</h3>
+              <div className="space-y-3">
+                {seasonHighlights.map((highlight, index) => (
+                  <div key={index} className="flex items-start gap-3 p-3 border border-border rounded">
+                    <Zap className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
+                    <div>
+                      <div className="font-medium">{highlight.title}</div>
+                      <div className="text-sm text-muted-foreground">{highlight.description}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Day {highlight.day}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="stats" className="space-y-6">
+            <Card className="p-6">
+              <h3 className="text-xl font-medium mb-4">Detailed Statistics</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Player Stats */}
+                <div>
+                  <h4 className="font-medium mb-3">Your Performance</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Days Survived:</span>
+                      <span>{playerStats.daysPlayed}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Confessionals Given:</span>
+                      <span>{playerStats.confessionalCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Alliances Formed:</span>
+                      <span>{playerStats.allianceCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Strategic Conversations:</span>
+                      <span>{playerStats.conversationCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Schemes Executed:</span>
+                      <span>{playerStats.schemeCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Final Edit Persona:</span>
+                      <span>{gameState.editPerception.persona}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Season Stats */}
+                <div>
+                  <h4 className="font-medium mb-3">Season Overview</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Days:</span>
+                      <span>{gameState.currentDay}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Contestants:</span>
+                      <span>{gameState.contestants.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Eliminations:</span>
+                      <span>{gameState.votingHistory.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Jury Size:</span>
+                      <span>{gameState.juryMembers?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Alliances Created:</span>
+                      <span>{gameState.alliances.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Twists Activated:</span>
+                      <span>{gameState.twistsActivated.length}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* All Contestant Stats */}
+            <Card className="p-6">
+              <h3 className="text-xl font-medium mb-4">All Contestants</h3>
+              <ScrollArea className="h-64">
+                <div className="space-y-2">
+                  {allContestants.map((contestant) => (
+                    <div key={contestant.id} className="flex items-center justify-between p-2 border border-border rounded">
+                      <div>
+                        <div className="font-medium">
+                          {contestant.name}
+                          {contestant.name === gameState.playerName && ' (You)'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {contestant.publicPersona}
+                        </div>
+                      </div>
+                      <div className="text-right text-sm">
+                        <div>Day {contestant.eliminationDay || gameState.currentDay}</div>
+                        <div className="text-muted-foreground">
+                          {contestant.memory.length} memories
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="timeline" className="space-y-6">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar className="w-5 h-5 text-primary" />
+                <h3 className="text-xl font-medium">Season Timeline</h3>
+              </div>
+              
+              <ScrollArea className="h-96">
+                <div className="space-y-4">
+                  {gameState.votingHistory.map((vote, index) => (
+                    <div key={index} className="flex items-start gap-3 p-3 border border-border rounded">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          Day {vote.day}: {vote.eliminated} Eliminated
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {vote.reason}
+                        </div>
+                        {vote.tieBreak && (
+                          <div className="text-xs text-primary mt-1">
+                            Tie-break resolution occurred
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Finale */}
+                  <div className="flex items-start gap-3 p-3 border border-primary/20 bg-primary/10 rounded">
+                    <Crown className="w-5 h-5 text-primary mt-1" />
+                    <div className="flex-1">
+                      <div className="font-medium">
+                        Day {gameState.currentDay}: {winner} Crowned Winner
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        Won jury vote {Object.values(finalVotes).filter(v => v === winner).length}-{Object.values(finalVotes).filter(v => v !== winner).length}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="awards" className="space-y-6">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-primary" />
+                <h3 className="text-xl font-medium">Season Awards</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {awards.map((award, index) => (
+                  <Card key={index} className="p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <award.icon className="w-5 h-5 text-primary" />
+                      <h4 className="font-medium">{award.title}</h4>
+                    </div>
+                    <div className="text-lg font-medium">{award.winner}</div>
+                    <div className="text-sm text-muted-foreground">{award.reason}</div>
+                  </Card>
+                ))}
+              </div>
+            </Card>
+
+            {/* America's Favorite Player */}
+            {gameState.favoriteTally && (
+              <Card className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Heart className="w-5 h-5 text-primary" />
+                  <h3 className="text-xl font-medium">America's Favorite Player Results</h3>
+                </div>
+                
+                <div className="space-y-2">
+                  {Object.entries(gameState.favoriteTally)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 5)
+                    .map(([name, score], index) => (
+                      <div key={name} className="flex items-center justify-between p-2 border border-border rounded">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                            index === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <span className={name === gameState.playerName ? 'text-primary font-medium' : ''}>
+                            {name}
+                            {name === gameState.playerName && ' (You)'}
+                          </span>
+                        </div>
+                        <div className="text-sm font-medium">{score} points</div>
+                      </div>
+                    ))}
+                </div>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* Restart Button */}
+        <div className="text-center pt-6">
+          <Button variant="action" onClick={onRestart} size="wide">
+            Start New Season
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+function calculatePlayerStats(gameState: GameState) {
+  const player = gameState.contestants.find(c => c.name === gameState.playerName);
+  
+  return {
+    daysPlayed: player?.eliminationDay || gameState.currentDay,
+    confessionalCount: gameState.confessionals.length,
+    allianceCount: gameState.alliances.filter(a => a.members.includes(gameState.playerName)).length,
+    conversationCount: gameState.interactionLog?.filter(log => 
+      log.type === 'talk' && log.participants.includes(gameState.playerName)
+    ).length || 0,
+    schemeCount: gameState.interactionLog?.filter(log => 
+      log.type === 'scheme' && log.participants.includes(gameState.playerName)
+    ).length || 0,
+    finalPlacement: gameState.contestants.filter(c => 
+      !c.isEliminated || (c.eliminationDay || 0) >= (player?.eliminationDay || 0)
+    ).length
+  };
+}
+
+function generateSeasonHighlights(gameState: GameState) {
+  const highlights = [];
+  
+  // Major alliances
+  gameState.alliances.forEach(alliance => {
+    if (alliance.members.includes(gameState.playerName)) {
+      highlights.push({
+        title: 'Alliance Formed',
+        description: `Formed alliance with ${alliance.members.filter(m => m !== gameState.playerName).join(', ')}`,
+        day: alliance.formed
+      });
+    }
+  });
+  
+  // Eliminations involving player votes
+  gameState.votingHistory.forEach(vote => {
+    if (vote.playerVote) {
+      highlights.push({
+        title: 'Elimination Vote',
+        description: `Voted to eliminate ${vote.eliminated}`,
+        day: vote.day
+      });
+    }
+  });
+  
+  // High-impact interactions
+  gameState.interactionLog?.forEach(log => {
+    if (log.participants.includes(gameState.playerName) && log.type === 'scheme') {
+      highlights.push({
+        title: 'Strategic Move',
+        description: `Executed scheme involving ${log.participants.filter(p => p !== gameState.playerName).join(', ')}`,
+        day: log.day
+      });
+    }
+  });
+  
+  return highlights
+    .sort((a, b) => a.day - b.day)
+    .slice(0, 8); // Show top 8 moments
+}
+
+function calculateSeasonAwards(gameState: GameState) {
+  const awards = [];
+  
+  // Most Alliances
+  const allianceCounts = gameState.contestants.map(c => ({
+    name: c.name,
+    count: gameState.alliances.filter(a => a.members.includes(c.name)).length
+  }));
+  const mostAlliances = allianceCounts.reduce((prev, current) => 
+    current.count > prev.count ? current : prev
+  );
+  
+  awards.push({
+    title: 'Most Connected',
+    winner: mostAlliances.name,
+    reason: `Member of ${mostAlliances.count} alliances`,
+    icon: Users
+  });
+  
+  // Longest Survivor (if not winner)
+  const winner = gameState.contestants.find(c => !c.isEliminated);
+  const longestSurvivor = gameState.contestants
+    .filter(c => c.isEliminated && c.name !== winner?.name)
+    .reduce((prev, current) => 
+      (current.eliminationDay || 0) > (prev.eliminationDay || 0) ? current : prev
+    );
+  
+  if (longestSurvivor) {
+    awards.push({
+      title: 'Fan Favorite',
+      winner: longestSurvivor.name,
+      reason: `Survived until Day ${longestSurvivor.eliminationDay}`,
+      icon: Heart
+    });
+  }
+  
+  // Most Strategic (based on schemes)
+  const schemeCounts = gameState.contestants.map(c => ({
+    name: c.name,
+    count: gameState.interactionLog?.filter(log => 
+      log.type === 'scheme' && log.participants.includes(c.name)
+    ).length || 0
+  }));
+  const mostStrategic = schemeCounts.reduce((prev, current) => 
+    current.count > prev.count ? current : prev
+  );
+  
+  if (mostStrategic.count > 0) {
+    awards.push({
+      title: 'Master Strategist',
+      winner: mostStrategic.name,
+      reason: `Executed ${mostStrategic.count} strategic moves`,
+      icon: Target
+    });
+  }
+  
+  // Highest Trust Level
+  const trustLevels = gameState.contestants.map(c => ({
+    name: c.name,
+    trust: c.psychProfile.trustLevel
+  }));
+  const mostTrusted = trustLevels.reduce((prev, current) => 
+    current.trust > prev.trust ? current : prev
+  );
+  
+  awards.push({
+    title: 'Most Trustworthy',
+    winner: mostTrusted.name,
+    reason: `Trust level: ${mostTrusted.trust}`,
+    icon: Heart
+  });
+  
+  return awards;
+}
