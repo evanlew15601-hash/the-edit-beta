@@ -7,6 +7,7 @@ import { generateContestants } from '@/utils/contestantGenerator';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { AllianceManager } from '@/utils/allianceManager';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
+import { InformationTradingEngine } from '@/utils/informationTradingEngine';
 import { gameSystemIntegrator } from '@/utils/gameSystemIntegrator';
 import { processVoting } from '@/utils/votingEngine';
 import { getTrustDelta, getSuspicionDelta, calculateLeakChance, calculateSchemeSuccess, generateNPCInteractions } from '@/utils/actionEngine';
@@ -831,6 +832,49 @@ export const useGameState = () => {
   const advanceDay = useCallback(() => {
     setGameState(prev => {
       const newDay = prev.currentDay + 1;
+      
+      // Generate AI voting plans at start of each week
+      const votingPlans = AIVotingStrategy.generateWeeklyVotingPlans(prev);
+      
+      // Update alliances with the new management system
+      const updatedAlliances = AllianceManager.updateAllianceTrust(prev);
+      
+      // Share information between NPCs based on relationships
+      const npcActiveContestants = prev.contestants.filter(c => !c.isEliminated);
+      npcActiveContestants.forEach(contestant => {
+        if (contestant.name !== prev.playerName) {
+          // Find trusted allies to share information with
+          const trustedAllies = npcActiveContestants.filter(other => {
+            if (other.name === contestant.name || other.name === prev.playerName) return false;
+            
+            // Check if they're in the same alliance
+            const sharedAlliances = updatedAlliances.filter(a => 
+              a.members.includes(contestant.name) && a.members.includes(other.name)
+            );
+            
+            if (sharedAlliances.length > 0) {
+              return sharedAlliances.some(a => a.strength > 60);
+            }
+            
+            // Check trust level in memory
+            const trustMemories = contestant.memory.filter(m => 
+              m.participants.includes(other.name) && m.day >= newDay - 5
+            );
+            const trustScore = trustMemories.reduce((sum, m) => sum + m.emotionalImpact, 0);
+            return trustScore > 10;
+          });
+          
+          // Share information with trusted allies
+          trustedAllies.forEach(ally => {
+            InformationTradingEngine.shareInformation(
+              contestant.name,
+              ally.name,
+              { ...prev, alliances: updatedAlliances },
+              'conversation'
+            );
+          });
+        }
+      });
       const isEliminationDay = newDay === prev.nextEliminationDay;
       const activeContestants = prev.contestants.filter(c => !c.isEliminated);
       

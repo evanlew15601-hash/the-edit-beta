@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState } from '@/types/game';
-import { generateIntelligenceNetwork, IntelligenceItem } from '@/utils/informationSharingEngine';
+import { InformationTradingEngine, TradableInformation } from '@/utils/informationTradingEngine';
 import { Eye, EyeOff, MessageSquare, AlertTriangle } from 'lucide-react';
 
 interface InformationSharingPanelProps {
@@ -10,7 +10,11 @@ interface InformationSharingPanelProps {
 }
 
 export const InformationSharingPanel = ({ gameState }: InformationSharingPanelProps) => {
-  const sharedInfo = generateIntelligenceNetwork(gameState);
+  // Generate fresh trading information
+  InformationTradingEngine.generateTradableInformation(gameState);
+  
+  // Get shared information logs for the player
+  const sharedInfo = InformationTradingEngine.getSharedInformation(gameState.playerName, gameState);
 
   if (sharedInfo.length === 0) {
     return (
@@ -28,11 +32,13 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
     );
   }
 
-  const getInfoIcon = (type: IntelligenceItem['type']) => {
+  const getInfoIcon = (type: TradableInformation['type']) => {
     switch (type) {
       case 'voting_plan': return <AlertTriangle className="w-4 h-4" />;
-      case 'alliance_info': return <Eye className="w-4 h-4" />;
+      case 'alliance_secret': return <Eye className="w-4 h-4" />;
       case 'threat_assessment': return <MessageSquare className="w-4 h-4" />;
+      case 'trust_level': return <MessageSquare className="w-4 h-4" />;
+      case 'rumor': return <MessageSquare className="w-4 h-4" />;
       default: return <MessageSquare className="w-4 h-4" />;
     }
   };
@@ -52,34 +58,42 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
 
       <ScrollArea className="max-h-64">
         <div className="space-y-3">
-          {sharedInfo.map((info, index) => (
-            <div key={index} className="border border-border rounded p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {getInfoIcon(info.type)}
-                  <span className="font-medium text-sm">{info.source}</span>
+          {sharedInfo.map((log, index) => {
+            const info = log.information;
+            return (
+              <div key={index} className="border border-border rounded p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {getInfoIcon(info.type)}
+                    <span className="font-medium text-sm">{log.from}</span>
+                    <span className="text-xs text-muted-foreground">({log.context})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {info.type.replace('_', ' ')}
+                    </Badge>
+                    <span className={`text-xs ${getReliabilityColor(info.reliability)}`}>
+                      {info.reliability >= 80 ? '✓' : info.reliability <= 40 ? '✗' : '?'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {info.type.replace('_', ' ')}
-                  </Badge>
-                  <span className={`text-xs ${getReliabilityColor(info.reliability)}`}>
-                    {info.reliability >= 80 ? '✓' : info.reliability <= 40 ? '✗' : '?'}
-                  </span>
+                
+                <p className="text-sm text-foreground italic">
+                  "{info.content}"
+                </p>
+
+                {info.is_lie && (
+                  <p className="text-xs text-edit-villain">
+                    🎭 This person might be lying
+                  </p>
+                )}
+                
+                <div className="text-xs text-muted-foreground">
+                  Day {log.day} • Strategic Value: {info.strategic_value}/100
                 </div>
               </div>
-              
-              <p className="text-sm text-foreground italic">
-                "{info.content}"
-              </p>
-
-              {info.reliability <= 40 && (
-                <p className="text-xs text-edit-villain">
-                  🎭 This person is being deceptive
-                </p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </ScrollArea>
 

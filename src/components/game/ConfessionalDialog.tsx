@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState } from '@/types/game';
-import { ConfessionalEngine } from '@/utils/confessionalEngine';
+import { EnhancedConfessionalEngine } from '@/utils/enhancedConfessionalEngine';
 import { generateResponseOptions } from '@/utils/confessionalResponseGenerator';
 import { RefreshCw, Zap } from 'lucide-react';
 
@@ -24,7 +24,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
 
   useEffect(() => {
     if (isOpen) {
-      const prompts = ConfessionalEngine.generateDynamicPrompts(gameState);
+      const prompts = EnhancedConfessionalEngine.generateDynamicPrompts(gameState);
       setAvailablePrompts(prompts);
       if (prompts.length > 0) {
         setSelectedPrompt(prompts[0]);
@@ -91,7 +91,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const newPrompts = ConfessionalEngine.generateDynamicPrompts(gameState);
+                      const newPrompts = EnhancedConfessionalEngine.generateDynamicPrompts(gameState);
                       setAvailablePrompts(newPrompts);
                       const randomPrompt = newPrompts[Math.floor(Math.random() * newPrompts.length)];
                       setSelectedPrompt(randomPrompt);
