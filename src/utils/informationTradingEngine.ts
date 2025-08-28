@@ -131,7 +131,10 @@ export class InformationTradingEngine {
   ): TradableInformation[] {
     const fromContestant = gameState.contestants.find(c => c.name === from);
     
-    if (!fromContestant || to !== gameState.playerName) return [];
+    if (!fromContestant) {
+      console.log(`Information sharing failed: ${from} not found`);
+      return [];
+    }
 
     // Calculate trust level between contestants
     const trustLevel = this.calculateTrust(from, to, gameState);
@@ -200,9 +203,12 @@ export class InformationTradingEngine {
     // Ensure information is generated first
     this.generateTradableInformation(gameState);
     
-    return this.informationLog
+    const sharedInfo = this.informationLog
       .filter(log => log.to === playerName && log.day >= gameState.currentDay - 5)
       .sort((a, b) => b.day - a.day);
+    
+    console.log(`Retrieved ${sharedInfo.length} pieces of shared information for ${playerName}`);
+    return sharedInfo;
   }
 
   static clearOldInformation(gameState: GameState) {

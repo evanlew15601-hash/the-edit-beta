@@ -38,6 +38,9 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
           <p className="text-xs text-muted-foreground">
             Build relationships to unlock strategic information.
           </p>
+          <p className="text-xs text-red-500">
+            Day {gameState.currentDay} - Trust levels with contestants to unlock intel
+          </p>
         </div>
       </Card>
     );

@@ -117,6 +117,7 @@ export interface Alliance {
   secret: boolean;
   formed: number; // day
   lastActivity: number;
+  dissolved?: boolean; // Whether alliance is dissolved
 }
 
 export interface VotingRecord {

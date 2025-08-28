@@ -106,7 +106,7 @@ export class AllianceManager {
         lastActivity: recentInteractions.length > 0 ? gameState.currentDay : alliance.lastActivity,
         name: alliance.name || this.generateAllianceName(activeMembers)
       };
-    }).filter(alliance => !alliance.dissolved && alliance.strength > 0);
+    }).filter(alliance => alliance.dissolved !== true && alliance.strength > 0);
   }
 
   /**
@@ -184,10 +184,3 @@ export class AllianceManager {
   }
 }
 
-// Extend Alliance interface
-declare module '@/types/game' {
-  interface Alliance {
-    name?: string;
-    dissolved?: boolean;
-  }
-}

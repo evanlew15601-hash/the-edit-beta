@@ -249,6 +249,17 @@ export const useGameState = () => {
                 reliability: 'confirmed',
                 strategicImportance: Math.abs(trustDelta) > 10 ? 7 : 3
               });
+
+              // INFORMATION TRADING: Share information based on trust level
+              if (updatedContestant.psychProfile.trustLevel > 50) {
+                const sharedInfo = InformationTradingEngine.shareInformation(
+                  contestant.name,
+                  prev.playerName,
+                  { ...prev, contestants: prev.contestants.map(c => c.name === contestant.name ? updatedContestant : c) },
+                  'conversation'
+                );
+                console.log(`${contestant.name} shared ${sharedInfo.length} pieces of information with player`);
+              }
             }
             break;
 
@@ -291,6 +302,17 @@ export const useGameState = () => {
                 strategicImportance: 7,
                 witnessed: [] // Empty - this was private
               });
+
+              // INFORMATION TRADING: High-trust DMs share more sensitive info
+              if (updatedContestant.psychProfile.trustLevel > 70) {
+                const sharedInfo = InformationTradingEngine.shareInformation(
+                  contestant.name,
+                  prev.playerName,
+                  { ...prev, contestants: prev.contestants.map(c => c.name === contestant.name ? updatedContestant : c) },
+                  'dm'
+                );
+                console.log(`${contestant.name} shared ${sharedInfo.length} pieces of sensitive information via DM`);
+              }
 
               // Only leak to others if failed privacy check
               if (Math.random() < adjustedLeakChance) {
@@ -864,7 +886,7 @@ export const useGameState = () => {
             return trustScore > 10;
           });
           
-          // Share information with trusted allies
+          // Share information with trusted allies AND the player
           trustedAllies.forEach(ally => {
             InformationTradingEngine.shareInformation(
               contestant.name,
@@ -873,6 +895,17 @@ export const useGameState = () => {
               'conversation'
             );
           });
+
+          // Also share information with player if they have sufficient trust
+          const playerContestant = prev.contestants.find(c => c.name === prev.playerName);
+          if (playerContestant && contestant.psychProfile.trustLevel > 60) {
+            InformationTradingEngine.shareInformation(
+              contestant.name,
+              prev.playerName,
+              { ...prev, alliances: updatedAlliances },
+              'conversation'
+            );
+          }
         }
       });
       const isEliminationDay = newDay === prev.nextEliminationDay;
