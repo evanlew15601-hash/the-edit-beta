@@ -154,24 +154,24 @@ export class EnhancedConfessionalEngine {
     });
 
     // Add more variety to prevent repetition
-    const additionalPrompts = [
+    const additionalPrompts: DynamicConfessionalPrompt[] = [
       {
         id: 'underestimated',
-        category: 'strategy',
+        category: 'strategy' as const,
         prompt: "Do you think people are underestimating you? Why or why not?",
         suggestedTones: ['strategic', 'dramatic', 'aggressive'],
         editPotential: 7
       },
       {
         id: 'jury-management',
-        category: 'strategy',
+        category: 'strategy' as const,
         prompt: "Are you thinking about how your moves will be perceived by the jury?",
         suggestedTones: ['strategic', 'vulnerable'],
         editPotential: 6
       },
       {
         id: 'biggest-mistake',
-        category: 'reflection',
+        category: 'reflection' as const,
         prompt: "What's been your biggest mistake in the game so far?",
         suggestedTones: ['vulnerable', 'strategic'],
         editPotential: 5

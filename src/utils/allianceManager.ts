@@ -176,6 +176,7 @@ export class AllianceManager {
       members,
       strength: 75, // Start with good trust
       secret: true,
+      formed: 1, // Will be updated by game state
       lastActivity: 1, // Will be updated by game state
       name: name || this.generateAllianceName(members),
       dissolved: false
