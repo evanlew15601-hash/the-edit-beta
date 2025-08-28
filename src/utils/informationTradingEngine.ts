@@ -1,7 +1,8 @@
+
 import { GameState, Contestant } from '@/types/game';
-import { AIVotingStrategy } from './aiVotingStrategy';
 
 export interface TradableInformation {
+  id: string;
   type: 'voting_plan' | 'alliance_secret' | 'trust_level' | 'threat_assessment' | 'rumor';
   content: string;
   source: string;
@@ -13,6 +14,7 @@ export interface TradableInformation {
 }
 
 export interface InformationLog {
+  id: string;
   day: number;
   from: string;
   to: string;
@@ -23,62 +25,51 @@ export interface InformationLog {
 export class InformationTradingEngine {
   private static informationDatabase: TradableInformation[] = [];
   private static informationLog: InformationLog[] = [];
+  private static lastUpdateDay = 0;
 
   static generateTradableInformation(gameState: GameState): TradableInformation[] {
+    // Only regenerate if we haven't updated today
+    if (this.lastUpdateDay === gameState.currentDay && this.informationDatabase.length > 0) {
+      return this.informationDatabase;
+    }
+
+    console.log('Generating tradable information for day', gameState.currentDay);
     this.informationDatabase = [];
+    this.lastUpdateDay = gameState.currentDay;
     
-    const votingPlans = AIVotingStrategy.generateWeeklyVotingPlans(gameState);
     const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
 
-    // Generate voting information for each contestant
+    // Generate realistic voting plans for each contestant
     activeContestants.forEach(contestant => {
       if (contestant.name === gameState.playerName) return;
 
-      const votingPlan = votingPlans.get(contestant.name);
-      if (votingPlan) {
-        // Voting plan information
+      // Generate voting plan information
+      const votingTarget = this.selectVotingTarget(contestant, gameState);
+      if (votingTarget) {
         this.informationDatabase.push({
+          id: `vote-${contestant.name}-${gameState.currentDay}`,
           type: 'voting_plan',
-          content: votingPlan.willLie ? 
-            `${contestant.name} says they're voting for someone but might be lying` :
-            `${contestant.name} plans to vote for ${votingPlan.target}`,
+          content: `${contestant.name} is planning to vote for ${votingTarget}`,
           source: contestant.name,
-          target: votingPlan.target,
-          reliability: votingPlan.willLie ? 30 : 85,
-          strategic_value: 90,
+          target: votingTarget,
+          reliability: 70 + Math.random() * 25, // 70-95% reliable
+          strategic_value: 85,
           day_revealed: gameState.currentDay,
-          is_lie: votingPlan.willLie
+          is_lie: Math.random() < 0.2 // 20% chance of being a lie
         });
-
-        // Threat assessment information
-        const suspicions = this.calculateSuspicions(contestant, gameState);
-        if (suspicions.length > 0) {
-          this.informationDatabase.push({
-            type: 'threat_assessment',
-            content: `${contestant.name} sees ${suspicions[0].name} as their biggest threat`,
-            source: contestant.name,
-            target: suspicions[0].name,
-            reliability: 75,
-            strategic_value: 70,
-            day_revealed: gameState.currentDay,
-            is_lie: false
-          });
-        }
       }
 
-      // Alliance secrets
-      const contestantAlliances = gameState.alliances.filter(a => 
-        a.members.includes(contestant.name) && a.secret
-      );
-      
+      // Generate alliance information
+      const contestantAlliances = gameState.alliances.filter(a => a.members.includes(contestant.name));
       contestantAlliances.forEach(alliance => {
-        const otherMembers = alliance.members.filter(m => m !== contestant.name);
+        const otherMembers = alliance.members.filter(m => m !== contestant.name && m !== gameState.playerName);
         if (otherMembers.length > 0) {
           this.informationDatabase.push({
+            id: `alliance-${alliance.id}-${contestant.name}`,
             type: 'alliance_secret',
-            content: `${contestant.name} is in a secret alliance with ${otherMembers.join(' and ')}`,
+            content: `${contestant.name} has a secret alliance with ${otherMembers.join(' and ')}`,
             source: contestant.name,
-            reliability: 90,
+            reliability: alliance.strength || 75,
             strategic_value: 80,
             day_revealed: gameState.currentDay,
             is_lie: false
@@ -86,36 +77,50 @@ export class InformationTradingEngine {
         }
       });
 
-      // Trust levels about other contestants
-      activeContestants.forEach(otherContestant => {
-        if (otherContestant.name === contestant.name || otherContestant.name === gameState.playerName) return;
-
-        const memories = contestant.memory.filter(m => 
-          m.participants.includes(otherContestant.name) && 
-          m.day >= gameState.currentDay - 7
-        );
-
-        if (memories.length > 0) {
-          const trustScore = memories.reduce((sum, m) => sum + m.emotionalImpact, 0);
-          const trustLevel = trustScore > 10 ? 'high' : trustScore < -10 ? 'low' : 'moderate';
-          
-          if (trustLevel !== 'moderate') {
-            this.informationDatabase.push({
-              type: 'trust_level',
-              content: `${contestant.name} has ${trustLevel} trust in ${otherContestant.name}`,
-              source: contestant.name,
-              target: otherContestant.name,
-              reliability: 80,
-              strategic_value: 60,
-              day_revealed: gameState.currentDay,
-              is_lie: false
-            });
-          }
-        }
+      // Generate threat assessments
+      const perceivedThreats = this.identifyThreats(contestant, gameState);
+      perceivedThreats.forEach(threat => {
+        this.informationDatabase.push({
+          id: `threat-${contestant.name}-${threat.name}`,
+          type: 'threat_assessment',
+          content: `${contestant.name} sees ${threat.name} as a major threat that needs to go soon`,
+          source: contestant.name,
+          target: threat.name,
+          reliability: 80,
+          strategic_value: 70,
+          day_revealed: gameState.currentDay,
+          is_lie: false
+        });
       });
     });
 
+    console.log(`Generated ${this.informationDatabase.length} pieces of information`);
     return this.informationDatabase;
+  }
+
+  private static selectVotingTarget(contestant: Contestant, gameState: GameState): string | null {
+    const activeContestants = gameState.contestants.filter(c => 
+      !c.isEliminated && c.name !== contestant.name
+    );
+
+    if (activeContestants.length === 0) return null;
+
+    // Prefer targets not in their alliance
+    const contestantAlliances = gameState.alliances.filter(a => a.members.includes(contestant.name));
+    const allianceMembers = new Set(contestantAlliances.flatMap(a => a.members));
+    
+    const nonAllyTargets = activeContestants.filter(c => !allianceMembers.has(c.name));
+    const availableTargets = nonAllyTargets.length > 0 ? nonAllyTargets : activeContestants;
+    
+    // Select based on threat level or randomly
+    return availableTargets[Math.floor(Math.random() * availableTargets.length)].name;
+  }
+
+  private static identifyThreats(contestant: Contestant, gameState: GameState): Contestant[] {
+    return gameState.contestants
+      .filter(c => !c.isEliminated && c.name !== contestant.name && c.name !== gameState.playerName)
+      .filter(c => c.psychProfile?.trustLevel > 60 || Math.random() < 0.3)
+      .slice(0, 2); // Top 2 threats max
   }
 
   static shareInformation(
@@ -125,67 +130,91 @@ export class InformationTradingEngine {
     context: 'conversation' | 'alliance_meeting' | 'dm'
   ): TradableInformation[] {
     const fromContestant = gameState.contestants.find(c => c.name === from);
-    const toContestant = gameState.contestants.find(c => c.name === to);
     
-    if (!fromContestant || !toContestant) return [];
+    if (!fromContestant || to !== gameState.playerName) return [];
 
-    // Calculate relationship strength
-    const relationshipStrength = this.calculateRelationshipStrength(fromContestant, to, gameState);
-    const trustThreshold = context === 'alliance_meeting' ? 40 : context === 'dm' ? 60 : 70;
+    // Calculate trust level between contestants
+    const trustLevel = this.calculateTrust(from, to, gameState);
+    console.log(`Trust level between ${from} and ${to}: ${trustLevel}`);
 
-    if (relationshipStrength < trustThreshold) {
-      return []; // Not trusted enough to share real information
+    if (trustLevel < 30) {
+      console.log('Trust too low for information sharing');
+      return [];
     }
 
-    // Get relevant information to share
+    // Get information this person would share
     const availableInfo = this.informationDatabase.filter(info => 
-      info.source === from || 
-      (info.reliability > 70 && Math.random() < relationshipStrength / 100)
+      info.source === from || (info.reliability > 60 && Math.random() < trustLevel / 100)
     );
 
-    // Select information based on strategic value and relationship
+    // Select information to share based on trust and context
+    const maxShares = Math.floor(trustLevel / 25) + 1;
     const sharedInfo = availableInfo
-      .filter(info => {
-        // More likely to share high-value info with trusted allies
-        const shareChance = Math.min(90, relationshipStrength + info.strategic_value) / 100;
-        return Math.random() < shareChance;
-      })
-      .slice(0, Math.floor(relationshipStrength / 30) + 1); // Share more info with higher trust
+      .sort(() => Math.random() - 0.5) // Randomize
+      .slice(0, maxShares);
 
     // Log the information sharing
     sharedInfo.forEach(info => {
-      this.informationLog.push({
+      const logEntry: InformationLog = {
+        id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         day: gameState.currentDay,
         from,
         to,
         information: info,
         context
-      });
+      };
+      this.informationLog.push(logEntry);
+      console.log('Information shared:', logEntry);
     });
 
     return sharedInfo;
   }
 
-  static getSharedInformation(playerName: string, gameState: GameState): InformationLog[] {
-    return this.informationLog.filter(log => 
-      log.to === playerName && 
-      log.day >= gameState.currentDay - 3 // Recent information only
-    );
-  }
+  private static calculateTrust(from: string, to: string, gameState: GameState): number {
+    // Base trust
+    let trust = 40;
 
-  static getInformationAbout(target: string, gameState: GameState): TradableInformation[] {
-    return this.informationDatabase.filter(info => 
-      info.target === target ||
-      info.content.toLowerCase().includes(target.toLowerCase())
+    // Check if they're in the same alliance
+    const sharedAlliances = gameState.alliances.filter(a => 
+      a.members.includes(from) && a.members.includes(to)
     );
-  }
 
-  static updateInformationReliability(info: TradableInformation, actualOutcome: boolean) {
-    if (actualOutcome) {
-      info.reliability = Math.min(100, info.reliability + 10);
-    } else {
-      info.reliability = Math.max(0, info.reliability - 20);
+    if (sharedAlliances.length > 0) {
+      const allianceStrength = sharedAlliances.reduce((sum, a) => sum + (a.strength || 50), 0) / sharedAlliances.length;
+      trust += allianceStrength * 0.4;
     }
+
+    // Check recent interactions
+    const recentInteractions = gameState.interactionLog?.filter(log =>
+      log.day >= gameState.currentDay - 3 &&
+      log.participants.includes(from) &&
+      log.participants.includes(to)
+    ) || [];
+
+    trust += recentInteractions.length * 5; // Each interaction builds trust
+
+    return Math.min(100, Math.max(0, trust));
+  }
+
+  static getSharedInformation(playerName: string, gameState: GameState): InformationLog[] {
+    // Ensure information is generated first
+    this.generateTradableInformation(gameState);
+    
+    return this.informationLog
+      .filter(log => log.to === playerName && log.day >= gameState.currentDay - 5)
+      .sort((a, b) => b.day - a.day);
+  }
+
+  static clearOldInformation(gameState: GameState) {
+    // Remove information older than 7 days
+    const cutoffDay = gameState.currentDay - 7;
+    this.informationDatabase = this.informationDatabase.filter(info => 
+      info.day_revealed >= cutoffDay
+    );
+    
+    this.informationLog = this.informationLog.filter(log => 
+      log.day >= cutoffDay
+    );
   }
 
   static getInformationSummary(gameState: GameState): { 
@@ -204,97 +233,5 @@ export class InformationTradingEngine {
       strategic: this.informationDatabase.filter(info => info.strategic_value > 70).length,
       recent: recentInfo.length
     };
-  }
-
-  private static calculateRelationshipStrength(
-    contestant: Contestant, 
-    target: string, 
-    gameState: GameState
-  ): number {
-    // Base trust level
-    let strength = contestant.psychProfile.trustLevel;
-
-    // Check for alliance membership
-    const sharedAlliances = gameState.alliances.filter(a => 
-      a.members.includes(contestant.name) && a.members.includes(target)
-    );
-    
-    if (sharedAlliances.length > 0) {
-      strength += 30;
-      // Higher strength for stronger alliances
-      const avgAllianceStrength = sharedAlliances.reduce((sum, a) => sum + a.strength, 0) / sharedAlliances.length;
-      strength += Math.floor(avgAllianceStrength / 5);
-    }
-
-    // Check recent positive interactions
-    const recentMemories = contestant.memory.filter(m => 
-      m.participants.includes(target) && 
-      m.day >= gameState.currentDay - 5
-    );
-    
-    const recentPositiveImpact = recentMemories.reduce((sum, m) => 
-      sum + Math.max(0, m.emotionalImpact), 0
-    );
-    
-    strength += Math.min(20, recentPositiveImpact * 2);
-
-    // Check for betrayals or negative interactions
-    const recentBetrayals = recentMemories.filter(m => 
-      m.type === 'scheme' && m.emotionalImpact < -5
-    );
-    
-    strength -= recentBetrayals.length * 25;
-
-    return Math.max(0, Math.min(100, strength));
-  }
-
-  private static calculateSuspicions(contestant: Contestant, gameState: GameState): { name: string; level: number }[] {
-    const activeContestants = gameState.contestants.filter(c => 
-      !c.isEliminated && c.name !== contestant.name
-    );
-
-    return activeContestants.map(target => {
-      let suspicion = contestant.psychProfile.suspicionLevel;
-
-      // Check for recent negative interactions
-      const negativeMemories = contestant.memory.filter(m => 
-        m.participants.includes(target.name) && 
-        m.emotionalImpact < -3 &&
-        m.day >= gameState.currentDay - 7
-      );
-
-      suspicion += negativeMemories.length * 15;
-
-      // Check if they're not in alliances together
-      const sharedAlliances = gameState.alliances.filter(a => 
-        a.members.includes(contestant.name) && a.members.includes(target.name)
-      );
-
-      if (sharedAlliances.length === 0) {
-        suspicion += 20;
-      }
-
-      // Check threat level based on game position
-      if (target.psychProfile.trustLevel > 60) {
-        suspicion += 10; // Suspicious of well-liked players
-      }
-
-      return { name: target.name, level: Math.min(100, suspicion) };
-    }).sort((a, b) => b.level - a.level);
-  }
-
-  static clearOldInformation(gameState: GameState) {
-    // Remove information older than 7 days
-    this.informationDatabase = this.informationDatabase.filter(info => 
-      info.day_revealed >= gameState.currentDay - 7
-    );
-    
-    this.informationLog = this.informationLog.filter(log => 
-      log.day >= gameState.currentDay - 7
-    );
-  }
-
-  static getInformationLog(): InformationLog[] {
-    return [...this.informationLog];
   }
 }

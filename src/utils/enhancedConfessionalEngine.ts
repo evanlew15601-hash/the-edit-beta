@@ -1,494 +1,187 @@
-import { GameState, Contestant } from '@/types/game';
+
+import { GameState, Contestant, Alliance } from '@/types/game';
 
 export interface DynamicConfessionalPrompt {
   id: string;
+  category: 'strategy' | 'alliance' | 'voting' | 'social' | 'reflection' | 'general';
   prompt: string;
-  tone: string;
-  category: 'strategy' | 'social' | 'reflection' | 'alliance' | 'voting' | 'general';
-  contextual: boolean;
-  suggestedTones?: string[];
-  editPotential: number;
   followUp?: string;
+  suggestedTones: string[];
+  editPotential: number;
+  context?: any;
 }
 
 export class EnhancedConfessionalEngine {
-  private static usedPrompts = new Set<string>();
-  private static promptPool: DynamicConfessionalPrompt[] = [];
-
   static generateDynamicPrompts(gameState: GameState): DynamicConfessionalPrompt[] {
-    this.promptPool = [];
+    const prompts: DynamicConfessionalPrompt[] = [];
+    const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
+    const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName));
+    const daysToElimination = gameState.nextEliminationDay - gameState.currentDay;
+
+    // Strategy prompts
+    if (activeContestants.length <= 8) {
+      prompts.push({
+        id: 'endgame-strategy',
+        category: 'strategy',
+        prompt: "We're getting down to the final players. What's your strategy to make it to the end?",
+        followUp: "Who do you see as your biggest competition?",
+        suggestedTones: ['strategic', 'dramatic'],
+        editPotential: 8
+      });
+    }
+
+    if (daysToElimination <= 2) {
+      prompts.push({
+        id: 'elimination-pressure',
+        category: 'voting',
+        prompt: "Elimination is coming up soon. How are you feeling about the vote?",
+        followUp: "Do you feel safe this week?",
+        suggestedTones: ['vulnerable', 'strategic', 'dramatic'],
+        editPotential: 9
+      });
+    }
+
+    // Alliance prompts
+    if (playerAlliances.length > 0) {
+      const alliance = playerAlliances[0];
+      const otherMembers = alliance.members.filter(m => m !== gameState.playerName);
+      prompts.push({
+        id: 'alliance-trust',
+        category: 'alliance',
+        prompt: `Talk about your alliance with ${otherMembers.join(' and ')}. How much do you trust them?`,
+        followUp: "Are you worried about any cracks forming?",
+        suggestedTones: ['strategic', 'vulnerable'],
+        editPotential: 7
+      });
+    }
+
+    if (playerAlliances.length === 0) {
+      prompts.push({
+        id: 'solo-game',
+        category: 'alliance',
+        prompt: "You're playing without a solid alliance right now. What's your game plan?",
+        followUp: "Are you looking to make new connections?",
+        suggestedTones: ['strategic', 'vulnerable', 'dramatic'],
+        editPotential: 8
+      });
+    }
+
+    // Social dynamics
+    const highTrustPlayers = activeContestants.filter(c => 
+      c.name !== gameState.playerName && c.psychProfile && c.psychProfile.trustLevel > 60
+    );
     
-    const player = gameState.contestants.find(c => c.name === gameState.playerName);
-    if (!player) return [];
+    if (highTrustPlayers.length > 0) {
+      const player = highTrustPlayers[0];
+      prompts.push({
+        id: 'social-connection',
+        category: 'social',
+        prompt: `You seem to have a good relationship with ${player.name}. How real is that connection?`,
+        followUp: "Is it strategy or genuine friendship?",
+        suggestedTones: ['vulnerable', 'strategic', 'humorous'],
+        editPotential: 6
+      });
+    }
 
-    // Get recent context (last 3 days)
-    const recentInteractions = gameState.interactionLog?.filter(log => 
-      log.day >= gameState.currentDay - 3 && 
-      log.participants.includes(gameState.playerName)
-    ) || [];
-
-    const recentAlliances = gameState.alliances.filter(a => 
-      a.members.includes(gameState.playerName) && 
-      a.lastActivity >= gameState.currentDay - 3
+    // Threat assessment
+    const competitionThreats = activeContestants.filter(c => 
+      c.name !== gameState.playerName && c.psychProfile && 
+      c.psychProfile.disposition && c.psychProfile.disposition.includes('competitive')
     );
 
-    const upcomingElimination = gameState.currentDay >= gameState.nextEliminationDay - 1;
-    const juryPhase = gameState.gamePhase === 'jury_vote' || gameState.daysUntilJury === 0;
-    const remainingCount = gameState.contestants.filter(c => !c.isEliminated).length;
-
-    // Base Strategy Prompts
-    this.addStrategyPrompts(gameState, remainingCount, upcomingElimination);
-    
-    // Social Game Prompts
-    this.addSocialPrompts(recentInteractions, gameState);
-    
-    // Alliance-Specific Prompts
-    this.addAlliancePrompts(recentAlliances, gameState);
-    
-    // Voting Strategy Prompts
-    this.addVotingPrompts(gameState, upcomingElimination);
-    
-    // Reflection Prompts
-    this.addReflectionPrompts(gameState, remainingCount, juryPhase);
-    
-    // General Game State Prompts
-    this.addGeneralPrompts(gameState);
-
-    // Filter out recently used prompts and shuffle
-    const availablePrompts = this.promptPool.filter(p => 
-      !this.usedPrompts.has(p.prompt)
-    );
-
-    // If we've used too many, reset some
-    if (availablePrompts.length < 6) {
-      this.usedPrompts.clear();
-      return this.shuffleArray(this.promptPool).slice(0, 8);
+    if (competitionThreats.length > 0) {
+      const threat = competitionThreats[0];
+      prompts.push({
+        id: 'competition-threat',
+        category: 'strategy',
+        prompt: `${threat.name} has been winning a lot of competitions. Are they someone you need to worry about?`,
+        followUp: "When would be the right time to make a move against them?",
+        suggestedTones: ['strategic', 'aggressive', 'dramatic'],
+        editPotential: 8
+      });
     }
 
-    return this.shuffleArray(availablePrompts).slice(0, 8);
-  }
+    // General game reflection
+    prompts.push({
+      id: 'game-reflection',
+      category: 'reflection',
+      prompt: `It's day ${gameState.currentDay}. How do you think you're playing so far?`,
+      followUp: "What would you change about your strategy if you could start over?",
+      suggestedTones: ['vulnerable', 'strategic', 'humorous'],
+      editPotential: 5
+    });
 
-  private static addStrategyPrompts(gameState: GameState, remainingCount: number, upcomingElimination: boolean) {
-    const prompts = [
+    // Drama and conflicts
+    if (gameState.interactionLog && gameState.interactionLog.length > 0) {
+      const recentConflicts = gameState.interactionLog
+        .filter(log => log.day >= gameState.currentDay - 2 && log.tone === 'aggressive')
+        .slice(-1);
+      
+      if (recentConflicts.length > 0) {
+        const conflict = recentConflicts[0];
+        const otherParticipant = conflict.participants.find(p => p !== gameState.playerName);
+        if (otherParticipant) {
+          prompts.push({
+            id: 'recent-conflict',
+            category: 'social',
+            prompt: `Things got heated with ${otherParticipant} recently. What's your side of the story?`,
+            followUp: "How do you think this affects your game moving forward?",
+            suggestedTones: ['aggressive', 'vulnerable', 'strategic'],
+            editPotential: 9
+          });
+        }
+      }
+    }
+
+    // Voting strategy
+    prompts.push({
+      id: 'voting-strategy',
+      category: 'voting',
+      prompt: "If you had to vote someone out right now, who would it be and why?",
+      followUp: "Are you confident you have the numbers for that move?",
+      suggestedTones: ['strategic', 'aggressive', 'dramatic'],
+      editPotential: 8
+    });
+
+    // Personal journey
+    prompts.push({
+      id: 'personal-growth',
+      category: 'reflection',
+      prompt: "This game pushes people to their limits. How has it changed you?",
+      followUp: "What will you take away from this experience?",
+      suggestedTones: ['vulnerable', 'humorous'],
+      editPotential: 4
+    });
+
+    // Add more variety to prevent repetition
+    const additionalPrompts = [
       {
-        id: `strategy_endgame_${remainingCount}`,
-        prompt: `With ${remainingCount} people left, what's your strategy to make it to the end?`,
-        tone: 'strategic',
-        category: 'strategy' as const,
-        contextual: true,
-        editPotential: 8,
-        suggestedTones: ['strategic', 'confident']
+        id: 'underestimated',
+        category: 'strategy',
+        prompt: "Do you think people are underestimating you? Why or why not?",
+        suggestedTones: ['strategic', 'dramatic', 'aggressive'],
+        editPotential: 7
       },
       {
-        id: 'strategy_threat_assessment',
-        prompt: "Who do you see as your biggest threat right now and how do you plan to handle them?",
-        tone: 'strategic',
-        category: 'strategy' as const,
-        contextual: false,
-        editPotential: 9,
-        suggestedTones: ['strategic', 'aggressive']
+        id: 'jury-management',
+        category: 'strategy',
+        prompt: "Are you thinking about how your moves will be perceived by the jury?",
+        suggestedTones: ['strategic', 'vulnerable'],
+        editPotential: 6
       },
       {
-        id: 'strategy_endgame_vision',
-        prompt: "What's your end-game strategy? Who would you want to sit next to in the final two?",
-        tone: 'strategic',
-        category: 'strategy' as const,
-        contextual: false,
-        editPotential: 7,
-        suggestedTones: ['strategic', 'confident']
-      },
-      {
-        id: 'strategy_evolution',
-        prompt: "How has your strategy evolved since the beginning of the game?",
-        tone: 'reflective',
-        category: 'strategy' as const,
-        contextual: false,
-        editPotential: 6,
-        suggestedTones: ['reflective', 'strategic']
+        id: 'biggest-mistake',
+        category: 'reflection',
+        prompt: "What's been your biggest mistake in the game so far?",
+        suggestedTones: ['vulnerable', 'strategic'],
+        editPotential: 5
       }
     ];
 
-    if (upcomingElimination) {
-      prompts.push({
-        id: 'strategy_elimination_target',
-        prompt: "With elimination coming up, who are you targeting and why?",
-        tone: 'strategic',
-        category: 'strategy' as const,
-        contextual: true,
-        editPotential: 9,
-        suggestedTones: ['strategic', 'aggressive']
-      });
-    }
+    prompts.push(...additionalPrompts);
 
-    if (remainingCount <= 6) {
-      prompts.push({
-        id: 'strategy_endgame_security',
-        prompt: "We're getting close to the end. How do you plan to secure your spot in the finals?",
-        tone: 'strategic',
-        category: 'strategy' as const,
-        contextual: true,
-        editPotential: 8,
-        suggestedTones: ['strategic', 'confident']
-      });
-    }
-
-    this.promptPool.push(...prompts);
-  }
-
-  private static addSocialPrompts(recentInteractions: any[], gameState: GameState) {
-    const prompts = [
-      {
-        id: 'social_trust_analysis',
-        prompt: "Who do you trust most in this house and why?",
-        tone: 'honest',
-        category: 'social' as const,
-        contextual: false,
-        editPotential: 6,
-        suggestedTones: ['honest', 'vulnerable']
-      },
-      {
-        id: 'social_gameplay_surprise',
-        prompt: "Who's been surprising you with their gameplay lately?",
-        tone: 'analytical',
-        category: 'social' as const,
-        contextual: false,
-        editPotential: 5,
-        suggestedTones: ['analytical', 'honest']
-      },
-      {
-        id: 'social_relationship_building',
-        prompt: "What relationships are you working on building right now?",
-        tone: 'strategic',
-        category: 'social' as const,
-        contextual: false,
-        editPotential: 6,
-        suggestedTones: ['strategic', 'honest']
-      },
-      {
-        id: 'social_wrong_read',
-        prompt: "Who do you think has the wrong read on you?",
-        tone: 'defensive',
-        category: 'social' as const,
-        contextual: false,
-        editPotential: 7,
-        suggestedTones: ['defensive', 'analytical']
-      }
-    ];
-
-    // Add contextual prompts based on recent interactions
-    if (recentInteractions.some(i => i.type === 'dm')) {
-      prompts.push({
-        id: 'social_private_conversations',
-        prompt: "You've been having some private conversations lately. How important is the information game right now?",
-        tone: 'strategic',
-        category: 'social' as const,
-        contextual: true,
-        editPotential: 8,
-        suggestedTones: ['strategic', 'analytical']
-      });
-    }
-
-    if (recentInteractions.some(i => i.type === 'scheme')) {
-      prompts.push({
-        id: 'social_strategic_moves',
-        prompt: "You've been making some strategic moves. Are you worried about being seen as a threat?",
-        tone: 'concerned',
-        category: 'social' as const,
-        contextual: true,
-        editPotential: 9,
-        suggestedTones: ['concerned', 'strategic']
-      });
-    }
-
-    this.promptPool.push(...prompts);
-  }
-
-  private static addAlliancePrompts(recentAlliances: any[], gameState: GameState) {
-    const prompts = [
-      {
-        id: 'alliance_relationships',
-        prompt: "How are your alliance relationships holding up?",
-        tone: 'analytical',
-        category: 'alliance' as const,
-        contextual: false,
-        editPotential: 6,
-        suggestedTones: ['analytical', 'honest']
-      },
-      {
-        id: 'alliance_trust_levels',
-        prompt: "Who in your alliance do you trust the most and least?",
-        tone: 'honest',
-        category: 'alliance' as const,
-        contextual: false,
-        editPotential: 8,
-        suggestedTones: ['honest', 'strategic']
-      },
-      {
-        id: 'alliance_strategy_changes',
-        prompt: "Do you think you need to make any new alliances or break any existing ones?",
-        tone: 'strategic',
-        category: 'alliance' as const,
-        contextual: false,
-        editPotential: 9,
-        suggestedTones: ['strategic', 'analytical']
-      }
-    ];
-
-    if (recentAlliances.length > 0) {
-      prompts.push({
-        id: 'alliance_recent_activity',
-        prompt: "Your alliance has been active lately. How confident are you in their loyalty?",
-        tone: 'concerned',
-        category: 'alliance' as const,
-        contextual: true,
-        editPotential: 7,
-        suggestedTones: ['concerned', 'analytical']
-      });
-    }
-
-    if (gameState.alliances.filter(a => a.members.includes(gameState.playerName)).length > 1) {
-      prompts.push({
-        id: 'alliance_multiple_management',
-        prompt: "You're in multiple alliances. How are you managing those relationships?",
-        tone: 'strategic',
-        category: 'alliance' as const,
-        contextual: true,
-        editPotential: 9,
-        suggestedTones: ['strategic', 'concerned']
-      });
-    }
-
-    this.promptPool.push(...prompts);
-  }
-
-  private static addVotingPrompts(gameState: GameState, upcomingElimination: boolean) {
-    const prompts = [
-      {
-        id: 'voting_target_today',
-        prompt: "If you had to vote someone out today, who would it be and why?",
-        tone: 'strategic',
-        category: 'voting' as const,
-        contextual: false,
-        editPotential: 9,
-        suggestedTones: ['strategic', 'analytical']
-      },
-      {
-        id: 'voting_who_targets_me',
-        prompt: "Who do you think is targeting you for elimination?",
-        tone: 'paranoid',
-        category: 'voting' as const,
-        contextual: false,
-        editPotential: 8,
-        suggestedTones: ['paranoid', 'analytical']
-      },
-      {
-        id: 'voting_defense_strategy',
-        prompt: "What would you do if you found out someone was coming for you?",
-        tone: 'defensive',
-        category: 'voting' as const,
-        contextual: false,
-        editPotential: 7,
-        suggestedTones: ['defensive', 'strategic']
-      }
-    ];
-
-    if (upcomingElimination) {
-      prompts.push({
-        id: 'voting_elimination_tomorrow',
-        prompt: "Elimination is tomorrow. How confident are you that you're safe?",
-        tone: 'nervous',
-        category: 'voting' as const,
-        contextual: true,
-        editPotential: 9,
-        suggestedTones: ['nervous', 'strategic']
-      });
-    }
-
-    if (gameState.immunityWinner === gameState.playerName) {
-      prompts.push({
-        id: 'voting_immunity_strategy',
-        prompt: "You won immunity this week. How does that change your strategy?",
-        tone: 'confident',
-        category: 'voting' as const,
-        contextual: true,
-        editPotential: 8,
-        suggestedTones: ['confident', 'strategic']
-      });
-    }
-
-    this.promptPool.push(...prompts);
-  }
-
-  private static addReflectionPrompts(gameState: GameState, remainingCount: number, juryPhase: boolean) {
-    const prompts = [
-      {
-        id: 'reflection_biggest_mistake',
-        prompt: "What's been your biggest mistake so far in this game?",
-        tone: 'regretful',
-        category: 'reflection' as const,
-        contextual: false,
-        editPotential: 7,
-        suggestedTones: ['regretful', 'honest']
-      },
-      {
-        id: 'reflection_proudest_move',
-        prompt: "What move are you most proud of?",
-        tone: 'confident',
-        category: 'reflection' as const,
-        contextual: false,
-        editPotential: 8,
-        suggestedTones: ['confident', 'proud']
-      },
-      {
-        id: 'reflection_perception',
-        prompt: "How do you think you're being perceived by the other contestants?",
-        tone: 'analytical',
-        category: 'reflection' as const,
-        contextual: false,
-        editPotential: 6,
-        suggestedTones: ['analytical', 'vulnerable']
-      },
-      {
-        id: 'reflection_day_one_advice',
-        prompt: "What would you tell your day-one self if you could?",
-        tone: 'wise',
-        category: 'reflection' as const,
-        contextual: false,
-        editPotential: 5,
-        suggestedTones: ['wise', 'reflective']
-      }
-    ];
-
-    if (remainingCount <= 8) {
-      prompts.push({
-        id: 'reflection_early_game_changes',
-        prompt: "Looking back, what would you have done differently in the early game?",
-        tone: 'reflective',
-        category: 'reflection' as const,
-        contextual: true,
-        editPotential: 6,
-        suggestedTones: ['reflective', 'regretful']
-      });
-    }
-
-    if (juryPhase) {
-      prompts.push({
-        id: 'reflection_jury_perception',
-        prompt: "We're in jury phase now. How do you think the jury perceives your game?",
-        tone: 'concerned',
-        category: 'reflection' as const,
-        contextual: true,
-        editPotential: 9,
-        suggestedTones: ['concerned', 'strategic']
-      });
-    }
-
-    this.promptPool.push(...prompts);
-  }
-
-  private static addGeneralPrompts(gameState: GameState) {
-    const editPersona = gameState.editPerception.persona;
-    
-    const prompts = [
-      {
-        id: 'general_season_legacy',
-        prompt: "How do you think you'll be remembered this season?",
-        tone: 'thoughtful',
-        category: 'general' as const,
-        contextual: false,
-        editPotential: 6,
-        suggestedTones: ['thoughtful', 'confident']
-      },
-      {
-        id: 'general_fan_message',
-        prompt: "What's the most important thing fans should know about your game?",
-        tone: 'passionate',
-        category: 'general' as const,
-        contextual: false,
-        editPotential: 7,
-        suggestedTones: ['passionate', 'honest']
-      },
-      {
-        id: 'general_winning_argument',
-        prompt: "If you make it to the end, what would your winning argument be?",
-        tone: 'confident',
-        category: 'general' as const,
-        contextual: false,
-        editPotential: 9,
-        suggestedTones: ['confident', 'strategic']
-      },
-      {
-        id: 'general_biggest_surprise',
-        prompt: "What's surprised you most about this experience?",
-        tone: 'surprised',
-        category: 'general' as const,
-        contextual: false,
-        editPotential: 5,
-        suggestedTones: ['surprised', 'honest']
-      }
-    ];
-
-    // Persona-specific prompts
-    if (editPersona === 'Villain') {
-      prompts.push({
-        id: 'general_villain_edit',
-        prompt: "You're being painted as a villain in the edit. How do you feel about that?",
-        tone: 'defensive',
-        category: 'general' as const,
-        contextual: true,
-        editPotential: 8,
-        suggestedTones: ['defensive', 'honest']
-      });
-    } else if (editPersona === 'Hero') {
-      prompts.push({
-        id: 'general_hero_pressure',
-        prompt: "You're being portrayed as a hero. Is that pressure affecting your game?",
-        tone: 'honest',
-        category: 'general' as const,
-        contextual: true,
-        editPotential: 7,
-        suggestedTones: ['honest', 'vulnerable']
-      });
-    } else if (editPersona === 'Underedited') {
-      prompts.push({
-        id: 'general_screen_time',
-        prompt: "You haven't been getting much screen time. What do you think viewers are missing about your game?",
-        tone: 'frustrated',
-        category: 'general' as const,
-        contextual: true,
-        editPotential: 6,
-        suggestedTones: ['frustrated', 'strategic']
-      });
-    }
-
-    this.promptPool.push(...prompts);
-  }
-
-  static markPromptUsed(prompt: string) {
-    this.usedPrompts.add(prompt);
-    
-    // Keep only the last 20 used prompts to allow cycling
-    if (this.usedPrompts.size > 20) {
-      const usedArray = Array.from(this.usedPrompts);
-      this.usedPrompts = new Set(usedArray.slice(-15));
-    }
-  }
-
-  private static shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  }
-
-  static getPromptsByCategory(category: string, gameState: GameState): DynamicConfessionalPrompt[] {
-    const allPrompts = this.generateDynamicPrompts(gameState);
-    return allPrompts.filter(p => p.category === category);
-  }
-
-  static resetUsedPrompts() {
-    this.usedPrompts.clear();
+    // Return a random selection to ensure variety
+    const shuffled = [...prompts].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 6);
   }
 }
