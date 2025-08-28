@@ -69,8 +69,8 @@ export class AllianceManager {
         if (contestant && contestant.memory) {
           const recentBetrayals = contestant.memory.filter(m => 
             m.day >= gameState.currentDay - recentDays &&
-            m.content.includes('betrayal') &&
-            alliance.members.some(allyMember => m.participants.includes(allyMember))
+            m.content && m.content.includes('betrayal') &&
+            m.participants && alliance.members.some(allyMember => m.participants.includes(allyMember))
           );
           trustDelta -= recentBetrayals.length * 20;
 
@@ -79,7 +79,7 @@ export class AllianceManager {
             v.day >= gameState.currentDay - recentDays
           );
           recentVoting.forEach(vote => {
-            if (vote.votes[member] && alliance.members.includes(vote.votes[member])) {
+            if (vote.votes && vote.votes[member] && alliance.members.includes(vote.votes[member])) {
               trustDelta -= 25; // Major trust penalty for voting against ally
               console.log(`Trust penalty: ${member} voted against ally ${vote.votes[member]}`);
             }

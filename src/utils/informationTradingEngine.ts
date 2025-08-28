@@ -148,6 +148,11 @@ export class InformationTradingEngine {
     // Get information this person would share
     const availableInfo = this.informationDatabase.filter(info => 
       info.source === from || (info.reliability > 60 && Math.random() < trustLevel / 100)
+    ).filter(info => 
+      // Don't share the same info multiple times to the same person
+      !this.informationLog.some(log => 
+        log.to === to && log.information.id === info.id && log.day >= gameState.currentDay - 1
+      )
     );
 
     // Select information to share based on trust and context

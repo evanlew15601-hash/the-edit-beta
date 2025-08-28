@@ -252,10 +252,14 @@ export const useGameState = () => {
 
               // INFORMATION TRADING: Share information based on trust level
               if (updatedContestant.psychProfile.trustLevel > 50) {
+                const tempState = { 
+                  ...prev, 
+                  contestants: prev.contestants.map(c => c.name === contestant.name ? updatedContestant : c) 
+                };
                 const sharedInfo = InformationTradingEngine.shareInformation(
                   contestant.name,
                   prev.playerName,
-                  { ...prev, contestants: prev.contestants.map(c => c.name === contestant.name ? updatedContestant : c) },
+                  tempState,
                   'conversation'
                 );
                 console.log(`${contestant.name} shared ${sharedInfo.length} pieces of information with player`);
@@ -305,10 +309,14 @@ export const useGameState = () => {
 
               // INFORMATION TRADING: High-trust DMs share more sensitive info
               if (updatedContestant.psychProfile.trustLevel > 70) {
+                const tempState = { 
+                  ...prev, 
+                  contestants: prev.contestants.map(c => c.name === contestant.name ? updatedContestant : c) 
+                };
                 const sharedInfo = InformationTradingEngine.shareInformation(
                   contestant.name,
                   prev.playerName,
-                  { ...prev, contestants: prev.contestants.map(c => c.name === contestant.name ? updatedContestant : c) },
+                  tempState,
                   'dm'
                 );
                 console.log(`${contestant.name} shared ${sharedInfo.length} pieces of sensitive information via DM`);
