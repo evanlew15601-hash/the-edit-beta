@@ -170,15 +170,16 @@ export class AllianceManager {
   /**
    * Create a new alliance
    */
-  static createAlliance(members: string[], name?: string): Alliance {
+  static createAlliance(members: string[], name?: string, currentDay: number = 1): Alliance {
+    const allianceName = name || this.generateAllianceName(members);
     return {
       id: `alliance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       members,
       strength: 75, // Start with good trust
       secret: true,
-      formed: 1, // Will be updated by game state
-      lastActivity: 1, // Will be updated by game state
-      name: name || this.generateAllianceName(members),
+      formed: currentDay,
+      lastActivity: currentDay,
+      name: allianceName,
       dissolved: false
     };
   }

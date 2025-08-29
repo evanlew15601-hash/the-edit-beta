@@ -136,30 +136,34 @@ export class InformationTradingEngine {
       return [];
     }
 
-    // Calculate trust level between contestants
-    const trustLevel = this.calculateTrust(from, to, gameState);
-    console.log(`Trust level between ${from} and ${to}: ${trustLevel}`);
+    // AUTOMATIC INFORMATION SHARING - No trust requirement needed
+    console.log(`Auto-sharing information from ${from} to ${to} via ${context}`);
 
-    if (trustLevel < 30) {
-      console.log('Trust too low for information sharing');
-      return [];
-    }
+    // Generate fresh information if needed
+    this.generateTradableInformation(gameState);
 
-    // Get information this person would share
+    // Get information this person would share based on their knowledge
     const availableInfo = this.informationDatabase.filter(info => 
-      info.source === from || (info.reliability > 60 && Math.random() < trustLevel / 100)
+      // Share own info, alliance info, or recently learned info
+      info.source === from || 
+      (info.reliability > 50 && gameState.alliances.some(a => 
+        a.members.includes(from) && a.members.includes(info.source)
+      ))
     ).filter(info => 
-      // Don't share the same info multiple times to the same person
+      // Don't share the same info multiple times to the same person recently
       !this.informationLog.some(log => 
-        log.to === to && log.information.id === info.id && log.day >= gameState.currentDay - 1
+        log.to === to && log.information.id === info.id && log.day >= gameState.currentDay - 3
       )
     );
 
-    // Select information to share based on trust and context
-    const maxShares = Math.floor(trustLevel / 25) + 1;
+    // Always share at least 1-3 pieces of information per interaction
+    const minShares = context === 'dm' ? 2 : context === 'alliance_meeting' ? 3 : 1;
+    const maxShares = context === 'dm' ? 4 : context === 'alliance_meeting' ? 5 : 3;
+    const shareCount = Math.min(availableInfo.length, Math.max(minShares, Math.floor(Math.random() * maxShares) + 1));
+    
     const sharedInfo = availableInfo
-      .sort(() => Math.random() - 0.5) // Randomize
-      .slice(0, maxShares);
+      .sort((a, b) => b.strategic_value - a.strategic_value) // Prioritize valuable info
+      .slice(0, shareCount);
 
     // Log the information sharing
     sharedInfo.forEach(info => {
@@ -172,7 +176,7 @@ export class InformationTradingEngine {
         context
       };
       this.informationLog.push(logEntry);
-      console.log('Information shared:', logEntry);
+      console.log('Information automatically shared:', logEntry);
     });
 
     return sharedInfo;
@@ -208,12 +212,44 @@ export class InformationTradingEngine {
     // Ensure information is generated first
     this.generateTradableInformation(gameState);
     
+    // Auto-generate intelligence when player advances day
+    this.autoGenerateIntelligence(gameState);
+    
     const sharedInfo = this.informationLog
       .filter(log => log.to === playerName && log.day >= gameState.currentDay - 5)
       .sort((a, b) => b.day - a.day);
     
     console.log(`Retrieved ${sharedInfo.length} pieces of shared information for ${playerName}`);
     return sharedInfo;
+  }
+
+  static autoGenerateIntelligence(gameState: GameState) {
+    // Auto-generate intelligence logs based on house events and relationships
+    const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
+    
+    // Create automatic information sharing events
+    activeContestants.forEach(contestant => {
+      if (contestant.name === gameState.playerName) return;
+      
+      // Simulate information sharing based on recent interactions
+      const recentInteractions = gameState.interactionLog?.filter(log => 
+        log.day >= gameState.currentDay - 1 && 
+        log.participants.includes(contestant.name) &&
+        log.participants.includes(gameState.playerName)
+      ) || [];
+      
+      // Share information based on interactions
+      recentInteractions.forEach(interaction => {
+        if (Math.random() < 0.8) { // 80% chance to share info after interaction
+          this.shareInformation(
+            contestant.name,
+            gameState.playerName,
+            gameState,
+            interaction.type === 'dm' ? 'dm' : 'conversation'
+          );
+        }
+      });
+    });
   }
 
   static clearOldInformation(gameState: GameState) {

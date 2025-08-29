@@ -184,12 +184,17 @@ export function generateFanReactions(gameState: GameState): string[] {
     reactions.push(`${playerName} needs to make a move FAST - being on the bottom is dangerous territory`);
   }
 
-  // Activity level commentary
+  // Activity level commentary - FIXED: Check for actual activity, not just radio silence
   const totalRecentActivity = recentActions.length;
   if (totalRecentActivity >= 6) {
-    reactions.push(`${playerName} EVERYWHERE this week - high activity players either dominate or crash spectacularly`);
-  } else if (totalRecentActivity === 0) {
-    reactions.push(`Radio silence from ${playerName} has fans split - strategic patience or concerning invisibility?`);
+    reactions.push(`${playerName} EVERYWHERE this week - high activity strategy paying off or about to backfire?`);
+  } else if (totalRecentActivity >= 3) {
+    reactions.push(`${playerName} staying active with strategic moves - smart gameplay this week`);
+  } else if (totalRecentActivity >= 1) {
+    reactions.push(`${playerName} making calculated moves - quality over quantity strategy`);
+  } else {
+    // Only show radio silence if truly no activity
+    reactions.push(`${playerName} keeping quiet this week - strategic patience or concerning invisibility?`);
   }
 
   // Jury phase countdown reactions
@@ -252,11 +257,15 @@ export function generateContextualFanReactions(
     reactions.push(`Don't sleep on ${playerName}! Flying under the radar but making smart moves - winner potential brewing`);
   }
 
-  // Activity-based reactions
+  // Activity-based reactions - FIXED
   const totalActivity = recentActions.length;
   if (totalActivity >= 6) {
     reactions.push(`${playerName} EVERYWHERE this week - high activity strategy paying off or about to backfire?`);
-  } else if (totalActivity === 0) {
+  } else if (totalActivity >= 3) {
+    reactions.push(`${playerName} staying consistently active - building strong social connections`);
+  } else if (totalActivity >= 1) {
+    reactions.push(`${playerName} making selective strategic moves - focused gameplay approach`);
+  } else {
     reactions.push(`${playerName} keeping quiet has fans divided - strategic patience or dangerous invisibility?`);
   }
 

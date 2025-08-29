@@ -107,16 +107,23 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
     .map(r => r.text);
   viralMoments.push(...ranked);
 
+  // Get recent actions for better drama tracking
+  const recentActions = (gameState.interactionLog || []).filter(l => l.day >= weekStartDay && l.day <= weekEndDay && l.participants?.includes(playerName));
+
   const eventMontage = [
     dominantTone ? `Diary room leaned ${dominantTone}.` : undefined,
     alliancesFormed.length
-      ? `Alliance formed: ${alliancesFormed.map(a => a.members.join(' & ')).join(' | ')}`
+      ? `New alliance: ${alliancesFormed.map(a => a.name || a.members.join(' & ')).join(' | ')}`
       : undefined,
     alliancesActive.length && !alliancesFormed.length
-      ? `Alliances shifted quietly; bonds tested.`
+      ? `Alliance dynamics shifted; relationships tested.`
       : undefined,
     elimLine,
     ...notableMoments,
+    // Add more varied drama elements
+    recentActions.length >= 5 ? 'High activity week with multiple strategic moves.' : undefined,
+    recentActions.some(a => a.type === 'scheme') ? 'Scheming intensified behind the scenes.' : undefined,
+    recentActions.some(a => a.type === 'dm') ? 'Private conversations shaped the week\'s dynamics.' : undefined
   ].filter(Boolean) as string[];
 
   const whatHappenedBits: string[] = [];

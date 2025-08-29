@@ -868,6 +868,16 @@ export const useGameState = () => {
       
       // Update alliances with the new management system
       const updatedAlliances = AllianceManager.updateAllianceTrust(prev);
+
+      // Auto-generate intelligence when day advances
+      const tempState = {
+        ...prev,
+        currentDay: newDay,
+        alliances: updatedAlliances
+      };
+      
+      // Trigger automatic information sharing
+      InformationTradingEngine.autoGenerateIntelligence(tempState);
       
       // Share information between NPCs based on relationships
       const npcActiveContestants = prev.contestants.filter(c => !c.isEliminated);

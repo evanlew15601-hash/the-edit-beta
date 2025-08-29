@@ -36,10 +36,10 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
             No intelligence gathered yet.
           </p>
           <p className="text-xs text-muted-foreground">
-            Build relationships to unlock strategic information.
+            Information will be automatically shared when you interact with contestants.
           </p>
-          <p className="text-xs text-red-500">
-            Day {gameState.currentDay} - Trust levels with contestants to unlock intel
+          <p className="text-xs text-muted-foreground">
+            Day {gameState.currentDay} - Have conversations, DMs, or alliance meetings to gather intel
           </p>
         </div>
       </Card>

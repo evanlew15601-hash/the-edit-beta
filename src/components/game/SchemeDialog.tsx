@@ -70,9 +70,9 @@ export const SchemeDialog = ({ isOpen, onClose, contestants, onSubmit }: SchemeD
           <DialogDescription>High risk moves that can change trust and suspicion.</DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="max-h-[60vh] pr-4">
+        <ScrollArea className="max-h-[70vh] pr-4">
           <div className="space-y-6">
-          <div className="bg-destructive/10 border border-destructive/20 rounded p-3">
+            <div className="bg-destructive/10 border border-destructive/20 rounded p-3">
             <p className="text-sm text-destructive">
               Warning: Schemes can backfire spectacularly. Success depends on your reputation, the target's psychology, and pure chance.
             </p>
