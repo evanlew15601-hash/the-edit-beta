@@ -18,15 +18,24 @@ export class EnhancedConfessionalEngine {
     const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName));
     const daysToElimination = gameState.nextEliminationDay - gameState.currentDay;
 
-    // Strategy prompts
-    if (activeContestants.length <= 8) {
+    // Strategy prompts - context-aware based on game stage
+    if (activeContestants.length <= 8 && activeContestants.length > 5) {
+      prompts.push({
+        id: 'mid-game-strategy',
+        category: 'strategy',
+        prompt: `We're getting to the middle game with ${activeContestants.length} players left. What's your strategy moving forward?`,
+        followUp: "Who do you see as your biggest competition right now?",
+        suggestedTones: ['strategic', 'dramatic'],
+        editPotential: 8
+      });
+    } else if (activeContestants.length <= 5) {
       prompts.push({
         id: 'endgame-strategy',
         category: 'strategy',
-        prompt: "We're getting down to the final players. What's your strategy to make it to the end?",
-        followUp: "Who do you see as your biggest competition?",
+        prompt: `Only ${activeContestants.length} players remain. How are you positioning yourself for the final stretch?`,
+        followUp: "What's your path to the finale from here?",
         suggestedTones: ['strategic', 'dramatic'],
-        editPotential: 8
+        editPotential: 9
       });
     }
 
@@ -153,8 +162,49 @@ export class EnhancedConfessionalEngine {
       editPotential: 4
     });
 
-    // Add more variety to prevent repetition
-    const additionalPrompts: DynamicConfessionalPrompt[] = [
+    // Add context-aware prompts based on game stage
+    const additionalPrompts: DynamicConfessionalPrompt[] = [];
+    
+    if (activeContestants.length > 10) {
+      // Early game prompts
+      additionalPrompts.push({
+        id: 'early-game-positioning',
+        category: 'strategy' as const,
+        prompt: "It's still early in the game. How are you positioning yourself to survive the first few votes?",
+        suggestedTones: ['strategic', 'vulnerable'],
+        editPotential: 6
+      });
+    } else if (activeContestants.length > 7) {
+      // Mid game prompts
+      additionalPrompts.push({
+        id: 'power-dynamics',
+        category: 'strategy' as const,
+        prompt: "The power dynamics are shifting. Who's really running the game right now?",
+        suggestedTones: ['strategic', 'dramatic'],
+        editPotential: 7
+      });
+    } else if (activeContestants.length > 5) {
+      // Pre-jury prompts
+      additionalPrompts.push({
+        id: 'jury-approaching',
+        category: 'strategy' as const,
+        prompt: "We're getting close to jury phase. How are you managing your threat level?",
+        suggestedTones: ['strategic', 'vulnerable'],
+        editPotential: 8
+      });
+    } else {
+      // Late game prompts
+      additionalPrompts.push({
+        id: 'finale-positioning',
+        category: 'strategy' as const,
+        prompt: "The finale is in sight. What moves do you need to make to secure your spot?",
+        suggestedTones: ['strategic', 'dramatic'],
+        editPotential: 9
+      });
+    }
+
+    // Always relevant prompts
+    additionalPrompts.push(
       {
         id: 'underestimated',
         category: 'strategy' as const,
@@ -163,20 +213,13 @@ export class EnhancedConfessionalEngine {
         editPotential: 7
       },
       {
-        id: 'jury-management',
-        category: 'strategy' as const,
-        prompt: "Are you thinking about how your moves will be perceived by the jury?",
-        suggestedTones: ['strategic', 'vulnerable'],
-        editPotential: 6
-      },
-      {
         id: 'biggest-mistake',
         category: 'reflection' as const,
         prompt: "What's been your biggest mistake in the game so far?",
         suggestedTones: ['vulnerable', 'strategic'],
         editPotential: 5
       }
-    ];
+    );
 
     prompts.push(...additionalPrompts);
 

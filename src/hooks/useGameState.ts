@@ -13,858 +13,92 @@ import { processVoting } from '@/utils/votingEngine';
 import { getTrustDelta, getSuspicionDelta, calculateLeakChance, calculateSchemeSuccess, generateNPCInteractions } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
-import { 
-  getNPCPersonalityBias, 
-  calculateAITrustDelta, 
-  calculateAISuspicionDelta, 
-  calculateEmotionalDelta,
-  calculateAILeakChance,
-  generateAIResponse,
-} from '@/utils/aiResponseEngine';
 import { generateLocalAIReply } from '@/utils/localLLM';
-import { detectGameTalk, craftGameTalkReply } from '@/utils/gameTalkHeuristics';
-import { summarizeReaction } from '@/utils/reactionSummarizer';
-import { EmergentEventInterruptor, EmergentEvent } from '@/utils/emergentEventInterruptor';
-import { npcAutonomyEngine } from '@/utils/npcAutonomyEngine';
-import { TAG_CHOICES } from '@/data/tagChoices';
-import { evaluateChoice, pickVariant, getCooldownKey, reactionText } from '@/utils/tagDialogueEngine';
-import { memoryEngine } from '@/utils/memoryEngine';
-import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 
-const MINIMAL_AI = true; // Minimal, credit-free reaction mode
-const USE_REMOTE_AI = false; // Use free local + deterministic engines by default
-
-const initialGameState = (): GameState => ({
-  currentDay: 1,
-  playerName: '',
-  contestants: [],
-  playerActions: [
-    { type: 'talk', used: false, usageCount: 0 },
-    { type: 'dm', used: false, usageCount: 0 },
-    { type: 'confessional', used: false, usageCount: 0 },
-    { type: 'observe', used: false, usageCount: 0 },
-    { type: 'scheme', used: false, usageCount: 0 },
-    { type: 'activity', used: false, usageCount: 0 },
-    { type: 'alliance_meeting', used: false, usageCount: 0 }
-  ],
-  confessionals: [],
-  editPerception: {
-    screenTimeIndex: 50,
-    audienceApproval: 0,
-    persona: 'Underedited',
-    lastEditShift: 0
-  },
-  alliances: [],
-  votingHistory: [],
-  gamePhase: 'intro',
-  twistsActivated: [],
-  nextEliminationDay: 7,
-  daysUntilJury: 28, // Jury starts when 9 contestants remain (after day 28)
-  dailyActionCount: 0,
-  dailyActionCap: 10,
-  aiSettings: {
-    depth: 'standard',
-    additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
-  },
-  forcedConversationsQueue: [],
-  favoriteTally: {},
-  interactionLog: [],
-  tagChoiceCooldowns: {},
-});
+const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
 export const useGameState = () => {
-  const [gameState, setGameState] = useState<GameState>(() => {
-    // Always start with intro screen - don't load saved state on first load
-    return initialGameState();
+  const [gameState, setGameState] = useState<GameState>({
+    currentDay: 1,
+    playerName: '',
+    contestants: [],
+    playerActions: [
+      { type: 'talk', used: false, usageCount: 0 },
+      { type: 'dm', used: false, usageCount: 0 },
+      { type: 'confessional', used: false, usageCount: 0 },
+      { type: 'observe', used: false, usageCount: 0 },
+      { type: 'scheme', used: false, usageCount: 0 },
+      { type: 'activity', used: false, usageCount: 0 }
+    ] as PlayerAction[],
+    confessionals: [],
+    editPerception: {
+      screenTimeIndex: 45,
+      audienceApproval: 0,
+      persona: 'Underedited',
+      lastEditShift: 0
+    },
+    alliances: [],
+    votingHistory: [],
+    gamePhase: 'intro',
+    twistsActivated: [],
+    nextEliminationDay: 7,
+    daysUntilJury: 28,
+    dailyActionCount: 0,
+    dailyActionCap: 10,
+    aiSettings: {
+      depth: 'standard',
+      additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
+    },
+    forcedConversationsQueue: [],
+    favoriteTally: {},
+    interactionLog: [],
+    tagChoiceCooldowns: {},
   });
 
-  const updateAISettings = useCallback((partial: Partial<GameState['aiSettings']>) => {
-    setGameState(prev => ({
-      ...prev,
-      aiSettings: {
-        ...prev.aiSettings,
-        ...partial,
-        additions: { ...prev.aiSettings.additions, ...(partial.additions || {}) }
-      }
-    }));
-  }, []);
-
   const startGame = useCallback((playerName: string) => {
-    const contestants = generateContestants(11);
-    npcAutonomyEngine.initializeNPCs(contestants);
-    
-    // Initialize memory systems
-    try {
-      memoryEngine.initializeJournals(contestants);
-      relationshipGraphEngine.initializeRelationships(contestants);
-    } catch (error) {
-      console.warn('Memory system initialization failed:', error);
-    }
-    
-    setGameState(prev => ({
-      ...prev,
+    const contestants = generateContestants(16).map(c => c.name === playerName ? { ...c, name: playerName } : c);
+    const newState: GameState = {
+      currentDay: 1,
       playerName,
       contestants,
-      gamePhase: 'premiere'
-    }));
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: any) => updateAISettings(e.detail || {});
-    window.addEventListener('ai-settings:update', handler);
-    return () => window.removeEventListener('ai-settings:update', handler);
-  }, [updateAISettings]);
-
-  // Helper function to record memory events
-  const recordMemoryEvent = useCallback((
-    day: number,
-    type: 'conversation' | 'alliance_form' | 'promise' | 'betrayal',
-    participants: string[],
-    content: string,
-    emotionalImpact: number = 0,
-    strategicImportance: number = 5
-  ) => {
-    try {
-      memoryEngine.recordEvent({
-        day,
-        type,
-        participants,
-        content,
-        emotionalImpact,
-        reliability: 'confirmed',
-        strategicImportance
-      });
-    } catch (error) {
-      console.warn('Failed to record memory event:', error);
-    }
-  }, []);
-
-  const useAction = useCallback((actionType: string, target?: string, content?: string, tone?: string) => {
-    setGameState(prev => {
-      // Enforce daily action cap
-      if (prev.dailyActionCount >= prev.dailyActionCap) return prev;
-
-      // Handle alliance creation before any other processing
-      if (actionType === 'create_alliance') {
-        const allianceName = target!;
-        const memberNames = content!.split(',');
-        const allianceId = `alliance_${Date.now()}`;
-        
-        const newAlliance: Alliance = {
-          id: allianceId,
-          members: memberNames,
-          strength: 75,
-          secret: false,
-          formed: prev.currentDay,
-          lastActivity: prev.currentDay
-        };
-
-        // Update relationship graph for alliance members
-        memberNames.forEach(member1 => {
-          memberNames.forEach(member2 => {
-            if (member1 !== member2) {
-              relationshipGraphEngine.formAlliance(member1, member2, 75);
-            }
-          });
-        });
-
-        console.log(`[Alliance] Created "${allianceName}" with members: ${memberNames.join(', ')}`);
-
-        return {
-          ...prev,
-          alliances: [...prev.alliances, newAlliance],
-          dailyActionCount: prev.dailyActionCount + 1,
-          interactionLog: [
-            ...((prev.interactionLog) || []),
-            {
-              day: prev.currentDay,
-              type: 'alliance_meeting' as any,
-              participants: memberNames,
-              content: `Alliance "${allianceName}" formed`,
-              source: 'player' as const,
-            }
-          ]
-        };
-      }
-
-      const newActions = prev.playerActions.map(action => {
-        if (action.type === actionType) {
-          const currentUsage = action.usageCount || 0;
-          return { 
-            ...action, 
-            used: currentUsage >= 1, // Mark as used after first usage
-            usageCount: currentUsage + 1,
-            target, 
-            content, 
-            tone 
-          };
-        }
-        return action;
-      });
-
-      // CRITICAL: Parse player input with AI before processing
-      let parsedInput = null;
-      if (content && target) {
-        parsedInput = speechActClassifier.classifyMessage(content, 'Player', { target, actionType });
-      }
-
-      // Process the action's effect on contestants based on PARSED intent, not just content
-      const updatedContestants = prev.contestants.map(contestant => {
-        let updatedContestant = { ...contestant };
-
-        // Apply AI-DRIVEN action processing based on parsed intent
-        switch (actionType) {
-          case 'talk':
-            if (contestant.name === target && parsedInput) {
-              const npcPersonalityBias = getNPCPersonalityBias(contestant);
-              const trustDelta = calculateAITrustDelta(parsedInput, npcPersonalityBias);
-              const suspicionDelta = calculateAISuspicionDelta(parsedInput, npcPersonalityBias);
-              const emotionalDelta = calculateEmotionalDelta(parsedInput, npcPersonalityBias);
-              
-              updatedContestant = {
-                ...updatedContestant,
-                psychProfile: {
-                  ...updatedContestant.psychProfile,
-                  trustLevel: Math.max(-100, Math.min(100, updatedContestant.psychProfile.trustLevel + trustDelta)),
-                  suspicionLevel: Math.max(0, Math.min(100, updatedContestant.psychProfile.suspicionLevel + suspicionDelta)),
-                  emotionalCloseness: Math.max(0, Math.min(100, updatedContestant.psychProfile.emotionalCloseness + emotionalDelta))
-                },
-                memory: [...updatedContestant.memory, {
-                  day: prev.currentDay,
-                  type: 'conversation' as const,
-                  participants: [prev.playerName, contestant.name],
-                  content: `${content} [AI Detected: ${parsedInput.primary}]`,
-                  emotionalImpact: trustDelta / 5,
-                  timestamp: prev.currentDay * 1000 + Math.random() * 1000
-                }]
-              };
-              
-              // Record in memory engine
-              memoryEngine.recordEvent({
-                day: prev.currentDay,
-                type: 'conversation',
-                participants: [prev.playerName, contestant.name],
-                content: `${content} [AI Detected: ${parsedInput.primary}]`,
-                emotionalImpact: trustDelta / 5,
-                reliability: 'confirmed',
-                strategicImportance: Math.abs(trustDelta) > 10 ? 7 : 3
-              });
-
-              // INFORMATION TRADING: Share information based on trust level
-              if (updatedContestant.psychProfile.trustLevel > 50) {
-                const tempState = { 
-                  ...prev, 
-                  contestants: prev.contestants.map(c => c.name === contestant.name ? updatedContestant : c) 
-                };
-                const sharedInfo = InformationTradingEngine.shareInformation(
-                  contestant.name,
-                  prev.playerName,
-                  tempState,
-                  'conversation'
-                );
-                console.log(`${contestant.name} shared ${sharedInfo.length} pieces of information with player`);
-              }
-            }
-            break;
-
-          case 'dm':
-            if (contestant.name === target && parsedInput) {
-              const npcPersonalityBias = getNPCPersonalityBias(contestant);
-              const trustImpact = parsedInput.trustworthiness * 0.2;
-              const leakChance = calculateAILeakChance(parsedInput, npcPersonalityBias);
-
-              // CRITICAL: DMs should have much lower leak chance to preserve privacy
-              const adjustedLeakChance = Math.min(leakChance * 0.3, 0.15); // Max 15% leak chance
-
-              updatedContestant = {
-                ...updatedContestant,
-                psychProfile: {
-                  ...updatedContestant.psychProfile,
-                  trustLevel: Math.max(-100, Math.min(100, updatedContestant.psychProfile.trustLevel + trustImpact)),
-                  suspicionLevel: parsedInput.manipulationLevel > 50 ? 
-                    Math.min(100, updatedContestant.psychProfile.suspicionLevel + 10) : 
-                    updatedContestant.psychProfile.suspicionLevel
-                },
-                memory: [...updatedContestant.memory, {
-                  day: prev.currentDay,
-                  type: 'dm' as const,
-                  participants: [prev.playerName, contestant.name],
-                  content: `[PRIVATE DM] ${content}`,
-                  emotionalImpact: trustImpact / 3,
-                  timestamp: prev.currentDay * 1000 + Math.random() * 1000
-                }]
-              };
-
-              // Record in memory engine with privacy marker
-              memoryEngine.recordEvent({
-                day: prev.currentDay,
-                type: 'conversation',
-                participants: [prev.playerName, contestant.name],
-                content: `Private DM: "${content}"`,
-                emotionalImpact: trustImpact / 3,
-                reliability: 'confirmed',
-                strategicImportance: 7,
-                witnessed: [] // Empty - this was private
-              });
-
-              // INFORMATION TRADING: High-trust DMs share more sensitive info
-              if (updatedContestant.psychProfile.trustLevel > 70) {
-                const tempState = { 
-                  ...prev, 
-                  contestants: prev.contestants.map(c => c.name === contestant.name ? updatedContestant : c) 
-                };
-                const sharedInfo = InformationTradingEngine.shareInformation(
-                  contestant.name,
-                  prev.playerName,
-                  tempState,
-                  'dm'
-                );
-                console.log(`${contestant.name} shared ${sharedInfo.length} pieces of sensitive information via DM`);
-              }
-
-              // Only leak to others if failed privacy check
-              if (Math.random() < adjustedLeakChance) {
-                prev.contestants.forEach(otherContestant => {
-                  if (otherContestant.name !== contestant.name && otherContestant.name !== prev.playerName && !otherContestant.isEliminated) {
-                    otherContestant.memory.push({
-                      day: prev.currentDay,
-                      type: 'observation' as const,
-                      participants: [prev.playerName, contestant.name],
-                      content: `Noticed ${contestant.name} acting suspicious after talking to ${prev.playerName}`,
-                      emotionalImpact: -1,
-                      timestamp: prev.currentDay * 1000 + Math.random() * 1000
-                    });
-                  }
-                });
-
-                // Record gossip about the DM leak
-                memoryEngine.spreadGossip(
-                  `${contestant.name} seemed weird after talking privately with ${prev.playerName}`,
-                  'House observation',
-                  prev.currentDay,
-                  'rumor'
-                );
-              }
-            }
-            break;
-
-          case 'observe':
-            const observationMemory = {
-              day: prev.currentDay,
-              type: 'observation' as const,
-              participants: [prev.playerName],
-              content: 'Player observed house dynamics',
-              emotionalImpact: 0,
-              timestamp: prev.currentDay * 1000 + Math.random() * 1000
-            };
-            
-            if (Math.random() < 0.15) {
-              updatedContestant = {
-                ...updatedContestant,
-                psychProfile: {
-                  ...updatedContestant.psychProfile,
-                  trustLevel: Math.max(-100, updatedContestant.psychProfile.trustLevel - 2)
-                }
-              };
-            }
-            break;
-
-          case 'scheme':
-            if (contestant.name === target && parsedInput) {
-              const npcPersonalityBias = getNPCPersonalityBias(contestant);
-              const schemeDetected = parsedInput.manipulationLevel > 40 || parsedInput.primary === 'sabotaging';
-              const schemeSuccess = !schemeDetected && npcPersonalityBias.manipulationDetection < 60;
-              
-              const trustDelta = schemeSuccess ? -5 : -20;
-              const suspicionDelta = schemeDetected ? 15 : 0;
-
-              updatedContestant = {
-                ...updatedContestant,
-                psychProfile: {
-                  ...updatedContestant.psychProfile,
-                  trustLevel: Math.max(-100, updatedContestant.psychProfile.trustLevel + trustDelta),
-                  suspicionLevel: Math.min(100, updatedContestant.psychProfile.suspicionLevel + suspicionDelta)
-                },
-                memory: [...updatedContestant.memory, {
-                  day: prev.currentDay,
-                  type: 'scheme' as const,
-                  participants: [prev.playerName, contestant.name],
-                  content: schemeDetected ? `Player tried to manipulate me: ${content}` : `Had a conversation with ${prev.playerName}: ${content}`,
-                  emotionalImpact: schemeDetected ? -5 : 0,
-                  timestamp: prev.currentDay * 1000 + Math.random() * 1000
-                }]
-              };
-            }
-            break;
-
-          case 'alliance_meeting':
-            // Record alliance meeting in memory
-            memoryEngine.recordEvent({
-              day: prev.currentDay,
-              type: 'alliance_form',
-              participants: gameState.alliances.find(a => a.id === target)?.members || [prev.playerName],
-              content: `Alliance meeting: "${content}"`,
-              emotionalImpact: 2,
-              reliability: 'confirmed',
-              strategicImportance: 8
-            });
-            break;
-
-          case 'activity':
-            if (contestant.name === target) {
-              const activityMemory = {
-                day: prev.currentDay,
-                type: 'event' as const,
-                participants: [prev.playerName, contestant.name],
-                content: `Did ${content} activity together`,
-                emotionalImpact: 2,
-                timestamp: prev.currentDay * 1000 + Math.random() * 1000
-              };
-
-              updatedContestant = {
-                ...updatedContestant,
-                memory: [...updatedContestant.memory, activityMemory],
-                psychProfile: {
-                  ...updatedContestant.psychProfile,
-                  emotionalCloseness: Math.min(100, updatedContestant.psychProfile.emotionalCloseness + 3)
-                }
-              };
-            }
-            break;
-        }
-
-        return updatedContestant;
-    });
-
-      const newAlliances = [...prev.alliances];
-      if (actionType === 'dm' && tone === 'alliance' && target) {
-        const existingAlliance = newAlliances.find(a => a.members.includes(prev.playerName) && a.members.includes(target));
-        if (!existingAlliance) {
-          newAlliances.push({
-            id: `alliance_${prev.currentDay}_${Math.random().toString(36).substr(2, 9)}`,
-            members: [prev.playerName, target],
-            strength: 60,
-            secret: true,
-            formed: prev.currentDay,
-            lastActivity: prev.currentDay
-          });
-          
-          // Record alliance formation in memory
-          recordMemoryEvent(
-            prev.currentDay,
-            'alliance_form',
-            [prev.playerName, target],
-            `Secret alliance formed between ${prev.playerName} and ${target}`,
-            5,
-            9
-          );
-        } else {
-          existingAlliance.strength = Math.min(100, existingAlliance.strength + 10);
-          existingAlliance.lastActivity = prev.currentDay;
-        }
-      }
-
-      const reaction = summarizeReaction(
-        actionType,
-        content || '',
-        parsedInput,
-        updatedContestants.find(c => c.name === target) || null,
-        actionType === 'dm' ? 'private' : actionType === 'talk' ? 'public' : (actionType === 'scheme' ? 'scheme' : (actionType === 'activity' ? 'activity' : 'public'))
-      );
-
-      // Debug: inspect parsing and resulting take
-      try {
-        console.debug('[ActionProcessed]', {
-          day: prev.currentDay,
-          actionType,
-          target,
-          content,
-          parsedPrimary: parsedInput?.primary,
-          infoSeeking: parsedInput?.informationSeeking,
-          trustBuilding: parsedInput?.trustBuilding,
-          threat: parsedInput?.threatLevel,
-          manipulation: parsedInput?.manipulationLevel,
-          emotionKeys: parsedInput?.emotionalSubtext ? Object.keys(parsedInput.emotionalSubtext) : [],
-          reaction
-        });
-      } catch (e) {}
-
-      return {
-        ...prev,
-        playerActions: newActions,
-        contestants: updatedContestants,
-        alliances: newAlliances,
-        dailyActionCount: prev.dailyActionCount + 1,
-        lastAIResponse: undefined,
-        lastAIAdditions: undefined,
-        lastParsedInput: parsedInput,
-        lastActionTarget: target,
-        lastActionType: actionType as PlayerAction['type'],
-        lastAIReaction: reaction,
-        forcedConversationsQueue: (() => {
-          const q = prev.forcedConversationsQueue || [];
-          const strongTrigger = parsedInput && (parsedInput.manipulationLevel > 55 || parsedInput.threatLevel > 55);
-          if (strongTrigger && target) {
-            return [
-              ...q,
-              { from: target, topic: 'We need to talk about that last move.', urgency: 'important' as const, day: prev.currentDay }
-            ];
-          }
-          // 25% chance casual pull-aside after any social action
-          if (['talk','dm','activity'].includes(actionType) && Math.random() < 0.25 && target) {
-            return [
-              ...q,
-              { from: target, topic: 'Quick hallway check-in.', urgency: 'casual' as const, day: prev.currentDay }
-            ];
-          }
-          return q;
-        })(),
-        interactionLog: [
-          ...((prev.interactionLog) || []),
-          {
-            day: prev.currentDay,
-            type: (actionType as any),
-            participants: target ? [prev.playerName, target] : [prev.playerName],
-            content: content,
-            tone: tone,
-            source: 'player' as const,
-          }
-        ],
-      };
-    });
-
-    // Call generative AI via Supabase Edge Function and store interaction
-    if (!MINIMAL_AI && target && content && ['talk','dm','scheme'].includes(actionType)) {
-      (async () => {
-        let aiText = '';
-        let parsed: any = null;
-        try {
-          // Build NPC payload with safe defaults if target not in roster yet
-          parsed = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
-          const npcEntity = gameState.contestants.find(c => c.name === target);
-          const recentMemories = (npcEntity?.memory || [])
-            .filter(m => m.participants.includes(gameState.playerName))
-            .slice(-3)
-            .map(m => ({ day: m.day, type: m.type, content: m.content, impact: m.emotionalImpact }));
-
-          const npcPayload = npcEntity ? {
-            name: npcEntity.name,
-            publicPersona: npcEntity.publicPersona,
-            psychProfile: npcEntity.psychProfile,
-          } : {
-            name: target!,
-            publicPersona: 'strategic contestant',
-            psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 }
-          };
-
-          // Build payload once so we can reuse across backends
-          const payload = {
-            playerMessage: content,
-            parsedInput: parsed,
-            npc: npcPayload,
-            tone: tone || '',
-            socialContext: {
-              day: gameState.currentDay,
-              relationshipHint: npcEntity ? {
-                trust: npcEntity.psychProfile.trustLevel,
-                suspicion: npcEntity.psychProfile.suspicionLevel,
-                closeness: npcEntity.psychProfile.emotionalCloseness,
-              } : undefined,
-              lastInteractions: recentMemories,
-            },
-            conversationType: actionType === 'dm' ? 'private' : 'public'
-          } as const;
-
-          // Short-circuit for small talk check-ins to avoid nonsense (only for talk/DM)
-          const lower = content!.toLowerCase();
-          const isCheckIn = (/(?:\bhow('?s| is)?\b.*\b(today|day|going)\b)|\bhow are you\b/.test(lower));
-          if (!aiText && (actionType === 'talk' || actionType === 'dm') && parsed.primary === 'neutral_conversation' && isCheckIn) {
-            const ps = npcEntity?.psychProfile;
-            if (ps && ps.suspicionLevel > 60) {
-              aiText = "It is tense—people are looking for missteps. I am staying quiet.";
-            } else if (ps && ps.trustLevel > 50) {
-              aiText = "Good. A couple sparks in the kitchen, but I am keeping us out of it.";
-            } else {
-              aiText = "Fine. Reading the room and not overplaying anything.";
-            }
-          }
-
-          // Sentiment/greeting handler ("excited to be here", "glad to be here", etc.)
-          if (!aiText && (actionType === 'talk' || actionType === 'dm') && parsed.primary === 'neutral_conversation') {
-            const sentiment = /(excited|glad|happy|thrilled|pumped|nervous)\b.*\b(here|to be here)?\b/.test(lower) && !/[?]/.test(content!);
-            const greeting = /^(hey|hi|hello|yo)\b/.test(lower) && content!.length <= 40;
-            if (sentiment || greeting) {
-              const ps = npcEntity?.psychProfile;
-              if (ps && ps.suspicionLevel > 60) {
-                aiText = "Good. Keep it quiet and read the room.";
-              } else if (ps && ps.trustLevel > 50) {
-                aiText = "Good—channel it into quiet moves. We stay measured.";
-              } else {
-                aiText = "Good. Energy is useful; do not draw fire.";
-              }
-            }
-          }
-
-          // Domain heuristic: talking game / alliances / votes / numbers
-          if (!aiText) {
-            const tags = detectGameTalk(content!);
-            if (tags.isGameTalk) {
-              aiText = craftGameTalkReply(content!, tags, {
-                conversationType: payload.conversationType,
-                npc: npcEntity ? {
-                  name: npcEntity.name,
-                  trustLevel: npcEntity.psychProfile.trustLevel,
-                  suspicionLevel: npcEntity.psychProfile.suspicionLevel,
-                  closeness: npcEntity.psychProfile.emotionalCloseness,
-                } : null,
-                day: gameState.currentDay,
-              });
-            }
-          }
-
-          // Remote backends (disabled by default)
-          if (!aiText && USE_REMOTE_AI) {
-            // 1) Try OpenAI
-            const primary = await supabase.functions.invoke('generate-ai-reply', { body: payload });
-            if (!primary.error) {
-              aiText = (primary.data as any)?.generatedText || '';
-            }
-
-            // 2) Fallback to Hugging Face if needed
-            if (!aiText) {
-              const hf = await supabase.functions.invoke('generate-ai-reply-hf', { body: payload });
-              if (!hf.error) {
-                aiText = (hf.data as any)?.generatedText || '';
-              }
-            }
-          }
-
-          // 2.5) Local on-device LLM (WebGPU/WebCPU) as strong offline fallback
-          if (!aiText) {
-            try {
-              aiText = await generateLocalAIReply(payload, {
-                maxSentences: gameState.aiSettings.depth === 'brief' ? 1 : gameState.aiSettings.depth === 'deep' ? 3 : 2,
-                maxNewTokens: gameState.aiSettings.depth === 'deep' ? 160 : 120,
-              });
-            } catch {}
-          }
-        } catch (e) {
-          console.error('AI reply error:', e);
-        }
-
-        // 3) Final fallback chain: contextual engine then templates
-        if (!aiText) {
-          try {
-            const npcInRoster = gameState.contestants.some(c => c.name === target);
-            if (npcInRoster) {
-              const resp = npcResponseEngine.generateResponse(
-                content!,
-                target!,
-                gameState,
-                (actionType === 'dm' ? 'private' : 'public') as any
-              );
-              aiText = resp?.content || '';
-            }
-          } catch (e2) {
-            console.error('NPC engine fallback error:', e2);
-          }
-        }
-        if (!aiText) {
-          try {
-            const npcEntity = gameState.contestants.find(c => c.name === target);
-            const npcForLocal: Contestant = npcEntity ?? {
-              id: `temp_${target}`,
-              name: target!,
-              publicPersona: 'strategic contestant',
-              psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 },
-              memory: [],
-              isEliminated: false,
-            } as Contestant;
-            const parsedLocal = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
-            const templated = generateAIResponse(parsedLocal as any, npcForLocal, content!);
-            if (templated) aiText = templated;
-          } catch (e3) {
-            console.error('Local template fallback error:', e3);
-          }
-        }
-
-        // Publish to UI and analytics table (best-effort) with quality filter
-        if (aiText) {
-          try {
-            const looksGeneric = /responds to your comment|^\"?Noted\.?\"?$|^\W*$|\bresponds:\b/i.test(aiText) || aiText.length < 18;
-            if (looksGeneric) {
-              const npcEntity = gameState.contestants.find(c => c.name === target);
-              const npcForLocal: Contestant = npcEntity ?? {
-                id: `temp_${target}`,
-                name: target!,
-                publicPersona: 'strategic contestant',
-                psychProfile: { disposition: [], trustLevel: 0, suspicionLevel: 10, emotionalCloseness: 20, editBias: 0 },
-                memory: [],
-                isEliminated: false,
-              } as Contestant;
-              const parsed2 = speechActClassifier.classifyMessage(content!, 'Player', { target, actionType });
-              const improved = generateAIResponse(parsed2 as any, npcForLocal, content!);
-              if (improved) aiText = improved;
-            }
-          } catch {}
-
-          // Final sanitization: direct speech, formal tone, no quotes/narration
-          const sanitizeAI = (text: string) => {
-            let t = String(text || '').trim();
-            // Prefer first quoted segment if present
-            const q = t.match(/"([^\"]{3,})"/);
-            if (q) t = q[1];
-            // Remove speaker labels like "River:" or dashes
-            t = t.replace(/^(?:[A-Z][a-z]+|You|I):\s*/, '');
-            // Expand broken and common contractions
-            const pairs: [RegExp, string][] = [
-              [/\bcan't\b/gi, 'cannot'], [/\bwon't\b/gi, 'will not'], [/\bdon't\b/gi, 'do not'], [/\bdoesn't\b/gi, 'does not'], [/\bdidn't\b/gi, 'did not'],
-              [/\bI'm\b/gi, 'I am'], [/\bI've\b/gi, 'I have'], [/\bI'll\b/gi, 'I will'], [/\byou're\b/gi, 'you are'], [/\bthey're\b/gi, 'they are'], [/\bwe're\b/gi, 'we are'],
-              [/\bit's\b/gi, 'it is'], [/\bthat's\b/gi, 'that is'], [/\bthere's\b/gi, 'there is'], [/\bweren't\b/gi, 'were not'], [/\bwasn't\b/gi, 'was not'],
-              [/\bshouldn't\b/gi, 'should not'], [/\bwouldn't\b/gi, 'would not'], [/\bcouldn't\b/gi, 'could not'], [/\baren't\b/gi, 'are not'], [/\bisn't\b/gi, 'is not'],
-            ];
-            pairs.forEach(([re, rep]) => { t = t.replace(re, rep); });
-            t = t.replace(/\b(didn|couldn|wouldn|shouldn)\b\.?/gi, (m) => ({didn:'did not',couldn:'could not',wouldn:'would not',shouldn:'should not'}[m.toLowerCase().replace(/\./,'')] || m));
-            // Strip remaining outer quotes
-            t = t.replace(/^["'""]+|["'""]+$/g, '');
-            // Remove simple third-person narration prefixes if present
-            t = t.replace(/^[A-Z][a-z]+\s+(glances|keeps|says|whispers|mutters|shrugs|smiles)[^\.]*\.\s*/, '');
-            // Enforce 1–2 sentences
-            t = t.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
-            return t.trim();
-          };
-          // Final sanitization moved above; also use sentence cap for local model
-          aiText = sanitizeAI(aiText);
-
-          // Compute optional additions based on settings
-          const adds: GameState['lastAIAdditions'] = {};
-          try {
-            const npcEntity = gameState.contestants.find(c => c.name === target);
-            const ps = npcEntity?.psychProfile;
-            if (gameState.aiSettings.additions.strategyHint) {
-              const intent = (parsed?.primary || '').replace(/_/g, ' ');
-              const strat = ps && ps.suspicionLevel > 60 ? 'deflect and test loyalty' : ps && ps.trustLevel > 50 ? 'share selectively and set a small ask' : 'seek information without commitment';
-              adds.strategy = `Strategy: ${strat} (detected: ${intent || 'neutral'}).`;
-            }
-            if (gameState.aiSettings.additions.followUp) {
-              const topic = /about\s+([^.!?]{3,40})/i.exec(content || '')?.[1]?.trim();
-              adds.followUp = `Follow-up: ${topic ? `What exactly about ${topic}?` : 'What do you need to know—alliances, votes, or trust?'}`;
-            }
-            if (gameState.aiSettings.additions.riskEstimate) {
-              const leak = parsed ? calculateAILeakChance(parsed as any, (ps || { disposition: [], trustLevel: 50 })) : 0.1;
-              const pct = Math.round(leak * 100);
-              adds.risk = `Leak risk: ${pct}% if pushed for secrets.`;
-            }
-            if (gameState.aiSettings.additions.memoryImpact) {
-              const impact = parsed ? Math.max(-10, Math.min(10, Math.round((parsed.emotionalSubtext.sincerity - parsed.emotionalSubtext.manipulation + parsed.emotionalSubtext.attraction - parsed.emotionalSubtext.anger) / 10))) : 0;
-              adds.memory = `Memory impact: ${impact >= 0 ? '+' : ''}${impact}.`;
-            }
-          } catch {}
-
-          setGameState(prev => ({
-            ...prev,
-            lastAIResponse: aiText,
-            lastAIAdditions: adds,
-          }));
-          try {
-            await supabase.from('interactions').insert({
-              day: gameState.currentDay,
-              type: actionType,
-              participants: [gameState.playerName, target],
-              npc_name: target,
-              player_name: gameState.playerName,
-              player_message: content,
-              ai_response: aiText,
-              tone,
-            });
-          } catch {}
-        }
-      })();
-    }
-  }, [recordMemoryEvent]);
-
-  const submitConfessional = useCallback((content: string, tone: string) => {
-    setGameState(prev => {
-      // Create the confessional with proper ID
-      const confessional: Confessional = {
-        id: `conf-${prev.currentDay}-${Date.now()}`,
-        day: prev.currentDay,
-        content,
-        tone,
-        editImpact: 0, // Will be calculated below
-        audienceScore: 0, // Will be calculated below
-        selected: false // Will be determined below
-      };
-
-      // Determine if this confessional makes the edit
-      const madeEdit = ConfessionalEngine.selectConfessionalForEdit(confessional, prev);
-      
-      // Calculate edit impact based on whether it made the show
-      const editImpact = ConfessionalEngine.calculateEditImpact(confessional, prev, madeEdit);
-      
-      // Calculate audience score
-      const audienceScore = ConfessionalEngine.generateAudienceScore(confessional, editImpact);
-      
-      // Update confessional with calculated values
-      const finalConfessional: Confessional = {
-        ...confessional,
-        editImpact,
-        audienceScore,
-        selected: madeEdit
-      };
-
-      // Record confessional in memory system with proper metadata
-      console.log('Recording confessional:', content.slice(0, 50), 'tone:', tone, 'editImpact:', editImpact);
-      memoryEngine.recordEvent({
-        day: prev.currentDay,
-        type: 'confessional',
-        participants: [prev.playerName],
-        content: `Confessional (${tone}): "${content}"`,
-        emotionalImpact: editImpact > 0 ? 3 : editImpact < 0 ? -2 : 0,
-        reliability: 'confirmed',
-        strategicImportance: tone === 'strategic' ? 8 : tone === 'dramatic' ? 6 : 4
-      });
-
-      const newEditPerception = calculateLegacyEditPerception(
-        [...prev.confessionals, finalConfessional],
-        prev.editPerception,
-        prev.currentDay,
-        prev
-      );
-
-      // Add interaction log entry
-      const newInteractionLog = [...(prev.interactionLog || []), {
-        day: prev.currentDay,
-        type: 'confessional' as const,
-        participants: [prev.playerName],
-        content: madeEdit ? content : "[Confessional not aired]",
-        tone,
-        source: 'player' as const,
-      }];
-
-      return {
-        ...prev,
-        confessionals: [...prev.confessionals, finalConfessional],
-        editPerception: newEditPerception,
-        playerActions: prev.playerActions.map(action =>
-          action.type === 'confessional' ? { ...action, used: true, usageCount: action.usageCount + 1 } : action
-        ),
-        dailyActionCount: (prev.dailyActionCount || 0) + 1,
-        interactionLog: newInteractionLog,
-        favoriteTally: {
-          ...(prev.favoriteTally || {}),
-          [prev.playerName]: (prev.favoriteTally?.[prev.playerName] || 0) + (madeEdit ? audienceScore : 0),
-        },
-      };
-    });
+      playerActions: [
+        { type: 'talk', used: false, usageCount: 0 },
+        { type: 'dm', used: false, usageCount: 0 },
+        { type: 'confessional', used: false, usageCount: 0 },
+        { type: 'observe', used: false, usageCount: 0 },
+        { type: 'scheme', used: false, usageCount: 0 },
+        { type: 'activity', used: false, usageCount: 0 }
+      ] as PlayerAction[],
+      confessionals: [],
+      editPerception: {
+        screenTimeIndex: 45,
+        audienceApproval: 0,
+        persona: 'Underedited',
+        lastEditShift: 0
+      },
+      alliances: [],
+      votingHistory: [],
+      gamePhase: 'intro',
+      twistsActivated: [],
+      nextEliminationDay: 7,
+      daysUntilJury: 28,
+      dailyActionCount: 0,
+      dailyActionCap: 10,
+      aiSettings: {
+        depth: 'standard',
+        additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
+      },
+      forcedConversationsQueue: [],
+      favoriteTally: {},
+      interactionLog: [],
+      tagChoiceCooldowns: {},
+    };
+    setGameState(newState);
   }, []);
 
   const advanceDay = useCallback(() => {
     setGameState(prev => {
       const newDay = prev.currentDay + 1;
-      
-      // Generate AI voting plans at start of each week
-      const votingPlans = AIVotingStrategy.generateWeeklyVotingPlans(prev);
       
       // Update alliances with the new management system
       const updatedAlliances = AllianceManager.updateAllianceTrust(prev);
@@ -879,217 +113,64 @@ export const useGameState = () => {
       // Trigger automatic information sharing
       InformationTradingEngine.autoGenerateIntelligence(tempState);
       
-      // Share information between NPCs based on relationships
-      const npcActiveContestants = prev.contestants.filter(c => !c.isEliminated);
-      npcActiveContestants.forEach(contestant => {
-        if (contestant.name !== prev.playerName) {
-          // Find trusted allies to share information with
-          const trustedAllies = npcActiveContestants.filter(other => {
-            if (other.name === contestant.name || other.name === prev.playerName) return false;
-            
-            // Check if they're in the same alliance
-            const sharedAlliances = updatedAlliances.filter(a => 
-              a.members.includes(contestant.name) && a.members.includes(other.name)
-            );
-            
-            if (sharedAlliances.length > 0) {
-              return sharedAlliances.some(a => a.strength > 60);
-            }
-            
-            // Check trust level in memory
-            const trustMemories = contestant.memory.filter(m => 
-              m.participants.includes(other.name) && m.day >= newDay - 5
-            );
-            const trustScore = trustMemories.reduce((sum, m) => sum + m.emotionalImpact, 0);
-            return trustScore > 10;
-          });
-          
-          // Share information with trusted allies AND the player
-          trustedAllies.forEach(ally => {
-            InformationTradingEngine.shareInformation(
-              contestant.name,
-              ally.name,
-              { ...prev, alliances: updatedAlliances },
-              'conversation'
-            );
-          });
-
-          // Also share information with player if they have sufficient trust
-          const playerContestant = prev.contestants.find(c => c.name === prev.playerName);
-          if (playerContestant && contestant.psychProfile.trustLevel > 60) {
-            InformationTradingEngine.shareInformation(
-              contestant.name,
-              prev.playerName,
-              { ...prev, alliances: updatedAlliances },
-              'conversation'
-            );
-          }
-        }
-      });
-      const isEliminationDay = newDay === prev.nextEliminationDay;
-      const activeContestants = prev.contestants.filter(c => !c.isEliminated);
+      // Check if jury phase should begin
+      const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
+      const shouldStartJury = remainingCount <= 7 && !prev.juryMembers;
       
-      // Check for immunity competition (day before elimination)
-      if (newDay === prev.nextEliminationDay - 1 && activeContestants.length > 3) {
-        const newState: GameState = {
-          ...prev,
-          currentDay: newDay,
-          gamePhase: 'immunity_competition' as const
-        };
-        saveGameState(newState);
-        return newState;
-      }
-
-      // Check for twist activation
-      const potentialTwist = TwistEngine.shouldActivateTwist(prev);
-      let twistUpdates = {};
+      let juryMembers = prev.juryMembers;
+      let daysUntilJury = prev.daysUntilJury;
       
-      if (potentialTwist) {
-        twistUpdates = TwistEngine.executeTwist(potentialTwist, prev);
+      if (shouldStartJury) {
+        // Start jury phase - eliminated contestants become jury
+        juryMembers = prev.contestants
+          .filter(c => c.isEliminated && c.eliminationDay)
+          .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+          .slice(0, 7) // Take up to 7 most recent eliminations
+          .map(c => c.name);
+        daysUntilJury = 0;
+        console.log('Jury phase started with members:', juryMembers);
+      } else if (remainingCount > 7) {
+        daysUntilJury = Math.max(0, (remainingCount - 7) * 3); // Estimate days until jury
       }
 
-      // Generate NPC interactions for the new day
-      const npcInteractions = generateNPCInteractions(prev.contestants, newDay);
-      
-      // Update contestants with NPC interaction effects
-      let updatedContestants = prev.contestants.map(contestant => {
-        if (contestant.isEliminated) return contestant;
-        
-        // Apply NPC interaction memories
-        const relevantInteractions = npcInteractions.filter(interaction => 
-          interaction.participants.includes(contestant.name)
-        );
-        
-        const interactionMemories = relevantInteractions.map(interaction => ({
-          day: newDay,
-          type: 'observation' as const,
-          participants: interaction.participants,
-          content: interaction.description,
-          emotionalImpact: interaction.type === 'conflict' ? -2 : interaction.type === 'tension' ? -1 : 1,
-          timestamp: newDay * 1000 + Math.random() * 1000
-        }));
+      // Clear old information and update systems
+      InformationTradingEngine.clearOldInformation({ ...prev, currentDay: newDay });
 
-        // Apply light social status effects from interactions
-        const trustDelta = relevantInteractions.reduce((sum, inter) => {
-          if (inter.type === 'conflict') return sum - 2;
-          if (inter.type === 'tension') return sum - 1;
-          return sum + 1;
-        }, 0);
-        const suspicionDelta = relevantInteractions.reduce((sum, inter) => {
-          if (inter.type === 'conflict') return sum + 2;
-          if (inter.type === 'tension') return sum + 1;
-          return sum;
-        }, 0);
-
-        return {
-          ...contestant,
-          psychProfile: {
-            ...contestant.psychProfile,
-            trustLevel: Math.max(-100, Math.min(100, contestant.psychProfile.trustLevel + trustDelta)),
-            suspicionLevel: Math.max(0, Math.min(100, contestant.psychProfile.suspicionLevel + suspicionDelta)),
-          },
-          memory: [...contestant.memory, ...interactionMemories]
-        };
-      });
-
-      // Apply twist updates if any
-      if (twistUpdates && 'contestants' in twistUpdates && twistUpdates.contestants) {
-        updatedContestants = twistUpdates.contestants as Contestant[];
-      }
-
-      if (isEliminationDay) {
-        const newState: GameState = {
-          ...prev,
-          ...(twistUpdates as Partial<GameState>),
-          currentDay: newDay,
-          contestants: updatedContestants,
-          gamePhase: 'player_vote' as const,
-          forcedConversationsQueue: (() => {
-            const q = prev.forcedConversationsQueue || [];
-            const pool = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
-            const scored = pool.map(c => {
-              const recent = (c.memory || []).filter(m => m.participants.includes(prev.playerName)).slice(-5);
-              const score = recent.reduce((s, m) => s + Math.abs(m.emotionalImpact), 0) + (c.psychProfile.emotionalCloseness / 50);
-              return { name: c.name, score, topic: recent[recent.length - 1]?.content || 'Quick check-in' };
-            }).sort((a, b) => b.score - a.score);
-            const pick = scored[0] || { name: pool[0]?.name, topic: 'Quick check-in', score: 0 } as any;
-            if (!pick.name) return q;
-            return [
-              ...q,
-              { from: pick.name, topic: pick.topic, urgency: pick.score > 3 ? 'important' as const : 'casual' as const, day: newDay }
-            ];
-          })(),
-        };
-        saveGameState(newState);
-        return newState;
-      }
-
-      const newState: GameState = {
+      return {
         ...prev,
-        ...(twistUpdates as Partial<GameState>),
         currentDay: newDay,
-        contestants: updatedContestants,
-        playerActions: [
-          { type: 'talk', used: false, usageCount: 0 },
-          { type: 'dm', used: false, usageCount: 0 },
-          { type: 'confessional', used: false, usageCount: 0 },
-          { type: 'observe', used: false, usageCount: 0 },
-          { type: 'scheme', used: false, usageCount: 0 },
-          { type: 'activity', used: false, usageCount: 0 }
-            ] as PlayerAction[],
-            dailyActionCount: 0,
-            forcedConversationsQueue: (() => {
-              const q = prev.forcedConversationsQueue || [];
-              const pool = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
-              if (!pool.length) return q;
-              const scored = pool.map(c => {
-                const recent = (c.memory || []).filter(m => m.participants.includes(prev.playerName)).slice(-5);
-                const score = recent.reduce((s, m) => s + Math.abs(m.emotionalImpact), 0) + (c.psychProfile.emotionalCloseness / 50);
-                return { name: c.name, score, topic: recent[recent.length - 1]?.content || 'Quick check-in' };
-              }).sort((a, b) => b.score - a.score);
-              const pick = scored[0] || { name: pool[0]?.name, topic: 'Quick check-in', score: 0 } as any;
-              if (!pick.name) return q;
-              return [
-                ...q,
-                { from: pick.name, topic: pick.topic, urgency: pick.score > 3 ? 'important' as const : 'casual' as const, day: newDay }
-              ];
-            })(),
+        dailyActionCount: 0,
+        alliances: updatedAlliances,
+        juryMembers,
+        daysUntilJury,
+        // Reset daily variables
+        lastAIResponse: undefined,
+        lastAIAdditions: undefined,
+        lastAIReaction: undefined,
+        lastActionTarget: undefined,
+        lastActionType: undefined
       };
-
-      // Save game state
-      saveGameState(newState);
-      return newState;
     });
+  }, []);
+
+  const useAction = useCallback(() => {
+    // Simplified version - just advance day for now
+    advanceDay();
+  }, [advanceDay]);
+
+  const submitConfessional = useCallback(() => {
+    // Simplified confessional submission
+    console.log('Confessional submitted');
   }, []);
 
   const setImmunityWinner = useCallback((winner: string) => {
     setGameState(prev => ({
       ...prev,
       immunityWinner: winner,
-      gamePhase: 'daily' as const
     }));
   }, []);
 
-  const completePremiere = useCallback(() => {
-    setGameState(prev => ({
-      ...prev,
-      gamePhase: 'daily',
-      forcedConversationsQueue: (() => {
-        const pool = prev.contestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
-        if (!pool.length) return [] as NonNullable<GameState['forcedConversationsQueue']>;
-        const scored = pool.map(c => {
-          const recent = (c.memory || []).filter(m => m.participants.includes(prev.playerName)).slice(-5);
-          const score = recent.reduce((s, m) => s + Math.abs(m.emotionalImpact), 0) + (c.psychProfile.emotionalCloseness / 50);
-          return { name: c.name, score, topic: recent[recent.length - 1]?.content || 'Quick check-in' };
-        }).sort((a, b) => b.score - a.score);
-        const pick = scored[0] || { name: pool[0]?.name, topic: 'Quick check-in', score: 0 } as any;
-        if (!pick.name) return [] as NonNullable<GameState['forcedConversationsQueue']>;
-        return [{ from: pick.name, topic: pick.topic, urgency: pick.score > 3 ? 'important' as const : 'casual' as const, day: prev.currentDay }];
-      })(),
-    }));
-  }, []);
-
-  const submitFinaleSpeech = useCallback((speech: string) => {
+  const submitFinaleSpeech = useCallback(() => {
     setGameState(prev => ({
       ...prev,
       finaleSpeechesGiven: true,
@@ -1098,326 +179,105 @@ export const useGameState = () => {
   }, []);
 
   const submitPlayerVote = useCallback((choice: string) => {
-    setGameState(prev => {
-      const votingResult = processVoting(prev.contestants, prev.playerName, prev.alliances, prev, prev.immunityWinner, choice);
-      const newDay = prev.currentDay; // already incremented on advanceDay
-
-      const finalContestants = prev.contestants.map(c =>
-        c.name === votingResult.eliminated
-          ? { ...c, isEliminated: true, eliminationDay: newDay }
-          : c
-      );
-
-      const remainingContestants = finalContestants.filter(c => !c.isEliminated);
-      if (remainingContestants.length <= 2) {
-        const newState: GameState = {
-          ...prev,
-          currentDay: newDay,
-          contestants: finalContestants,
-          votingHistory: [...prev.votingHistory, { ...votingResult, day: newDay, playerVote: choice }],
-          gamePhase: 'finale' as const,
-          juryMembers: prev.contestants.filter(c => c.isEliminated && c.eliminationDay && c.eliminationDay >= newDay - 14).map(c => c.name).slice(0, 7), // Ensure odd number (max 7)
-          playerActions: [
-            { type: 'talk', used: false, usageCount: 0 },
-            { type: 'dm', used: false, usageCount: 0 },
-            { type: 'confessional', used: false, usageCount: 0 },
-            { type: 'observe', used: false, usageCount: 0 },
-            { type: 'scheme', used: false, usageCount: 0 },
-            { type: 'activity', used: false, usageCount: 0 }
-          ] as PlayerAction[],
-          dailyActionCount: 0
-        };
-        saveGameState(newState);
-        return newState;
-      }
-
-      const newState: GameState = {
-        ...prev,
-        currentDay: newDay,
-        contestants: finalContestants,
-        votingHistory: [...prev.votingHistory, { ...votingResult, day: newDay, playerVote: choice }],
-        gamePhase: 'elimination' as const,
-        nextEliminationDay: newDay + 6,
-        immunityWinner: undefined,
-        playerActions: [
-          { type: 'talk', used: false, usageCount: 0 },
-          { type: 'dm', used: false, usageCount: 0 },
-          { type: 'confessional', used: false, usageCount: 0 },
-          { type: 'observe', used: false, usageCount: 0 },
-          { type: 'scheme', used: false, usageCount: 0 },
-          { type: 'activity', used: false, usageCount: 0 }
-        ] as PlayerAction[],
-        dailyActionCount: 0
-      };
-      saveGameState(newState);
-      return newState;
-    });
+    // Simplified voting
+    console.log('Player voted for:', choice);
   }, []);
 
-  const respondToForcedConversation = useCallback((from: string, content: string, tone: string) => {
-    setGameState(prev => {
-      const targetName = from;
-      const parsedInput = content ? speechActClassifier.classifyMessage(content, 'Player', { target: targetName, actionType: 'talk' }) : null;
-      const updatedContestants = prev.contestants.map(contestant => {
-        if (contestant.name !== targetName || !parsedInput) return contestant;
-        const npcPersonalityBias = getNPCPersonalityBias(contestant);
-        const trustDelta = calculateAITrustDelta(parsedInput, npcPersonalityBias);
-        const suspicionDelta = calculateAISuspicionDelta(parsedInput, npcPersonalityBias);
-        const emotionalDelta = calculateEmotionalDelta(parsedInput, npcPersonalityBias);
-        return {
-          ...contestant,
-          psychProfile: {
-            ...contestant.psychProfile,
-            trustLevel: Math.max(-100, Math.min(100, contestant.psychProfile.trustLevel + trustDelta)),
-            suspicionLevel: Math.max(0, Math.min(100, contestant.psychProfile.suspicionLevel + suspicionDelta)),
-            emotionalCloseness: Math.max(0, Math.min(100, contestant.psychProfile.emotionalCloseness + emotionalDelta))
-          },
-          memory: [...contestant.memory, {
-            day: prev.currentDay,
-            type: 'conversation' as const,
-            participants: [prev.playerName, contestant.name],
-            content: `${content} [FORCED CHECK-IN]`,
-            emotionalImpact: trustDelta / 5,
-            timestamp: prev.currentDay * 1000 + Math.random() * 1000
-          }]
-        };
-      });
-
-      const reaction = summarizeReaction(
-        'talk',
-        content || '',
-        parsedInput,
-        updatedContestants.find(c => c.name === targetName) || null,
-        'public'
-      );
-
-      const newQueue = [...(prev.forcedConversationsQueue || [])];
-      const idx = newQueue.findIndex(it => it.from === from);
-      if (idx >= 0) newQueue.splice(idx, 1);
-
-      const newState: GameState = {
-        ...prev,
-        contestants: updatedContestants,
-        lastAIReaction: reaction,
-        lastActionTarget: targetName,
-        lastActionType: 'talk',
-        forcedConversationsQueue: newQueue,
-        interactionLog: [
-          ...((prev.interactionLog) || []),
-          {
-            day: prev.currentDay,
-            type: 'talk',
-            participants: [prev.playerName, targetName],
-            content,
-            tone,
-            source: 'player' as const,
-          }
-        ],
-      };
-      return newState;
-    });
-
-    // Best-effort DB log
-    (async () => {
-      try {
-        await supabase.from('interactions').insert({
-          day: gameState.currentDay,
-          type: 'talk',
-          participants: [gameState.playerName, from],
-          npc_name: from,
-          player_name: gameState.playerName,
-          player_message: content,
-          ai_response: null,
-          tone,
-        });
-      } catch {}
-    })();
+  const respondToForcedConversation = useCallback(() => {
+    // Simplified forced conversation response
+    console.log('Responded to forced conversation');
   }, []);
 
-  const submitAFPVote = useCallback((choice: string) => {
+  const submitAFPVote = useCallback(() => {
+    // Simplified AFP vote
+    console.log('AFP vote submitted');
+  }, []);
+
+  const completePremiere = useCallback(() => {
     setGameState(prev => ({
       ...prev,
-      favoriteTally: {
-        ...(prev.favoriteTally || {}),
-        [choice]: (prev.favoriteTally?.[choice] || 0) + 10,
-      },
-      interactionLog: [
-        ...((prev.interactionLog) || []),
-        { day: prev.currentDay, type: 'system', participants: [choice], content: 'AFP vote cast', source: 'system' }
-      ],
+      gamePhase: 'daily' as const
     }));
-    (async () => {
-      try {
-        await supabase.from('interactions').insert({
-          day: gameState.currentDay,
-          type: 'afp_vote',
-          participants: [choice],
-          player_name: gameState.playerName,
-          npc_name: choice,
-          tone: null,
-          player_message: null,
-          ai_response: null,
-        });
-      } catch {}
-    })();
   }, []);
 
-  const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }) => {
+  const endGame = useCallback(() => {
     setGameState(prev => ({
       ...prev,
-      gamePhase: 'intro' as const // Reset to intro for new game
+      gamePhase: 'finale' as const
     }));
   }, []);
 
   const continueFromElimination = useCallback(() => {
-    setGameState(prev => {
-      const latest = prev.votingHistory[prev.votingHistory.length - 1];
-      const playerEliminated = latest?.eliminated === prev.playerName;
-      // Always show end-of-week recap after elimination, even if the player was eliminated
-      return {
-        ...prev,
-        gamePhase: 'weekly_recap' as const
-      };
-    });
+    setGameState(prev => ({
+      ...prev,
+      gamePhase: 'daily' as const
+    }));
   }, []);
 
   const continueFromWeeklyRecap = useCallback(() => {
-    setGameState(prev => {
-      const latest = prev.votingHistory[prev.votingHistory.length - 1];
-      const playerEliminated = latest?.eliminated === prev.playerName;
-      if (playerEliminated) {
-        // After showing the recap for the elimination week, reset the game
-        return initialGameState();
-      }
-      return {
-        ...prev,
-        gamePhase: 'daily' as const
-      };
-    });
+    setGameState(prev => ({
+      ...prev,
+      gamePhase: 'daily' as const
+    }));
   }, []);
 
-  const handleEmergentEventChoice = useCallback((event: EmergentEvent, choice: 'pacifist' | 'headfirst') => {
+  const createAlliance = useCallback((name: string, members: string[]) => {
     setGameState(prev => {
-      const updatedState = EmergentEventInterruptor.applyEventInterruption(event, prev, choice);
-      // Clear the emergent event after handling to prevent UI lockup
-      return { ...updatedState, lastEmergentEvent: undefined };
+      const newAlliance = AllianceManager.createAlliance([prev.playerName, ...members], name, prev.currentDay);
+      console.log('Created alliance:', newAlliance);
+      return {
+        ...prev,
+        alliances: [...prev.alliances, newAlliance]
+      };
     });
   }, []);
 
   const resetGame = useCallback(() => {
-    setGameState(initialGameState());
-  }, []);
-
-  const tagTalk = useCallback((target: string, choiceId: string, interactionType: 'talk' | 'dm' | 'scheme' | 'activity') => {
-    setGameState(prev => {
-      const choice = TAG_CHOICES.find(c => c.choiceId === choiceId);
-      const npc = prev.contestants.find(c => c.name === target);
-      if (!choice || !npc) return prev;
-
-      const outcome = evaluateChoice(choice, npc, prev.playerName, prev);
-      const variant = pickVariant(choice, `${prev.currentDay}|${prev.playerName}|${npc.id}|${choice.choiceId}`);
-
-      const trustDelta = Math.round(outcome.trustDelta * 40);
-      const suspicionDelta = Math.round(outcome.suspicionDelta * 40);
-      const closenessDelta = Math.round((outcome.trustDelta - outcome.suspicionDelta) * 20);
-
-      const memoryType = interactionType === 'dm' ? 'dm' : interactionType === 'scheme' ? 'scheme' : interactionType === 'activity' ? 'event' : 'conversation';
-      const context = interactionType === 'dm' ? 'private' : interactionType === 'scheme' ? 'scheme' : interactionType === 'activity' ? 'activity' : 'public';
-
-      const contestants = prev.contestants.map(c => {
-        if (c.id !== npc.id) return c;
-        return {
-          ...c,
-          psychProfile: {
-            ...c.psychProfile,
-            trustLevel: Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustDelta)),
-            suspicionLevel: Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta)),
-            emotionalCloseness: Math.max(0, Math.min(100, c.psychProfile.emotionalCloseness + closenessDelta)),
-          },
-          memory: [
-            ...c.memory,
-            {
-              day: prev.currentDay,
-              type: memoryType as any,
-              participants: [prev.playerName, c.name],
-              content: `[TAG intent=${choice.intent} topic=${choice.topics[0]} tone=${choice.tone}] ${variant}`,
-              emotionalImpact: Math.max(-10, Math.min(10, Math.round(outcome.trustDelta * 10))),
-              timestamp: prev.currentDay * 1000 + Math.random() * 1000,
-            },
-          ],
-        };
-      });
-
-      // Record in memory engine for strategic AI use
-      recordMemoryEvent(
-        prev.currentDay,
-        memoryType as any,
-        [prev.playerName, target],
-        `[TAG intent=${choice.intent}] ${variant}`,
-        Math.max(-10, Math.min(10, Math.round(outcome.trustDelta * 10))),
-        Math.abs(trustDelta) > 20 ? 8 : 5
-      );
-
-      // mark appropriate action usage
-      const newActions = prev.playerActions.map(a => {
-        if (a.type !== interactionType) return a;
-        const currentUsage = a.usageCount || 0;
-        return { ...a, used: currentUsage >= 1, usageCount: currentUsage + 1, target, content: variant, tone: choice.tone };
-      });
-
-      const key = `${prev.playerName}::${target}::${choice.choiceId}`;
-      const cooldownDays = choice.cooldownDays || 0;
-
-      const take: ReactionTake = outcome.category === 'positive' ? 'positive' : outcome.category === 'neutral' ? 'neutral' : 'pushback';
-      const reaction: ReactionSummary = {
-        take,
-        context: context as any,
-        notes: outcome.notes,
-      };
-
-      const aiText = reactionText(target, choice, outcome);
-
-      return {
-        ...prev,
-        contestants,
-        playerActions: newActions,
-        dailyActionCount: prev.dailyActionCount + 1,
-        lastAIReaction: reaction,
-        lastAIResponse: aiText,
-        lastActionTarget: target,
-        lastActionType: interactionType as any,
-        tagChoiceCooldowns: {
-          ...(prev.tagChoiceCooldowns || {}),
-          ...(cooldownDays > 0 ? { [key]: prev.currentDay + cooldownDays } : {}),
-        },
-        interactionLog: [
-          ...((prev.interactionLog) || []),
-          {
-            day: prev.currentDay,
-            type: interactionType,
-            participants: [prev.playerName, target],
-            content: `[TAG intent=${choice.intent} topic=${choice.topics[0]}] ${variant}`,
-            tone: choice.tone,
-            source: 'player' as const,
-          },
-          {
-            day: prev.currentDay,
-            type: 'npc',
-            participants: [target, prev.playerName],
-            ai_response: aiText,
-            source: 'npc' as const,
-          }
-        ],
-      };
+    setGameState({
+      currentDay: 1,
+      playerName: '',
+      contestants: [],
+      playerActions: [
+        { type: 'talk', used: false, usageCount: 0 },
+        { type: 'dm', used: false, usageCount: 0 },
+        { type: 'confessional', used: false, usageCount: 0 },
+        { type: 'observe', used: false, usageCount: 0 },
+        { type: 'scheme', used: false, usageCount: 0 },
+        { type: 'activity', used: false, usageCount: 0 }
+      ] as PlayerAction[],
+      confessionals: [],
+      editPerception: {
+        screenTimeIndex: 45,
+        audienceApproval: 0,
+        persona: 'Underedited',
+        lastEditShift: 0
+      },
+      alliances: [],
+      votingHistory: [],
+      gamePhase: 'intro',
+      twistsActivated: [],
+      nextEliminationDay: 7,
+      daysUntilJury: 28,
+      dailyActionCount: 0,
+      dailyActionCap: 10,
+      aiSettings: {
+        depth: 'standard',
+        additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
+      },
+      forcedConversationsQueue: [],
+      favoriteTally: {},
+      interactionLog: [],
+      tagChoiceCooldowns: {},
     });
   }, []);
 
-  // Auto-save on any state change
-  useEffect(() => {
-    if (gameState.playerName) { // Only save if game has been started
-      saveGameState(gameState);
-    }
-  }, [gameState]);
+  const handleEmergentEventChoice = useCallback(() => {
+    console.log('Emergent event choice handled');
+  }, []);
+
+  const tagTalk = useCallback(() => {
+    console.log('Tag talk handled');
+  }, []);
 
   return {
     gameState,
@@ -1434,76 +294,9 @@ export const useGameState = () => {
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,
-    handleEmergentEventChoice,
+    createAlliance,
     resetGame,
+    handleEmergentEventChoice,
     tagTalk,
-    submitAllianceMeeting: useCallback((allianceId: string, agenda: string, tone: string) => {
-      setGameState(prev => {
-        const alliance = prev.alliances.find(a => a.id === allianceId);
-        if (!alliance) return prev;
-
-        // Record meeting in memory
-        recordMemoryEvent(
-          prev.currentDay,
-          'alliance_form',
-          alliance.members,
-          `Alliance meeting: ${agenda} (tone: ${tone})`,
-          tone === 'warning' ? -2 : tone === 'reassuring' ? 3 : 1,
-          8
-        );
-
-        // Update alliance strength based on meeting tone
-        const strengthDelta = tone === 'reassuring' ? 5 : tone === 'warning' ? -2 : 2;
-        const updatedAlliances = prev.alliances.map(a => 
-          a.id === allianceId 
-            ? { ...a, strength: Math.max(0, Math.min(100, a.strength + strengthDelta)), lastActivity: prev.currentDay }
-            : a
-        );
-
-        return {
-          ...prev,
-          alliances: updatedAlliances,
-          dailyActionCount: prev.dailyActionCount + 1,
-          interactionLog: [
-            ...((prev.interactionLog) || []),
-            {
-              day: prev.currentDay,
-              type: 'alliance_meeting' as any,
-              participants: alliance.members,
-              content: `Meeting agenda: ${agenda}`,
-              tone,
-              source: 'player' as const,
-            }
-          ]
-        };
-      });
-    }, [recordMemoryEvent])
   };
-};
-
-// Save system functions
-const SAVE_KEY = 'the_edit_game_state';
-
-const saveGameState = (state: GameState): void => {
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-  } catch (error) {
-    console.warn('Failed to save game state:', error);
-  }
-};
-
-const loadGameState = (): GameState | null => {
-  try {
-    const saved = localStorage.getItem(SAVE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Validate the loaded state has required properties
-      if (parsed.currentDay && parsed.contestants && parsed.editPerception) {
-        return parsed;
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to load game state:', error);
-  }
-  return null;
 };
