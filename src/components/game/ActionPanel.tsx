@@ -38,6 +38,10 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
   const hasCompletedConfessional = gameState.playerActions.find(a => a.type === 'confessional')?.used;
   const allActionsUsed = (gameState.dailyActionCount ?? 0) >= (gameState.dailyActionCap ?? 10);
+  
+  console.log('ActionPanel render - dailyActionCount:', gameState.dailyActionCount);
+  console.log('ActionPanel render - remainingActions:', remainingActions);
+  console.log('ActionPanel render - allActionsUsed:', allActionsUsed);
 
   const getActionDescription = (type: string) => {
     switch (type) {

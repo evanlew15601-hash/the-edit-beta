@@ -376,9 +376,13 @@ export const useGameState = () => {
     console.log('Emergent event choice handled');
   }, []);
 
-  const tagTalk = useCallback(() => {
-    console.log('Tag talk handled');
-  }, []);
+  const tagTalk = useCallback((target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => {
+    console.log('=== TAG TALK TRIGGERED ===');
+    console.log('Target:', target, 'Choice:', choiceId, 'Interaction:', interaction);
+    
+    // Use the existing useAction function to process the tag talk
+    useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
+  }, [useAction]);
 
   return {
     gameState,
