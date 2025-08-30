@@ -156,24 +156,106 @@ export const useGameState = () => {
   }, []);
 
   const useAction = useCallback((actionType: string, target?: string, content?: string, tone?: string) => {
-    console.log('Using action:', actionType, 'on target:', target);
+    console.log('=== ACTION TRIGGERED ===');
+    console.log('Action Type:', actionType);
+    console.log('Target:', target);
+    console.log('Content:', content);
+    console.log('Tone:', tone);
+    
     setGameState(prev => {
+      console.log('Previous action count:', prev.dailyActionCount);
+      console.log('Previous actions:', prev.playerActions);
+      
       // Generate information based on the action
       InformationTradingEngine.generateTradableInformation(prev);
       InformationTradingEngine.autoGenerateIntelligence(prev);
       
       // Update action usage
       const updatedActions = prev.playerActions.map(action => 
-        action.type === actionType ? { ...action, used: true, usageCount: (action.usageCount || 0) + 1 } : action
+        action.type === actionType ? { 
+          ...action, 
+          used: true, 
+          usageCount: (action.usageCount || 0) + 1,
+          target,
+          content,
+          tone
+        } : action
       );
 
-      return {
+      // Update contestant relationships based on action
+      const updatedContestants = prev.contestants.map(contestant => {
+        if (contestant.name === target) {
+          console.log(`Updating relationship with ${target}`);
+          const trustDelta = getTrustDelta(tone || 'neutral', contestant.psychProfile.disposition);
+          const suspicionDelta = getSuspicionDelta(tone || 'neutral', content || '');
+          
+          const newTrustLevel = Math.max(-100, Math.min(100, 
+            contestant.psychProfile.trustLevel + trustDelta
+          ));
+          const newSuspicionLevel = Math.max(0, Math.min(100, 
+            contestant.psychProfile.suspicionLevel + suspicionDelta
+          ));
+          
+          console.log(`Trust: ${contestant.psychProfile.trustLevel} -> ${newTrustLevel}`);
+          console.log(`Suspicion: ${contestant.psychProfile.suspicionLevel} -> ${newSuspicionLevel}`);
+          
+          // Add memory of the interaction
+          const memoryType = actionType === 'dm' ? 'dm' : 
+                           actionType === 'scheme' ? 'scheme' :
+                           actionType === 'observe' ? 'observation' : 'conversation';
+          
+          const newMemory = {
+            day: prev.currentDay,
+            type: memoryType as 'conversation' | 'scheme' | 'observation' | 'dm' | 'confessional_leak' | 'elimination' | 'event',
+            participants: [prev.playerName, target || ''],
+            content: content || `${actionType} interaction with ${prev.playerName}`,
+            emotionalImpact: Math.floor(trustDelta / 10),
+            timestamp: Date.now()
+          };
+
+          return {
+            ...contestant,
+            psychProfile: {
+              ...contestant.psychProfile,
+              trustLevel: newTrustLevel,
+              suspicionLevel: newSuspicionLevel
+            },
+            memory: [...contestant.memory, newMemory]
+          };
+        }
+        return contestant;
+      });
+
+      const newActionCount = prev.dailyActionCount + 1;
+      console.log('New action count will be:', newActionCount);
+      console.log('Updated actions:', updatedActions);
+
+      const newState = {
         ...prev,
+        contestants: updatedContestants,
         playerActions: updatedActions,
-        dailyActionCount: prev.dailyActionCount + 1,
+        dailyActionCount: newActionCount,
         lastActionType: actionType as PlayerAction['type'],
-        lastActionTarget: target
+        lastActionTarget: target,
+        // Add to interaction log
+        interactionLog: [
+          ...(prev.interactionLog || []),
+          {
+            day: prev.currentDay,
+            type: actionType as PlayerAction['type'],
+            participants: target ? [prev.playerName, target] : [prev.playerName],
+            content,
+            tone,
+            source: 'player' as const
+          }
+        ]
       };
+      
+      console.log('=== NEW STATE CREATED ===');
+      console.log('New dailyActionCount:', newState.dailyActionCount);
+      console.log('Updated contestants:', updatedContestants.filter(c => c.name === target));
+      
+      return newState;
     });
   }, []);
 
