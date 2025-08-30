@@ -56,6 +56,7 @@ export const useGameState = () => {
   });
 
   const startGame = useCallback((playerName: string) => {
+    console.log('Starting game with player:', playerName);
     const contestants = generateContestants(16).map(c => c.name === playerName ? { ...c, name: playerName } : c);
     const newState: GameState = {
       currentDay: 1,
@@ -78,7 +79,7 @@ export const useGameState = () => {
       },
       alliances: [],
       votingHistory: [],
-      gamePhase: 'intro',
+      gamePhase: 'premiere',
       twistsActivated: [],
       nextEliminationDay: 7,
       daysUntilJury: 28,
@@ -93,6 +94,7 @@ export const useGameState = () => {
       interactionLog: [],
       tagChoiceCooldowns: {},
     };
+    console.log('Game started, transitioning to premiere');
     setGameState(newState);
   }, []);
 
@@ -153,10 +155,27 @@ export const useGameState = () => {
     });
   }, []);
 
-  const useAction = useCallback(() => {
-    // Simplified version - just advance day for now
-    advanceDay();
-  }, [advanceDay]);
+  const useAction = useCallback((actionType: string, target?: string, content?: string, tone?: string) => {
+    console.log('Using action:', actionType, 'on target:', target);
+    setGameState(prev => {
+      // Generate information based on the action
+      InformationTradingEngine.generateTradableInformation(prev);
+      InformationTradingEngine.autoGenerateIntelligence(prev);
+      
+      // Update action usage
+      const updatedActions = prev.playerActions.map(action => 
+        action.type === actionType ? { ...action, used: true, usageCount: (action.usageCount || 0) + 1 } : action
+      );
+
+      return {
+        ...prev,
+        playerActions: updatedActions,
+        dailyActionCount: prev.dailyActionCount + 1,
+        lastActionType: actionType as PlayerAction['type'],
+        lastActionTarget: target
+      };
+    });
+  }, []);
 
   const submitConfessional = useCallback(() => {
     // Simplified confessional submission

@@ -6,7 +6,7 @@ import { TwistNotification } from './TwistNotification';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { MemoryPanel } from './MemoryPanel';
 import { AmbientNPCActivity } from './AmbientNPCActivity';
-import { InformationSharingPanel } from './InformationSharingPanel';
+import { EnhancedInformationPanel } from './EnhancedInformationPanel';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -51,7 +51,7 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           
           <div className="lg:col-span-1 space-y-6">
             <MemoryPanel gameState={gameState} />
-            <InformationSharingPanel gameState={gameState} />
+            <EnhancedInformationPanel gameState={gameState} />
             <AmbientNPCActivity 
               contestants={gameState.contestants}
               currentDay={gameState.currentDay}
