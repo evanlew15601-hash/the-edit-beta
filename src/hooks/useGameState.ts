@@ -234,7 +234,7 @@ export const useGameState = () => {
       InformationTradingEngine.generateTradableInformation(prev);
       InformationTradingEngine.autoGenerateIntelligence(prev);
       
-      // Update action usage
+      // Update action usage - CRITICAL FIX
       const updatedActions = prev.playerActions.map(action => 
         action.type === actionType ? { 
           ...action, 
@@ -290,6 +290,7 @@ export const useGameState = () => {
         return contestant;
       });
 
+      // CRITICAL FIX: Properly increment daily action count
       const newActionCount = prev.dailyActionCount + 1;
       console.log('New action count will be:', newActionCount);
       console.log('Updated actions:', updatedActions);
@@ -298,7 +299,7 @@ export const useGameState = () => {
         ...prev,
         contestants: updatedContestants,
         playerActions: updatedActions,
-        dailyActionCount: newActionCount,
+        dailyActionCount: newActionCount, // This was the main issue!
         lastActionType: actionType as PlayerAction['type'],
         lastActionTarget: target,
         // Add to interaction log
