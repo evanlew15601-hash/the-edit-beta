@@ -101,6 +101,7 @@ export const useGameState = () => {
   const advanceDay = useCallback(() => {
     setGameState(prev => {
       const newDay = prev.currentDay + 1;
+      console.log('Advancing to day:', newDay);
       
       // Update alliances with the new management system
       const updatedAlliances = AllianceManager.updateAllianceTrust(prev);
@@ -121,6 +122,7 @@ export const useGameState = () => {
       
       let juryMembers = prev.juryMembers;
       let daysUntilJury = prev.daysUntilJury;
+      let gamePhase = prev.gamePhase;
       
       if (shouldStartJury) {
         // Start jury phase - eliminated contestants become jury
@@ -135,6 +137,67 @@ export const useGameState = () => {
         daysUntilJury = Math.max(0, (remainingCount - 7) * 3); // Estimate days until jury
       }
 
+      // Check for key game events
+      if (remainingCount === 3) {
+        // Final 3 - transition to finale
+        gamePhase = 'finale';
+        console.log('Final 3 reached - transitioning to finale');
+      } else if (newDay === prev.nextEliminationDay - 1) {
+        // Day before elimination - immunity competition
+        gamePhase = 'immunity_competition';
+        console.log('Immunity competition day');
+      } else if (newDay === prev.nextEliminationDay) {
+        // Elimination day - process voting
+        console.log('Processing elimination on day:', newDay);
+        
+        const votingResult = processVoting(
+          prev.contestants,
+          prev.playerName,
+          updatedAlliances,
+          { ...prev, currentDay: newDay },
+          prev.immunityWinner
+        );
+        
+        // Update voting result with current day
+        votingResult.day = newDay;
+        
+        // Mark eliminated contestant
+        const updatedContestants = prev.contestants.map(c => 
+          c.name === votingResult.eliminated 
+            ? { ...c, isEliminated: true, eliminationDay: newDay }
+            : c
+        );
+        
+        // Set next elimination day (weekly)
+        const nextElimDay = newDay + 7;
+        
+        gamePhase = 'elimination';
+        
+        return {
+          ...prev,
+          currentDay: newDay,
+          contestants: updatedContestants,
+          votingHistory: [...prev.votingHistory, votingResult],
+          gamePhase,
+          nextEliminationDay: nextElimDay,
+          dailyActionCount: 0,
+          alliances: updatedAlliances,
+          juryMembers,
+          daysUntilJury,
+          immunityWinner: undefined, // Reset immunity
+          // Reset daily variables
+          lastAIResponse: undefined,
+          lastAIAdditions: undefined,
+          lastAIReaction: undefined,
+          lastActionTarget: undefined,
+          lastActionType: undefined
+        };
+      } else if (newDay % 7 === 0) {
+        // Weekly recap every 7 days
+        gamePhase = 'weekly_recap';
+        console.log('Weekly recap time');
+      }
+
       // Clear old information and update systems
       InformationTradingEngine.clearOldInformation({ ...prev, currentDay: newDay });
 
@@ -145,6 +208,7 @@ export const useGameState = () => {
         alliances: updatedAlliances,
         juryMembers,
         daysUntilJury,
+        gamePhase,
         // Reset daily variables
         lastAIResponse: undefined,
         lastAIAdditions: undefined,
@@ -268,6 +332,7 @@ export const useGameState = () => {
     setGameState(prev => ({
       ...prev,
       immunityWinner: winner,
+      gamePhase: 'daily' as const // Return to daily gameplay after immunity
     }));
   }, []);
 
@@ -280,8 +345,39 @@ export const useGameState = () => {
   }, []);
 
   const submitPlayerVote = useCallback((choice: string) => {
-    // Simplified voting
-    console.log('Player voted for:', choice);
+    setGameState(prev => {
+      const votingResult = processVoting(
+        prev.contestants,
+        prev.playerName,
+        prev.alliances,
+        prev,
+        prev.immunityWinner,
+        choice // Player's vote
+      );
+      
+      // Update voting result with current day
+      votingResult.day = prev.currentDay;
+      votingResult.playerVote = choice;
+      
+      // Mark eliminated contestant
+      const updatedContestants = prev.contestants.map(c => 
+        c.name === votingResult.eliminated 
+          ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
+          : c
+      );
+      
+      // Set next elimination day
+      const nextElimDay = prev.currentDay + 7;
+      
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        votingHistory: [...prev.votingHistory, votingResult],
+        gamePhase: 'elimination' as const,
+        nextEliminationDay: nextElimDay,
+        immunityWinner: undefined, // Reset immunity
+      };
+    });
   }, []);
 
   const respondToForcedConversation = useCallback(() => {
