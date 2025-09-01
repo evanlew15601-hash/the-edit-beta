@@ -45,29 +45,29 @@ export const AmbientNPCActivity = ({ contestants, currentDay, playerName }: Ambi
         type: 'conversation' as const,
         actions: [
           'are having a quiet conversation by the pool',
-          'are discussing strategy in the kitchen',
+          'are discussing camp life in the kitchen',
           'are sharing stories on the couch',
-          'are whispering in the bedroom'
+          'are talking about today\'s events'
         ],
-        visibility: Math.random() > 0.3 ? 'public' as const : 'private' as const
+        visibility: Math.random() > 0.5 ? 'public' as const : 'private' as const
       },
       {
         type: 'alliance' as const,
         actions: [
-          'seem to be forming a closer bond',
-          'are making promises to each other',
-          'are discussing voting plans',
-          'are planning their next moves'
+          'seem to be having a private discussion',
+          'are huddled together whispering',
+          'are exchanging meaningful looks',
+          'appear to be making plans together'
         ],
         visibility: 'private' as const
       },
       {
         type: 'scheme' as const,
         actions: [
-          'are plotting something suspicious',
-          'are spreading rumors about others',
-          'are planning to manipulate the vote',
-          'are discussing who to target next'
+          'are whispering about something urgent',
+          'seem to be discussing strategy',
+          'are having an intense conversation',
+          'appear to be coordinating something'
         ],
         visibility: 'hidden' as const
       },
@@ -76,8 +76,8 @@ export const AmbientNPCActivity = ({ contestants, currentDay, playerName }: Ambi
         actions: [
           'notice you watching them',
           'are keeping an eye on other contestants',
-          'are studying voting patterns',
-          'are analyzing social dynamics'
+          'are watching the group dynamics',
+          'seem to be studying the social situation'
         ],
         visibility: 'public' as const
       }
@@ -86,10 +86,10 @@ export const AmbientNPCActivity = ({ contestants, currentDay, playerName }: Ambi
     const activityType = activityTypes[Math.floor(Math.random() * activityTypes.length)];
     const action = activityType.actions[Math.floor(Math.random() * activityType.actions.length)];
 
-    // Only show public activities and some private ones (if player happens to notice)
+    // More realistic overhearing chances - important info should be rare
     const shouldShow = activityType.visibility === 'public' || 
-                      (activityType.visibility === 'private' && Math.random() > 0.7) ||
-                      (activityType.visibility === 'hidden' && Math.random() > 0.9);
+                      (activityType.visibility === 'private' && Math.random() > 0.85) || // 15% chance for private
+                      (activityType.visibility === 'hidden' && Math.random() > 0.95);   // 5% chance for hidden
 
     if (!shouldShow) return;
 

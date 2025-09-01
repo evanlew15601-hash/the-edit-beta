@@ -113,8 +113,10 @@ export const useGameState = () => {
         alliances: updatedAlliances
       };
       
-      // Trigger automatic information sharing
-      InformationTradingEngine.autoGenerateIntelligence(tempState);
+      // Trigger minimal automatic information sharing (reduced frequency)
+      if (newDay % 3 === 0) { // Only every 3 days
+        InformationTradingEngine.autoGenerateIntelligence(tempState);
+      }
       
       // Check if jury phase should begin
       const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
@@ -147,51 +149,9 @@ export const useGameState = () => {
         gamePhase = 'immunity_competition';
         console.log('Immunity competition day');
       } else if (newDay === prev.nextEliminationDay) {
-        // Elimination day - process voting
-        console.log('Processing elimination on day:', newDay);
-        
-        const votingResult = processVoting(
-          prev.contestants,
-          prev.playerName,
-          updatedAlliances,
-          { ...prev, currentDay: newDay },
-          prev.immunityWinner
-        );
-        
-        // Update voting result with current day
-        votingResult.day = newDay;
-        
-        // Mark eliminated contestant
-        const updatedContestants = prev.contestants.map(c => 
-          c.name === votingResult.eliminated 
-            ? { ...c, isEliminated: true, eliminationDay: newDay }
-            : c
-        );
-        
-        // Set next elimination day (weekly)
-        const nextElimDay = newDay + 7;
-        
-        gamePhase = 'elimination';
-        
-        return {
-          ...prev,
-          currentDay: newDay,
-          contestants: updatedContestants,
-          votingHistory: [...prev.votingHistory, votingResult],
-          gamePhase,
-          nextEliminationDay: nextElimDay,
-          dailyActionCount: 0,
-          alliances: updatedAlliances,
-          juryMembers,
-          daysUntilJury,
-          immunityWinner: undefined, // Reset immunity
-          // Reset daily variables
-          lastAIResponse: undefined,
-          lastAIAdditions: undefined,
-          lastAIReaction: undefined,
-          lastActionTarget: undefined,
-          lastActionType: undefined
-        };
+        // Elimination day - let player vote first
+        console.log('Elimination voting day:', newDay);
+        gamePhase = 'player_vote';
       } else if (newDay % 7 === 0) {
         // Weekly recap every 7 days
         gamePhase = 'weekly_recap';
@@ -230,9 +190,10 @@ export const useGameState = () => {
       console.log('Previous action count:', prev.dailyActionCount);
       console.log('Previous actions:', prev.playerActions);
       
-      // Generate information based on the action
-      InformationTradingEngine.generateTradableInformation(prev);
-      InformationTradingEngine.autoGenerateIntelligence(prev);
+      // Generate minimal information based on the action (reduced from overwhelming amounts)
+      if (Math.random() < 0.3) { // Only 30% chance to generate intel
+        InformationTradingEngine.generateTradableInformation(prev);
+      }
       
       // Update action usage - CRITICAL FIX
       const updatedActions = prev.playerActions.map(action => 
@@ -381,6 +342,48 @@ export const useGameState = () => {
     });
   }, []);
 
+  const submitFinal3Vote = useCallback((choice: string, tieBreakResult?: { winner: string; challengeResults: any }) => {
+    setGameState(prev => {
+      const active = prev.contestants.filter(c => !c.isEliminated);
+      const votingResult = processVoting(
+        prev.contestants,
+        prev.playerName,
+        prev.alliances,
+        prev,
+        undefined, // No immunity in Final 3
+        choice
+      );
+      
+      if (tieBreakResult) {
+        votingResult.tieBreak = {
+          tied: active.filter(c => c.name !== prev.playerName).map(c => c.name),
+          method: 'sudden_death',
+          suddenDeathWinner: tieBreakResult.winner,
+          log: [`Tie-break challenge determined ${tieBreakResult.winner} advances to Final 2`]
+        };
+        votingResult.eliminated = active.find(c => c.name !== tieBreakResult.winner && c.name !== prev.playerName)?.name || '';
+      }
+      
+      votingResult.day = prev.currentDay;
+      votingResult.playerVote = choice;
+      
+      const updatedContestants = prev.contestants.map(c => 
+        c.name === votingResult.eliminated 
+          ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
+          : c
+      );
+      
+      const remainingCount = updatedContestants.filter(c => !c.isEliminated).length;
+      
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        votingHistory: [...prev.votingHistory, votingResult],
+        gamePhase: remainingCount === 2 ? 'finale' : 'elimination',
+      };
+    });
+  }, []);
+
   const respondToForcedConversation = useCallback(() => {
     // Simplified forced conversation response
     console.log('Responded to forced conversation');
@@ -490,6 +493,7 @@ export const useGameState = () => {
     setImmunityWinner,
     submitFinaleSpeech,
     submitPlayerVote,
+    submitFinal3Vote,
     respondToForcedConversation,
     submitAFPVote,
     completePremiere,

@@ -8,6 +8,7 @@ import { PremiereCutscene } from '@/components/game/PremiereCutscene';
 import { EliminationEpisode } from '@/components/game/EliminationEpisode';
 import { FinaleEpisode } from '@/components/game/FinaleEpisode';
 import { PlayerVoteScreen } from '@/components/game/PlayerVoteScreen';
+import { Final3VoteScreen } from '@/components/game/Final3VoteScreen';
 
 const Index = () => {
   const {
@@ -18,6 +19,7 @@ const Index = () => {
     setImmunityWinner,
     submitFinaleSpeech,
     submitPlayerVote,
+    submitFinal3Vote,
     respondToForcedConversation,
     submitAFPVote,
     endGame,
@@ -73,13 +75,26 @@ const Index = () => {
         );
       
       case 'finale':
-        return (
-          <FinaleEpisode
-            gameState={gameState}
-            onSubmitSpeech={submitFinaleSpeech}
-            onAFPVote={submitAFPVote}
-          />
-        );
+        const remainingForFinale = gameState.contestants.filter(c => !c.isEliminated);
+        if (remainingForFinale.length === 3) {
+          return (
+            <Final3VoteScreen
+              gameState={gameState}
+              onSubmitVote={submitFinal3Vote}
+              onTieBreakResult={(winner, challengeResults) => {
+                submitFinal3Vote('', { winner, challengeResults });
+              }}
+            />
+          );
+        } else {
+          return (
+            <FinaleEpisode
+              gameState={gameState}
+              onSubmitSpeech={submitFinaleSpeech}
+              onAFPVote={submitAFPVote}
+            />
+          );
+        }
       
       case 'jury_vote':
         return (
