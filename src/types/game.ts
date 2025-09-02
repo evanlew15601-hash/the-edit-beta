@@ -60,7 +60,7 @@ export interface GameState {
   editPerception: EditPerception;
   alliances: Alliance[];
   votingHistory: VotingRecord[];
-  gamePhase: 'intro' | 'premiere' | 'daily' | 'player_vote' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote';
+  gamePhase: 'intro' | 'premiere' | 'daily' | 'player_vote' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote' | 'final_3_vote';
   twistsActivated: string[];
   nextEliminationDay: number;
   daysUntilJury?: number; // Days until jury phase starts

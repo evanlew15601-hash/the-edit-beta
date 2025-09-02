@@ -29,6 +29,7 @@ const Index = () => {
     handleEmergentEventChoice,
     completePremiere,
     tagTalk,
+    handleTieBreakResult,
   } = useGameState();
 
   const renderScreen = () => {
@@ -75,26 +76,22 @@ const Index = () => {
         );
       
       case 'finale':
-        const remainingForFinale = gameState.contestants.filter(c => !c.isEliminated);
-        if (remainingForFinale.length === 3) {
-          return (
-            <Final3VoteScreen
-              gameState={gameState}
-              onSubmitVote={submitFinal3Vote}
-              onTieBreakResult={(winner, challengeResults) => {
-                submitFinal3Vote('', { winner, challengeResults });
-              }}
-            />
-          );
-        } else {
-          return (
-            <FinaleEpisode
-              gameState={gameState}
-              onSubmitSpeech={submitFinaleSpeech}
-              onAFPVote={submitAFPVote}
-            />
-          );
-        }
+        return (
+          <FinaleEpisode
+            gameState={gameState}
+            onSubmitSpeech={submitFinaleSpeech}
+            onAFPVote={submitAFPVote}
+          />
+        );
+      
+      case 'final_3_vote':
+        return (
+          <Final3VoteScreen
+            gameState={gameState}
+            onSubmitVote={submitFinal3Vote}
+            onTieBreakResult={handleTieBreakResult}
+          />
+        );
       
       case 'jury_vote':
         return (

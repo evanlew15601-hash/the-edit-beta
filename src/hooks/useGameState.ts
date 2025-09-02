@@ -186,6 +186,33 @@ export const useGameState = () => {
     console.log('Content:', content);
     console.log('Tone:', tone);
     
+    // Handle alliance creation separately
+    if (actionType === 'create_alliance') {
+      const allianceName = target || 'New Alliance';
+      const memberNames = content ? content.split(',') : [];
+      console.log('Creating alliance:', allianceName, 'with members:', memberNames);
+      
+      setGameState(prev => {
+        const newAlliance = {
+          id: Date.now().toString(),
+          name: allianceName,
+          members: memberNames,
+          strength: 50,
+          secret: true,
+          formed: prev.currentDay,
+          lastActivity: prev.currentDay,
+          dissolved: false
+        };
+        
+        return {
+          ...prev,
+          alliances: [...prev.alliances, newAlliance],
+          dailyActionCount: prev.dailyActionCount + 1
+        };
+      });
+      return;
+    }
+    
     setGameState(prev => {
       console.log('Previous action count:', prev.dailyActionCount);
       console.log('Previous actions:', prev.playerActions);
@@ -495,6 +522,46 @@ export const useGameState = () => {
     useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
   }, [useAction]);
 
+  const handleTieBreakResult = useCallback((eliminated: string, winner1: string, winner2: string) => {
+    setGameState(prev => {
+      const newState = { ...prev };
+      
+      // Mark eliminated contestant
+      newState.contestants = prev.contestants.map(c => 
+        c.name === eliminated 
+          ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
+          : c
+      );
+      
+      // Add to jury
+      if (!newState.juryMembers) newState.juryMembers = [];
+      if (!newState.juryMembers.includes(eliminated)) {
+        newState.juryMembers.push(eliminated);
+      }
+      
+      // Record tie-break result in voting history
+      const tieBreakRecord = {
+        day: prev.currentDay,
+        eliminated,
+        votes: { [winner1]: 'n/a', [winner2]: 'n/a', [eliminated]: 'n/a' },
+        playerVote: prev.votingHistory[prev.votingHistory.length - 1]?.playerVote,
+        reason: `${eliminated} lost Final 3 tie-break challenge`,
+        tieBreak: {
+          tied: [winner1, winner2, eliminated],
+          method: 'sudden_death' as const,
+          suddenDeathWinner: winner1,
+          suddenDeathLoser: eliminated,
+          log: [`Final 3 tie resulted in physical challenge`, `${winner1} and ${winner2} advance to finale`]
+        }
+      };
+      
+      newState.votingHistory = [...prev.votingHistory.slice(0, -1), tieBreakRecord];
+      newState.gamePhase = 'finale';
+      
+      return newState;
+    });
+  }, []);
+
   return {
     gameState,
     startGame,
@@ -515,5 +582,6 @@ export const useGameState = () => {
     resetGame,
     handleEmergentEventChoice,
     tagTalk,
+    handleTieBreakResult,
   };
 };
