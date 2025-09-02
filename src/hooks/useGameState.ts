@@ -416,10 +416,21 @@ export const useGameState = () => {
   }, []);
 
   const continueFromWeeklyRecap = useCallback(() => {
-    setGameState(prev => ({
-      ...prev,
-      gamePhase: 'daily' as const
-    }));
+    setGameState(prev => {
+      // Update edit perception with weekly changes
+      const updatedEditPerception = calculateLegacyEditPerception(
+        prev.confessionals,
+        prev.editPerception,
+        prev.currentDay,
+        prev
+      );
+      
+      return {
+        ...prev,
+        gamePhase: 'daily' as const,
+        editPerception: updatedEditPerception
+      };
+    });
   }, []);
 
   const createAlliance = useCallback((name: string, members: string[]) => {

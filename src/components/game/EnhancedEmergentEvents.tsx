@@ -25,12 +25,14 @@ interface EmergentEvent {
 
 interface EnhancedEmergentEventsProps {
   gameState: GameState;
-  onEventChoice: (eventId: string, choiceId: string) => void;
+  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
 }
 
-export const EnhancedEmergentEvents = ({ gameState, onEventChoice }: EnhancedEmergentEventsProps) => {
+export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: EnhancedEmergentEventsProps) => {
   const [activeEvents, setActiveEvents] = useState<EmergentEvent[]>([]);
   const [eventHistory, setEventHistory] = useState<EmergentEvent[]>([]);
+
+  const { contestants, currentDay } = gameState;
 
   useEffect(() => {
     generateEmergentEvents();
@@ -39,7 +41,7 @@ export const EnhancedEmergentEvents = ({ gameState, onEventChoice }: EnhancedEme
   }, [gameState.currentDay, gameState.contestants.length]);
 
   const generateEmergentEvents = () => {
-    const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
+    const activeContestants = contestants.filter(c => !c.isEliminated);
     if (activeContestants.length < 3) return;
 
     // Calculate drama factors
@@ -106,21 +108,6 @@ export const EnhancedEmergentEvents = ({ gameState, onEventChoice }: EnhancedEme
         type: 'betrayal' as const,
         weight: gameState.alliances.length > 0 ? 2 : 0,
         generator: () => generateBetrayalEvent(contestants)
-      },
-      {
-        type: 'romance' as const,
-        weight: 1,
-        generator: () => generateRomanceEvent(contestants)
-      },
-      {
-        type: 'rumor_spread' as const,
-        weight: 2,
-        generator: () => generateRumorEvent(contestants)
-      },
-      {
-        type: 'power_shift' as const,
-        weight: tension > 70 ? 2 : 1,
-        generator: () => generatePowerShiftEvent(contestants)
       }
     ];
 
@@ -149,37 +136,18 @@ export const EnhancedEmergentEvents = ({ gameState, onEventChoice }: EnhancedEme
       participants,
       intensity,
       playerInvolvement: participants.includes(gameState.playerName) ? 'participant' : 'witness',
-      choices: participants.includes(gameState.playerName) ? [
+      choices: [
         {
-          id: 'escalate',
-          text: 'Escalate the conflict',
-          consequences: ['Damage relationships', 'Gain aggressive reputation'],
-          type: 'aggressive'
-        },
-        {
-          id: 'defuse',
+          id: 'pacifist',
           text: 'Try to defuse the situation',
           consequences: ['Maintain peace', 'Appear as mediator'],
           type: 'social'
         },
         {
-          id: 'exploit',
-          text: 'Use the conflict strategically',
-          consequences: ['Gain strategic advantage', 'Risk being exposed'],
-          type: 'strategic'
-        }
-      ] : [
-        {
-          id: 'stay_neutral',
-          text: 'Stay out of it',
-          consequences: ['Avoid taking sides', 'Miss strategic opportunity'],
-          type: 'passive'
-        },
-        {
-          id: 'pick_side',
-          text: 'Support one side',
-          consequences: ['Strengthen one relationship', 'Damage another'],
-          type: 'social'
+          id: 'headfirst',
+          text: 'Escalate the conflict',
+          consequences: ['Damage relationships', 'Gain aggressive reputation'],
+          type: 'aggressive'
         }
       ],
       autoResolveTime: participants.includes(gameState.playerName) ? undefined : 30000
@@ -197,31 +165,18 @@ export const EnhancedEmergentEvents = ({ gameState, onEventChoice }: EnhancedEme
       participants,
       intensity: 'medium',
       playerInvolvement: participants.includes(gameState.playerName) ? 'participant' : Math.random() > 0.7 ? 'witness' : 'none',
-      choices: participants.includes(gameState.playerName) ? [
+      choices: [
         {
-          id: 'join_enthusiastically',
-          text: 'Join the alliance eagerly',
-          consequences: ['Secure alliance spot', 'Appear desperate'],
-          type: 'social'
-        },
-        {
-          id: 'negotiate_terms',
-          text: 'Negotiate your position',
-          consequences: ['Better alliance terms', 'Risk being excluded'],
-          type: 'strategic'
-        }
-      ] : [
-        {
-          id: 'report_alliance',
-          text: 'Report the alliance to others',
-          consequences: ['Gain information currency', 'Risk retaliation'],
-          type: 'strategic'
-        },
-        {
-          id: 'ignore',
+          id: 'pacifist',
           text: 'Pretend you didn\'t notice',
           consequences: ['Maintain plausible deniability', 'Miss strategic opportunity'],
           type: 'passive'
+        },
+        {
+          id: 'headfirst',
+          text: 'Report the alliance to others',
+          consequences: ['Gain information currency', 'Risk retaliation'],
+          type: 'strategic'
         }
       ],
       autoResolveTime: 25000
@@ -243,128 +198,21 @@ export const EnhancedEmergentEvents = ({ gameState, onEventChoice }: EnhancedEme
       participants: [betrayer, target],
       intensity: 'high',
       playerInvolvement: [betrayer, target].includes(gameState.playerName) ? 'participant' : 'witness',
-      choices: [betrayer, target].includes(gameState.playerName) ? [
+      choices: [
         {
-          id: 'expose_betrayer',
-          text: 'Expose the betrayal',
-          consequences: ['Save alliance', 'Create enemy'],
-          type: 'aggressive'
+          id: 'pacifist',
+          text: 'Stay neutral and observe',
+          consequences: ['Avoid taking sides', 'Miss strategic opportunity'],
+          type: 'passive'
         },
         {
-          id: 'join_betrayal',
-          text: 'Join the betrayal',
-          consequences: ['Gain new ally', 'Damage reputation'],
-          type: 'strategic'
-        }
-      ] : [
-        {
-          id: 'leverage_information',
+          id: 'headfirst',
           text: 'Use this information strategically',
           consequences: ['Gain leverage', 'Risk being caught'],
           type: 'strategic'
         }
       ],
       autoResolveTime: 20000
-    };
-  };
-
-  const generateRomanceEvent = (contestants: any[]): EmergentEvent => {
-    const participants = getRandomParticipants(contestants, 2);
-    
-    return {
-      id: `romance-${Date.now()}`,
-      type: 'romance',
-      title: 'Romantic Connection',
-      description: `${participants[0]} and ${participants[1]} seem to be developing a romantic connection. This could change the game dynamics significantly.`,
-      participants,
-      intensity: 'medium',
-      playerInvolvement: participants.includes(gameState.playerName) ? 'participant' : 'witness',
-      choices: [
-        {
-          id: 'support_romance',
-          text: 'Support the relationship',
-          consequences: ['Gain allies\' loyalty', 'Strengthen power couple'],
-          type: 'social'
-        },
-        {
-          id: 'exploit_romance',
-          text: 'Exploit the relationship',
-          consequences: ['Gain strategic advantage', 'Risk alienating both'],
-          type: 'strategic'
-        }
-      ],
-      autoResolveTime: 35000
-    };
-  };
-
-  const generateRumorEvent = (contestants: any[]): EmergentEvent => {
-    const spreader = contestants[Math.floor(Math.random() * contestants.length)];
-    const target = contestants.find(c => c !== spreader) || contestants[0];
-    
-    return {
-      id: `rumor-${Date.now()}`,
-      type: 'rumor_spread',
-      title: 'Spreading Rumors',
-      description: `${spreader.name} is spreading rumors about ${target.name}'s game strategy and loyalty. The information is circulating quickly.`,
-      participants: [spreader.name, target.name],
-      intensity: 'medium',
-      playerInvolvement: [spreader.name, target.name].includes(gameState.playerName) ? 'participant' : 'witness',
-      choices: [
-        {
-          id: 'spread_further',
-          text: 'Help spread the rumors',
-          consequences: ['Damage target\'s reputation', 'Associate with gossip'],
-          type: 'aggressive'
-        },
-        {
-          id: 'defend_target',
-          text: 'Defend the target',
-          consequences: ['Gain target\'s loyalty', 'Conflict with spreader'],
-          type: 'social'
-        },
-        {
-          id: 'investigate',
-          text: 'Investigate the truth',
-          consequences: ['Gain accurate information', 'Reveal your interest'],
-          type: 'strategic'
-        }
-      ],
-      autoResolveTime: 30000
-    };
-  };
-
-  const generatePowerShiftEvent = (contestants: any[]): EmergentEvent => {
-    const leader = contestants[Math.floor(Math.random() * contestants.length)];
-    
-    return {
-      id: `power-shift-${Date.now()}`,
-      type: 'power_shift',
-      title: 'Power Dynamics Shifting',
-      description: `${leader.name} is making bold moves to consolidate power and influence. The game hierarchy is shifting rapidly.`,
-      participants: [leader.name],
-      intensity: 'high',
-      playerInvolvement: leader.name === gameState.playerName ? 'catalyst' : 'witness',
-      choices: [
-        {
-          id: 'challenge_power',
-          text: 'Challenge their power play',
-          consequences: ['Potential leadership', 'High risk confrontation'],
-          type: 'aggressive'
-        },
-        {
-          id: 'align_with_power',
-          text: 'Align with the power player',
-          consequences: ['Secure position', 'Appear as follower'],
-          type: 'strategic'
-        },
-        {
-          id: 'build_counter_alliance',
-          text: 'Build counter-alliance',
-          consequences: ['Unite opposition', 'Create clear sides'],
-          type: 'strategic'
-        }
-      ],
-      autoResolveTime: 25000
     };
   };
 
@@ -392,7 +240,8 @@ export const EnhancedEmergentEvents = ({ gameState, onEventChoice }: EnhancedEme
     setEventHistory(prev => [...prev, event].slice(-10)); // Keep last 10 events
     
     if (choiceId !== 'auto') {
-      onEventChoice(eventId, choiceId);
+      const choice = choiceId as 'pacifist' | 'headfirst';
+      onEmergentEventChoice(event, choice);
     }
   };
 
@@ -420,6 +269,7 @@ export const EnhancedEmergentEvents = ({ gameState, onEventChoice }: EnhancedEme
 
   return (
     <div className="space-y-4">
+      <h3 className="text-lg font-medium text-foreground">Emergent Events</h3>
       {activeEvents.map((event) => (
         <Alert key={event.id} className={`${getIntensityColor(event.intensity)} border-2`}>
           <div className="flex items-start gap-4">

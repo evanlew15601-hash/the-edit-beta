@@ -7,6 +7,8 @@ import { AIResponseDisplay } from './AIResponseDisplay';
 import { MemoryPanel } from './MemoryPanel';
 import { AmbientNPCActivity } from './AmbientNPCActivity';
 import { EnhancedInformationPanel } from './EnhancedInformationPanel';
+import { EnhancedTagDialogueEngine } from './EnhancedTagDialogueEngine';
+import { EnhancedEmergentEvents } from './EnhancedEmergentEvents';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -52,6 +54,14 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           <div className="lg:col-span-1 space-y-6">
             <MemoryPanel gameState={gameState} />
             <EnhancedInformationPanel gameState={gameState} />
+            <EnhancedTagDialogueEngine
+              gameState={gameState}
+              onTagTalk={onTagTalk}
+            />
+            <EnhancedEmergentEvents
+              gameState={gameState}
+              onEmergentEventChoice={onEmergentEventChoice}
+            />
             <AmbientNPCActivity 
               contestants={gameState.contestants}
               currentDay={gameState.currentDay}

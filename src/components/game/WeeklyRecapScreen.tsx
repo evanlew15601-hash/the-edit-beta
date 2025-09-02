@@ -4,6 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState, WeeklyEdit } from '@/types/game';
 import { generateFanReactions } from '@/utils/fanReactions';
 import { buildWeeklyEdit } from '@/utils/weeklyEditBuilder';
+import { calculateLegacyEditPerception } from '@/utils/editEngine';
 
 interface WeeklyRecapScreenProps {
   gameState: GameState;
@@ -21,8 +22,14 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
   
   console.log(`Week ${currentWeek} confessionals:`, weeklyConfessionals.length, 'from days', weekStartDay, 'to', weekEndDay);
 
-  // Generate weekly edit summary using the working system
+  // Generate weekly edit summary and update edit perception
   const weeklyEdit: WeeklyEdit = buildWeeklyEdit(gameState);
+  const updatedEditPerception = calculateLegacyEditPerception(
+    gameState.confessionals,
+    gameState.editPerception,
+    gameState.currentDay,
+    gameState
+  );
 
   const fanReactions = generateFanReactions(gameState);
 
@@ -64,17 +71,22 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
               <div className="text-center">
                 <p className="text-sm text-muted-foreground uppercase tracking-wide">Screen Time Index</p>
                 <p className="text-2xl font-light text-foreground">
-                  {gameState.editPerception.screenTimeIndex}%
+                  {updatedEditPerception.screenTimeIndex}%
                 </p>
+                {updatedEditPerception.lastEditShift !== 0 && (
+                  <p className={`text-xs ${updatedEditPerception.lastEditShift > 0 ? 'text-edit-hero' : 'text-edit-villain'}`}>
+                    {updatedEditPerception.lastEditShift > 0 ? '+' : ''}{updatedEditPerception.lastEditShift} this week
+                  </p>
+                )}
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground uppercase tracking-wide">Approval Shift</p>
+                <p className="text-sm text-muted-foreground uppercase tracking-wide">Audience Approval</p>
                 <p className={`text-2xl font-light ${
-                  weeklyEdit.approvalShift > 0 ? 'text-edit-hero' : 
-                  weeklyEdit.approvalShift < 0 ? 'text-edit-villain' : 
+                  updatedEditPerception.audienceApproval > 0 ? 'text-edit-hero' : 
+                  updatedEditPerception.audienceApproval < 0 ? 'text-edit-villain' : 
                   'text-foreground'
                 }`}>
-                  {weeklyEdit.approvalShift > 0 ? '+' : ''}{weeklyEdit.approvalShift}
+                  {updatedEditPerception.audienceApproval > 0 ? '+' : ''}{Math.round(updatedEditPerception.audienceApproval)}
                 </p>
               </div>
             </div>
@@ -85,7 +97,7 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
         <Card className="p-6">
           <h3 className="text-xl font-light mb-4">Featured Confessional</h3>
           <blockquote className="border-l-4 border-primary pl-6 italic text-lg leading-relaxed text-foreground">
-            "{weeklyEdit.selectedQuote}"
+            "{updatedEditPerception.weeklyQuote || weeklyEdit.selectedQuote || 'No significant confessionals this week.'}"
           </blockquote>
           <p className="text-sm text-muted-foreground mt-3">
             - {gameState.playerName}, Diary Room

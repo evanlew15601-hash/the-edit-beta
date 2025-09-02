@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Contestant } from '@/types/game';
+import { GameState, Contestant } from '@/types/game';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { Brain, Heart, Zap, Shield, Target, Clock } from 'lucide-react';
 
@@ -16,30 +16,28 @@ interface TagChoice {
 }
 
 interface EnhancedTagDialogueEngineProps {
-  target: Contestant;
-  playerName: string;
-  interactionType: 'talk' | 'dm' | 'scheme' | 'activity';
-  onChoiceSelect: (choiceId: string) => void;
-  cooldowns: { [choiceId: string]: number };
-  currentDay: number;
+  gameState: GameState;
+  onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
 }
 
-export const EnhancedTagDialogueEngine = ({ 
-  target, 
-  playerName, 
-  interactionType, 
-  onChoiceSelect, 
-  cooldowns, 
-  currentDay 
-}: EnhancedTagDialogueEngineProps) => {
+export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagDialogueEngineProps) => {
+  const [selectedTarget, setSelectedTarget] = useState<string>('');
+  const [interactionType, setInteractionType] = useState<'talk' | 'dm' | 'scheme' | 'activity'>('talk');
   const [availableChoices, setAvailableChoices] = useState<TagChoice[]>([]);
   const [selectedChoice, setSelectedChoice] = useState<string>('');
 
+  const { contestants, playerName, currentDay, tagChoiceCooldowns = {} } = gameState;
+
   useEffect(() => {
-    generateContextualChoices();
-  }, [target, interactionType, currentDay]);
+    if (selectedTarget) {
+      generateContextualChoices();
+    }
+  }, [selectedTarget, interactionType, currentDay]);
 
   const generateContextualChoices = () => {
+    const target = contestants.find(c => c.name === selectedTarget);
+    if (!target) return;
+
     const baseChoices = TAG_CHOICES[interactionType] || [];
     
     // Enhanced choices based on relationship and context
@@ -96,44 +94,12 @@ export const EnhancedTagDialogueEngine = ({
           consequences: ['May clear the air', 'Could bring up old wounds'],
           cooldown: 2
         }
-      ] : []),
-      
-      // Game phase specific choices
-      ...(currentDay > 20 ? [
-        {
-          id: `endgame-positioning-${target.name}`,
-          text: `Discuss endgame positioning with ${target.name}`,
-          type: 'strategic' as const,
-          consequences: ['Clarifies future plans', 'Reveals your intentions'],
-          cooldown: 3
-        }
-      ] : []),
-      
-      // Interaction type specific enhancements
-      ...(interactionType === 'scheme' ? [
-        {
-          id: `complex-scheme-${target.name}`,
-          text: `Propose a complex multi-layered plan to ${target.name}`,
-          type: 'strategic' as const,
-          consequences: ['High reward potential', 'High complexity risk'],
-          cooldown: 7
-        }
-      ] : []),
-      
-      ...(interactionType === 'dm' ? [
-        {
-          id: `intimate-confession-${target.name}`,
-          text: `Share something deeply personal with ${target.name}`,
-          type: 'emotional' as const,
-          consequences: ['Creates strong bond', 'Vulnerability risk'],
-          cooldown: 5
-        }
       ] : [])
     ];
 
     // Filter out choices on cooldown
     const filteredChoices = enhancedChoices.filter(choice => {
-      const cooldownEnd = cooldowns[choice.id];
+      const cooldownEnd = tagChoiceCooldowns[choice.id];
       return !cooldownEnd || currentDay >= cooldownEnd;
     });
 
@@ -161,92 +127,139 @@ export const EnhancedTagDialogueEngine = ({
   };
 
   const getRemainingCooldown = (choiceId: string) => {
-    const cooldownEnd = cooldowns[choiceId];
+    const cooldownEnd = tagChoiceCooldowns[choiceId];
     return cooldownEnd ? Math.max(0, cooldownEnd - currentDay) : 0;
   };
+
+  const availableTargets = contestants.filter(c => !c.isEliminated && c.name !== playerName);
+
+  if (availableTargets.length === 0) return null;
 
   return (
     <Card className="p-6">
       <div className="mb-4">
         <h3 className="text-lg font-medium flex items-center gap-2">
-          {getChoiceIcon('strategic')}
-          Enhanced Dialogue Options
+          <Brain className="w-5 h-5 text-primary" />
+          Enhanced Tag Dialogue
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Choose your approach with {target.name} carefully - each choice has lasting consequences
+          Advanced conversation strategies with deep consequences
         </p>
       </div>
 
-      <ScrollArea className="h-80">
-        <div className="space-y-3">
-          {availableChoices.map((choice) => {
-            const cooldownDays = getRemainingCooldown(choice.id);
-            const isOnCooldown = cooldownDays > 0;
-            
-            return (
-              <div 
-                key={choice.id}
-                className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                  getChoiceColor(choice.type)
-                } ${selectedChoice === choice.id ? 'ring-2 ring-primary' : ''} ${
-                  isOnCooldown ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                onClick={() => !isOnCooldown && setSelectedChoice(choice.id)}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="mt-1">
-                    {getChoiceIcon(choice.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline" className="text-xs">
-                        {choice.type}
-                      </Badge>
-                      {choice.cooldown && (
-                        <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {choice.cooldown}d cooldown
-                        </Badge>
-                      )}
-                      {isOnCooldown && (
-                        <Badge variant="destructive" className="text-xs">
-                          {cooldownDays}d remaining
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium mb-2">{choice.text}</p>
-                    <div className="space-y-1">
-                      {choice.consequences.map((consequence, idx) => (
-                        <p key={idx} className="text-xs text-muted-foreground">
-                          • {consequence}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+      {/* Target and Interaction Selection */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="text-sm font-medium mb-2 block">Target</label>
+          <select 
+            value={selectedTarget} 
+            onChange={(e) => setSelectedTarget(e.target.value)}
+            className="w-full p-2 border border-border rounded text-sm"
+          >
+            <option value="">Select target...</option>
+            {availableTargets.map(c => (
+              <option key={c.name} value={c.name}>{c.name}</option>
+            ))}
+          </select>
         </div>
-      </ScrollArea>
-
-      <div className="mt-4 flex gap-3">
-        <Button 
-          variant="outline" 
-          className="flex-1"
-          onClick={() => setSelectedChoice('')}
-        >
-          Cancel
-        </Button>
-        <Button 
-          variant="action" 
-          className="flex-1"
-          disabled={!selectedChoice}
-          onClick={() => selectedChoice && onChoiceSelect(selectedChoice)}
-        >
-          Execute Choice
-        </Button>
+        <div>
+          <label className="text-sm font-medium mb-2 block">Interaction</label>
+          <select 
+            value={interactionType} 
+            onChange={(e) => setInteractionType(e.target.value as any)}
+            className="w-full p-2 border border-border rounded text-sm"
+          >
+            <option value="talk">Talk</option>
+            <option value="dm">Direct Message</option>
+            <option value="scheme">Scheme</option>
+            <option value="activity">Activity</option>
+          </select>
+        </div>
       </div>
+
+      {selectedTarget && (
+        <>
+          <ScrollArea className="h-64 mb-4">
+            <div className="space-y-3">
+              {availableChoices.map((choice) => {
+                const cooldownDays = getRemainingCooldown(choice.id);
+                const isOnCooldown = cooldownDays > 0;
+                
+                return (
+                  <div 
+                    key={choice.id}
+                    className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                      getChoiceColor(choice.type)
+                    } ${selectedChoice === choice.id ? 'ring-2 ring-primary' : ''} ${
+                      isOnCooldown ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    onClick={() => !isOnCooldown && setSelectedChoice(choice.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">
+                        {getChoiceIcon(choice.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline" className="text-xs">
+                            {choice.type}
+                          </Badge>
+                          {choice.cooldown && (
+                            <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {choice.cooldown}d cooldown
+                            </Badge>
+                          )}
+                          {isOnCooldown && (
+                            <Badge variant="destructive" className="text-xs">
+                              {cooldownDays}d remaining
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm font-medium mb-2">{choice.text}</p>
+                        <div className="space-y-1">
+                          {choice.consequences.map((consequence, idx) => (
+                            <p key={idx} className="text-xs text-muted-foreground">
+                              • {consequence}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => {
+                setSelectedChoice('');
+                setSelectedTarget('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="action" 
+              className="flex-1"
+              disabled={!selectedChoice}
+              onClick={() => {
+                if (selectedChoice && selectedTarget) {
+                  onTagTalk(selectedTarget, selectedChoice, interactionType);
+                  setSelectedChoice('');
+                  setSelectedTarget('');
+                }
+              }}
+            >
+              Execute Choice
+            </Button>
+          </div>
+        </>
+      )}
     </Card>
   );
 };
