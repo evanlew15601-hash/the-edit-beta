@@ -131,15 +131,8 @@ export const useGameState = () => {
       // Generate contextual memories for NPCs
       const newContextualMemories = EnhancedNPCMemorySystem.generateContextualMemories(tempState);
       
-      // Trigger emergent events after day advance - FIXED integration
-      if (typeof window !== 'undefined') {
-        setTimeout(() => {
-          const emergentEventEngine = require('@/utils/emergentEventEngine');
-          if (emergentEventEngine?.generateEmergentEvents) {
-            emergentEventEngine.generateEmergentEvents(tempState);
-          }
-        }, 1000);
-      }
+      // Emergent events are now handled by the EnhancedEmergentEvents component
+      // No need for manual triggering here as the component manages its own generation
       
       // Trigger minimal automatic information sharing (reduced frequency)
       if (newDay % 3 === 0) { // Only every 3 days
