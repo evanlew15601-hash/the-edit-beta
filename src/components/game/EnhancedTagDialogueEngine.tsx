@@ -43,55 +43,117 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
     // Enhanced choices based on relationship and context
     const enhancedChoices: TagChoice[] = [
       ...baseChoices,
-      // Relationship-based choices
+      
+      // High trust relationships - variety of strategic options
       ...(target.psychProfile.trustLevel > 70 ? [
         {
-          id: `trust-leverage-${target.name}`,
-          text: `Leverage your close relationship with ${target.name}`,
+          id: `share-strategy-${target.name}`,
+          text: `Share strategic information with ${target.name}`,
           type: 'strategic' as const,
-          consequences: ['Potential alliance strengthening', 'Risk of appearing manipulative'],
-          cooldown: 3
-        }
-      ] : []),
-      
-      ...(target.psychProfile.trustLevel < 30 ? [
-        {
-          id: `repair-relationship-${target.name}`,
-          text: `Attempt to repair damaged relationship with ${target.name}`,
-          type: 'emotional' as const,
-          consequences: ['May rebuild trust', 'Could be seen as fake'],
+          consequences: ['Strengthen trust', 'Risk information leak'],
           cooldown: 2
-        }
-      ] : []),
-      
-      // Disposition-based choices
-      ...(target.psychProfile.disposition.includes('Paranoid') ? [
+        },
         {
-          id: `exploit-paranoia-${target.name}`,
-          text: `Subtly feed into ${target.name}'s paranoid tendencies`,
-          type: 'deceptive' as const,
-          consequences: ['May create chaos', 'High risk of backfire'],
-          cooldown: 5
-        }
-      ] : []),
-      
-      ...(target.psychProfile.disposition.includes('Loyal') ? [
-        {
-          id: `appeal-loyalty-${target.name}`,
-          text: `Appeal to ${target.name}'s sense of loyalty`,
-          type: 'emotional' as const,
-          consequences: ['Strong emotional connection', 'May create long-term obligation'],
+          id: `coordinate-votes-${target.name}`,
+          text: `Coordinate future voting with ${target.name}`,
+          type: 'strategic' as const,
+          consequences: ['Voting alliance formed', 'May appear too close'],
           cooldown: 4
         }
       ] : []),
       
-      // Memory-based choices
-      ...(target.memory.some(m => m.type === 'scheme' && m.participants.includes(playerName)) ? [
+      // Medium trust - balanced approach
+      ...(target.psychProfile.trustLevel >= 30 && target.psychProfile.trustLevel <= 70 ? [
         {
-          id: `address-past-scheme-${target.name}`,
-          text: `Address past strategic moves with ${target.name}`,
-          type: 'neutral' as const,
-          consequences: ['May clear the air', 'Could bring up old wounds'],
+          id: `test-loyalty-${target.name}`,
+          text: `Subtly test ${target.name}'s loyalty`,
+          type: 'strategic' as const,
+          consequences: ['Gauge true intentions', 'May arouse suspicion'],
+          cooldown: 3
+        },
+        {
+          id: `build-rapport-${target.name}`,
+          text: `Work on building stronger rapport with ${target.name}`,
+          type: 'emotional' as const,
+          consequences: ['Improved relationship', 'Time investment'],
+          cooldown: 1
+        }
+      ] : []),
+      
+      // Low trust - repair or exploit
+      ...(target.psychProfile.trustLevel < 30 ? [
+        {
+          id: `damage-control-${target.name}`,
+          text: `Attempt damage control with ${target.name}`,
+          type: 'emotional' as const,
+          consequences: ['May salvage relationship', 'Could appear desperate'],
+          cooldown: 2
+        },
+        {
+          id: `misinformation-${target.name}`,
+          text: `Feed ${target.name} subtle misinformation`,
+          type: 'deceptive' as const,
+          consequences: ['Confuse their strategy', 'Risk being caught'],
+          cooldown: 5
+        }
+      ] : []),
+      
+      // Disposition-based choices with variety
+      ...(target.psychProfile.disposition.includes('Paranoid') ? [
+        {
+          id: `reassure-${target.name}`,
+          text: `Reassure ${target.name} about alliance loyalty`,
+          type: 'emotional' as const,
+          consequences: ['Calm paranoid thoughts', 'May not believe you'],
+          cooldown: 2
+        },
+        {
+          id: `exploit-paranoia-${target.name}`,
+          text: `Subtly validate ${target.name}'s suspicions`,
+          type: 'deceptive' as const,
+          consequences: ['Increase their paranoia', 'High risk of backfire'],
+          cooldown: 4
+        }
+      ] : []),
+      
+      ...(target.psychProfile.disposition.includes('Strategic') ? [
+        {
+          id: `strategic-discussion-${target.name}`,
+          text: `Engage in deep strategic discussion with ${target.name}`,
+          type: 'strategic' as const,
+          consequences: ['Learn their strategy', 'Reveal your own thinking'],
+          cooldown: 3
+        }
+      ] : []),
+      
+      ...(target.psychProfile.disposition.includes('Social') ? [
+        {
+          id: `social-bonding-${target.name}`,
+          text: `Focus on personal connection with ${target.name}`,
+          type: 'emotional' as const,
+          consequences: ['Strong personal bond', 'May seem non-strategic'],
+          cooldown: 1
+        }
+      ] : []),
+      
+      // Game phase specific choices
+      ...(gameState.gamePhase === 'player_vote' || gameState.currentDay === gameState.nextEliminationDay ? [
+        {
+          id: `vote-coordination-${target.name}`,
+          text: `Coordinate elimination vote with ${target.name}`,
+          type: 'strategic' as const,
+          consequences: ['Voting bloc formed', 'Clear strategic move'],
+          cooldown: 7
+        }
+      ] : []),
+      
+      // Alliance-based choices
+      ...(gameState.alliances.some(a => a.members.includes(target.name) && a.members.includes(playerName)) ? [
+        {
+          id: `alliance-planning-${target.name}`,
+          text: `Plan alliance strategy with ${target.name}`,
+          type: 'strategic' as const,
+          consequences: ['Strengthen alliance', 'Exclude other members'],
           cooldown: 2
         }
       ] : [])

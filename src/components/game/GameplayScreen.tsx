@@ -9,6 +9,7 @@ import { AmbientNPCActivity } from './AmbientNPCActivity';
 import { EnhancedInformationPanel } from './EnhancedInformationPanel';
 import { EnhancedTagDialogueEngine } from './EnhancedTagDialogueEngine';
 import { EnhancedEmergentEvents } from './EnhancedEmergentEvents';
+import { AllianceIntelligencePanel } from './AllianceIntelligencePanel';
 
 interface GameplayScreenProps {
   gameState: GameState;

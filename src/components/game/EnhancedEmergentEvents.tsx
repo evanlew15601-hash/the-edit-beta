@@ -258,10 +258,10 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
 
   const getIntensityColor = (intensity: EmergentEvent['intensity']) => {
     switch (intensity) {
-      case 'low': return 'border-green-200 bg-green-50';
-      case 'medium': return 'border-yellow-200 bg-yellow-50';
-      case 'high': return 'border-orange-200 bg-orange-50';
-      case 'explosive': return 'border-red-200 bg-red-50';
+      case 'low': return 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950';
+      case 'medium': return 'border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950';
+      case 'high': return 'border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950';
+      case 'explosive': return 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950';
     }
   };
 
@@ -291,7 +291,7 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
                    event.playerInvolvement === 'catalyst' ? 'You caused this' : 'Ongoing'}
                 </Badge>
               </div>
-              <AlertDescription className="mb-3">
+              <AlertDescription className="mb-3 text-foreground">
                 {event.description}
               </AlertDescription>
               

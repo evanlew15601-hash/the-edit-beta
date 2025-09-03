@@ -31,7 +31,7 @@ export interface InteractionLogEntry {
   content?: string;
   tone?: string;
   ai_response?: string;
-  source: 'player' | 'npc' | 'system';
+  source: 'player' | 'npc' | 'system' | 'emergent_event';
 }
 
 export interface PlayerAction {

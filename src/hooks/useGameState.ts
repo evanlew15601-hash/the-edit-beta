@@ -14,6 +14,7 @@ import { getTrustDelta, getSuspicionDelta, calculateLeakChance, calculateSchemeS
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { generateLocalAIReply } from '@/utils/localLLM';
+import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -103,8 +104,11 @@ export const useGameState = () => {
       const newDay = prev.currentDay + 1;
       console.log('Advancing to day:', newDay);
       
-      // Update alliances with the new management system
-      const updatedAlliances = AllianceManager.updateAllianceTrust(prev);
+      // Update alliances with the new management system - FIXED persistence
+      const updatedAlliances = AllianceManager.updateAllianceTrust({
+        ...prev,
+        currentDay: newDay
+      });
 
       // Auto-generate intelligence when day advances
       const tempState = {
@@ -112,6 +116,30 @@ export const useGameState = () => {
         currentDay: newDay,
         alliances: updatedAlliances
       };
+      
+      // Process enhanced NPC memory systems
+      const processedContestants = EnhancedNPCMemorySystem.processMemoryPatterns(tempState);
+      const contestantsWithMemories = EnhancedNPCMemorySystem.updateStrategicPriorities({
+        ...tempState,
+        contestants: processedContestants
+      });
+      const cleanedContestants = EnhancedNPCMemorySystem.cleanOldMemories({
+        ...tempState,
+        contestants: contestantsWithMemories
+      });
+      
+      // Generate contextual memories for NPCs
+      const newContextualMemories = EnhancedNPCMemorySystem.generateContextualMemories(tempState);
+      
+      // Trigger emergent events after day advance - FIXED integration
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          const emergentEventEngine = require('@/utils/emergentEventEngine');
+          if (emergentEventEngine?.generateEmergentEvents) {
+            emergentEventEngine.generateEmergentEvents(tempState);
+          }
+        }, 1000);
+      }
       
       // Trigger minimal automatic information sharing (reduced frequency)
       if (newDay % 3 === 0) { // Only every 3 days
@@ -139,11 +167,11 @@ export const useGameState = () => {
         daysUntilJury = Math.max(0, (remainingCount - 7) * 3); // Estimate days until jury
       }
 
-      // Check for key game events
+      // Check for key game events - FIXED phase transitions
       if (remainingCount === 3) {
-        // Final 3 - transition to finale
-        gamePhase = 'finale';
-        console.log('Final 3 reached - transitioning to finale');
+        // Final 3 - needs voting first
+        gamePhase = 'final_3_vote';
+        console.log('Final 3 reached - voting phase');
       } else if (newDay === prev.nextEliminationDay - 1) {
         // Day before elimination - immunity competition
         gamePhase = 'immunity_competition';
@@ -152,8 +180,8 @@ export const useGameState = () => {
         // Elimination day - let player vote first
         console.log('Elimination voting day:', newDay);
         gamePhase = 'player_vote';
-      } else if (newDay % 7 === 0) {
-        // Weekly recap every 7 days
+      } else if (newDay % 7 === 0 && newDay > 1) {
+        // Weekly recap every 7 days - FIXED integration
         gamePhase = 'weekly_recap';
         console.log('Weekly recap time');
       }
@@ -165,6 +193,7 @@ export const useGameState = () => {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
+        contestants: cleanedContestants,
         alliances: updatedAlliances,
         juryMembers,
         daysUntilJury,
@@ -510,8 +539,90 @@ export const useGameState = () => {
     });
   }, []);
 
-  const handleEmergentEventChoice = useCallback(() => {
-    console.log('Emergent event choice handled');
+  const handleEmergentEventChoice = useCallback((event: any, choice: 'pacifist' | 'headfirst') => {
+    console.log('Emergent event choice handled:', event.type, choice);
+    
+    setGameState(prev => {
+      const updatedContestants = prev.contestants.map(contestant => {
+        if (event.participants.includes(contestant.name)) {
+          let trustDelta = 0;
+          let suspicionDelta = 0;
+          
+          // Apply relationship effects based on event type and choice
+          switch (event.type) {
+            case 'conflict':
+              if (choice === 'pacifist') {
+                trustDelta = 10;
+                suspicionDelta = -5;
+              } else {
+                trustDelta = -15;
+                suspicionDelta = 10;
+              }
+              break;
+            case 'alliance_formation':
+              if (choice === 'pacifist') {
+                trustDelta = 5;
+              } else {
+                trustDelta = -10;
+                suspicionDelta = 15;
+              }
+              break;
+            case 'betrayal':
+              if (choice === 'pacifist') {
+                trustDelta = 0;
+              } else {
+                trustDelta = choice === 'headfirst' ? 15 : -5;
+                suspicionDelta = choice === 'headfirst' ? -10 : 5;
+              }
+              break;
+          }
+          
+          const newTrustLevel = Math.max(-100, Math.min(100, 
+            contestant.psychProfile.trustLevel + trustDelta
+          ));
+          const newSuspicionLevel = Math.max(0, Math.min(100, 
+            contestant.psychProfile.suspicionLevel + suspicionDelta
+          ));
+          
+          // Add memory of the emergent event
+          const newMemory = {
+            day: prev.currentDay,
+            type: 'event' as const,
+            participants: event.participants,
+            content: `${event.title}: ${prev.playerName} chose to ${choice === 'pacifist' ? 'defuse' : 'escalate'} the situation`,
+            emotionalImpact: Math.floor(trustDelta / 5),
+            timestamp: Date.now()
+          };
+          
+          return {
+            ...contestant,
+            psychProfile: {
+              ...contestant.psychProfile,
+              trustLevel: newTrustLevel,
+              suspicionLevel: newSuspicionLevel
+            },
+            memory: [...contestant.memory, newMemory]
+          };
+        }
+        return contestant;
+      });
+      
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        // Log the interaction
+        interactionLog: [
+          ...(prev.interactionLog || []),
+          {
+            day: prev.currentDay,
+            type: 'activity',
+            participants: [prev.playerName, ...event.participants],
+            content: `Emergent Event: ${event.title} - ${choice} approach`,
+            source: 'emergent_event' as const
+          }
+        ]
+      };
+    });
   }, []);
 
   const tagTalk = useCallback((target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => {
