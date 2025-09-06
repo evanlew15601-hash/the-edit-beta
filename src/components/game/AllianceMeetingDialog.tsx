@@ -83,16 +83,16 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
                   <SelectValue placeholder="Choose your alliance..." />
                 </SelectTrigger>
                 <SelectContent className="z-50 bg-popover text-popover-foreground">
-                  {alliances.map((alliance) => (
-                    <SelectItem key={alliance.id} value={alliance.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{alliance.id}</span>
-                        <Badge variant="outline">
-                          {alliance.members.length} members
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
+                   {alliances.map((alliance) => (
+                     <SelectItem key={alliance.id} value={alliance.id}>
+                       <div className="flex items-center gap-2">
+                         <span>{alliance.name || `Alliance ${alliance.id.slice(-4)}`}</span>
+                         <Badge variant="outline">
+                           {alliance.members.length} members
+                         </Badge>
+                       </div>
+                     </SelectItem>
+                   ))}
                 </SelectContent>
               </Select>
             </div>

@@ -126,10 +126,10 @@ export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: Allia
   return (
     <Card className="p-6">
       <div className="mb-4">
-        <h3 className="text-lg font-medium flex items-center gap-2">
-          <Users className="w-5 h-5 text-primary" />
-          Alliance Intelligence: {alliance.name}
-        </h3>
+         <h3 className="text-lg font-medium flex items-center gap-2">
+           <Users className="w-5 h-5 text-primary" />
+           Alliance Intelligence: {alliance.name || `Alliance ${alliance.id.slice(-4)}`}
+         </h3>
         <p className="text-sm text-muted-foreground mt-1">
           Trust Level: {alliance.strength}% • {alliance.members.length} members
         </p>

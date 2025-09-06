@@ -44,10 +44,12 @@
     --ring: 8 80% 55%;
 
     /* Edit System Colors */
-    --hero: 140 65% 45%;
-    --villain: 0 75% 50%;
-    --underedited: 220 5% 45%;
-    --ghosted: 220 5% 30%;
+    --edit-hero: 140 65% 45%;
+    --edit-villain: 0 75% 50%;
+    --edit-underedited: 220 5% 45%;
+    --edit-ghosted: 220 5% 30%;
+    --edit-comic: 50 80% 60%;
+    --edit-darkhorse: 280 60% 50%;
     --comic: 45 85% 55%;
     --darkhorse: 270 50% 45%;
 

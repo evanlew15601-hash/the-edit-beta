@@ -52,24 +52,30 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
             />
           </div>
           
-          <div className="lg:col-span-1 space-y-6">
-            <MemoryPanel gameState={gameState} />
-            <EnhancedInformationPanel gameState={gameState} />
-            <EnhancedTagDialogueEngine
-              gameState={gameState}
-              onTagTalk={onTagTalk}
-            />
-            <EnhancedEmergentEvents
-              gameState={gameState}
-              onEmergentEventChoice={onEmergentEventChoice}
-            />
-            <AmbientNPCActivity 
-              contestants={gameState.contestants}
-              currentDay={gameState.currentDay}
-              playerName={gameState.playerName}
-            />
-            <ContestantGrid contestants={gameState.contestants} playerName={gameState.playerName} />
-          </div>
+           <div className="lg:col-span-1 space-y-6">
+             <MemoryPanel gameState={gameState} />
+             <EnhancedInformationPanel gameState={gameState} />
+             {gameState.alliances.length > 0 && (
+               <AllianceIntelligencePanel 
+                 gameState={gameState}
+                 selectedAlliance={gameState.alliances[0]?.id}
+               />
+             )}
+             <EnhancedTagDialogueEngine
+               gameState={gameState}
+               onTagTalk={onTagTalk}
+             />
+             <EnhancedEmergentEvents
+               gameState={gameState}
+               onEmergentEventChoice={onEmergentEventChoice}
+             />
+             <AmbientNPCActivity 
+               contestants={gameState.contestants}
+               currentDay={gameState.currentDay}
+               playerName={gameState.playerName}
+             />
+             <ContestantGrid contestants={gameState.contestants} playerName={gameState.playerName} />
+           </div>
         </div>
       </div>
     </div>

@@ -11,8 +11,9 @@ export const DashboardHeader = ({ gameState }: DashboardHeaderProps) => {
   const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
   const remainingCount = activeContestants.length;
   
-  // Calculate weeks until jury (enhanced countdown)
-  const weeksUntilJury = gameState.daysUntilJury > 0 ? Math.ceil(gameState.daysUntilJury / 7) : 0;
+  // Calculate weeks until jury (enhanced countdown) - FIXED to update properly
+  const daysUntilJury = Math.max(0, gameState.daysUntilJury - (gameState.currentDay - 1));
+  const weeksUntilJury = daysUntilJury > 0 ? Math.ceil(daysUntilJury / 7) : 0;
   const isJuryPhase = gameState.juryMembers && gameState.juryMembers.length > 0;
   
   // Enhanced elimination countdown

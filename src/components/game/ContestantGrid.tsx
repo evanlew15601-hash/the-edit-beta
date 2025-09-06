@@ -62,9 +62,10 @@ export const ContestantGrid = ({ contestants, playerName }: ContestantGridProps)
             return (
               <Card 
                 key={contestant.id} 
-                className={`p-4 transition-all duration-300 hover-scale ${
-                  isHighThreat ? 'border-destructive/50 bg-destructive/5' : 
-                  isCloseAlly ? 'border-green-500/50 bg-green-500/5' : ''
+                className={`p-4 transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer ${
+                  isHighThreat ? 'border-destructive/50 bg-destructive/5 hover:bg-destructive/10' : 
+                  isCloseAlly ? 'border-green-500/50 bg-green-500/5 hover:bg-green-500/10' : 
+                  'hover:bg-muted/50'
                 }`}
               >
                 <div className="space-y-3">

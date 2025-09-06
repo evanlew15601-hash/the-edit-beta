@@ -91,11 +91,11 @@ export const SelectiveAllianceMeetingDialog = ({
                   <SelectValue placeholder="Choose an alliance..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {playerAlliances.map(alliance => (
-                    <SelectItem key={alliance.id} value={alliance.id}>
-                      Alliance {alliance.id} ({alliance.members.length} members)
-                    </SelectItem>
-                  ))}
+                   {playerAlliances.map(alliance => (
+                     <SelectItem key={alliance.id} value={alliance.id}>
+                       {alliance.name || `Alliance ${alliance.id.slice(-4)}`} ({alliance.members.length} members)
+                     </SelectItem>
+                   ))}
                 </SelectContent>
               </Select>
             </div>

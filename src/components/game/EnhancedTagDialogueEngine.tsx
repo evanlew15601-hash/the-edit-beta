@@ -59,6 +59,13 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           type: 'strategic' as const,
           consequences: ['Voting alliance formed', 'May appear too close'],
           cooldown: 4
+        },
+        {
+          id: `deep-convo-${target.name}`,
+          text: `Have a deep personal conversation with ${target.name}`,
+          type: 'emotional' as const,
+          consequences: ['Strengthen personal bond', 'Learn their motivations'],
+          cooldown: 3
         }
       ] : []),
       
@@ -77,6 +84,20 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           type: 'emotional' as const,
           consequences: ['Improved relationship', 'Time investment'],
           cooldown: 1
+        },
+        {
+          id: `casual-alliance-${target.name}`,
+          text: `Propose a casual voting agreement with ${target.name}`,
+          type: 'strategic' as const,
+          consequences: ['Temporary protection', 'Shallow commitment'],
+          cooldown: 2
+        },
+        {
+          id: `gather-intel-${target.name}`,
+          text: `Fish for information about ${target.name}'s plans`,
+          type: 'strategic' as const,
+          consequences: ['Learn their strategy', 'They may become guarded'],
+          cooldown: 2
         }
       ] : []),
       
@@ -95,6 +116,20 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           type: 'deceptive' as const,
           consequences: ['Confuse their strategy', 'Risk being caught'],
           cooldown: 5
+        },
+        {
+          id: `distance-yourself-${target.name}`,
+          text: `Politely distance yourself from ${target.name}`,
+          type: 'neutral' as const,
+          consequences: ['Avoid drama', 'May burn bridge completely'],
+          cooldown: 7
+        },
+        {
+          id: `fake-reconciliation-${target.name}`,
+          text: `Pretend to make amends with ${target.name}`,
+          type: 'deceptive' as const,
+          consequences: ['Temporary peace', 'High risk if discovered'],
+          cooldown: 4
         }
       ] : []),
       

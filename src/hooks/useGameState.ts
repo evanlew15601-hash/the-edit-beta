@@ -218,8 +218,8 @@ export const useGameState = () => {
         const newAlliance = {
           id: Date.now().toString(),
           name: allianceName,
-          members: memberNames,
-          strength: 50,
+          members: [prev.playerName, ...memberNames],
+          strength: 75,
           secret: true,
           formed: prev.currentDay,
           lastActivity: prev.currentDay,
@@ -229,6 +229,33 @@ export const useGameState = () => {
         return {
           ...prev,
           alliances: [...prev.alliances, newAlliance],
+          dailyActionCount: prev.dailyActionCount + 1
+        };
+      });
+      return;
+    }
+
+    // Handle adding members to existing alliance
+    if (actionType === 'add_alliance_members') {
+      const allianceId = target;
+      const newMembers = content ? content.split(',') : [];
+      console.log('Adding members to alliance:', allianceId, 'new members:', newMembers);
+      
+      setGameState(prev => {
+        const updatedAlliances = prev.alliances.map(alliance => 
+          alliance.id === allianceId 
+            ? {
+                ...alliance,
+                members: [...alliance.members, ...newMembers],
+                lastActivity: prev.currentDay,
+                strength: Math.min(100, alliance.strength + 10) // Boost strength when expanding
+              }
+            : alliance
+        );
+        
+        return {
+          ...prev,
+          alliances: updatedAlliances,
           dailyActionCount: prev.dailyActionCount + 1
         };
       });

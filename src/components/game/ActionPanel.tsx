@@ -13,7 +13,8 @@ import { ActivityDialog } from './ActivityDialog';
 import { AllianceMeetingDialog } from './AllianceMeetingDialog';
 import { TagConversationDialog } from './TagConversationDialog';
 import { CreateAllianceDialog } from './CreateAllianceDialog';
-import { Plus } from 'lucide-react';
+import { AddAllianceMemberDialog } from './AddAllianceMemberDialog';
+import { Plus, UserPlus } from 'lucide-react';
 
 interface ActionPanelProps {
   gameState: GameState;
@@ -33,6 +34,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
   const [tagTalkType, setTagTalkType] = useState<'talk' | 'dm' | 'scheme' | 'activity'>('talk');
   const [allianceMeetingOpen, setAllianceMeetingOpen] = useState(false);
   const [createAllianceOpen, setCreateAllianceOpen] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
   const forcedItem = (gameState.forcedConversationsQueue || [])[0];
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
@@ -163,14 +165,25 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
                 disabled={allActionsUsed}
                 className="flex-1"
               >
-                Call Alliance Meeting
+                Call Meeting
+              </Button>
+            )}
+            {gameState.alliances.length > 0 && (
+              <Button
+                variant="secondary"
+                onClick={() => setAddMemberOpen(true)}
+                disabled={allActionsUsed}
+                className="flex items-center gap-1"
+              >
+                <UserPlus className="w-4 h-4" />
+                Add Members
               </Button>
             )}
             <Button
               variant="action"
               onClick={() => setCreateAllianceOpen(true)}
               disabled={allActionsUsed}
-              className={gameState.alliances.length > 0 ? "" : "w-full"}
+              className={gameState.alliances.length === 0 ? "w-full" : ""}
             >
               {gameState.alliances.length > 0 ? 'New Alliance' : 'Create Alliance'}
             </Button>
@@ -293,6 +306,18 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onSubmit={(name, members) => {
           onUseAction('create_alliance', name, members.join(','), 'strategic');
           setCreateAllianceOpen(false);
+        }}
+      />
+
+      <AddAllianceMemberDialog
+        isOpen={addMemberOpen}
+        onClose={() => setAddMemberOpen(false)}
+        alliances={gameState.alliances}
+        contestants={gameState.contestants}
+        playerName={gameState.playerName}
+        onSubmit={(allianceId, newMembers) => {
+          onUseAction('add_alliance_members', allianceId, newMembers.join(','), 'strategic');
+          setAddMemberOpen(false);
         }}
       />
 
