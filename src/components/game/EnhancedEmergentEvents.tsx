@@ -258,10 +258,10 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
 
   const getIntensityColor = (intensity: EmergentEvent['intensity']) => {
     switch (intensity) {
-      case 'low': return 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950';
-      case 'medium': return 'border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950';
-      case 'high': return 'border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950';
-      case 'explosive': return 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950';
+      case 'low': return 'border-border bg-card text-card-foreground';
+      case 'medium': return 'border-border bg-card text-card-foreground';
+      case 'high': return 'border-border bg-card text-card-foreground';
+      case 'explosive': return 'border-destructive bg-destructive/10 text-destructive-foreground';
     }
   };
 
@@ -278,7 +278,7 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <h4 className="font-medium">{event.title}</h4>
+                <h4 className="font-medium text-foreground">{event.title}</h4>
                 <Badge variant="outline" className="text-xs">
                   {event.intensity}
                 </Badge>
@@ -303,7 +303,7 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
                       variant="outline"
                       size="sm"
                       onClick={() => resolveEvent(event.id, choice.id)}
-                      className="text-left justify-start"
+                      className="text-left justify-start bg-background hover:bg-accent text-foreground"
                     >
                       <span className="flex-1">{choice.text}</span>
                       <Badge variant="secondary" className="text-xs ml-2">
