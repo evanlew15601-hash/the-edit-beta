@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, Clock, Zap } from 'lucide-react';
-import { EmergentEventInterruptor } from '@/utils/emergentEventInterruptor';
+import { EnhancedEmergentEvents } from '@/utils/enhancedEmergentEvents';
 import { GameState } from '@/types/game';
 
 interface DaySkipDialogProps {
@@ -27,7 +27,7 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     // Check for emergent event that would interrupt the skip
-    const interruptEvent = EmergentEventInterruptor.checkForEventInterruption(gameState);
+    const interruptEvent = EnhancedEmergentEvents.generateEmergentEvent(gameState);
     
     if (interruptEvent) {
       setEmergentEvent(interruptEvent);

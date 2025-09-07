@@ -182,6 +182,14 @@ export const useGameState = () => {
       // Clear old information and update systems
       InformationTradingEngine.clearOldInformation({ ...prev, currentDay: newDay });
 
+      // Calculate edit perception changes
+      const updatedEditPerception = calculateLegacyEditPerception(
+        prev.confessionals,
+        prev.editPerception,
+        newDay,
+        { ...prev, currentDay: newDay }
+      );
+
       return {
         ...prev,
         currentDay: newDay,
@@ -191,6 +199,7 @@ export const useGameState = () => {
         juryMembers,
         daysUntilJury,
         gamePhase,
+        editPerception: updatedEditPerception,
         // Reset daily variables
         lastAIResponse: undefined,
         lastAIAdditions: undefined,
@@ -627,9 +636,20 @@ export const useGameState = () => {
         return contestant;
       });
       
+      // Apply edit impact from the emergent event choice
+      const editImpact = choice === 'pacifist' ? -2 : 8; // Pacifist = less dramatic, headfirst = more screen time
+      const updatedEditPerception = {
+        ...prev.editPerception,
+        screenTimeIndex: Math.max(0, Math.min(100, prev.editPerception.screenTimeIndex + editImpact)),
+        lastEditShift: editImpact
+      };
+
+      // Clear the emergent event to prevent black screen
       return {
         ...prev,
         contestants: updatedContestants,
+        lastEmergentEvent: null,
+        editPerception: updatedEditPerception,
         // Log the interaction
         interactionLog: [
           ...(prev.interactionLog || []),
