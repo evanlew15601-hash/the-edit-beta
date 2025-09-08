@@ -494,10 +494,15 @@ export const useGameState = () => {
   }, []);
 
   const continueFromElimination = useCallback(() => {
-    setGameState(prev => ({
-      ...prev,
-      gamePhase: 'daily' as const
-    }));
+    setGameState(prev => {
+      // Check if we should show weekly recap after elimination
+      const shouldShowWeeklyRecap = prev.currentDay % 7 === 0 && prev.currentDay > 1;
+      
+      return {
+        ...prev,
+        gamePhase: shouldShowWeeklyRecap ? 'weekly_recap' : 'daily' as const
+      };
+    });
   }, []);
 
   const continueFromWeeklyRecap = useCallback(() => {
