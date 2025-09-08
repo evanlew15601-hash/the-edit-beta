@@ -104,7 +104,10 @@ export interface Confessional {
 export interface EditPerception {
   screenTimeIndex: number; // 0 to 100
   audienceApproval: number; // -100 to 100
-  persona: 'Hero' | 'Villain' | 'Underedited' | 'Ghosted' | 'Comic Relief' | 'Dark Horse';
+  persona: 'Hero' | 'Villain' | 'Underedited' | 'Ghosted' | 'Comic Relief' | 'Dark Horse' | 
+           'Mastermind' | 'Puppet Master' | 'Strategic Player' | 'Antagonist' | 'Troublemaker' |
+           'Flirt' | 'Gossip' | 'Social Butterfly' | 'Floater' | 'Class Clown' | 'Seducer' |
+           'Romantic' | 'Fan Favorite' | 'Pariah' | 'Contender' | 'Controversial';
   lastEditShift: number;
   weeklyQuote?: string;
 }

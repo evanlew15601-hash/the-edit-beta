@@ -42,6 +42,22 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
       case 'Ghosted': return 'text-edit-ghosted';
       case 'Comic Relief': return 'text-edit-comic';
       case 'Dark Horse': return 'text-edit-darkhorse';
+      case 'Mastermind': return 'text-edit-mastermind';
+      case 'Puppet Master': return 'text-edit-puppet-master';
+      case 'Strategic Player': return 'text-edit-strategic';
+      case 'Antagonist': return 'text-edit-antagonist';
+      case 'Troublemaker': return 'text-edit-troublemaker';
+      case 'Flirt': return 'text-edit-flirt';
+      case 'Gossip': return 'text-edit-gossip';
+      case 'Social Butterfly': return 'text-edit-social';
+      case 'Floater': return 'text-edit-floater';
+      case 'Class Clown': return 'text-edit-clown';
+      case 'Seducer': return 'text-edit-seducer';
+      case 'Romantic': return 'text-edit-romantic';
+      case 'Fan Favorite': return 'text-edit-fan-favorite';
+      case 'Pariah': return 'text-edit-pariah';
+      case 'Contender': return 'text-edit-contender';
+      case 'Controversial': return 'text-edit-controversial';
       default: return 'text-muted-foreground';
     }
   };

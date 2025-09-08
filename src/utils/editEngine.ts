@@ -99,6 +99,15 @@ export const calculateLegacyEditPerception = (
   // Strategic moment bonuses - responsive to actual gameplay
   let strategicBonus = 0;
   
+  // Track gameplay patterns for enhanced edit types
+  let aggressiveActions = 0;
+  let socialActions = 0;
+  let strategicActions = 0;
+  let flirtingActions = 0;
+  let jokeActions = 0;
+  let rumorActions = 0;
+  let secretActions = 0;
+  
   if (gameState) {
     const { interactionLog = [], alliances = [], currentDay, playerName } = gameState;
     
@@ -108,11 +117,55 @@ export const calculateLegacyEditPerception = (
       .filter(entry => ['scheme', 'alliance_meeting'].includes(entry.type));
     
     strategicBonus += recentStrategic.length * 8; // +8 screen time per strategic action
+    strategicActions += recentStrategic.length;
+    
+    // Analyze tag talk patterns for enhanced edit tracking
+    const recentTagTalks = interactionLog
+      .filter(entry => entry.day >= currentDay - 3 && entry.participants.includes(playerName))
+      .filter(entry => entry.type === 'tag_talk');
+    
+    recentTagTalks.forEach(talk => {
+      const intent = talk.intent?.toLowerCase() || '';
+      const tone = talk.tone?.toLowerCase() || '';
+      
+      // Categorize actions based on intent and tone
+      if (intent === 'insult' || tone === 'aggressive') {
+        aggressiveActions++;
+        strategicBonus += 12; // Drama = high screen time
+        approvalChange -= 8; // But hurts approval
+      } else if (intent === 'flirt') {
+        flirtingActions++;
+        strategicBonus += 8;
+        approvalChange += 3;
+      } else if (intent === 'makejoke') {
+        jokeActions++;
+        strategicBonus += 6;
+        approvalChange += 5;
+      } else if (intent === 'sowdoubt' || intent === 'probeforninfo') {
+        rumorActions++;
+        strategicActions++;
+        strategicBonus += 10;
+        approvalChange -= 2;
+      } else if (intent === 'revealsecret') {
+        secretActions++;
+        strategicActions++;
+        strategicBonus += 15; // Secrets = major content
+      } else if (intent === 'buildalliance') {
+        socialActions++;
+        strategicActions++;
+        strategicBonus += 8;
+        approvalChange += 2;
+      } else {
+        socialActions++;
+        strategicBonus += 4; // General social content
+      }
+    });
     
     // Multi-alliance bonus
     const playerAlliances = alliances.filter(a => a.members.includes(playerName));
     if (playerAlliances.length > 1) {
       strategicBonus += 15; // Playing multiple sides = more screen time
+      strategicActions += 2; // Multi-alliance strategy
     }
     
     // Vote week activity bonus
@@ -122,10 +175,11 @@ export const calculateLegacyEditPerception = (
       strategicBonus += voteWeekActivity.length * 3; // Increased activity during voting
     }
     
-    // Conflict engagement bonus
+    // Additional conflict tracking
     const conflicts = interactionLog
       .filter(entry => entry.day >= currentDay - 3 && entry.participants.includes(playerName))
       .filter(entry => entry.tone === 'aggressive');
+    aggressiveActions += conflicts.length;
     strategicBonus += conflicts.length * 10; // Drama = screen time
     
     // Information sharing bonus
@@ -133,6 +187,7 @@ export const calculateLegacyEditPerception = (
       .filter(entry => entry.day >= currentDay - 2 && entry.participants.includes(playerName))
       .filter(entry => entry.type === 'dm');
     strategicBonus += infoSharing.length * 5; // Intel networks = content
+    socialActions += infoSharing.length;
   }
 
   // Confessional impact on edit
@@ -141,6 +196,7 @@ export const calculateLegacyEditPerception = (
       case 'strategic':
         screenTimeChange += 12;
         approvalChange += conf.audienceScore ? (conf.audienceScore - 50) / 10 : 5;
+        strategicActions++;
         break;
       case 'dramatic':
         screenTimeChange += 18; // Drama gets major screen time
@@ -153,10 +209,12 @@ export const calculateLegacyEditPerception = (
       case 'aggressive':
         screenTimeChange += 15;
         approvalChange += conf.audienceScore ? (conf.audienceScore - 50) / 12 : -8;
+        aggressiveActions++;
         break;
       case 'humorous':
         screenTimeChange += 6;
         approvalChange += conf.audienceScore ? (conf.audienceScore - 50) / 6 : 6;
+        jokeActions++;
         break;
       case 'evasive':
         screenTimeChange += 2; // Boring content
@@ -170,6 +228,7 @@ export const calculateLegacyEditPerception = (
       a.formed >= currentDay - 1 && a.members.includes(gameState.playerName)
     ) || [];
     strategicBonus += recentAlliances.length * 15; // Increased bonus
+    strategicActions += recentAlliances.length;
     
     // Recent voting or elimination involvement
     if (gameState.votingHistory?.length > 0) {
@@ -181,6 +240,7 @@ export const calculateLegacyEditPerception = (
         // If player's vote was decisive or surprising
         if (lastVote.playerVote && lastVote.playerVote !== lastVote.eliminated) {
           strategicBonus += 15; // Voting against the house
+          strategicActions += 2;
         }
       }
     }
@@ -196,6 +256,7 @@ export const calculateLegacyEditPerception = (
       log.day >= currentDay - 1 && log.participants.includes(gameState.playerName)
     )?.length || 0;
     strategicBonus += Math.min(30, recentInteractions * 3); // Increased multiplier
+    socialActions += Math.min(10, recentInteractions);
   }
   
   if (recentConfessionals.length === 0) {
@@ -267,7 +328,7 @@ export const calculateLegacyEditPerception = (
     currentPerception.audienceApproval + approvalChange
   ));
 
-  // Enhanced persona determination - fixed thresholds and logic
+  // Enhanced persona determination with many more edit types
   let persona: EditPerception['persona'];
   
   // Check for inactivity first
@@ -277,22 +338,91 @@ export const calculateLegacyEditPerception = (
     persona = 'Ghosted'; // Very low screen time
   } else if (newScreenTime < 20) {
     persona = 'Underedited'; // Low screen time
-  } else if (newApproval > 35) {
-    persona = 'Hero'; // High approval
-  } else if (newApproval < -25) {
-    persona = 'Villain'; // Low approval
-  } else if (recentConfessionals.some(c => c.tone === 'humorous') && newApproval > 0) {
-    persona = 'Comic Relief'; // Funny with positive approval
-  } else if (newScreenTime > 40 && Math.abs(newApproval) < 20) {
-    persona = 'Dark Horse'; // High screen time, neutral approval
-  } else {
-    // Default based on screen time and approval balance
-    if (newScreenTime < 35) {
-      persona = 'Underedited';
-    } else if (newApproval > 0) {
-      persona = 'Hero';
+  } 
+  // Strategic archetypes - high activity patterns
+  else if (strategicActions >= 4 && newScreenTime > 50) {
+    if (aggressiveActions >= 3) {
+      persona = 'Mastermind'; // Strategic + aggressive
+    } else if (secretActions >= 2) {
+      persona = 'Puppet Master'; // Controlling behind scenes
     } else {
-      persona = 'Villain';
+      persona = 'Strategic Player'; // Pure strategy
+    }
+  }
+  // Conflict-driven archetypes
+  else if (aggressiveActions >= 3) {
+    if (newApproval < -15) {
+      persona = 'Villain'; // Aggressive + disliked
+    } else if (newScreenTime > 40) {
+      persona = 'Antagonist'; // Aggressive but compelling TV
+    } else {
+      persona = 'Troublemaker'; // Creates conflict
+    }
+  }
+  // Social archetypes
+  else if (socialActions >= 4) {
+    if (flirtingActions >= 2) {
+      persona = 'Flirt'; // Romance-focused
+    } else if (rumorActions >= 2) {
+      persona = 'Gossip'; // Information gatherer
+    } else if (newApproval > 25) {
+      persona = 'Social Butterfly'; // Well-liked social player
+    } else {
+      persona = 'Floater'; // Social but not strategic
+    }
+  }
+  // Comedy archetypes
+  else if (jokeActions >= 3) {
+    if (newApproval > 15) {
+      persona = 'Comic Relief'; // Funny and liked
+    } else {
+      persona = 'Class Clown'; // Funny but not serious
+    }
+  }
+  // Romance archetypes
+  else if (flirtingActions >= 3) {
+    if (strategicActions >= 2) {
+      persona = 'Seducer'; // Strategic romance
+    } else {
+      persona = 'Romantic'; // Pure romance play
+    }
+  }
+  // Approval-based archetypes
+  else if (newApproval > 35) {
+    if (newScreenTime > 30) {
+      persona = 'Hero'; // High approval + good screen time
+    } else {
+      persona = 'Fan Favorite'; // Loved but not featured
+    }
+  } else if (newApproval < -25) {
+    if (newScreenTime > 30) {
+      persona = 'Villain'; // Disliked with screen time
+    } else {
+      persona = 'Pariah'; // Disliked and ignored
+    }
+  }
+  // Screen time based archetypes
+  else if (newScreenTime > 40) {
+    if (Math.abs(newApproval) < 15) {
+      persona = 'Dark Horse'; // High screen time, neutral approval
+    } else if (newApproval > 0) {
+      persona = 'Contender'; // Featured positively
+    } else {
+      persona = 'Controversial'; // Featured negatively
+    }
+  }
+  // Default based on patterns
+  else {
+    if (newScreenTime < 25) {
+      persona = 'Underedited';
+    } else if (strategicActions >= 2) {
+      persona = 'Strategic Player';
+    } else if (socialActions >= 3) {
+      persona = 'Social Butterfly';
+    } else if (newApproval > 0) {
+      persona = 'Fan Favorite';
+    } else {
+      persona = 'Controversial';
     }
   }
 
