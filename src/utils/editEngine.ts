@@ -199,8 +199,8 @@ export const calculateLegacyEditPerception = (
   }
   
   if (recentConfessionals.length === 0) {
-    // Apply strategic bonus even without confessionals
-    screenTimeChange = strategicBonus - 1; // Reduced penalty
+    // No confessionals - major penalty for being invisible
+    screenTimeChange = strategicBonus - 8; // Increased penalty
   } else {
     // Calculate impact from confessional tones with strategic context
     const toneImpacts = recentConfessionals.reduce((acc, conf) => {
@@ -247,6 +247,18 @@ export const calculateLegacyEditPerception = (
     approvalChange = toneImpacts.approval;
   }
 
+  // Check for inactivity - if no recent interactions at all
+  const totalRecentActivity = gameState?.interactionLog?.filter(log => 
+    log.day >= currentDay - 2 && log.participants.includes(gameState?.playerName || '')
+  )?.length || 0;
+
+  // Major penalty for complete inactivity
+  if (totalRecentActivity === 0 && recentConfessionals.length === 0) {
+    screenTimeChange = Math.min(screenTimeChange, -15); // Massive penalty
+  } else if (totalRecentActivity <= 1 && recentConfessionals.length === 0) {
+    screenTimeChange = Math.min(screenTimeChange, -10); // Major penalty
+  }
+
   // Apply changes with bounds
   const newScreenTime = Math.max(0, Math.min(100, 
     currentPerception.screenTimeIndex + screenTimeChange
@@ -255,22 +267,33 @@ export const calculateLegacyEditPerception = (
     currentPerception.audienceApproval + approvalChange
   ));
 
-  // Enhanced persona determination
+  // Enhanced persona determination - fixed thresholds and logic
   let persona: EditPerception['persona'];
-  if (newScreenTime < 10) { // Lowered threshold
-    persona = 'Ghosted';
-  } else if (newScreenTime < 25) { // Lowered threshold
-    persona = 'Underedited';
-  } else if (newApproval > 30) { // Lowered threshold
-    persona = 'Hero';
-  } else if (newApproval < -30) { // Lowered threshold
-    persona = 'Villain';
-  } else if (recentConfessionals.some(c => c.tone === 'humorous') && newApproval > 5) {
-    persona = 'Comic Relief';
-  } else if (newScreenTime > 50 && Math.abs(newApproval) < 25) { // Lowered thresholds
-    persona = 'Dark Horse';
+  
+  // Check for inactivity first
+  if (totalRecentActivity === 0 && recentConfessionals.length === 0) {
+    persona = 'Ghosted'; // Completely inactive
+  } else if (newScreenTime < 8) {
+    persona = 'Ghosted'; // Very low screen time
+  } else if (newScreenTime < 20) {
+    persona = 'Underedited'; // Low screen time
+  } else if (newApproval > 35) {
+    persona = 'Hero'; // High approval
+  } else if (newApproval < -25) {
+    persona = 'Villain'; // Low approval
+  } else if (recentConfessionals.some(c => c.tone === 'humorous') && newApproval > 0) {
+    persona = 'Comic Relief'; // Funny with positive approval
+  } else if (newScreenTime > 40 && Math.abs(newApproval) < 20) {
+    persona = 'Dark Horse'; // High screen time, neutral approval
   } else {
-    persona = 'Dark Horse';
+    // Default based on screen time and approval balance
+    if (newScreenTime < 35) {
+      persona = 'Underedited';
+    } else if (newApproval > 0) {
+      persona = 'Hero';
+    } else {
+      persona = 'Villain';
+    }
   }
 
   return {
