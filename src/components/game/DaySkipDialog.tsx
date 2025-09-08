@@ -163,10 +163,10 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
                     <p className="text-sm text-foreground mb-3">{emergentEvent.description}</p>
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">
-                        <strong>Immediate Impact:</strong> {emergentEvent.impact.immediate}
+                        <strong>Type:</strong> {emergentEvent.type.replace('_', ' ').toUpperCase()}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        <strong>Long-term Impact:</strong> {emergentEvent.impact.longTerm}
+                        <strong>Participants:</strong> {emergentEvent.participants.join(', ')}
                       </p>
                     </div>
                   </div>
