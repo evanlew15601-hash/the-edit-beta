@@ -5,6 +5,7 @@ import { GameState, WeeklyEdit } from '@/types/game';
 import { generateFanReactions } from '@/utils/fanReactions';
 import { buildWeeklyEdit } from '@/utils/weeklyEditBuilder';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
+import { buildEnhancedWeeklyEdit } from '@/utils/enhancedMemoryRecap';
 
 interface WeeklyRecapScreenProps {
   gameState: GameState;
@@ -22,8 +23,8 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
   
   console.log(`Week ${currentWeek} confessionals:`, weeklyConfessionals.length, 'from days', weekStartDay, 'to', weekEndDay);
 
-  // Generate weekly edit summary and update edit perception
-  const weeklyEdit: WeeklyEdit = buildWeeklyEdit(gameState);
+  // Generate enhanced weekly edit summary and update edit perception
+  const weeklyEdit: WeeklyEdit = buildEnhancedWeeklyEdit(gameState);
   const updatedEditPerception = calculateLegacyEditPerception(
     gameState.confessionals,
     gameState.editPerception,
