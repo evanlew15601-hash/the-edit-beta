@@ -534,6 +534,38 @@ export const TAG_CHOICES: Choice[] = [
     weight: 1.0
   },
 
+  // Advanced alliance coordination choices
+  {
+    choiceId: 'SCHEME_ALLIANCE_COORDINATION_STRATEGIC_1',
+    textVariants: [
+      'We need to coordinate our votes perfectly this week.',
+      'Let\'s plan our elimination strategy step by step.',
+      'Time to activate our alliance - here\'s the plan.'
+    ],
+    intent: 'BuildAlliance',
+    tone: 'Sincere',
+    topics: ['Strategy', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['scheme'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+  {
+    choiceId: 'SCHEME_INFORMATION_TRADE_NEUTRAL_1',
+    textVariants: [
+      'I\'ll share what I know if you share what you know.',
+      'Let\'s pool our intelligence about the house dynamics.',
+      'Trade information? You first, then I\'ll tell you my intel.'
+    ],
+    intent: 'ProbeForInfo',
+    tone: 'Neutral',
+    topics: ['Strategy', 'Rumor'],
+    targetType: 'Person',
+    interactionTypes: ['scheme'],
+    cooldownDays: 2,
+    weight: 1.0
+  },
+
   // BuildAlliance + All Topics for Scheme
   {
     choiceId: 'SCHEME_BUILD_ALLY_STRATEGY_SINCERE_1',

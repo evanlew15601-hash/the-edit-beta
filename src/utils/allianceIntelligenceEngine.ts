@@ -59,33 +59,59 @@ export class AllianceIntelligenceEngine {
     gameState: GameState
   ) {
     const trustLevel = contestant.psychProfile.trustLevel;
+    const suspicionLevel = contestant.psychProfile.suspicionLevel || 0;
+    const disposition = contestant.psychProfile.disposition || [];
+    
+    // Find specific evidence for trust assessments
+    const recentActions = gameState.interactionLog
+      .filter(log => log.participants.includes(contestant.name) && log.day >= gameState.currentDay - 5)
+      .slice(-10);
+    
+    const allianceActions = recentActions.filter(log => 
+      alliance.members.some(member => log.participants.includes(member))
+    );
     
     if (trustLevel > 80) {
-      intel.push({
-        type: 'truth',
-        confidence: 'high',
-        info: `${contestant.name} is extremely loyal to this alliance. Their devotion appears genuine.`,
-        source: 'behavioral_analysis',
-        memberId: contestant.name
-      });
+      // High trust - provide specific evidence
+      const loyaltyEvidence = allianceActions.filter(action => 
+        action.content?.includes('BuildAlliance') || action.content?.includes('share-strategy')
+      );
       
-      // Share voting intentions truthfully
+      if (loyaltyEvidence.length > 0) {
+        intel.push({
+          type: 'truth',
+          confidence: 'high',
+          info: `${contestant.name} has consistently supported alliance members in ${loyaltyEvidence.length} recent interactions. High loyalty confirmed.`,
+          source: 'behavioral_analysis',
+          memberId: contestant.name
+        });
+      } else {
+        intel.push({
+          type: 'truth',
+          confidence: 'medium',
+          info: `${contestant.name} shows strong alliance commitment through body language and private conversations.`,
+          source: 'behavioral_analysis',
+          memberId: contestant.name
+        });
+      }
+      
+      // Voting intel based on memory patterns
       if (gameState.gamePhase === 'player_vote') {
-        const targetMemory = contestant.memory
-          .filter(m => m.type === 'scheme' || m.type === 'conversation')
-          .slice(-2);
+        const voteMemories = contestant.memory
+          .filter(m => (m.type === 'scheme' || m.type === 'conversation') && m.day >= gameState.currentDay - 2)
+          .slice(-3);
         
-        if (targetMemory.length > 0) {
-          const potentialTarget = targetMemory[0].participants.find(p => 
-            p !== contestant.name && p !== gameState.playerName &&
-            !gameState.contestants.find(c => c.name === p)?.isEliminated
-          );
+        if (voteMemories.length > 0) {
+          const discussedTargets = voteMemories.flatMap(m => m.participants)
+            .filter(p => p !== contestant.name && p !== gameState.playerName)
+            .filter((p, i, arr) => arr.indexOf(p) === i); // unique
           
-          if (potentialTarget) {
+          if (discussedTargets.length > 0) {
+            const primaryTarget = discussedTargets[0];
             intel.push({
               type: 'truth',
               confidence: 'high',
-              info: `${contestant.name} is planning to vote for ${potentialTarget} tonight.`,
+              info: `${contestant.name} mentioned targeting ${primaryTarget} in recent alliance discussions. Likely their vote tonight.`,
               source: 'alliance_discussion',
               memberId: contestant.name
             });
@@ -93,33 +119,93 @@ export class AllianceIntelligenceEngine {
         }
       }
     } else if (trustLevel > 50) {
-      intel.push({
-        type: 'truth',
-        confidence: 'medium',
-        info: `${contestant.name} seems committed to this alliance, but may have reservations.`,
-        source: 'behavioral_analysis',
-        memberId: contestant.name
-      });
-    } else if (trustLevel < 30) {
-      intel.push({
-        type: 'deception',
-        confidence: 'high',
-        info: `${contestant.name} is likely planning to betray this alliance. Their loyalty is questionable.`,
-        source: 'behavioral_analysis',
-        memberId: contestant.name
-      });
+      // Medium trust - conditional loyalty
+      const conflictActions = allianceActions.filter(action => 
+        action.content?.includes('SowDoubt') || action.content?.includes('test-loyalty')
+      );
       
-      // Generate false voting information
+      if (conflictActions.length > 0) {
+        intel.push({
+          type: 'truth',
+          confidence: 'medium',
+          info: `${contestant.name} has been testing alliance loyalty in ${conflictActions.length} recent interactions. Shows cautious approach.`,
+          source: 'behavioral_analysis',
+          memberId: contestant.name
+        });
+      } else if (suspicionLevel > 60) {
+        intel.push({
+          type: 'strategic',
+          confidence: 'medium',
+          info: `${contestant.name} is highly suspicious (${suspicionLevel}% paranoia) but still cooperative. May flip if pressured.`,
+          source: 'behavioral_analysis',
+          memberId: contestant.name
+        });
+      } else {
+        intel.push({
+          type: 'truth',
+          confidence: 'medium',
+          info: `${contestant.name} shows moderate alliance commitment but keeps options open for better opportunities.`,
+          source: 'behavioral_analysis',
+          memberId: contestant.name
+        });
+      }
+    } else if (trustLevel < 30) {
+      // Low trust - find evidence of betrayal
+      const betrayalActions = recentActions.filter(action => 
+        action.content?.includes('misinformation') || 
+        action.content?.includes('distance-yourself') ||
+        action.content?.includes('exploit-paranoia')
+      );
+      
+      const outsideAlliances = gameState.alliances.filter(a => 
+        a.members.includes(contestant.name) && !a.members.includes(gameState.playerName)
+      );
+      
+      if (betrayalActions.length > 0) {
+        intel.push({
+          type: 'deception',
+          confidence: 'high',
+          info: `${contestant.name} has been spreading misinformation and creating distance. Evidence of ${betrayalActions.length} suspicious actions.`,
+          source: 'observation',
+          memberId: contestant.name
+        });
+      } else if (outsideAlliances.length > 0) {
+        intel.push({
+          type: 'deception',
+          confidence: 'high',
+          info: `${contestant.name} is in ${outsideAlliances.length} other alliance(s). Divided loyalty confirmed.`,
+          source: 'alliance_discussion',
+          memberId: contestant.name
+        });
+      } else if (disposition.includes('Paranoid')) {
+        intel.push({
+          type: 'deception',
+          confidence: 'medium',
+          info: `${contestant.name}'s paranoid nature (${suspicionLevel}% suspicion) makes them unreliable. May betray preemptively.`,
+          source: 'behavioral_analysis',
+          memberId: contestant.name
+        });
+      } else {
+        intel.push({
+          type: 'deception',
+          confidence: 'medium',
+          info: `${contestant.name} shows low trust metrics (${trustLevel}%) and minimal alliance engagement. Betrayal likely.`,
+          source: 'behavioral_analysis',
+          memberId: contestant.name
+        });
+      }
+      
+      // Generate misleading voting info based on their deceptive nature
       if (gameState.gamePhase === 'player_vote') {
-        const randomTarget = gameState.contestants
-          .filter(c => !c.isEliminated && c.name !== contestant.name && c.name !== gameState.playerName)
-          [Math.floor(Math.random() * gameState.contestants.filter(c => !c.isEliminated && c.name !== contestant.name).length)];
+        const eligibleTargets = gameState.contestants
+          .filter(c => !c.isEliminated && c.name !== contestant.name && c.name !== gameState.playerName);
         
-        if (randomTarget) {
+        if (eligibleTargets.length > 0) {
+          const decoyTarget = eligibleTargets[Math.floor(Math.random() * eligibleTargets.length)];
           intel.push({
             type: 'deception',
             confidence: 'low',
-            info: `${contestant.name} claims they're voting for ${randomTarget.name}, but this could be misdirection.`,
+            info: `${contestant.name} claims they're voting ${decoyTarget.name}, but their low trust suggests this is misdirection.`,
             source: 'private_conversation',
             memberId: contestant.name
           });
@@ -135,39 +221,137 @@ export class AllianceIntelligenceEngine {
     gameState: GameState
   ) {
     const recentMemories = contestant.memory
-      .filter(m => m.day >= gameState.currentDay - 3)
-      .slice(0, 3);
+      .filter(m => m.day >= gameState.currentDay - 5)
+      .slice(0, 5);
+
+    const allianceMembers = alliance.members;
+    const outsiders = gameState.contestants
+      .filter(c => !c.isEliminated && !allianceMembers.includes(c.name))
+      .map(c => c.name);
 
     recentMemories.forEach(memory => {
+      const partners = memory.participants.filter(p => p !== contestant.name);
+      const alliancePartners = partners.filter(p => allianceMembers.includes(p));
+      const outsidePartners = partners.filter(p => outsiders.includes(p));
+
       if (memory.type === 'scheme') {
-        const conspirators = memory.participants.filter(p => p !== contestant.name);
-        intel.push({
-          type: 'strategic',
-          confidence: 'medium',
-          info: `${contestant.name} has been scheming with ${conspirators.join(', ')} recently about game strategy.`,
-          source: 'observation',
-          memberId: contestant.name
-        });
-      } else if (memory.type === 'conversation' && memory.emotionalImpact > 5) {
-        const conversationPartners = memory.participants.filter(p => p !== contestant.name);
-        intel.push({
-          type: 'social',
-          confidence: 'high',
-          info: `${contestant.name} had a meaningful positive conversation with ${conversationPartners.join(', ')}.`,
-          source: 'alliance_discussion',
-          memberId: contestant.name
-        });
-      } else if (memory.type === 'conversation' && memory.emotionalImpact < -5) {
-        const conflictPartners = memory.participants.filter(p => p !== contestant.name);
-        intel.push({
-          type: 'social',
-          confidence: 'high',
-          info: `${contestant.name} had a negative interaction with ${conflictPartners.join(', ')} recently.`,
-          source: 'observation',
-          memberId: contestant.name
-        });
+        if (alliancePartners.length > 0 && outsidePartners.length > 0) {
+          // Scheming with both alliance and outsiders - suspicious
+          intel.push({
+            type: 'deception',
+            confidence: 'high',
+            info: `${contestant.name} schemed with both alliance members (${alliancePartners.join(', ')}) and outsiders (${outsidePartners.join(', ')}) on Day ${memory.day}. Playing multiple sides.`,
+            source: 'observation',
+            memberId: contestant.name
+          });
+        } else if (outsidePartners.length > 0) {
+          // Scheming with outsiders only
+          intel.push({
+            type: 'deception',
+            confidence: 'medium',
+            info: `${contestant.name} had secret strategy discussions with ${outsidePartners.join(', ')} on Day ${memory.day}. Potential external alliance.`,
+            source: 'observation',
+            memberId: contestant.name
+          });
+        } else if (alliancePartners.length > 0) {
+          // Scheming within alliance - positive
+          intel.push({
+            type: 'strategic',
+            confidence: 'high',
+            info: `${contestant.name} coordinated alliance strategy with ${alliancePartners.join(', ')} on Day ${memory.day}. Shows commitment.`,
+            source: 'alliance_discussion',
+            memberId: contestant.name
+          });
+        }
+      } else if (memory.type === 'conversation') {
+        if (memory.emotionalImpact > 8) {
+          // Very positive conversation
+          if (alliancePartners.length > 0) {
+            intel.push({
+              type: 'social',
+              confidence: 'high',
+              info: `${contestant.name} had an excellent bonding conversation with alliance members ${alliancePartners.join(', ')} on Day ${memory.day}. Strong social ties.`,
+              source: 'alliance_discussion',
+              memberId: contestant.name
+            });
+          } else if (outsidePartners.length > 0) {
+            intel.push({
+              type: 'social',
+              confidence: 'medium',
+              info: `${contestant.name} formed strong bonds with non-alliance members ${outsidePartners.join(', ')} on Day ${memory.day}. May indicate shift in loyalty.`,
+              source: 'observation',
+              memberId: contestant.name
+            });
+          }
+        } else if (memory.emotionalImpact < -8) {
+          // Very negative conversation
+          if (alliancePartners.length > 0) {
+            intel.push({
+              type: 'deception',
+              confidence: 'high',
+              info: `${contestant.name} had a major conflict with alliance members ${alliancePartners.join(', ')} on Day ${memory.day}. Alliance stability at risk.`,
+              source: 'observation',
+              memberId: contestant.name
+            });
+          } else if (outsidePartners.length > 0) {
+            intel.push({
+              type: 'strategic',
+              confidence: 'medium',
+              info: `${contestant.name} had conflicts with ${outsidePartners.join(', ')} on Day ${memory.day}. May strengthen alliance unity.`,
+              source: 'observation',
+              memberId: contestant.name
+            });
+          }
+        } else if (memory.emotionalImpact > 3) {
+          // Moderate positive conversation
+          if (outsidePartners.length > 0) {
+            intel.push({
+              type: 'social',
+              confidence: 'low',
+              info: `${contestant.name} building relationships with ${outsidePartners.join(', ')} on Day ${memory.day}. Monitor for alliance drift.`,
+              source: 'observation',
+              memberId: contestant.name
+            });
+          }
+        }
+      } else if (memory.type === 'elimination' && memory.emotionalImpact !== 0) {
+        // Reactions to eliminations can reveal alliance sentiment
+        if (memory.emotionalImpact > 5) {
+          intel.push({
+            type: 'social',
+            confidence: 'medium',
+            info: `${contestant.name} was visibly upset about recent elimination on Day ${memory.day}. Shows emotional investment in eliminated player.`,
+            source: 'observation',
+            memberId: contestant.name
+          });
+        } else if (memory.emotionalImpact < -5) {
+          intel.push({
+            type: 'strategic',
+            confidence: 'medium',
+            info: `${contestant.name} seemed satisfied with recent elimination on Day ${memory.day}. May have been part of the plan.`,
+            source: 'observation',
+            memberId: contestant.name
+          });
+        }
       }
     });
+
+    // Memory pattern analysis
+    const schemeCount = recentMemories.filter(m => m.type === 'scheme').length;
+    const outsideSchemes = recentMemories.filter(m => 
+      m.type === 'scheme' && 
+      m.participants.some(p => outsiders.includes(p))
+    ).length;
+
+    if (schemeCount > 2 && outsideSchemes > 1) {
+      intel.push({
+        type: 'deception',
+        confidence: 'medium',
+        info: `${contestant.name} shows high scheming activity (${schemeCount} schemes, ${outsideSchemes} with outsiders). Pattern suggests strategic flexibility.`,
+        source: 'behavioral_analysis',
+        memberId: contestant.name
+      });
+    }
   }
 
   private static addVotingIntel(

@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState, Contestant } from '@/types/game';
-import { Users, Eye, Shield, AlertTriangle, Target } from 'lucide-react';
+import { AllianceIntelligenceEngine } from '@/utils/allianceIntelligenceEngine';
+import { Users, Eye, Shield, AlertTriangle, Target, Brain } from 'lucide-react';
 
 interface AllianceIntelligenceProps {
   gameState: GameState;
@@ -17,92 +18,10 @@ export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: Allia
   const alliance = gameState.alliances.find(a => a.id === selectedAlliance);
   if (!alliance) return null;
 
-  const generateAllianceIntelligence = (member: string) => {
-    const contestant = gameState.contestants.find(c => c.name === member);
-    if (!contestant) return [];
-
-    const intel = [];
-    
-    // Trust-based intelligence
-    if (contestant.psychProfile.trustLevel > 70) {
-      intel.push({
-        type: 'truth',
-        confidence: 'high',
-        info: `${member} is genuinely loyal to this alliance and unlikely to betray it`,
-        source: 'behavioral_analysis'
-      });
-      
-      // Reveal voting intentions (truthful)
-      if (gameState.gamePhase === 'player_vote' || gameState.currentDay === gameState.nextEliminationDay) {
-        const targetMemory = contestant.memory.filter(m => 
-          m.type === 'scheme' || m.type === 'conversation'
-        ).slice(-3);
-        
-        if (targetMemory.length > 0) {
-          const likelyTarget = targetMemory[0].participants.find(p => 
-            p !== member && p !== gameState.playerName
-          );
-          
-          if (likelyTarget) {
-            intel.push({
-              type: 'truth',
-              confidence: 'medium',
-              info: `${member} is likely targeting ${likelyTarget} in the next vote`,
-              source: 'alliance_discussion'
-            });
-          }
-        }
-      }
-    } else if (contestant.psychProfile.trustLevel < 40) {
-      intel.push({
-        type: 'deception',
-        confidence: 'medium',
-        info: `${member} may be planning to betray this alliance soon`,
-        source: 'suspicious_behavior'
-      });
-      
-      // Generate misleading voting info
-      if (gameState.gamePhase === 'player_vote') {
-        const randomTarget = gameState.contestants
-          .filter(c => !c.isEliminated && c.name !== member && c.name !== gameState.playerName)
-          [Math.floor(Math.random() * gameState.contestants.filter(c => !c.isEliminated && c.name !== member).length)];
-        
-        if (randomTarget) {
-          intel.push({
-            type: 'deception',
-            confidence: 'low',
-            info: `${member} claims they're voting for ${randomTarget.name} (may be lying)`,
-            source: 'private_conversation'
-          });
-        }
-      }
-    }
-
-    // Memory-based intelligence
-    const recentMemories = contestant.memory.filter(m => 
-      m.day >= gameState.currentDay - 3
-    ).slice(0, 2);
-
-    recentMemories.forEach(memory => {
-      if (memory.type === 'scheme') {
-        intel.push({
-          type: 'strategic',
-          confidence: 'medium',
-          info: `${member} has been scheming with ${memory.participants.join(', ')} recently`,
-          source: 'observation'
-        });
-      } else if (memory.type === 'conversation' && memory.emotionalImpact > 5) {
-        intel.push({
-          type: 'social',
-          confidence: 'high',
-          info: `${member} had a positive interaction with ${memory.participants.filter(p => p !== member).join(', ')}`,
-          source: 'alliance_intel'
-        });
-      }
-    });
-
-    return intel;
-  };
+  // Use the enhanced intelligence engine
+  const allianceIntelligence = AllianceIntelligenceEngine.generateMemberIntelligence(alliance, gameState);
+  const filteredIntelligence = AllianceIntelligenceEngine.filterIntelligenceByTrust(allianceIntelligence, alliance);
+  const strategicAssessment = AllianceIntelligenceEngine.getAllianceStrategicAssessment(alliance, gameState);
 
   const getIntelTypeIcon = (type: string) => {
     switch (type) {
@@ -130,9 +49,45 @@ export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: Allia
            <Users className="w-5 h-5 text-primary" />
            Alliance Intelligence: {alliance.name || `Alliance ${alliance.id.slice(-4)}`}
          </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Trust Level: {alliance.strength}% • {alliance.members.length} members
-        </p>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+          <span>Trust Level: {alliance.strength}%</span>
+          <span>•</span>
+          <span>{alliance.members.length} members</span>
+          <span>•</span>
+          <span className={
+            strategicAssessment.stability === 'stable' ? 'text-green-600' :
+            strategicAssessment.stability === 'unstable' ? 'text-yellow-600' : 'text-red-600'
+          }>
+            {strategicAssessment.stability}
+          </span>
+        </div>
+      </div>
+
+      {/* Strategic Assessment */}
+      <div className="mb-4 p-3 bg-muted rounded-lg">
+        <div className="flex items-center gap-2 mb-2">
+          <Brain className="w-4 h-4 text-primary" />
+          <h4 className="font-medium text-sm">Strategic Assessment</h4>
+        </div>
+        <p className="text-xs text-muted-foreground mb-2">{strategicAssessment.recommendation}</p>
+        
+        {strategicAssessment.risks.length > 0 && (
+          <div className="mb-2">
+            <p className="text-xs font-medium text-red-600 mb-1">Risks:</p>
+            {strategicAssessment.risks.map((risk, idx) => (
+              <p key={idx} className="text-xs text-muted-foreground">• {risk}</p>
+            ))}
+          </div>
+        )}
+        
+        {strategicAssessment.opportunities.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-green-600 mb-1">Opportunities:</p>
+            {strategicAssessment.opportunities.map((opp, idx) => (
+              <p key={idx} className="text-xs text-muted-foreground">• {opp}</p>
+            ))}
+          </div>
+        )}
       </div>
 
       <ScrollArea className="h-64">
@@ -140,7 +95,7 @@ export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: Allia
           {alliance.members
             .filter(member => member !== gameState.playerName)
             .map(member => {
-              const intel = generateAllianceIntelligence(member);
+              const intel = filteredIntelligence[member] || [];
               const isExpanded = expandedIntel === member;
               
               return (
@@ -152,7 +107,7 @@ export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: Allia
                       size="sm"
                       onClick={() => setExpandedIntel(isExpanded ? '' : member)}
                     >
-                      {isExpanded ? 'Hide' : 'View'} Intel
+                      {isExpanded ? 'Hide' : 'View'} Intel ({intel.length})
                     </Button>
                   </div>
                   
@@ -160,7 +115,7 @@ export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: Allia
                     <div className="space-y-2 mt-3">
                       {intel.length === 0 ? (
                         <p className="text-sm text-muted-foreground italic">
-                          No significant intelligence available
+                          Insufficient intelligence available - need more interactions or higher alliance trust
                         </p>
                       ) : (
                         intel.map((item, idx) => (
