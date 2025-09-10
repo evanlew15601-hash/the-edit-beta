@@ -7,12 +7,18 @@ export class AllianceManager {
    */
   static updateAllianceTrust(gameState: GameState): Alliance[] {
     console.log('Updating alliance trust for', gameState.alliances.length, 'alliances');
+    console.log('Current contestants:', gameState.contestants.map(c => c.name));
+    console.log('Player name:', gameState.playerName);
     
     return gameState.alliances.map(alliance => {
+      console.log(`Processing alliance with members:`, alliance.members);
+      
       // Remove eliminated members immediately
       const activeMembers = alliance.members.filter(member => {
         const contestant = gameState.contestants.find(c => c.name === member);
-        return contestant && !contestant.isEliminated;
+        const isActive = contestant && !contestant.isEliminated;
+        console.log(`Member ${member}: found=${!!contestant}, eliminated=${contestant?.isEliminated}, active=${isActive}`);
+        return isActive;
       });
 
       console.log(`Alliance ${alliance.name || alliance.members.join('&')} has ${activeMembers.length} active members`);
