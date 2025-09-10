@@ -103,12 +103,21 @@ export const useGameState = () => {
     setGameState(prev => {
       const newDay = prev.currentDay + 1;
       console.log('Advancing to day:', newDay);
+      console.log('Player name before alliance update:', prev.playerName);
+      console.log('Current alliances before update:', prev.alliances);
+      console.log('All contestants before update:', prev.contestants.map(c => ({ name: c.name, eliminated: c.isEliminated })));
       
       // Update alliances with the new management system - FIXED persistence
       const updatedAlliances = AllianceManager.updateAllianceTrust({
         ...prev,
         currentDay: newDay
       });
+      
+      console.log('Updated alliances after cleanup:', updatedAlliances);
+      
+      // Check if player is in any alliances
+      const playerAlliances = updatedAlliances.filter(alliance => alliance.members.includes(prev.playerName));
+      console.log(`Player ${prev.playerName} is in ${playerAlliances.length} alliances:`, playerAlliances);
 
       // Auto-generate intelligence when day advances
       const tempState = {
