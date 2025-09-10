@@ -234,12 +234,17 @@ export const useGameState = () => {
       
       setGameState(prev => {
         console.log('Current player name:', prev.playerName);
-        console.log('Will create alliance with members:', [prev.playerName, ...memberNames]);
+        
+        // Don't duplicate player name if it's already in the list
+        const allMembers = memberNames.includes(prev.playerName) 
+          ? memberNames 
+          : [prev.playerName, ...memberNames];
+        console.log('Will create alliance with members:', allMembers);
         
         const newAlliance = {
           id: Date.now().toString(),
           name: allianceName,
-          members: [prev.playerName, ...memberNames],
+          members: allMembers,
           strength: 75,
           secret: true,
           formed: prev.currentDay,
