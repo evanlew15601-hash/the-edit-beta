@@ -30,8 +30,8 @@ export class ConfessionalEngine {
 
     const upcomingElimination = currentDay >= gameState.nextEliminationDay - 1;
     
-    // Strategy prompts based on game state
-    if (currentDay > 5 && alliances.length > 0) {
+    // Strategy prompts based on game state - only if player is actually in alliances
+    if (currentDay > 5 && recentAlliances.length > 0) {
       prompts.push({
         id: 'alliance_dynamics',
         category: 'strategy',

@@ -233,6 +233,9 @@ export const useGameState = () => {
       console.log('Creating alliance:', allianceName, 'with members:', memberNames);
       
       setGameState(prev => {
+        console.log('Current player name:', prev.playerName);
+        console.log('Will create alliance with members:', [prev.playerName, ...memberNames]);
+        
         const newAlliance = {
           id: Date.now().toString(),
           name: allianceName,
