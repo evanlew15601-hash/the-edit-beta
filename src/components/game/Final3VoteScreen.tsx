@@ -17,8 +17,12 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
   const [tieBreakActive, setTieBreakActive] = useState(false);
   const [challengeResults, setChallengeResults] = useState<{ name: string; time: number }[]>([]);
 
+  // FIXED: Ensure player is always counted in Final 3
   const finalThree = gameState.contestants.filter(c => !c.isEliminated);
   const eligible = finalThree.filter(c => c.name !== gameState.playerName);
+  
+  console.log('Final3VoteScreen - Final three contestants:', finalThree.map(c => c.name));
+  console.log('Final3VoteScreen - Eligible for elimination:', eligible.map(c => c.name));
 
   useEffect(() => {
     if (showingResults && !tieBreakActive) {

@@ -14,6 +14,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   const [votes, setVotes] = useState<{ [juryMember: string]: string }>({});
   const [winner, setWinner] = useState<string>('');
   const [showResults, setShowResults] = useState(false);
+  const [voteStable, setVoteStable] = useState(false); // FIXED: Prevent vote flickering
 
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
   const juryMembers = gameState.contestants.filter(c => 
@@ -21,21 +22,23 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     gameState.juryMembers?.includes(c.name)
   );
   
-  // Only auto-advance to final 2 if the player was eliminated when jury phase started
+  // FIXED: Add player to jury if eliminated before finale
   const playerEliminated = gameState.contestants.find(c => c.name === gameState.playerName)?.isEliminated;
-  if (playerEliminated && finalTwo.length > 2) {
-    // Simulate rapid eliminations to get to final 2 when player is watching from jury
-    const autoEliminated = finalTwo.slice(2); // Everyone except first 2
-    autoEliminated.forEach(contestant => {
-      contestant.isEliminated = true;
-      contestant.eliminationDay = gameState.currentDay;
-    });
-  }
-
+  const playerAsJuror = playerEliminated && !juryMembers.find(j => j.name === gameState.playerName);
+  
+  console.log('JuryVoteScreen - Final two:', finalTwo.map(c => c.name));
+  console.log('JuryVoteScreen - Jury members:', juryMembers.map(j => j.name));
+  console.log('JuryVoteScreen - Player eliminated?', playerEliminated);
+  console.log('JuryVoteScreen - Player as juror?', playerAsJuror);
+  
   useEffect(() => {
+    // FIXED: Only calculate votes once to prevent flickering
+    if (voteStable) return;
+    
     // Simulate jury voting based on relationships and speeches
     const juryVotes: { [juryMember: string]: string } = {};
     
+    // Regular jury voting
     juryMembers.forEach(juryMember => {
       // Calculate vote probability for each finalist
       const finalTwoScores = finalTwo.map(finalist => {
@@ -72,6 +75,33 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       juryVotes[juryMember.name] = topChoice.name;
     });
     
+    // FIXED: Add player jury vote if they're eliminated
+    if (playerAsJuror) {
+      // Player votes based on their own preferences/relationships
+      const finalTwoScores = finalTwo.map(finalist => {
+        let score = 50;
+        
+        // Check alliances
+        const sharedAlliances = gameState.alliances.filter(a => 
+          a.members.includes(gameState.playerName) && a.members.includes(finalist.name)
+        ).length;
+        
+        score += sharedAlliances * 20;
+        
+        // Random factor
+        score += (Math.random() - 0.5) * 15;
+        
+        return { name: finalist.name, score };
+      });
+      
+      const playerChoice = finalTwoScores.reduce((prev, current) => 
+        current.score > prev.score ? current : prev
+      );
+      
+      juryVotes[gameState.playerName] = playerChoice.name;
+      console.log('Player jury vote:', playerChoice.name);
+    }
+    
     setVotes(juryVotes);
     
     // Determine winner
@@ -87,10 +117,11 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     )[0];
     
     setWinner(winnerName);
+    setVoteStable(true); // FIXED: Lock in votes to prevent re-calculation
     
     // Show results after a delay
     setTimeout(() => setShowResults(true), 2000);
-  }, [finalTwo, juryMembers, gameState.playerName, playerSpeech]);
+  }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, voteStable, playerAsJuror, gameState.alliances]);
 
   const getVoteCount = (finalist: string) => {
     return Object.values(votes).filter(vote => vote === finalist).length;
@@ -141,6 +172,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
               <Card className="p-6">
                 <h3 className="font-medium mb-4">Jury Votes</h3>
                 <div className="space-y-3">
+                  {/* Show all jury members including player if eliminated */}
                   {juryMembers.map(jury => (
                     <div key={jury.id} className="flex justify-between items-center p-3 border border-border rounded">
                       <span className="font-medium">{jury.name}</span>
@@ -151,6 +183,18 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                       </span>
                     </div>
                   ))}
+                  
+                  {/* Show player jury vote if eliminated */}
+                  {playerAsJuror && (
+                    <div className="flex justify-between items-center p-3 border border-primary/20 bg-primary/10 rounded">
+                      <span className="font-medium text-primary">{gameState.playerName} (You)</span>
+                      <span className={`font-medium ${
+                        votes[gameState.playerName] === gameState.playerName ? 'text-primary' : 'text-muted-foreground'
+                      }`}>
+                        voted for {votes[gameState.playerName]}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </Card>
 

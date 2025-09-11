@@ -360,10 +360,23 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
 function calculatePlayerStats(gameState: GameState) {
   const player = gameState.contestants.find(c => c.name === gameState.playerName);
   
+  // SAFE: Calculate stats even if player doesn't exist
+  if (!player) {
+    console.warn('Player not found in contestants - using fallback stats');
+    return {
+      daysPlayed: gameState.currentDay,
+      confessionalCount: gameState.confessionals?.length || 0,
+      allianceCount: gameState.alliances?.filter(a => a.members.includes(gameState.playerName)).length || 0,
+      conversationCount: 0,
+      schemeCount: 0,
+      finalPlacement: gameState.contestants.length + 1 // Assume last place if not found
+    };
+  }
+  
   return {
-    daysPlayed: player?.eliminationDay || gameState.currentDay,
-    confessionalCount: gameState.confessionals.length,
-    allianceCount: gameState.alliances.filter(a => a.members.includes(gameState.playerName)).length,
+    daysPlayed: player.eliminationDay || gameState.currentDay,
+    confessionalCount: gameState.confessionals?.length || 0,
+    allianceCount: gameState.alliances?.filter(a => a.members.includes(gameState.playerName)).length || 0,
     conversationCount: gameState.interactionLog?.filter(log => 
       log.type === 'talk' && log.participants.includes(gameState.playerName)
     ).length || 0,
@@ -371,7 +384,7 @@ function calculatePlayerStats(gameState: GameState) {
       log.type === 'scheme' && log.participants.includes(gameState.playerName)
     ).length || 0,
     finalPlacement: gameState.contestants.filter(c => 
-      !c.isEliminated || (c.eliminationDay || 0) >= (player?.eliminationDay || 0)
+      !c.isEliminated || (c.eliminationDay || 0) >= (player.eliminationDay || 0)
     ).length
   };
 }

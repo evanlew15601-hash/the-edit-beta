@@ -19,7 +19,13 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
   const [speechSubmitted, setSpeechSubmitted] = useState(false);
   const [npcSpeeches, setNpcSpeeches] = useState<{ name: string; speech: string }[]>([]);
 
+  // FIXED: Ensure final two always includes player if they survived
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
+  const isPlayerInFinale = finalTwo.some(c => c.name === gameState.playerName);
+  
+  console.log('FinaleScreen - Final two contestants:', finalTwo.map(c => c.name));
+  console.log('FinaleScreen - Player in finale?', isPlayerInFinale);
+  
   const juryMembers = gameState.contestants.filter(c => 
     c.isEliminated && 
     gameState.juryMembers?.includes(c.name)
@@ -152,19 +158,34 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
                 <h3 className="font-medium mb-3">Final Speeches</h3>
                 
                 <div className="space-y-4">
-                  <div className="border-l-4 border-primary pl-4">
-                    <div className="font-medium text-primary mb-2">
-                      {gameState.playerName} (Your Speech)
+                  {/* GUARANTEED: Always show player speech if they're in finale */}
+                  {isPlayerInFinale && (
+                    <div className="border-l-4 border-primary pl-4">
+                      <div className="font-medium text-primary mb-2">
+                        {gameState.playerName} (Your Speech)
+                      </div>
+                      <p className="text-sm italic">"{playerSpeech}"</p>
                     </div>
-                    <p className="text-sm italic">"{playerSpeech}"</p>
-                  </div>
+                  )}
 
+                  {/* Show other finalist speeches */}
                   {npcSpeeches.map(speech => (
                     <div key={speech.name} className="border-l-4 border-muted pl-4">
                       <div className="font-medium mb-2">{speech.name}</div>
                       <p className="text-sm italic">"{speech.speech}"</p>
                     </div>
                   ))}
+                  
+                  {/* If player was eliminated, show jury perspective */}
+                  {!isPlayerInFinale && (
+                    <div className="border border-destructive/20 bg-destructive/5 rounded p-4">
+                      <h4 className="font-medium text-destructive mb-2">Watching from the Jury</h4>
+                      <p className="text-sm text-muted-foreground">
+                        You were eliminated earlier and are now watching the final speeches as a jury member. 
+                        You'll vote for the winner after these speeches.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </Card>
 
