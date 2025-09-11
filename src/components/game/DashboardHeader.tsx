@@ -99,6 +99,32 @@ export const DashboardHeader = ({ gameState }: DashboardHeaderProps) => {
           </div>
           
           <div className="flex items-center gap-3">
+            {/* Debug Skip to Final 3 Button */}
+            {remainingCount > 3 && (
+              <button 
+                onClick={() => {
+                  // Skip to final 3 for testing
+                  const contestants = gameState.contestants;
+                  const player = contestants.find(c => c.name === gameState.playerName);
+                  const activePlayers = contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName);
+                  
+                  // Keep player + 2 random others
+                  const survivorsToKeep = activePlayers.slice(0, 2);
+                  const toEliminate = activePlayers.slice(2);
+                  
+                  toEliminate.forEach(c => {
+                    c.isEliminated = true;
+                    c.eliminationDay = gameState.currentDay;
+                  });
+                  
+                  window.location.reload(); // Force state update
+                }}
+                className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded hover:bg-secondary/80"
+              >
+                Skip→F3
+              </button>
+            )}
+            
             {/* Action Count */}
             <div className="text-right">
               <div className="text-sm font-medium">

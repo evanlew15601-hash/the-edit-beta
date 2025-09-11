@@ -148,9 +148,10 @@ export const useGameState = () => {
         InformationTradingEngine.autoGenerateIntelligence(tempState);
       }
       
-      // Check if jury phase should begin
+      // Check if jury phase should begin - FIXED: Include player in count
       const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
-      const shouldStartJury = remainingCount <= 7 && !prev.juryMembers;
+      console.log('Remaining contestants (including player):', remainingCount);
+      const shouldStartJury = remainingCount === 7 && !prev.juryMembers;
       
       let juryMembers = prev.juryMembers;
       let daysUntilJury = prev.daysUntilJury;
@@ -174,6 +175,10 @@ export const useGameState = () => {
         // Final 3 - needs voting first
         gamePhase = 'final_3_vote';
         console.log('Final 3 reached - voting phase');
+      } else if (remainingCount === 4) {
+        // Final 4 - force elimination to get to Final 3
+        console.log('Final 4 reached - forcing elimination');
+        gamePhase = 'player_vote';
       } else if (newDay === prev.nextEliminationDay - 1) {
         // Day before elimination - immunity competition
         gamePhase = 'immunity_competition';
