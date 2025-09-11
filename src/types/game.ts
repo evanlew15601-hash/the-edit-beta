@@ -121,6 +121,7 @@ export interface Alliance {
   formed: number; // day
   lastActivity: number;
   dissolved?: boolean; // Whether alliance is dissolved
+  exposureRisk?: number; // 0-100, risk of being discovered
 }
 
 export interface VotingRecord {

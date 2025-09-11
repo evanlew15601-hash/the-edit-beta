@@ -69,7 +69,35 @@ export const processVoting = (
   activeContestants.forEach(voter => {
     if (voter.name === playerName) return; // Player votes separately
     
-    // Get voter's memory and strategic context
+    // ENHANCED: Check for alliance vote coordination first
+    const voterAlliances = alliances.filter(a => a.members.includes(voter.name));
+    let allianceTarget: string | null = null;
+    
+    // Check if any of voter's alliances want to coordinate
+    for (const alliance of voterAlliances) {
+      const { AllianceManager } = require('@/utils/allianceManager');
+      const validTargets = activeContestants
+        .filter(c => c.name !== voter.name && c.name !== immunityWinner)
+        .map(c => c.name);
+      validTargets.push(playerName); // Include player as valid target
+      
+      const coordTarget = AllianceManager.getCoordinatedTarget(alliance, gameState, validTargets);
+      if (coordTarget) {
+        allianceTarget = coordTarget;
+        console.log(`${voter.name} following alliance coordination: voting for ${coordTarget}`);
+        break;
+      }
+    }
+    
+    // If alliance coordination exists, use it (with small chance of betrayal)
+    if (allianceTarget && Math.random() > 0.15) { // 85% alliance loyalty
+      votes[voter.name] = allianceTarget;
+      const currentCount = voteCounts.get(allianceTarget) || 0;
+      voteCounts.set(allianceTarget, currentCount + 1);
+      return;
+    }
+    
+    // Get voter's memory and strategic context for individual decision
     const voterMemory = memoryEngine.queryMemory(voter.id, {
       dayRange: { start: gameState.currentDay - 7, end: gameState.currentDay },
       minImportance: 3
@@ -78,7 +106,6 @@ export const processVoting = (
     const strategicContext = memoryEngine.getStrategicContext(voter.id, gameState);
     
     // Find target with highest threat that isn't in voter's alliance
-    const voterAlliances = alliances.filter(a => a.members.includes(voter.name));
     const allianceMembers = new Set(voterAlliances.flatMap(a => a.members));
     
     let targetName = '';

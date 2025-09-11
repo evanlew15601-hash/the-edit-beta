@@ -209,7 +209,7 @@ export const useGameState = () => {
         currentDay: newDay,
         dailyActionCount: 0,
         contestants: cleanedContestants,
-        alliances: updatedAlliances,
+        alliances: updatedAlliances, // Keep using updatedAlliances for now
         juryMembers,
         daysUntilJury,
         gamePhase,

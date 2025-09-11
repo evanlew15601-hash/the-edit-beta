@@ -80,28 +80,45 @@ export const ImmunityCompetitionScreen = ({ gameState, onContinue }: ImmunityCom
     intervalRef.current = window.setInterval(() => {
       setParticipants(prev => {
         const updated = prev.map(p => {
-          let progressIncrease = 3 + Math.random() * 8;
+          // BALANCED: Equal starting point for all contestants
+          let progressIncrease = 3 + Math.random() * 6; // Base 3-9 range
 
           if (p.isPlayer) {
+            // FIXED: Balanced player strategy bonuses
             switch (playerChoice) {
               case 'aggressive':
-                progressIncrease += 4;
-                if (Math.random() < 0.1) progressIncrease = Math.max(1, progressIncrease - 6);
+                progressIncrease += 2; // Reduced from 4
+                if (Math.random() < 0.15) progressIncrease = Math.max(1, progressIncrease - 4); // Risk
                 break;
               case 'steady':
-                progressIncrease += 2;
+                progressIncrease += 1.5; // Reduced from 2
                 break;
               case 'conservative':
-                progressIncrease += 1;
+                progressIncrease += 1; // Unchanged
                 break;
             }
           } else {
-            // NPC performance based on their characteristics
+            // BALANCED: NPC bonuses match player strategy bonuses
             const contestant = activeContestants.find(c => c.name === p.name);
             if (contestant) {
+              // Apply character traits fairly
               const isCompetitive = contestant.psychProfile.disposition.includes('competitive');
               const isDriven = contestant.psychProfile.disposition.includes('driven');
-              if (isCompetitive || isDriven) progressIncrease += 2.5;
+              const isStrategic = contestant.psychProfile.disposition.includes('strategic');
+              
+              let traitBonus = 0;
+              if (isCompetitive) traitBonus += 1.5;
+              if (isDriven) traitBonus += 1;
+              if (isStrategic) traitBonus += 0.5;
+              
+              progressIncrease += traitBonus;
+              
+              // Add fatigue/performance variance
+              const fatigue = (gameState.currentDay / 10) * Math.random(); // Fatigue over time
+              progressIncrease -= fatigue;
+              
+              // Random performance variance
+              progressIncrease += (Math.random() - 0.5) * 2;
             }
           }
 

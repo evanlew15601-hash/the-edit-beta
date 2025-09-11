@@ -152,10 +152,22 @@ export class AllianceManager {
    * Check if alliance members should vote together
    */
   static shouldVoteTogether(alliance: Alliance, gameState: GameState): boolean {
-    // Vote together if trust is high and no major conflicts
-    if (alliance.strength < 40) {
-      console.log(`Alliance ${alliance.name} won't vote together - low trust (${alliance.strength})`);
+    // FIXED: More dynamic voting coordination based on trust and game state
+    if (alliance.strength < 30) {
+      console.log(`Alliance ${alliance.name} won't vote together - very low trust (${alliance.strength})`);
       return false;
+    }
+
+    // Strong alliances vote together more often
+    if (alliance.strength > 70) {
+      console.log(`Alliance ${alliance.name} will vote together - high trust (${alliance.strength})`);
+      return Math.random() > 0.2; // 80% coordination for strong alliances
+    }
+
+    // Medium trust alliances coordinate sometimes
+    if (alliance.strength > 50) {
+      console.log(`Alliance ${alliance.name} might vote together - medium trust (${alliance.strength})`);
+      return Math.random() > 0.5; // 50% coordination for medium alliances
     }
 
     // Check for recent betrayals that would break voting coordination
@@ -170,7 +182,100 @@ export class AllianceManager {
       return false;
     }
 
-    return true;
+    // Low trust alliances rarely coordinate
+    return Math.random() > 0.7; // 30% coordination for weak alliances
+  }
+
+  /**
+   * Get coordinated vote target for alliance
+   */
+  static getCoordinatedTarget(alliance: Alliance, gameState: GameState, validTargets: string[]): string | null {
+    if (!this.shouldVoteTogether(alliance, gameState)) {
+      return null;
+    }
+
+    // Find target that threatens alliance most
+    const threats = validTargets.map(target => {
+      let threat = 0;
+      
+      // Check if target is investigating alliance members
+      const investigations = gameState.interactionLog?.filter(log =>
+        log.participants.includes(target) &&
+        alliance.members.some(member => log.participants.includes(member)) &&
+        log.type === 'observe'
+      ).length || 0;
+      
+      threat += investigations * 20;
+      
+      // Check if target has high suspicion of alliance members
+      const targetContestant = gameState.contestants.find(c => c.name === target);
+      if (targetContestant) {
+        threat += targetContestant.psychProfile.suspicionLevel * 0.3;
+      }
+      
+      return { name: target, threat };
+    });
+
+    const topThreat = threats.reduce((prev, current) => 
+      current.threat > prev.threat ? current : prev
+    );
+
+    console.log(`Alliance ${alliance.name} coordinating vote against ${topThreat.name} (threat: ${topThreat.threat})`);
+    return topThreat.name;
+  }
+
+  /**
+   * Add alliance secrecy and betrayal mechanics
+   */
+  static processAllianceSecrecy(gameState: GameState): Alliance[] {
+    return gameState.alliances.map(alliance => {
+      // DYNAMIC: Alliances can be discovered through observation or betrayal
+      let exposureRisk = 0;
+      
+      // Check if alliance members have been observed together frequently
+      const recentMeetings = gameState.interactionLog?.filter(log =>
+        log.day >= gameState.currentDay - 5 &&
+        log.type === 'alliance_meeting' &&
+        alliance.members.some(member => log.participants.includes(member))
+      ).length || 0;
+      
+      exposureRisk += recentMeetings * 15;
+      
+      // Check for potential betrayers (low trust members)
+      const lowTrustMembers = alliance.members.filter(member => {
+        const contestant = gameState.contestants.find(c => c.name === member);
+        return contestant && contestant.psychProfile.trustLevel < 40;
+      });
+      
+      exposureRisk += lowTrustMembers.length * 20;
+      
+      // Determine if alliance becomes exposed
+      const wasSecret = alliance.secret;
+      const becomesExposed = wasSecret && exposureRisk > 60 && Math.random() > 0.3;
+      
+      if (becomesExposed) {
+        console.log(`Alliance ${alliance.name} has been exposed! Risk: ${exposureRisk}`);
+        // Add exposure memory to non-alliance members
+        gameState.contestants.forEach(contestant => {
+          if (!alliance.members.includes(contestant.name) && !contestant.isEliminated) {
+            contestant.memory.push({
+              day: gameState.currentDay,
+              type: 'observation',
+              participants: alliance.members.slice(0, 2),
+              content: `Discovered secret alliance between ${alliance.members.join(', ')}`,
+              emotionalImpact: 5,
+              timestamp: Date.now()
+            });
+          }
+        });
+      }
+      
+      return {
+        ...alliance,
+        secret: !becomesExposed && alliance.secret,
+        exposureRisk: Math.min(100, exposureRisk)
+      };
+    });
   }
 
   /**
@@ -186,7 +291,8 @@ export class AllianceManager {
       formed: currentDay,
       lastActivity: currentDay,
       name: allianceName,
-      dissolved: false
+      dissolved: false,
+      exposureRisk: 0
     };
   }
 }
