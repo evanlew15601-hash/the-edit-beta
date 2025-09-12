@@ -107,42 +107,29 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
     .map(r => r.text);
   viralMoments.push(...ranked);
 
-  // Get recent actions for better drama tracking
+  // Enhanced drama tracking with narrative coherence
   const recentActions = (gameState.interactionLog || []).filter(l => l.day >= weekStartDay && l.day <= weekEndDay && l.participants?.includes(playerName));
+  
+  // Detect narrative arc patterns
+  const narrativeElements = detectNarrativeElements(gameState, week, recentActions, editPerception);
+  
+  // Build contextual montage based on player's edit trajectory
+  const personalizedMontage = buildPersonalizedMontage(dominantTone, alliancesFormed, alliancesActive, elimLine, notableMoments, recentActions, editPerception);
 
-  const eventMontage = [
-    dominantTone ? `Diary room leaned ${dominantTone}.` : undefined,
-    alliancesFormed.length
-      ? `New alliance: ${alliancesFormed.map(a => a.name || a.members.join(' & ')).join(' | ')}`
-      : undefined,
-    alliancesActive.length && !alliancesFormed.length
-      ? `Alliance dynamics shifted; relationships tested.`
-      : undefined,
-    elimLine,
-    ...notableMoments,
-    // Add more varied drama elements
-    recentActions.length >= 5 ? 'High activity week with multiple strategic moves.' : undefined,
-    recentActions.some(a => a.type === 'scheme') ? 'Scheming intensified behind the scenes.' : undefined,
-    recentActions.some(a => a.type === 'dm') ? 'Private conversations shaped the week\'s dynamics.' : undefined
-  ].filter(Boolean) as string[];
+  const eventMontage = personalizedMontage.filter(Boolean) as string[];
 
   const whatHappenedBits: string[] = [];
   if (allConfessionals.length) whatHappenedBits.push(`${allConfessionals.length} confessionals with ${dominantTone || 'mixed'} tone.`);
   if (alliancesFormed.length) whatHappenedBits.push(`New alliance${alliancesFormed.length > 1 ? 's' : ''} formed.`);
   if (elim) whatHappenedBits.push(`${elim.eliminated} eliminated.`);
 
-  const whatWasShown = [
-    `Cut frames you as a ${editPerception.persona.toLowerCase()}.`,
-    dominantTone ? `Emphasis on ${dominantTone} diary rooms.` : undefined,
-    editPerception.lastEditShift > 0
-      ? `Audience warmed slightly.`
-      : editPerception.lastEditShift < 0
-      ? `Audience cooled.`
-      : `Audience held steady.`,
-  ].filter(Boolean).join(' ');
+  // Enhanced reality vs edit narrative
+  const enhancedEditNarrative = buildEditNarrative(editPerception, dominantTone, narrativeElements, elim);
+  
+  const whatWasShown = enhancedEditNarrative;
 
   const whatHappened = whatHappenedBits.length
-    ? whatHappenedBits.join(' ')
+    ? whatHappenedBits.join(' ') + ` ${narrativeElements.behindScenesContext}`
     : 'Quiet strategic positioning; social threads set for next week.';
 
   return {
@@ -157,4 +144,145 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
       whatWasShown,
     },
   };
+}
+
+// Enhanced narrative detection
+function detectNarrativeElements(gameState: GameState, week: number, recentActions: any[], editPerception: any) {
+  const strategicMoves = recentActions.filter(a => a.type === 'scheme').length;
+  const socialMoves = recentActions.filter(a => a.type === 'talk' || a.type === 'dm').length;
+  const allianceMoves = recentActions.filter(a => a.type === 'alliance_meeting').length;
+  
+  let arcType = 'steady';
+  if (strategicMoves >= 3) arcType = 'strategic_mastermind';
+  else if (socialMoves >= 4) arcType = 'social_player';
+  else if (allianceMoves >= 2) arcType = 'alliance_coordinator';
+  else if (editPerception.lastEditShift > 15) arcType = 'rising_star';
+  else if (editPerception.lastEditShift < -15) arcType = 'falling_target';
+  
+  const behindScenesContext = getBehindScenesContext(arcType, strategicMoves, socialMoves);
+  
+  return {
+    arcType,
+    behindScenesContext,
+    strategicIntensity: strategicMoves,
+    socialIntensity: socialMoves
+  };
+}
+
+function getBehindScenesContext(arcType: string, strategicMoves: number, socialMoves: number): string {
+  switch (arcType) {
+    case 'strategic_mastermind':
+      return 'Multiple strategic conversations happened off-camera, building complex vote scenarios.';
+    case 'social_player':
+      return 'Extensive relationship-building occurred during downtime and casual interactions.';
+    case 'alliance_coordinator':
+      return 'Secret alliance meetings and coordination dominated your behind-the-scenes time.';
+    case 'rising_star':
+      return 'Your game momentum built through subtle moves that impressed both contestants and producers.';
+    case 'falling_target':
+      return 'Warning signs accumulated as other players began viewing you as a threat.';
+    default:
+      return 'Steady gameplay with measured social and strategic positioning.';
+  }
+}
+
+function buildPersonalizedMontage(dominantTone: string, alliancesFormed: any[], alliancesActive: any[], elimLine: string | undefined, notableMoments: string[], recentActions: any[], editPerception: any): (string | undefined)[] {
+  const base = [
+    dominantTone ? `Diary room tone: ${dominantTone} (${getPersonaContext(editPerception.persona, dominantTone)}).` : undefined,
+    alliancesFormed.length
+      ? `New alliance formed: ${alliancesFormed.map(a => a.name || a.members.join(' & ')).join(' | ')}`
+      : undefined,
+    alliancesActive.length && !alliancesFormed.length
+      ? `Alliance dynamics evolved as relationships were tested.`
+      : undefined,
+    elimLine
+  ];
+  
+  // Add persona-specific montage elements
+  const personalizedElements = getPersonalizedElements(editPerception.persona, recentActions, notableMoments);
+  
+  return [...base, ...personalizedElements, ...notableMoments.slice(0, 3)];
+}
+
+function getPersonaContext(persona: string, tone: string): string {
+  const toneMap: { [key: string]: { [key: string]: string } } = {
+    'Villain': {
+      'strategic': 'calculated manipulation',
+      'aggressive': 'direct confrontation',
+      'suspicious': 'paranoid scheming'
+    },
+    'Hero': {
+      'friendly': 'genuine connection',
+      'strategic': 'noble gameplay',
+      'suspicious': 'justified concern'
+    },
+    'Mastermind': {
+      'strategic': 'chess-like planning',
+      'friendly': 'social manipulation',
+      'aggressive': 'power moves'
+    }
+  };
+  
+  return toneMap[persona]?.[tone] || 'authentic gameplay';
+}
+
+function getPersonalizedElements(persona: string, recentActions: any[], notableMoments: string[]): string[] {
+  const elements = [];
+  
+  if (persona.includes('Villain') || persona.includes('Mastermind')) {
+    if (recentActions.some(a => a.type === 'scheme')) {
+      elements.push('Strategic scheming intensified with calculated precision.');
+    }
+  }
+  
+  if (persona.includes('Hero') || persona.includes('Fan Favorite')) {
+    if (recentActions.some(a => a.type === 'talk')) {
+      elements.push('Genuine connections formed through authentic conversations.');
+    }
+  }
+  
+  if (persona.includes('Social')) {
+    elements.push('Social web expanded through careful relationship management.');
+  }
+  
+  return elements;
+}
+
+function buildEditNarrative(editPerception: any, dominantTone: string, narrativeElements: any, elim: any): string {
+  const baseNarrative = `Edit frames you as a ${editPerception.persona.toLowerCase()}.`;
+  
+  const toneNarrative = dominantTone ? ` Your ${dominantTone} confessionals ${getToneEditEffect(dominantTone, editPerception.persona)}.` : '';
+  
+  const audienceShift = editPerception.lastEditShift > 0
+    ? ' Audience sentiment improved this week.'
+    : editPerception.lastEditShift < 0
+    ? ' Audience sentiment declined.'
+    : ' Audience sentiment remained stable.';
+    
+  const arcNarrative = getArcNarrative(narrativeElements.arcType, editPerception.persona);
+  
+  return baseNarrative + toneNarrative + audienceShift + arcNarrative;
+}
+
+function getToneEditEffect(tone: string, persona: string): string {
+  if (persona.includes('Villain')) {
+    return tone === 'aggressive' ? 'reinforced your villain edit' : 'showed calculated strategy';
+  }
+  if (persona.includes('Hero')) {
+    return tone === 'friendly' ? 'highlighted your authenticity' : 'revealed strategic depth';
+  }
+  return 'shaped your narrative arc';
+}
+
+function getArcNarrative(arcType: string, persona: string): string {
+  const narratives = {
+    'strategic_mastermind': ' Your mastermind capabilities were showcased prominently.',
+    'social_player': ' Your social game received major screen time.',
+    'alliance_coordinator': ' Your role as a strategic coordinator was emphasized.',
+    'rising_star': ' Your trajectory was painted as ascending.',
+    'falling_target': ' Foreshadowing suggested upcoming challenges.',
+    'steady': ' Your consistent gameplay was portrayed as methodical.'
+  };
+  
+  return narratives[arcType] || '';
 }

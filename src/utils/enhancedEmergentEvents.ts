@@ -28,13 +28,20 @@ export interface EmergentChoice {
 
 export class EnhancedEmergentEvents {
   private static eventHistory: string[] = [];
+  private static narrativeThemes: string[] = [];
 
   static generateEmergentEvent(gameState: GameState): EmergentEvent | null {
     const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
-    const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName));
+    const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName) && !a.dissolved);
     const recentInteractions = gameState.interactionLog?.filter(log => 
       log.day >= gameState.currentDay - 2
     ) || [];
+    
+    // Track narrative consistency
+    const currentNarrativeTheme = this.detectNarrativeTheme(gameState);
+    if (currentNarrativeTheme) {
+      this.narrativeThemes.push(currentNarrativeTheme);
+    }
 
     const events: EmergentEvent[] = [];
 
@@ -259,10 +266,18 @@ export class EnhancedEmergentEvents {
       });
     }
 
-    // Select and return a random event
+    // Select event based on narrative consistency
     if (events.length === 0) return null;
     
-    const selectedEvent = events[Math.floor(Math.random() * events.length)];
+    // Prioritize events that match current narrative theme
+    const thematicEvents = events.filter(event => 
+      this.matchesNarrativeTheme(event, currentNarrativeTheme)
+    );
+    
+    const selectedEvent = thematicEvents.length > 0 
+      ? thematicEvents[Math.floor(Math.random() * thematicEvents.length)]
+      : events[Math.floor(Math.random() * events.length)];
+      
     this.eventHistory.push(selectedEvent.id);
     
     // Keep only recent events in history
@@ -271,6 +286,42 @@ export class EnhancedEmergentEvents {
     }
     
     return selectedEvent;
+  }
+
+  private static detectNarrativeTheme(gameState: GameState): string | null {
+    const recentActions = gameState.interactionLog?.slice(-5) || [];
+    
+    if (recentActions.filter(a => a.type === 'scheme').length >= 2) {
+      return 'strategic_mastermind';
+    }
+    if (recentActions.filter(a => a.type === 'alliance_meeting').length >= 2) {
+      return 'social_coordinator';
+    }
+    if (gameState.editPerception.persona.includes('Villain')) {
+      return 'villain_arc';
+    }
+    if (gameState.editPerception.persona.includes('Hero')) {
+      return 'hero_journey';
+    }
+    
+    return null;
+  }
+
+  private static matchesNarrativeTheme(event: EmergentEvent, theme: string | null): boolean {
+    if (!theme) return false;
+    
+    switch (theme) {
+      case 'strategic_mastermind':
+        return event.type === 'strategy_leak' || event.type === 'vote_chaos';
+      case 'social_coordinator':
+        return event.type === 'alliance_crisis';
+      case 'villain_arc':
+        return event.choices.some(c => c.editEffect > 10);
+      case 'hero_journey':
+        return event.choices.some(c => c.editEffect < 0);
+      default:
+        return false;
+    }
   }
 
   static executeEventChoice(choice: EmergentChoice, gameState: GameState): {

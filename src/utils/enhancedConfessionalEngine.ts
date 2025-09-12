@@ -12,11 +12,22 @@ export interface DynamicConfessionalPrompt {
 }
 
 export class EnhancedConfessionalEngine {
+  private static recentPrompts: string[] = [];
+  private static narrativeTracking: Map<string, number> = new Map();
+
   static generateDynamicPrompts(gameState: GameState): DynamicConfessionalPrompt[] {
     const prompts: DynamicConfessionalPrompt[] = [];
     const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
-    const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName));
+    const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName) && !a.dissolved);
     const daysToElimination = gameState.nextEliminationDay - gameState.currentDay;
+    
+    // Track narrative consistency
+    const currentPersona = gameState.editPerception.persona;
+    const narrativeContext = this.analyzeNarrativeContext(gameState);
+    
+    // Generate contextual prompts based on recent events
+    const recentEvents = this.analyzeRecentEvents(gameState);
+    prompts.push(...this.generateEventBasedPrompts(recentEvents, gameState));
 
     // Strategy prompts - context-aware based on game stage
     if (activeContestants.length <= 8 && activeContestants.length > 5) {
@@ -223,8 +234,170 @@ export class EnhancedConfessionalEngine {
 
     prompts.push(...additionalPrompts);
 
-    // Return a random selection to ensure variety
-    const shuffled = [...prompts].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 6);
+    // Filter based on narrative consistency and recent usage
+    const filteredPrompts = this.filterPromptsForConsistency(prompts, currentPersona, narrativeContext);
+    
+    // Update recent prompts tracking
+    const selectedPrompts = filteredPrompts.slice(0, 6);
+    selectedPrompts.forEach(p => this.recentPrompts.push(p.id));
+    
+    // Keep recent prompts list manageable
+    if (this.recentPrompts.length > 20) {
+      this.recentPrompts = this.recentPrompts.slice(-10);
+    }
+
+    return selectedPrompts;
+  }
+
+  private static analyzeNarrativeContext(gameState: GameState): {
+    dominantStrategy: string;
+    relationshipFocus: string;
+    threatLevel: string;
+    editDirection: string;
+  } {
+    const recentActions = gameState.interactionLog?.slice(-5) || [];
+    const strategicActions = recentActions.filter(a => a.type === 'scheme').length;
+    const socialActions = recentActions.filter(a => a.type === 'talk' || a.type === 'dm').length;
+    
+    return {
+      dominantStrategy: strategicActions > socialActions ? 'strategic' : 'social',
+      relationshipFocus: gameState.alliances.length > 1 ? 'alliance_management' : 'individual_connections',
+      threatLevel: gameState.editPerception.audienceApproval > 50 ? 'high' : 'manageable',
+      editDirection: gameState.editPerception.lastEditShift > 0 ? 'positive' : 'neutral'
+    };
+  }
+
+  private static analyzeRecentEvents(gameState: GameState): Array<{
+    type: string;
+    participants: string[];
+    impact: number;
+    day: number;
+  }> {
+    const recentDays = 3;
+    const events = [];
+    
+    // Check recent interactions
+    const recentInteractions = gameState.interactionLog?.filter(log => 
+      log.day >= gameState.currentDay - recentDays
+    ) || [];
+    
+    events.push(...recentInteractions.map(log => ({
+      type: log.type,
+      participants: log.participants,
+      impact: log.type === 'scheme' ? 8 : log.type === 'dm' ? 6 : 4,
+      day: log.day
+    })));
+    
+    // Check alliance changes
+    const recentAllianceActivity = gameState.alliances.filter(a => 
+      a.lastActivity >= gameState.currentDay - recentDays
+    );
+    
+    events.push(...recentAllianceActivity.map(alliance => ({
+      type: 'alliance_activity',
+      participants: alliance.members,
+      impact: alliance.strength > 70 ? 7 : 5,
+      day: alliance.lastActivity
+    })));
+    
+    return events.sort((a, b) => b.impact - a.impact);
+  }
+
+  private static generateEventBasedPrompts(events: any[], gameState: GameState): DynamicConfessionalPrompt[] {
+    const prompts: DynamicConfessionalPrompt[] = [];
+    
+    // Generate prompts based on high-impact recent events
+    const highImpactEvents = events.filter(e => e.impact >= 6).slice(0, 3);
+    
+    highImpactEvents.forEach((event, index) => {
+      switch (event.type) {
+        case 'scheme':
+          const schemeTarget = event.participants.find(p => p !== gameState.playerName);
+          if (schemeTarget) {
+            prompts.push({
+              id: `recent-scheme-${index}`,
+              category: 'strategy',
+              prompt: `You recently had some strategic conversations about ${schemeTarget}. How did that go?`,
+              followUp: "Are you confident in the move you're planning?",
+              suggestedTones: ['strategic', 'dramatic'],
+              editPotential: 8
+            });
+          }
+          break;
+          
+        case 'dm':
+          const dmPartner = event.participants.find(p => p !== gameState.playerName);
+          if (dmPartner) {
+            prompts.push({
+              id: `recent-dm-${index}`,
+              category: 'social',
+              prompt: `You had a private conversation with ${dmPartner} recently. What was that about?`,
+              followUp: "Did you learn anything useful?",
+              suggestedTones: ['strategic', 'vulnerable'],
+              editPotential: 6
+            });
+          }
+          break;
+          
+        case 'alliance_activity':
+          prompts.push({
+            id: `alliance-update-${index}`,
+            category: 'alliance',
+            prompt: "There's been some activity with your alliance lately. How solid do you feel about your position?",
+            followUp: "Is everyone still on the same page?",
+            suggestedTones: ['strategic', 'vulnerable'],
+            editPotential: 7
+          });
+          break;
+      }
+    });
+    
+    return prompts;
+  }
+
+  private static filterPromptsForConsistency(
+    prompts: DynamicConfessionalPrompt[], 
+    persona: string, 
+    context: any
+  ): DynamicConfessionalPrompt[] {
+    // Remove recently used prompts
+    const availablePrompts = prompts.filter(p => !this.recentPrompts.includes(p.id));
+    
+    // Prioritize prompts that match current persona
+    const personaMatches = availablePrompts.filter(prompt => {
+      if (persona.includes('Villain') || persona.includes('Mastermind')) {
+        return prompt.suggestedTones.includes('strategic') || prompt.suggestedTones.includes('aggressive');
+      }
+      if (persona.includes('Hero') || persona.includes('Fan Favorite')) {
+        return prompt.suggestedTones.includes('vulnerable') || prompt.suggestedTones.includes('humorous');
+      }
+      if (persona.includes('Social')) {
+        return prompt.category === 'social' || prompt.suggestedTones.includes('vulnerable');
+      }
+      return true;
+    });
+    
+    // Balance high and low edit potential prompts
+    const highEditPrompts = personaMatches.filter(p => p.editPotential >= 7);
+    const mediumEditPrompts = personaMatches.filter(p => p.editPotential >= 4 && p.editPotential < 7);
+    const lowEditPrompts = personaMatches.filter(p => p.editPotential < 4);
+    
+    // Create balanced selection
+    const balancedSelection = [
+      ...highEditPrompts.slice(0, 2),
+      ...mediumEditPrompts.slice(0, 3),
+      ...lowEditPrompts.slice(0, 1)
+    ];
+    
+    // Fill remaining slots if needed
+    const remaining = 6 - balancedSelection.length;
+    if (remaining > 0) {
+      const additional = availablePrompts
+        .filter(p => !balancedSelection.includes(p))
+        .slice(0, remaining);
+      balancedSelection.push(...additional);
+    }
+    
+    return balancedSelection.sort(() => Math.random() - 0.5);
   }
 }
