@@ -148,8 +148,8 @@ export const useGameState = () => {
         InformationTradingEngine.autoGenerateIntelligence(tempState);
       }
       
-      // Check if jury phase should begin - FIXED: Include player in count
-      const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
+      // Check if jury phase should begin - FIXED: Include player in count  
+      const remainingCount = prev.contestants.filter(c => !c.isEliminated).length + 1; // +1 for player
       console.log('Remaining contestants (including player):', remainingCount);
       const shouldStartJury = remainingCount === 7 && !prev.juryMembers;
       
@@ -176,11 +176,11 @@ export const useGameState = () => {
         gamePhase = 'final_3_vote';
         console.log('Final 3 reached - voting phase');
       } else if (remainingCount === 4) {
-        // Final 4 - force elimination to get to Final 3
-        console.log('Final 4 reached - forcing elimination');
+        // Final 4 - force elimination (skip immunity for clean vote)
+        console.log('Final 4 reached - forcing elimination without immunity');
         gamePhase = 'player_vote';
-      } else if (newDay === prev.nextEliminationDay - 1) {
-        // Day before elimination - immunity competition
+      } else if (newDay === prev.nextEliminationDay - 1 && remainingCount > 4) {
+        // Day before elimination - immunity competition (skip at Final 4)
         gamePhase = 'immunity_competition';
         console.log('Immunity competition day');
       } else if (newDay === prev.nextEliminationDay) {
@@ -699,6 +699,45 @@ export const useGameState = () => {
     // Use the existing useAction function to process the tag talk
     useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
   }, [useAction]);
+
+  // Add skip to jury handler
+  const skipToJury = useCallback(() => {
+    setGameState(prev => {
+      const contestants = prev.contestants;
+      const activePlayers = contestants.filter(c => !c.isEliminated);
+      
+      // Keep player + 6 others to reach jury phase (7 total)
+      const survivorsToKeep = activePlayers.slice(0, 6);
+      const toEliminate = activePlayers.slice(6);
+      
+      const updatedContestants = contestants.map(c => {
+        if (toEliminate.includes(c)) {
+          return { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+        }
+        return c;
+      });
+      
+      // Create jury from eliminated
+      const juryMembers = updatedContestants
+        .filter(c => c.isEliminated && c.eliminationDay)
+        .map(c => c.name);
+      
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        juryMembers,
+        daysUntilJury: 0,
+        gamePhase: 'daily' as const
+      };
+    });
+  }, []);
+
+  // Add event listener for skip button
+  useEffect(() => {
+    const handleSkip = () => skipToJury();
+    window.addEventListener('skipToJury', handleSkip);
+    return () => window.removeEventListener('skipToJury', handleSkip);
+  }, [skipToJury]);
 
   const handleTieBreakResult = useCallback((eliminated: string, winner1: string, winner2: string) => {
     setGameState(prev => {
