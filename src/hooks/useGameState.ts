@@ -148,10 +148,13 @@ export const useGameState = () => {
         InformationTradingEngine.autoGenerateIntelligence(tempState);
       }
       
-      // Check if jury phase should begin - FIXED: Include player in count  
-      const remainingCount = prev.contestants.filter(c => !c.isEliminated).length + 1; // +1 for player
-      console.log('Remaining contestants (including player):', remainingCount);
-      const shouldStartJury = remainingCount === 7 && !prev.juryMembers;
+      // Check if jury phase should begin - FIXED: Count only non-eliminated contestants
+      const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
+      const playerEliminated = prev.contestants.find(c => c.name === prev.playerName)?.isEliminated;
+      const actualRemainingCount = playerEliminated ? remainingCount : remainingCount + 1;
+      console.log('Remaining contestants (including player):', actualRemainingCount);
+      console.log('Player eliminated?', playerEliminated);
+      const shouldStartJury = actualRemainingCount === 7 && !prev.juryMembers;
       
       let juryMembers = prev.juryMembers;
       let daysUntilJury = prev.daysUntilJury;
@@ -170,16 +173,17 @@ export const useGameState = () => {
         daysUntilJury = Math.max(0, (remainingCount - 7) * 3); // Estimate days until jury
       }
 
-      // Check for key game events - FIXED phase transitions
-      if (remainingCount === 3) {
+      // Check for key game events - FIXED phase transitions with player counting
+      
+      if (actualRemainingCount === 3) {
         // Final 3 - needs voting first
         gamePhase = 'final_3_vote';
         console.log('Final 3 reached - voting phase');
-      } else if (remainingCount === 4) {
+      } else if (actualRemainingCount === 4) {
         // Final 4 - force elimination (skip immunity for clean vote)
         console.log('Final 4 reached - forcing elimination without immunity');
         gamePhase = 'player_vote';
-      } else if (newDay === prev.nextEliminationDay - 1 && remainingCount > 4) {
+      } else if (newDay === prev.nextEliminationDay - 1 && actualRemainingCount > 4) {
         // Day before elimination - immunity competition (skip at Final 4)
         gamePhase = 'immunity_competition';
         console.log('Immunity competition day');
@@ -508,10 +512,12 @@ export const useGameState = () => {
     }));
   }, []);
 
-  const endGame = useCallback(() => {
+  const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }) => {
     setGameState(prev => ({
       ...prev,
-      gamePhase: 'finale' as const
+      gamePhase: 'post_season' as const,
+      gameWinner: winner,
+      finalJuryVotes: votes
     }));
   }, []);
 

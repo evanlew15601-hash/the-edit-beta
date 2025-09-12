@@ -60,7 +60,7 @@ export interface GameState {
   editPerception: EditPerception;
   alliances: Alliance[];
   votingHistory: VotingRecord[];
-  gamePhase: 'intro' | 'premiere' | 'daily' | 'player_vote' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote' | 'final_3_vote';
+  gamePhase: 'intro' | 'premiere' | 'daily' | 'player_vote' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote' | 'final_3_vote' | 'post_season';
   twistsActivated: string[];
   nextEliminationDay: number;
   daysUntilJury?: number; // Days until jury phase starts
@@ -89,6 +89,9 @@ export interface GameState {
   // New: local interaction log for viral moments and memory tab
   interactionLog?: InteractionLogEntry[];
   tagChoiceCooldowns?: { [key: string]: number };
+  // Post-game data
+  gameWinner?: string;
+  finalJuryVotes?: { [juryMember: string]: string };
 }
 
 export interface Confessional {

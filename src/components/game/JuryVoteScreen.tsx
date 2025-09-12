@@ -24,7 +24,8 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   
   // FIXED: Add player to jury if eliminated before finale
   const playerEliminated = gameState.contestants.find(c => c.name === gameState.playerName)?.isEliminated;
-  const playerAsJuror = playerEliminated && !juryMembers.find(j => j.name === gameState.playerName);
+  const isPlayerInJury = playerEliminated && gameState.juryMembers?.includes(gameState.playerName);
+  const playerAsJuror = playerEliminated && !juryMembers.find(j => j.name === gameState.playerName) && isPlayerInJury;
   
   console.log('JuryVoteScreen - Final two:', finalTwo.map(c => c.name));
   console.log('JuryVoteScreen - Jury members:', juryMembers.map(j => j.name));

@@ -9,6 +9,7 @@ import { EliminationEpisode } from '@/components/game/EliminationEpisode';
 import { FinaleEpisode } from '@/components/game/FinaleEpisode';
 import { PlayerVoteScreen } from '@/components/game/PlayerVoteScreen';
 import { Final3VoteScreen } from '@/components/game/Final3VoteScreen';
+import { PostSeasonRecapScreen } from '@/components/game/PostSeasonRecapScreen';
 
 const Index = () => {
   const {
@@ -106,6 +107,16 @@ const Index = () => {
           <PlayerVoteScreen
             gameState={gameState}
             onSubmitVote={submitPlayerVote}
+          />
+        );
+      
+      case 'post_season':
+        return (
+          <PostSeasonRecapScreen
+            gameState={gameState}
+            winner={gameState.gameWinner || 'Unknown'}
+            finalVotes={gameState.finalJuryVotes || {}}
+            onRestart={resetGame}
           />
         );
       

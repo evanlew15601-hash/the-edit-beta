@@ -127,7 +127,8 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
             </Card>
           </div>
 
-          {!speechSubmitted ? (
+          {/* FIXED: Only allow speech if player is in final two */}
+          {!speechSubmitted && isPlayerInFinale ? (
             <Card className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <MessageSquare className="w-5 h-5" />
@@ -151,6 +152,31 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
               >
                 Deliver Speech
               </Button>
+            </Card>
+          ) : !speechSubmitted && !isPlayerInFinale ? (
+            <Card className="p-6">
+              <div className="border border-destructive/20 bg-destructive/5 rounded p-4">
+                <h4 className="font-medium text-destructive mb-2">Watching from the Jury</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  You were eliminated before the finale and are now watching as a jury member. 
+                  The final two contestants will give their speeches.
+                </p>
+                <Button
+                  variant="action"
+                  onClick={() => {
+                    setSpeechSubmitted(true);
+                    // Generate all NPC speeches for final two
+                    const speeches = finalTwo.map(contestant => ({
+                      name: contestant.name,
+                      speech: generateNPCSpeech(contestant, gameState)
+                    }));
+                    setNpcSpeeches(speeches);
+                  }}
+                  className="w-full"
+                >
+                  Watch Final Speeches
+                </Button>
+              </div>
             </Card>
           ) : (
             <div className="space-y-6">
