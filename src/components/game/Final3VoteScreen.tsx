@@ -35,7 +35,7 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
         votes[choice]++;
       }
 
-      // Generate AI votes based on relationships
+      // BALANCED: Generate AI votes with less player bias
       finalThree.filter(c => c.name !== gameState.playerName).forEach(voter => {
         const targets = finalThree.filter(t => t.name !== voter.name);
         
@@ -43,19 +43,24 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
         const scores = targets.map(target => {
           let score = 50;
           
-          // Check relationships
+          // Check relationships - reduced impact
           const memories = voter.memory.filter(m => 
             m.participants.includes(target.name) && m.day >= gameState.currentDay - 14
           );
           
           const relationshipScore = memories.reduce((sum, memory) => {
-            return sum + (memory.emotionalImpact * (memory.content.includes('betrayal') ? -2 : 1));
+            return sum + (memory.emotionalImpact * (memory.content.includes('betrayal') ? -1.5 : 0.5));
           }, 0);
           
-          score += relationshipScore * 3;
+          score += relationshipScore * 2; // Reduced from 3
           
-          // Add randomness
-          score += (Math.random() - 0.5) * 30;
+          // REDUCED bias against player
+          if (target.name === gameState.playerName) {
+            score += 15; // Boost player score to reduce elimination bias
+          }
+          
+          // Add randomness - increased for more unpredictability
+          score += (Math.random() - 0.5) * 40;
           
           return { name: target.name, score };
         });

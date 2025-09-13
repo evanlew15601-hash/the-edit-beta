@@ -19,9 +19,11 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
   const [speechSubmitted, setSpeechSubmitted] = useState(false);
   const [npcSpeeches, setNpcSpeeches] = useState<{ name: string; speech: string }[]>([]);
 
-  // FIXED: Ensure final two always includes player if they survived
+  // FIXED: Check if player is eliminated by looking at contestant data
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
-  const isPlayerInFinale = finalTwo.some(c => c.name === gameState.playerName);
+  const playerContestant = gameState.contestants.find(c => c.name === gameState.playerName);
+  const isPlayerEliminated = playerContestant?.isEliminated || false;
+  const isPlayerInFinale = finalTwo.some(c => c.name === gameState.playerName) && !isPlayerEliminated;
   
   console.log('FinaleScreen - Final two contestants:', finalTwo.map(c => c.name));
   console.log('FinaleScreen - Player in finale?', isPlayerInFinale);
@@ -127,8 +129,8 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
             </Card>
           </div>
 
-          {/* FIXED: Only allow speech if player is in final two */}
-          {!speechSubmitted && isPlayerInFinale ? (
+          {/* FIXED: Only allow speech if player is in final two AND not eliminated */}
+          {!speechSubmitted && isPlayerInFinale && !isPlayerEliminated ? (
             <Card className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <MessageSquare className="w-5 h-5" />
@@ -153,7 +155,7 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
                 Deliver Speech
               </Button>
             </Card>
-          ) : !speechSubmitted && !isPlayerInFinale ? (
+          ) : !speechSubmitted && (isPlayerEliminated || !isPlayerInFinale) ? (
             <Card className="p-6">
               <div className="border border-destructive/20 bg-destructive/5 rounded p-4">
                 <h4 className="font-medium text-destructive mb-2">Watching from the Jury</h4>
@@ -184,8 +186,8 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
                 <h3 className="font-medium mb-3">Final Speeches</h3>
                 
                 <div className="space-y-4">
-                  {/* GUARANTEED: Always show player speech if they're in finale */}
-                  {isPlayerInFinale && (
+                  {/* GUARANTEED: Always show player speech if they're in finale AND not eliminated */}
+                  {isPlayerInFinale && !isPlayerEliminated && (
                     <div className="border-l-4 border-primary pl-4">
                       <div className="font-medium text-primary mb-2">
                         {gameState.playerName} (Your Speech)
@@ -203,7 +205,7 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
                   ))}
                   
                   {/* If player was eliminated, show jury perspective */}
-                  {!isPlayerInFinale && (
+                  {(isPlayerEliminated || !isPlayerInFinale) && (
                     <div className="border border-destructive/20 bg-destructive/5 rounded p-4">
                       <h4 className="font-medium text-destructive mb-2">Watching from the Jury</h4>
                       <p className="text-sm text-muted-foreground">

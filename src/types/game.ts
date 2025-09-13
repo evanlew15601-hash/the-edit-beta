@@ -92,6 +92,7 @@ export interface GameState {
   // Post-game data
   gameWinner?: string;
   finalJuryVotes?: { [juryMember: string]: string };
+  isPlayerEliminated?: boolean;
 }
 
 export interface Confessional {
