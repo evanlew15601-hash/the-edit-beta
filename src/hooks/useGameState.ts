@@ -531,6 +531,30 @@ export const useGameState = () => {
 
   const continueFromElimination = useCallback(() => {
     setGameState(prev => {
+      const latestElimination = prev.votingHistory[prev.votingHistory.length - 1];
+      const isPlayerEliminated = latestElimination?.eliminated === prev.playerName;
+      const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
+      
+      // If player is eliminated, check if we should go to finale or end game
+      if (isPlayerEliminated) {
+        // If we're down to final 2, go to finale
+        if (remainingCount === 2) {
+          return {
+            ...prev,
+            gamePhase: 'finale' as const
+          };
+        } else {
+          // Player eliminated before finale - end game
+          return {
+            ...prev,
+            gamePhase: 'post_season' as const,
+            gameWinner: 'Unknown', // Will be determined by remaining contestants
+            finalJuryVotes: {}
+          };
+        }
+      }
+      
+      // Player not eliminated - continue game normally
       // Check if we should show weekly recap after elimination
       const shouldShowWeeklyRecap = prev.currentDay % 7 === 0 && prev.currentDay > 1;
       
