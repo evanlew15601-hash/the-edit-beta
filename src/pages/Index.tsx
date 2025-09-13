@@ -31,6 +31,7 @@ const Index = () => {
     completePremiere,
     tagTalk,
     handleTieBreakResult,
+    proceedToJuryVote,
   } = useGameState();
 
   const renderScreen = () => {
@@ -82,6 +83,7 @@ const Index = () => {
             gameState={gameState}
             onSubmitSpeech={submitFinaleSpeech}
             onAFPVote={submitAFPVote}
+            onContinue={proceedToJuryVote}
           />
         );
       

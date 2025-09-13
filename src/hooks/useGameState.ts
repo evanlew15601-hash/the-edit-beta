@@ -409,10 +409,18 @@ export const useGameState = () => {
     }));
   }, []);
 
-  const submitFinaleSpeech = useCallback(() => {
+  const submitFinaleSpeech = useCallback((speech?: string) => {
     setGameState(prev => ({
       ...prev,
       finaleSpeechesGiven: true,
+      gamePhase: 'jury_vote' as const
+    }));
+  }, []);
+
+  // FIXED: Add dedicated function to proceed from finale to jury vote
+  const proceedToJuryVote = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
       gamePhase: 'jury_vote' as const
     }));
   }, []);
@@ -806,5 +814,6 @@ export const useGameState = () => {
     handleEmergentEventChoice,
     tagTalk,
     handleTieBreakResult,
+    proceedToJuryVote,
   };
 };

@@ -7,9 +7,10 @@ interface FinaleEpisodeProps {
   gameState: GameState;
   onSubmitSpeech: (speech: string) => void;
   onAFPVote: (choice: string) => void;
+  onContinue: () => void;
 }
 
-export const FinaleEpisode = ({ gameState, onSubmitSpeech, onAFPVote }: FinaleEpisodeProps) => {
+export const FinaleEpisode = ({ gameState, onSubmitSpeech, onAFPVote, onContinue }: FinaleEpisodeProps) => {
   const [cutsceneDone, setDone] = useState(false);
 
   const slides: CutsceneSlide[] = [
@@ -33,7 +34,7 @@ export const FinaleEpisode = ({ gameState, onSubmitSpeech, onAFPVote }: FinaleEp
       gameState={gameState}
       onSubmitSpeech={onSubmitSpeech}
       onAFPVote={onAFPVote}
-      onContinue={() => { /* handled inside FinaleScreen via submit */ }}
+      onContinue={onContinue}
     />
   );
 };
