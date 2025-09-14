@@ -313,7 +313,7 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
             </Card>
 
             {/* America's Favorite Player */}
-            {gameState.favoriteTally && (
+            {gameState.afpRanking && (
               <Card className="p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Heart className="w-5 h-5 text-primary" />
@@ -321,26 +321,41 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                 </div>
                 
                 <div className="space-y-2">
-                  {Object.entries(gameState.favoriteTally)
-                    .sort(([,a], [,b]) => b - a)
+                  {gameState.afpRanking
                     .slice(0, 5)
-                    .map(([name, score], index) => (
-                      <div key={name} className="flex items-center justify-between p-2 border border-border rounded">
+                    .map((contestant, index) => (
+                      <div key={contestant.name} className="flex items-center justify-between p-2 border border-border rounded">
                         <div className="flex items-center gap-2">
                           <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
                             index === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                           }`}>
                             {index + 1}
                           </div>
-                          <span className={name === gameState.playerName ? 'text-primary font-medium' : ''}>
-                            {name}
-                            {name === gameState.playerName && ' (You)'}
+                          <span className={contestant.name === gameState.playerName ? 'text-primary font-medium' : ''}>
+                            {contestant.name}
+                            {contestant.name === gameState.playerName && ' (You)'}
                           </span>
+                          {index === 0 && (
+                            <Badge variant="default" className="ml-2">
+                              <Heart className="w-3 h-3 mr-1" />
+                              AFP Winner
+                            </Badge>
+                          )}
                         </div>
-                        <div className="text-sm font-medium">{score} points</div>
+                        <div className="text-sm font-medium">
+                          {Math.round(contestant.score)} points
+                        </div>
                       </div>
                     ))}
                 </div>
+                
+                {gameState.afpVote && (
+                  <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded">
+                    <p className="text-sm">
+                      <strong>Your Vote:</strong> You voted for {gameState.afpVote} as America's Favorite Player.
+                    </p>
+                  </div>
+                )}
               </Card>
             )}
           </TabsContent>

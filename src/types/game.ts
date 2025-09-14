@@ -93,6 +93,8 @@ export interface GameState {
   gameWinner?: string;
   finalJuryVotes?: { [juryMember: string]: string };
   isPlayerEliminated?: boolean;
+  afpVote?: string;
+  afpRanking?: { name: string; score: number }[];
 }
 
 export interface Confessional {

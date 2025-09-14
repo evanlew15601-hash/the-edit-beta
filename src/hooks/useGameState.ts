@@ -492,11 +492,21 @@ export const useGameState = () => {
           : c
       );
       
+      // Add eliminated player to jury
+      const updatedJuryMembers = [...(prev.juryMembers || [])];
+      if (!updatedJuryMembers.includes(votingResult.eliminated)) {
+        updatedJuryMembers.push(votingResult.eliminated);
+      }
+      
       const remainingCount = updatedContestants.filter(c => !c.isEliminated).length;
+      
+      console.log('Final3Vote submitted - Remaining count:', remainingCount);
+      console.log('Final3Vote submitted - Going to:', remainingCount === 2 ? 'finale' : 'elimination');
       
       return {
         ...prev,
         contestants: updatedContestants,
+        juryMembers: updatedJuryMembers,
         votingHistory: [...prev.votingHistory, votingResult],
         gamePhase: remainingCount === 2 ? 'finale' : 'elimination',
       };
@@ -508,9 +518,26 @@ export const useGameState = () => {
     console.log('Responded to forced conversation');
   }, []);
 
-  const submitAFPVote = useCallback(() => {
-    // Simplified AFP vote
-    console.log('AFP vote submitted');
+  const submitAFPVote = useCallback((choice: string) => {
+    setGameState(prev => {
+      // Calculate AFP ranking based on edit perception
+      const afpRanking = prev.contestants
+        .map(c => ({
+          name: c.name,
+          // Base score from edit perception and random AI background voting
+          score: (prev.editPerception[c.name]?.score || 0) + Math.random() * 100
+        }))
+        .sort((a, b) => b.score - a.score);
+      
+      console.log('AFP vote submitted for:', choice);
+      console.log('AFP ranking:', afpRanking);
+      
+      return {
+        ...prev,
+        afpVote: choice,
+        afpRanking
+      };
+    });
   }, []);
 
   const completePremiere = useCallback(() => {
@@ -533,7 +560,17 @@ export const useGameState = () => {
     setGameState(prev => {
       const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
       
-      // If we're down to final 2, go to finale regardless of who was eliminated
+      console.log('continueFromElimination - Remaining contestants:', remainingCount);
+      
+      // If we're down to final 3, go to final 3 vote
+      if (remainingCount === 3) {
+        return {
+          ...prev,
+          gamePhase: 'final_3_vote' as const
+        };
+      }
+      
+      // If we're down to final 2, go to finale
       if (remainingCount === 2) {
         return {
           ...prev,
@@ -541,7 +578,7 @@ export const useGameState = () => {
         };
       }
       
-      // Continue game normally if more than 2 remain
+      // Continue game normally if more than 3 remain
       // Check if we should show weekly recap after elimination
       const shouldShowWeeklyRecap = prev.currentDay % 7 === 0 && prev.currentDay > 1;
       
@@ -798,7 +835,7 @@ export const useGameState = () => {
       };
       
       newState.votingHistory = [...prev.votingHistory.slice(0, -1), tieBreakRecord];
-      newState.gamePhase = 'finale';
+      newState.gamePhase = 'finale' as const;
       
       return newState;
     });
