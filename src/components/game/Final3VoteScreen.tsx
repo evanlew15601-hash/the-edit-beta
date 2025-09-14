@@ -17,12 +17,35 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
   const [tieBreakActive, setTieBreakActive] = useState(false);
   const [challengeResults, setChallengeResults] = useState<{ name: string; time: number }[]>([]);
 
-  // FIXED: Ensure player is always counted in Final 3
+  // Check if player is still active in Final 3
   const finalThree = gameState.contestants.filter(c => !c.isEliminated);
+  const playerStillActive = finalThree.some(c => c.name === gameState.playerName);
   const eligible = finalThree.filter(c => c.name !== gameState.playerName);
   
   console.log('Final3VoteScreen - Final three contestants:', finalThree.map(c => c.name));
+  console.log('Final3VoteScreen - Player still active?', playerStillActive);
   console.log('Final3VoteScreen - Eligible for elimination:', eligible.map(c => c.name));
+
+  // If player is not active, don't show voting screen (should have been eliminated before Final 3)
+  if (!playerStillActive) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <Card className="p-6 text-center">
+            <h1 className="text-3xl font-light mb-4">Final 3 Vote</h1>
+            <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
+              <p className="text-destructive">
+                Error: Player is not in the Final 3. This screen should not be shown.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Remaining contestants: {finalThree.map(c => c.name).join(', ')}
+              </p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (showingResults && !tieBreakActive) {

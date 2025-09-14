@@ -21,7 +21,9 @@ export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
   return (
     <Card className="p-6">
       <h3 className="text-xl font-light mb-2">America's Favorite Player</h3>
-      <p className="text-sm text-muted-foreground mb-4">Vote for the season's favorite. One tap, one vote.</p>
+      <p className="text-sm text-muted-foreground mb-4">
+        Vote for the season's favorite. Your vote will be combined with AI audience voting based on edit perception and game performance.
+      </p>
       <ScrollArea className="max-h-56 pr-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {allContestants.map((name) => (
@@ -37,6 +39,17 @@ export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
           ))}
         </div>
       </ScrollArea>
+      
+      {voted && (
+        <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded">
+          <p className="text-sm text-primary">
+            <strong>Vote submitted!</strong> AFP results will be revealed in the season recap.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Winner determined by edit perception, game performance, and audience voting.
+          </p>
+        </div>
+      )}
     </Card>
   );
 };
