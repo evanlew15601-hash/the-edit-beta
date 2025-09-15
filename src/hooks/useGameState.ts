@@ -606,13 +606,24 @@ export const useGameState = () => {
   const continueFromElimination = useCallback(() => {
     setGameState(prev => {
       const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
+      const playerEliminated = prev.contestants.find(c => c.name === prev.playerName)?.isEliminated;
       
       console.log('continueFromElimination - Remaining contestants:', remainingCount);
-      console.log('continueFromElimination - Player eliminated?', prev.contestants.find(c => c.name === prev.playerName)?.isEliminated);
+      console.log('continueFromElimination - Player eliminated?', playerEliminated);
+      console.log('continueFromElimination - Current phase:', prev.gamePhase);
+      
+      // If player was eliminated during jury phase, go to finale to watch
+      if (playerEliminated && prev.daysUntilJury !== undefined && prev.daysUntilJury <= 0) {
+        console.log('continueFromElimination - Player eliminated during jury, going to finale');
+        return {
+          ...prev,
+          gamePhase: 'finale' as const
+        };
+      }
       
       // If we're down to final 3, go to final 3 vote (only if player is still active)
       if (remainingCount === 3) {
-        const playerStillActive = !prev.contestants.find(c => c.name === prev.playerName)?.isEliminated;
+        const playerStillActive = !playerEliminated;
         if (playerStillActive) {
           console.log('continueFromElimination - Going to final_3_vote');
           return {
