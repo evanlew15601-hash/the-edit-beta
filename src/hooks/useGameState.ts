@@ -175,12 +175,13 @@ export const useGameState = () => {
       }
 
       // Check for key game events - FIXED phase transitions with correct counting
+      console.log('Phase check - Current phase:', prev.gamePhase, 'Remaining:', remainingCount);
       
-      if (remainingCount === 3) {
-        // Final 3 - needs voting first
+      if (remainingCount === 3 && prev.gamePhase !== 'final_3_vote') {
+        // Final 3 - needs voting first (only trigger if not already in final_3_vote)
         gamePhase = 'final_3_vote';
         console.log('Final 3 reached - voting phase');
-      } else if (remainingCount === 4) {
+      } else if (remainingCount === 4 && prev.gamePhase !== 'player_vote') {
         // Final 4 - force elimination (skip immunity for clean vote)
         console.log('Final 4 reached - forcing elimination without immunity');
         gamePhase = 'player_vote';
