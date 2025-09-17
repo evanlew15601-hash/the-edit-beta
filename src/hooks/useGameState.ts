@@ -613,7 +613,8 @@ export const useGameState = () => {
       console.log('continueFromElimination - Current phase:', prev.gamePhase);
       
       // If player was eliminated during jury phase, go to finale to watch
-      if (playerEliminated && prev.daysUntilJury !== undefined && prev.daysUntilJury <= 0) {
+      const isJuryPhase = prev.juryMembers && prev.juryMembers.length > 0;
+      if (playerEliminated && isJuryPhase) {
         console.log('continueFromElimination - Player eliminated during jury, going to finale');
         return {
           ...prev,
