@@ -612,12 +612,62 @@ export const useGameState = () => {
       console.log('continueFromElimination - Player eliminated?', playerEliminated);
       console.log('continueFromElimination - Current phase:', prev.gamePhase);
       
-      // If player was eliminated during jury phase, go to finale to watch
+      // If player was eliminated during jury phase, simulate eliminations down to final 2
       const isJuryPhase = prev.juryMembers && prev.juryMembers.length > 0;
       if (playerEliminated && isJuryPhase) {
-        console.log('continueFromElimination - Player eliminated during jury, going to finale');
+        console.log('continueFromElimination - Player eliminated during jury, simulating eliminations to final 2');
+        
+        // Get remaining active contestants (excluding player)
+        const activeContestants = prev.contestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+        
+        // Simulate eliminations down to final 2
+        let updatedContestants = [...prev.contestants];
+        let updatedJuryMembers = [...(prev.juryMembers || [])];
+        
+        // Add player to jury if not already there
+        if (!updatedJuryMembers.includes(prev.playerName)) {
+          updatedJuryMembers.push(prev.playerName);
+        }
+        
+        // Eliminate down to 2 remaining contestants
+        const toEliminate = activeContestants.length - 2;
+        for (let i = 0; i < toEliminate; i++) {
+          // Use relationship-based elimination (eliminate least connected)
+          const remaining = activeContestants.filter((_, index) => index >= i);
+          
+          let eliminationTarget = remaining[0];
+          let lowestConnections = Infinity;
+          
+          remaining.forEach(contestant => {
+            const connections = prev.alliances.reduce((count, alliance) => {
+              return count + (alliance.members.includes(contestant.name) ? alliance.members.length - 1 : 0);
+            }, 0);
+            
+            if (connections < lowestConnections) {
+              lowestConnections = connections;
+              eliminationTarget = contestant;
+            }
+          });
+          
+          // Eliminate the target
+          updatedContestants = updatedContestants.map(c => 
+            c.name === eliminationTarget.name 
+              ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
+              : c
+          );
+          
+          // Add to jury
+          if (!updatedJuryMembers.includes(eliminationTarget.name)) {
+            updatedJuryMembers.push(eliminationTarget.name);
+          }
+          
+          console.log(`Simulated elimination: ${eliminationTarget.name}`);
+        }
+        
         return {
           ...prev,
+          contestants: updatedContestants,
+          juryMembers: updatedJuryMembers,
           gamePhase: 'finale' as const
         };
       }
