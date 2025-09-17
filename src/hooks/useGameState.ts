@@ -162,11 +162,11 @@ export const useGameState = () => {
       let gamePhase = prev.gamePhase;
       
       if (shouldStartJury) {
-        // Start jury phase - eliminated contestants become jury
+        // Start jury phase - eliminated contestants become jury (limit to 7)
         juryMembers = prev.contestants
           .filter(c => c.isEliminated && c.eliminationDay)
           .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
-          .slice(0, 7) // Take up to 7 most recent eliminations
+          .slice(0, 7) // Limit to exactly 7 jury members
           .map(c => c.name);
         daysUntilJury = 0;
         console.log('Jury phase started with members:', juryMembers);
@@ -494,9 +494,9 @@ export const useGameState = () => {
           : c
       );
       
-      // Add eliminated player to jury
+      // Add eliminated player to jury (maintain 7 person limit)
       const updatedJuryMembers = [...(prev.juryMembers || [])];
-      if (!updatedJuryMembers.includes(votingResult.eliminated)) {
+      if (!updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
         updatedJuryMembers.push(votingResult.eliminated);
       }
       
@@ -624,8 +624,8 @@ export const useGameState = () => {
         let updatedContestants = [...prev.contestants];
         let updatedJuryMembers = [...(prev.juryMembers || [])];
         
-        // Add player to jury if not already there
-        if (!updatedJuryMembers.includes(prev.playerName)) {
+        // Add player to jury if not already there and under limit
+        if (!updatedJuryMembers.includes(prev.playerName) && updatedJuryMembers.length < 7) {
           updatedJuryMembers.push(prev.playerName);
         }
         
@@ -656,8 +656,8 @@ export const useGameState = () => {
               : c
           );
           
-          // Add to jury
-          if (!updatedJuryMembers.includes(eliminationTarget.name)) {
+          // Add to jury (maintain 7 person limit)
+          if (!updatedJuryMembers.includes(eliminationTarget.name) && updatedJuryMembers.length < 7) {
             updatedJuryMembers.push(eliminationTarget.name);
           }
           
