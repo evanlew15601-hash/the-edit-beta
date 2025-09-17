@@ -23,14 +23,14 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   );
   
   // FIXED: Add player to jury if eliminated before finale
-  const playerEliminated = gameState.contestants.find(c => c.name === gameState.playerName)?.isEliminated;
+  const playerContestant = gameState.contestants.find(c => c.name === gameState.playerName);
+  const playerEliminated = playerContestant?.isEliminated || false;
   const isPlayerInJury = playerEliminated && gameState.juryMembers?.includes(gameState.playerName);
-  const playerAsJuror = playerEliminated && !juryMembers.find(j => j.name === gameState.playerName) && isPlayerInJury;
   
   console.log('JuryVoteScreen - Final two:', finalTwo.map(c => c.name));
   console.log('JuryVoteScreen - Jury members:', juryMembers.map(j => j.name));
   console.log('JuryVoteScreen - Player eliminated?', playerEliminated);
-  console.log('JuryVoteScreen - Player as juror?', playerAsJuror);
+  console.log('JuryVoteScreen - Player in jury?', isPlayerInJury);
   
   useEffect(() => {
     // FIXED: Only calculate votes once to prevent flickering
@@ -77,7 +77,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     });
     
     // FIXED: Add player jury vote if they're eliminated
-    if (playerAsJuror) {
+    if (isPlayerInJury) {
       // Player votes based on their own preferences/relationships
       const finalTwoScores = finalTwo.map(finalist => {
         let score = 50;
@@ -122,7 +122,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     
     // Show results after a delay
     setTimeout(() => setShowResults(true), 2000);
-  }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, voteStable, playerAsJuror, gameState.alliances]);
+  }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, voteStable, isPlayerInJury, gameState.alliances]);
 
   const getVoteCount = (finalist: string) => {
     return Object.values(votes).filter(vote => vote === finalist).length;
@@ -186,7 +186,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                   ))}
                   
                   {/* Show player jury vote if eliminated */}
-                  {playerAsJuror && (
+                  {isPlayerInJury && (
                     <div className="flex justify-between items-center p-3 border border-primary/20 bg-primary/10 rounded">
                       <span className="font-medium text-primary">{gameState.playerName} (You)</span>
                       <span className={`font-medium ${
