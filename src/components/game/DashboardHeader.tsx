@@ -112,6 +112,19 @@ export const DashboardHeader = ({ gameState }: DashboardHeaderProps) => {
               </button>
             )}
             
+            {/* Test Force Elimination Button */}
+            {isJuryPhase && (
+              <button 
+                onClick={() => {
+                  // Trigger force elimination test
+                  window.dispatchEvent(new CustomEvent('testForceElimination'));
+                }}
+                className="px-2 py-1 text-xs bg-destructive text-destructive-foreground rounded hover:bg-destructive/80"
+              >
+                Test Elimination
+              </button>
+            )}
+            
             {/* Action Count */}
             <div className="text-right">
               <div className="text-sm font-medium">

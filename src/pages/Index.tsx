@@ -1,3 +1,4 @@
+import React from 'react';
 import { useGameState } from '@/hooks/useGameState';
 import { IntroScreen } from '@/components/game/IntroScreen';
 import { GameplayScreen } from '@/components/game/GameplayScreen';
@@ -33,6 +34,18 @@ const Index = () => {
     handleTieBreakResult,
     proceedToJuryVote,
   } = useGameState();
+
+  // Test force elimination event handler
+  React.useEffect(() => {
+    const handleTestElimination = () => {
+      // Force player elimination during jury phase for testing
+      console.log('Testing force elimination...');
+      continueFromElimination(true); // Force player elimination
+    };
+
+    window.addEventListener('testForceElimination', handleTestElimination);
+    return () => window.removeEventListener('testForceElimination', handleTestElimination);
+  }, [continueFromElimination]);
 
   const renderScreen = () => {
     switch (gameState.gamePhase) {

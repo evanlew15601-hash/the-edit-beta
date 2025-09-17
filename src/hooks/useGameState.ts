@@ -603,10 +603,10 @@ export const useGameState = () => {
     }));
   }, []);
 
-  const continueFromElimination = useCallback(() => {
+  const continueFromElimination = useCallback((forcePlayerElimination = false) => {
     setGameState(prev => {
       const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
-      const playerEliminated = prev.contestants.find(c => c.name === prev.playerName)?.isEliminated;
+      const playerEliminated = forcePlayerElimination || prev.contestants.find(c => c.name === prev.playerName)?.isEliminated;
       
       console.log('continueFromElimination - Remaining contestants:', remainingCount);
       console.log('continueFromElimination - Player eliminated?', playerEliminated);
