@@ -494,10 +494,27 @@ export const useGameState = () => {
           : c
       );
       
-      // Add eliminated player to jury (maintain 7 person limit)
+      // Add eliminated player to jury (maintain 7 person limit, prioritize player)
       const updatedJuryMembers = [...(prev.juryMembers || [])];
-      if (!updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
-        updatedJuryMembers.push(votingResult.eliminated);
+      if (!updatedJuryMembers.includes(votingResult.eliminated)) {
+        if (updatedJuryMembers.length >= 7) {
+          // If player is being eliminated, give them priority
+          if (votingResult.eliminated === prev.playerName) {
+            // Remove oldest non-player jury member
+            const oldestNonPlayer = updatedJuryMembers.find(m => m !== prev.playerName);
+            if (oldestNonPlayer) {
+              updatedJuryMembers.splice(updatedJuryMembers.indexOf(oldestNonPlayer), 1);
+            }
+          } else {
+            // For non-player eliminations, only add if there's room
+            if (updatedJuryMembers.length < 7) {
+              updatedJuryMembers.push(votingResult.eliminated);
+            }
+          }
+        }
+        if (!updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
+          updatedJuryMembers.push(votingResult.eliminated);
+        }
       }
       
       const remainingCount = updatedContestants.filter(c => !c.isEliminated).length;
@@ -624,8 +641,12 @@ export const useGameState = () => {
         let updatedContestants = [...prev.contestants];
         let updatedJuryMembers = [...(prev.juryMembers || [])];
         
-        // Add player to jury if not already there and under limit
-        if (!updatedJuryMembers.includes(prev.playerName) && updatedJuryMembers.length < 7) {
+        // Always add player to jury when eliminated (they get priority)
+        if (!updatedJuryMembers.includes(prev.playerName)) {
+          if (updatedJuryMembers.length >= 7) {
+            // Remove oldest jury member to make room for player
+            updatedJuryMembers.shift();
+          }
           updatedJuryMembers.push(prev.playerName);
         }
         
@@ -656,9 +677,18 @@ export const useGameState = () => {
               : c
           );
           
-          // Add to jury (maintain 7 person limit)
-          if (!updatedJuryMembers.includes(eliminationTarget.name) && updatedJuryMembers.length < 7) {
-            updatedJuryMembers.push(eliminationTarget.name);
+          // Add to jury (maintain 7 person limit, but player always has priority)
+          if (!updatedJuryMembers.includes(eliminationTarget.name)) {
+            if (updatedJuryMembers.length >= 7) {
+              // Remove oldest non-player jury member to make room
+              const oldestNonPlayer = updatedJuryMembers.find(m => m !== prev.playerName);
+              if (oldestNonPlayer) {
+                updatedJuryMembers = updatedJuryMembers.filter(m => m !== oldestNonPlayer);
+              }
+            }
+            if (updatedJuryMembers.length < 7) {
+              updatedJuryMembers.push(eliminationTarget.name);
+            }
           }
           
           console.log(`Simulated elimination: ${eliminationTarget.name}`);
