@@ -617,14 +617,26 @@ export const useGameState = () => {
       if (playerEliminated && isJuryPhase) {
         console.log('continueFromElimination - Player eliminated during jury, simulating eliminations to final 2');
         
-        // Get remaining active contestants (excluding player)
-        const activeContestants = prev.contestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+        // Mark player as eliminated and set isPlayerEliminated flag
+        let updatedContestants = prev.contestants.map(c => 
+          c.name === prev.playerName 
+            ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
+            : c
+        );
+        
+        // Set jury to exactly 7 members, including player if they're eliminated
+        let updatedJuryMembers = prev.contestants
+          .filter(c => c.isEliminated || c.name === prev.playerName)
+          .sort((a, b) => (b.eliminationDay || prev.currentDay) - (a.eliminationDay || prev.currentDay))
+          .slice(0, 7)
+          .map(c => c.name);
+        
+        console.log('Updated jury members (7 max):', updatedJuryMembers);
+        
+        const activeContestants = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
         
         // Simulate eliminations down to final 2
-        let updatedContestants = [...prev.contestants];
-        let updatedJuryMembers = [...(prev.juryMembers || [])];
-        
-        // Don't add to jury during simulation - jury is already set when jury phase starts
+        // (jury already set above)
         
         // Eliminate down to 2 remaining contestants
         const toEliminate = activeContestants.length - 2;
@@ -662,6 +674,7 @@ export const useGameState = () => {
           ...prev,
           contestants: updatedContestants,
           juryMembers: updatedJuryMembers,
+          isPlayerEliminated: true,
           gamePhase: 'finale' as const
         };
       }
