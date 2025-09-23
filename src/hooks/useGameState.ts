@@ -624,14 +624,15 @@ export const useGameState = () => {
             : c
         );
         
-        // Set jury to exactly 7 members, including player if they're eliminated
-        let updatedJuryMembers = prev.contestants
-          .filter(c => c.isEliminated || c.name === prev.playerName)
+        // Set jury to exactly 7 members, including player since they're eliminated
+        let updatedJuryMembers = updatedContestants
+          .filter(c => c.isEliminated) // Now player is marked as eliminated
           .sort((a, b) => (b.eliminationDay || prev.currentDay) - (a.eliminationDay || prev.currentDay))
           .slice(0, 7)
           .map(c => c.name);
         
         console.log('Updated jury members (7 max):', updatedJuryMembers);
+        console.log('Player should be included:', updatedJuryMembers.includes(prev.playerName));
         
         const activeContestants = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
         
