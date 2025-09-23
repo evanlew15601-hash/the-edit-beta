@@ -162,11 +162,11 @@ export const useGameState = () => {
       let gamePhase = prev.gamePhase;
       
       if (shouldStartJury) {
-        // Start jury phase - eliminated contestants become jury (limit to 7)
+        // Start jury phase - take the 7 most recently eliminated contestants
         juryMembers = prev.contestants
           .filter(c => c.isEliminated && c.eliminationDay)
           .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
-          .slice(0, 7) // Limit to exactly 7 jury members
+          .slice(0, 7) // Exactly 7 jury members
           .map(c => c.name);
         daysUntilJury = 0;
         console.log('Jury phase started with members:', juryMembers);
@@ -494,9 +494,9 @@ export const useGameState = () => {
           : c
       );
       
-      // Add eliminated player to jury (maintain 7 person limit)
-      const updatedJuryMembers = [...(prev.juryMembers || [])];
-      if (!updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
+      // Only add to jury if not in jury voting phase yet
+      let updatedJuryMembers = [...(prev.juryMembers || [])];
+      if (prev.gamePhase !== 'jury_vote' && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
         updatedJuryMembers.push(votingResult.eliminated);
       }
       
@@ -624,10 +624,7 @@ export const useGameState = () => {
         let updatedContestants = [...prev.contestants];
         let updatedJuryMembers = [...(prev.juryMembers || [])];
         
-        // Add player to jury if there's room (maintain 7 person limit)
-        if (!updatedJuryMembers.includes(prev.playerName) && updatedJuryMembers.length < 7) {
-          updatedJuryMembers.push(prev.playerName);
-        }
+        // Don't add to jury during simulation - jury is already set when jury phase starts
         
         // Eliminate down to 2 remaining contestants
         const toEliminate = activeContestants.length - 2;
@@ -656,10 +653,7 @@ export const useGameState = () => {
               : c
           );
           
-          // Add to jury (maintain 7 person limit)
-          if (!updatedJuryMembers.includes(eliminationTarget.name) && updatedJuryMembers.length < 7) {
-            updatedJuryMembers.push(eliminationTarget.name);
-          }
+          // Don't add to jury during finale simulation - jury is already set
           
           console.log(`Simulated elimination: ${eliminationTarget.name}`);
         }
