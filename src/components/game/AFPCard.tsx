@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -11,14 +11,34 @@ interface AFPCardProps {
 
 export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
   const [voted, setVoted] = useState(false);
-  
-  // Show all contestants for AFP voting (scrollable)
-  const afpCandidates = gameState.contestants
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(c => c.name);
+  // Optional preferences
+  const [excludeWinner, setExcludeWinner] = useState(false);
+  const [favorPositive, setFavorPositive] = useState(false);
 
-  console.log('AFPCard - AFP candidates:', afpCandidates);
+  const candidates = useMemo(() => {
+    let list = gameState.contestants.slice();
+
+    if (excludeWinner && gameState.gameWinner) {
+      list = list.filter(c => c.name !== gameState.gameWinner);
+    }
+
+    // Favor positive personas (reorder only)
+    if (favorPositive) {
+      const positiveKeywords = ['Hero', 'Fan Favorite', 'Contender'];
+      list = list
+        .slice()
+        .sort((a, b) => {
+          const aPos = positiveKeywords.some(k => (a.publicPersona || '').toLowerCase().includes(k.toLowerCase())) ? 1 : 0;
+          const bPos = positiveKeywords.some(k => (b.publicPersona || '').toLowerCase().includes(k.toLowerCase())) ? 1 : 0;
+          if (aPos !== bPos) return bPos - aPos;
+          return a.name.localeCompare(b.name);
+        });
+    } else {
+      list = list.slice().sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return list.map(c => c.name);
+  }, [gameState.contestants, gameState.gameWinner, excludeWinner, favorPositive]);
 
   const handleVote = (name: string) => {
     onAFPVote(name);
@@ -31,9 +51,29 @@ export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
       <p className="text-sm text-muted-foreground mb-4">
         Vote for the season's favorite. Your vote will be combined with AI audience voting based on edit perception and game performance.
       </p>
+
+      <div className="flex items-center gap-4 mb-3 text-xs">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={excludeWinner}
+            onChange={(e) => setExcludeWinner(e.target.checked)}
+          />
+          Exclude winner
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={favorPositive}
+            onChange={(e) => setFavorPositive(e.target.checked)}
+          />
+          Favor positive personas in ordering
+        </label>
+      </div>
+
       <ScrollArea className="max-h-56 pr-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {finalFourContestants.map((name) => (
+          {candidates.map((name) => (
             <Button
               key={name}
               variant={voted ? 'disabled' : 'surveillance'}

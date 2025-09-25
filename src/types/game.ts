@@ -120,6 +120,7 @@ export interface GameState {
   // Post-game data
   gameWinner?: string;
   finalJuryVotes?: { [juryMember: string]: string };
+  juryRationales?: { [juryMember: string]: string };
   isPlayerEliminated?: boolean;
   afpVote?: string;
   afpRanking?: { name: string; score: number }[];

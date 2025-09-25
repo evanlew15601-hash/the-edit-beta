@@ -585,12 +585,13 @@ export const useGameState = () => {
     }));
   }, []);
 
-  const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }) => {
+  const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }, rationales?: { [juryMember: string]: string }) => {
     setGameState(prev => ({
       ...prev,
       gamePhase: 'post_season' as const,
       gameWinner: winner,
-      finalJuryVotes: votes
+      finalJuryVotes: votes,
+      juryRationales: rationales || prev.juryRationales
     }));
   }, []);
 

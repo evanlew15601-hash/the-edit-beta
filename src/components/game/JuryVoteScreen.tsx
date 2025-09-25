@@ -8,7 +8,7 @@ import { GameState } from '@/types/game';
 interface JuryVoteScreenProps {
   gameState: GameState;
   playerSpeech?: string;
-  onGameEnd: (winner: string, votes: { [juryMember: string]: string }) => void;
+  onGameEnd: (winner: string, votes: { [juryMember: string]: string }, rationales?: { [juryMember: string]: string }) => void;
 }
 
 export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteScreenProps) => {
@@ -19,6 +19,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   const [showResults, setShowResults] = useState(false);
   const [voteStable, setVoteStable] = useState(false); // FIXED: Prevent vote flickering
   const [deliberationProgress, setDeliberationProgress] = useState(0);
+  const [rationales, setRationales] = useState<{ [juror: string]: string }>({});
 
   // Pacing controls
   const RESULT_DELAY_MS = 1500;
@@ -53,6 +54,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     if (voteStable) return;
 
     const juryVotes: { [juryMember: string]: string } = {};
+    const rationaleMap: { [juryMember: string]: string } = {};
 
     juryMembers.forEach(juryMember => {
       // If the player is in the jury, skip their vote until they choose.
@@ -62,9 +64,9 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       const finalTwoScores = finalTwo.map(finalist => {
         let score = 50; // Base score
 
-        // Relationship with jury member
+        // Relationship with jury member (last 14 days)
         const memories = juryMember.memory.filter(m =>
-          m.participants.includes(finalist.name)
+          m.participants.includes(finalist.name) && m.day >= gameState.currentDay - 14
         );
 
         const relationshipScore = memories.reduce((sum, memory) => {
@@ -82,7 +84,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
         // Random factor for unpredictability (applied once)
         score += (Math.random() - 0.5) * 20;
 
-        return { name: finalist.name, score };
+        return { name: finalist.name, score, relationshipScore };
       });
 
       // Vote for highest score
@@ -91,9 +93,23 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       );
 
       juryVotes[juryMember.name] = topChoice.name;
+
+      // Build rationale
+      const top = finalTwoScores.find(s => s.name === topChoice.name)!;
+      const relationPhrase =
+        top.relationshipScore > 0 ? 'positive interactions' :
+        top.relationshipScore < 0 ? 'strained interactions' :
+        'neutral history';
+      const speechPhrase =
+        (topChoice.name === gameState.playerName && effectivePlayerSpeech)
+          ? (effectivePlayerSpeech.length > 180 ? 'compelling speech' : 'solid speech')
+          : 'overall gameplay';
+
+      rationaleMap[juryMember.name] = `Chose ${topChoice.name} due to ${relationPhrase} and ${speechPhrase}.`;
     });
 
     setVotes(juryVotes);
+    setRationales(rationaleMap);
 
     // If the player is not in the jury, all votes are in, mark stable.
     if (!isPlayerInJury) {
@@ -319,16 +335,23 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                     return (
                       <div
                         key={jury.id}
-                        className={`flex justify-between items-center p-3 border rounded transition-colors ${
+                        className={`p-3 border rounded transition-colors ${
                           jury.name === gameState.playerName ? 'border-primary/20 bg-primary/10' : 'border-border'
                         }`}
                       >
-                        <span className={`font-medium ${jury.name === gameState.playerName ? 'text-primary' : ''}`}>
-                          {jury.name}{jury.name === gameState.playerName ? ' (You)' : ''}
-                        </span>
-                        <span className={`font-medium ${revealed ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          {revealed ? `voted for ${votes[jury.name]}` : 'vote sealed...'}
-                        </span>
+                        <div className="flex justify-between items-center">
+                          <span className={`font-medium ${jury.name === gameState.playerName ? 'text-primary' : ''}`}>
+                            {jury.name}{jury.name === gameState.playerName ? ' (You)' : ''}
+                          </span>
+                          <span className={`font-medium ${revealed ? 'text-foreground' : 'text-muted-foreground'}`}>
+                            {revealed ? `voted for ${votes[jury.name]}` : 'vote sealed...'}
+                          </span>
+                        </div>
+                        {revealed && rationales[jury.name] && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {rationales[jury.name]}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -374,7 +397,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                 </div>
                 <Button
                   variant="action"
-                  onClick={() => onGameEnd(winner, votes)}
+                  onClick={() => onGameEnd(winner, votes, rationales)}
                   className="w-full"
                   disabled={revealedCount < juryMembers.length}
                 >

@@ -305,11 +305,18 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
               ) : (
                 <div className="space-y-2">
                   {Object.entries(finalVotes).map(([juror, vote]) => (
-                    <div key={juror} className={`flex items-center justify-between p-2 border rounded ${juror === gameState.playerName ? 'border-primary/20 bg-primary/10' : 'border-border'}`}>
-                      <div className={`font-medium ${juror === gameState.playerName ? 'text-primary' : ''}`}>
-                        {juror}{juror === gameState.playerName ? ' (You)' : ''}
+                    <div key={juror} className={`p-2 border rounded ${juror === gameState.playerName ? 'border-primary/20 bg-primary/10' : 'border-border'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className={`font-medium ${juror === gameState.playerName ? 'text-primary' : ''}`}>
+                          {juror}{juror === gameState.playerName ? ' (You)' : ''}
+                        </div>
+                        <div className="text-sm">voted for <span className="font-medium">{vote}</span></div>
                       </div>
-                      <div className="text-sm">voted for <span className="font-medium">{vote}</span></div>
+                      {gameState.juryRationales?.[juror] && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {gameState.juryRationales[juror]}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
