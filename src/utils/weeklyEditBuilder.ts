@@ -69,10 +69,19 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   const notableMoments: string[] = [];
   const viralMoments: string[] = [];
   
+  // Micro-event tags aggregation (rumor/correction/trap)
+  let rumorCount = 0;
+  let correctionCount = 0;
+  let trapCount = 0;
+
   // Scan contestant memories
   for (const c of contestants) {
     for (const m of c.memory || []) {
       if (m.day < weekStartDay || m.day > weekEndDay) continue;
+      if (m.tags?.includes('rumor')) rumorCount++;
+      if (m.tags?.includes('correction')) correctionCount++;
+      if (m.tags?.includes('trap')) trapCount++;
+
       if (m.type === 'scheme' && m.emotionalImpact >= 3) {
         const line = `A scheme brews involving ${m.participants.join(', ')}.`;
         notableMoments.push(line);
@@ -116,12 +125,20 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   // Build contextual montage based on player's edit trajectory
   const personalizedMontage = buildPersonalizedMontage(dominantTone, alliancesFormed, alliancesActive, elimLine, notableMoments, recentActions, editPerception);
 
-  const eventMontage = personalizedMontage.filter(Boolean) as string[];
+  const eventMontageRaw = personalizedMontage.filter(Boolean) as string[];
+
+  // Add micro-event tag summary to montage when present
+  const microSummary = (rumorCount || correctionCount || trapCount)
+    ? `Whisper network activity: ${rumorCount} rumor${rumorCount !== 1 ? 's' : ''}, ${correctionCount} correction${correctionCount !== 1 ? 's' : ''}, ${trapCount} trap${trapCount !== 1 ? 's' : ''}.`
+    : undefined;
+
+  const eventMontage = [...eventMontageRaw, microSummary].filter(Boolean) as string[];
 
   const whatHappenedBits: string[] = [];
   if (allConfessionals.length) whatHappenedBits.push(`${allConfessionals.length} confessionals with ${dominantTone || 'mixed'} tone.`);
   if (alliancesFormed.length) whatHappenedBits.push(`New alliance${alliancesFormed.length > 1 ? 's' : ''} formed.`);
   if (elim) whatHappenedBits.push(`${elim.eliminated} eliminated.`);
+  if (microSummary) whatHappenedBits.push(microSummary);
 
   // Enhanced reality vs edit narrative
   const enhancedEditNarrative = buildEditNarrative(editPerception, dominantTone, narrativeElements, elim);
