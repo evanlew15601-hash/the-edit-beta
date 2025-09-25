@@ -11,6 +11,7 @@ import { FinaleEpisode } from '@/components/game/FinaleEpisode';
 import { PlayerVoteScreen } from '@/components/game/PlayerVoteScreen';
 import { Final3VoteScreen } from '@/components/game/Final3VoteScreen';
 import { PostSeasonRecapScreen } from '@/components/game/PostSeasonRecapScreen';
+import { GameLayout } from '@/components/game/GameLayout';
 
 const Index = () => {
   const {
@@ -91,72 +92,144 @@ const Index = () => {
       
       case 'elimination':
         return (
-          <EliminationEpisode
+          <GameLayout
             gameState={gameState}
-            onContinue={continueFromElimination}
-          />
+            onSaveGame={saveGame}
+            onLoadGame={loadSavedGame}
+            onDeleteGame={resetGame}
+            onQuitToTitle={goToTitle}
+            onToggleDebug={toggleDebugMode}
+          >
+            <EliminationEpisode
+              gameState={gameState}
+              onContinue={continueFromElimination}
+            />
+          </GameLayout>
         );
       
       case 'weekly_recap':
         return (
-          <WeeklyRecapScreen
+          <GameLayout
             gameState={gameState}
-            onContinue={continueFromWeeklyRecap}
-          />
+            onSaveGame={saveGame}
+            onLoadGame={loadSavedGame}
+            onDeleteGame={resetGame}
+            onQuitToTitle={goToTitle}
+            onToggleDebug={toggleDebugMode}
+          >
+            <WeeklyRecapScreen
+              gameState={gameState}
+              onContinue={continueFromWeeklyRecap}
+            />
+          </GameLayout>
         );
       
       case 'immunity_competition':
         return (
-          <ImmunityCompetitionScreen
+          <GameLayout
             gameState={gameState}
-            onContinue={setImmunityWinner}
-          />
+            onSaveGame={saveGame}
+            onLoadGame={loadSavedGame}
+            onDeleteGame={resetGame}
+            onQuitToTitle={goToTitle}
+            onToggleDebug={toggleDebugMode}
+          >
+            <ImmunityCompetitionScreen
+              gameState={gameState}
+              onContinue={setImmunityWinner}
+            />
+          </GameLayout>
         );
       
       case 'finale':
         return (
-          <FinaleEpisode
+          <GameLayout
             gameState={gameState}
-            onSubmitSpeech={submitFinaleSpeech}
-            onAFPVote={submitAFPVote}
-            onContinue={proceedToJuryVote}
-          />
+            onSaveGame={saveGame}
+            onLoadGame={loadSavedGame}
+            onDeleteGame={resetGame}
+            onQuitToTitle={goToTitle}
+            onToggleDebug={toggleDebugMode}
+          >
+            <FinaleEpisode
+              gameState={gameState}
+              onSubmitSpeech={submitFinaleSpeech}
+              onAFPVote={submitAFPVote}
+              onContinue={proceedToJuryVote}
+            />
+          </GameLayout>
         );
       
       case 'final_3_vote':
         return (
-          <Final3VoteScreen
+          <GameLayout
             gameState={gameState}
-            onSubmitVote={submitFinal3Vote}
-            onTieBreakResult={handleTieBreakResult}
-          />
+            onSaveGame={saveGame}
+            onLoadGame={loadSavedGame}
+            onDeleteGame={resetGame}
+            onQuitToTitle={goToTitle}
+            onToggleDebug={toggleDebugMode}
+          >
+            <Final3VoteScreen
+              gameState={gameState}
+              onSubmitVote={submitFinal3Vote}
+              onTieBreakResult={handleTieBreakResult}
+            />
+          </GameLayout>
         );
       
       case 'jury_vote':
         return (
-          <JuryVoteScreen
+          <GameLayout
             gameState={gameState}
-            playerSpeech={gameState.finaleSpeech}
-            onGameEnd={endGame}
-          />
+            onSaveGame={saveGame}
+            onLoadGame={loadSavedGame}
+            onDeleteGame={resetGame}
+            onQuitToTitle={goToTitle}
+            onToggleDebug={toggleDebugMode}
+          >
+            <JuryVoteScreen
+              gameState={gameState}
+              playerSpeech={gameState.finaleSpeech}
+              onGameEnd={endGame}
+            />
+          </GameLayout>
         );
 
       case 'player_vote':
         return (
-          <PlayerVoteScreen
+          <GameLayout
             gameState={gameState}
-            onSubmitVote={submitPlayerVote}
-          />
+            onSaveGame={saveGame}
+            onLoadGame={loadSavedGame}
+            onDeleteGame={resetGame}
+            onQuitToTitle={goToTitle}
+            onToggleDebug={toggleDebugMode}
+          >
+            <PlayerVoteScreen
+              gameState={gameState}
+              onSubmitVote={submitPlayerVote}
+            />
+          </GameLayout>
         );
       
       case 'post_season':
         return (
-          <PostSeasonRecapScreen
+          <GameLayout
             gameState={gameState}
-            winner={gameState.gameWinner || 'Unknown'}
-            finalVotes={gameState.finalJuryVotes || {}}
-            onRestart={resetGame}
-          />
+            onSaveGame={saveGame}
+            onLoadGame={loadSavedGame}
+            onDeleteGame={resetGame}
+            onQuitToTitle={goToTitle}
+            onToggleDebug={toggleDebugMode}
+          >
+            <PostSeasonRecapScreen
+              gameState={gameState}
+              winner={gameState.gameWinner || 'Unknown'}
+              finalVotes={gameState.finalJuryVotes || {}}
+              onRestart={resetGame}
+            />
+          </GameLayout>
         );
       
       default:
