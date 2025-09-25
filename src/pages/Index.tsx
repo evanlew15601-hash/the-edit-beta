@@ -85,6 +85,7 @@ const Index = () => {
               onLoadGame={loadSavedGame}
               onDeleteGame={resetGame}
               onQuitToTitle={goToTitle}
+              onToggleDebug={toggleDebugMode}
             />
         );
       
