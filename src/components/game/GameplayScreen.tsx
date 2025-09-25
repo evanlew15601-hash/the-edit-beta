@@ -37,8 +37,8 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           reactionSummary={gameState.lastAIReaction}
         />
 
-        {/* Debug surface for verifying Tag Dialogue integration */}
-        <AIOutcomeDebug gameState={gameState} />
+        {/* Debug surface for verifying Tag Dialogue integration (hidden unless debugMode) */}
+        {gameState.debugMode && <AIOutcomeDebug gameState={gameState} />}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Action Panel */}

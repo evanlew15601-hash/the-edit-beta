@@ -70,6 +70,7 @@ export const useGameState = () => {
       interactionLog: [],
       tagChoiceCooldowns: {},
       reactionProfiles: {},
+      debugMode: false,
     } as GameState;
   });
 

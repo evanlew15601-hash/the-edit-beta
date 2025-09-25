@@ -439,14 +439,11 @@ export const TAG_CHOICES: Choice[] = [
     weight: 1.0
   },
   {
-    choiceId: 'DM_BUILD_ALLY_STRATEGY_PERSONA_1',
+    choiceId: 'DM_BUILD_ALLY_STRATEGY_SINCERE_2',
     textVariants: [
-      // Hero
-      'I want a clean, loyal path forward. Just us.',
-      'Let’s keep each other safe and honest.',
-      // Villain
-      'We can steer this from the shadows. You in?',
-      'I protect assets. You could be one.'
+      'Off-record: I want to build something real with you.',
+      'Quietly—let’s protect each other.',
+      'We move better in sync. You in?'
     ],
     intent: 'BuildAlliance',
     tone: 'Sincere',
@@ -503,6 +500,21 @@ export const TAG_CHOICES: Choice[] = [
     cooldownDays: 2,
     weight: 1.0
   },
+  {
+    choiceId: 'DM_PROBE_STRATEGY_HARD_NEUTRAL_1',
+    textVariants: [
+      'Names. I need real names—who are you targeting?',
+      'Cut the noise. Who are you voting tonight?',
+      'I won’t leak. Give me the plan, no fluff.'
+    ],
+    intent: 'ProbeForInfo',
+    tone: 'Neutral',
+    topics: ['Strategy', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 2,
+    weight: 1.0
+  },
 
   // Flirt + All Topics for DM
   {
@@ -551,6 +563,100 @@ export const TAG_CHOICES: Choice[] = [
     targetType: 'Person',
     interactionTypes: ['dm'],
     cooldownDays: 3,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_SOW_DOUBT_RUMOR_DISMISSIVE_1',
+    textVariants: [
+      '{{target}} talks a lot in private and says nothing in public.',
+      'People keep repeating {{target}}\'s “harmless” slips.',
+      'Watch who {{target}} smiles at right after meetings.'
+    ],
+    intent: 'SowDoubt',
+    tone: 'Dismissive',
+    topics: ['Rumor', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+
+  // RevealSecret + All Topics for DM
+  {
+    choiceId: 'DM_REVEAL_STRATEGY_SINCERE_1',
+    textVariants: [
+      'Nobody else can know this...',
+      'Saw something that changes everything.',
+      'I need you to know what really happened.'
+    ],
+    intent: 'RevealSecret',
+    tone: 'Sincere',
+    topics: ['Strategy', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 5,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_REVEAL_GAME_SINCERE_2',
+    textVariants: [
+      'I covered for you last round. Don\'t waste it.',
+      'You were a target—someone flipped last second.',
+      'Your name leaked. I shut it down.'
+    ],
+    intent: 'RevealSecret',
+    tone: 'Sincere',
+    topics: ['Game', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 4,
+    weight: 1.0
+  },
+
+  // Defensive social (use Deflect/Divert/BoostMorale patterns via DM)
+  {
+    choiceId: 'DM_DEFLECT_RUMOR_APOLOGETIC_1',
+    textVariants: [
+      'I\'m not engaging rumors about me. Ask me direct if you need.',
+      'If you hear my name, come to me. I won’t chase gossip.',
+      'I’m not fueling he-said-she-said. Let’s keep it simple.'
+    ],
+    intent: 'Deflect',
+    tone: 'Apologetic',
+    topics: ['Rumor', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 1,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_DIVERT_PRESSURE_NEUTRAL_1',
+    textVariants: [
+      'Let’s reset. Too much pressure makes bad reads.',
+      'Take a breath—tomorrow we reassess.',
+      'We’re forcing moves. That’s how people implode.'
+    ],
+    intent: 'Divert',
+    tone: 'Neutral',
+    topics: ['Game', 'PersonalHistory'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 1,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_BOOST_MORALE_REASSURE_SINCERE_1',
+    textVariants: [
+      'I vouch for you in rooms. Keep calm—we’re fine.',
+      'You’re good. I’m keeping your name clean.',
+      'Eyes on the long game. We still control our lane.'
+    ],
+    intent: 'BoostMorale',
+    tone: 'Sincere',
+    topics: ['Game', 'PersonalHistory'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 1,
     weight: 1.0
   },
 

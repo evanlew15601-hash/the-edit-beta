@@ -114,6 +114,8 @@ export interface GameState {
   lastTagOutcome?: LastTagOutcome; // For debugging/verification of tag engine integration
   // Persistent Reaction Profiles (computed at start and updated incrementally)
   reactionProfiles?: { [npcIdOrName: string]: import('./tagDialogue').ReactionProfile };
+  // Debug flag to surface dev-only UI
+  debugMode?: boolean;
   // Post-game data
   gameWinner?: string;
   finalJuryVotes?: { [juryMember: string]: string };
