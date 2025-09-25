@@ -28,7 +28,9 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   const isPlayerInJury = playerEliminated && gameState.juryMembers?.includes(gameState.playerName);
   
   console.log('JuryVoteScreen - Final two:', finalTwo.map(c => c.name));
-  console.log('JuryVoteScreen - Jury members:', juryMembers.map(j => j.name));
+  console.log('JuryVoteScreen - All contestants:', gameState.contestants.map(c => ({ name: c.name, eliminated: c.isEliminated, day: c.eliminationDay })));
+  console.log('JuryVoteScreen - Jury members from gameState:', gameState.juryMembers);
+  console.log('JuryVoteScreen - Filtered jury members:', juryMembers.map(j => j.name));
   console.log('JuryVoteScreen - Total jury members:', juryMembers.length);
   console.log('JuryVoteScreen - Player eliminated?', playerEliminated);
   console.log('JuryVoteScreen - isPlayerEliminated flag?', gameState.isPlayerEliminated);

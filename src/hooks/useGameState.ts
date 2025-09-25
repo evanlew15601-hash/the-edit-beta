@@ -551,6 +551,9 @@ export const useGameState = () => {
   }, []);
 
   const continueFromElimination = useCallback((forcePlayerElimination = false) => {
+    console.log('=== continueFromElimination called ===');
+    console.log('forcePlayerElimination:', forcePlayerElimination);
+    
     setGameState(prev => {
       const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
       const playerEliminated = forcePlayerElimination || prev.contestants.find(c => c.name === prev.playerName)?.isEliminated;
@@ -558,6 +561,8 @@ export const useGameState = () => {
       console.log('continueFromElimination - Remaining contestants:', remainingCount);
       console.log('continueFromElimination - Player eliminated?', playerEliminated);
       console.log('continueFromElimination - Current phase:', prev.gamePhase);
+      console.log('continueFromElimination - Current jury members:', prev.juryMembers);
+      console.log('continueFromElimination - Player name:', prev.playerName);
       
       // If player was eliminated during jury phase, simulate eliminations down to final 2
       const isJuryPhase = prev.juryMembers && prev.juryMembers.length > 0;

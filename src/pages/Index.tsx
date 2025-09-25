@@ -40,6 +40,12 @@ const Index = () => {
     const handleTestElimination = () => {
       // Force player elimination during jury phase for testing
       console.log('Testing force elimination...');
+      console.log('Current game state before elimination:', {
+        phase: gameState.gamePhase,
+        contestants: gameState.contestants.map(c => ({ name: c.name, eliminated: c.isEliminated })),
+        juryMembers: gameState.juryMembers,
+        isPlayerEliminated: gameState.isPlayerEliminated
+      });
       continueFromElimination(true); // Force player elimination
     };
 
