@@ -1231,6 +1231,10 @@ export const useGameState = () => {
     setGameState(prev => ({ ...prev, gamePhase: 'intro' as const }));
   }, []);
 
+  const toggleDebugMode = useCallback(() => {
+    setGameState(prev => ({ ...prev, debugMode: !prev.debugMode }));
+  }, []);
+
   return {
     gameState,
     startGame,
@@ -1256,5 +1260,6 @@ export const useGameState = () => {
     loadSavedGame,
     saveGame,
     goToTitle,
+    toggleDebugMode,
   };
 };

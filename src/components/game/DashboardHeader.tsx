@@ -9,9 +9,10 @@ interface DashboardHeaderProps {
   onLoadGame?: () => void;
   onDeleteGame?: () => void;
   onQuitToTitle?: () => void;
+  onToggleDebug?: () => void;
 }
 
-export const DashboardHeader = ({ gameState, onSaveGame, onLoadGame, onDeleteGame, onQuitToTitle }: DashboardHeaderProps) => {
+export const DashboardHeader = ({ gameState, onSaveGame, onLoadGame, onDeleteGame, onQuitToTitle, onToggleDebug }: DashboardHeaderProps) => {
   const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
   const remainingCount = activeContestants.length;
   
@@ -158,6 +159,13 @@ export const DashboardHeader = ({ gameState, onSaveGame, onLoadGame, onDeleteGam
                 title="Quit to Title"
               >
                 Title
+              </button>
+              <button
+                onClick={onToggleDebug}
+                className={`px-2 py-1 text-xs rounded ${gameState.debugMode ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'} hover:opacity-80`}
+                title="Toggle Debug"
+              >
+                {gameState.debugMode ? 'Debug: ON' : 'Debug: OFF'}
               </button>
             </div>
             

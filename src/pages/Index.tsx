@@ -42,6 +42,10 @@ const Index = () => {
   // derive helpers from hook via rest if needed
   const saveGame = (rest as any).saveGame as () => void;
   const goToTitle = (rest as any).goToTitle as () => void;
+  const toggleDebugMode = (rest as any).toggleDebugMode as () => void;
+
+  // expose debug toggle globally for header
+  (window as any).toggleDebugMode = toggleDebugMode;
 
   // Test force elimination event handler
   React.useEffect(() => {
