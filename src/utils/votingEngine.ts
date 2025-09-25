@@ -77,18 +77,13 @@ export const processVoting = (
     // Check if any of voter's alliances want to coordinate
     for (const alliance of voterAlliances) {
       // Use static import for AllianceManager to avoid runtime require issues
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      // const { AllianceManager } = require('@/utils/allianceManager');
-      // Replace dynamic require with direct usage of imported engine
-      // NOTE: getCoordinatedTarget is expected to be a static helper on AllianceManager.
-      // We import it at module top level.
       const validTargets = activeContestants
         .filter(c => c.name !== voter.name && c.name !== immunityWinner)
         .map(c => c.name);
       validTargets.push(playerName); // Include player as valid target
       
       const coordTarget = AllianceManager.getCoordinatedTarget(alliance, gameState, validTargets);
-      if (coordTarget) {
+      if (coordTarget && coordTarget !== immunityWinner) {
         allianceTarget = coordTarget;
         console.log(`${voter.name} following alliance coordination: voting for ${coordTarget}`);
         break;
@@ -96,7 +91,7 @@ export const processVoting = (
     }
     
     // If alliance coordination exists, use it (with small chance of betrayal)
-    if (allianceTarget && Math.random() > 0.15) { // 85% alliance loyalty
+    if (allianceTarget && allianceTarget !== voter.name && Math.random() > 0.15) { // 85% alliance loyalty
       votes[voter.name] = allianceTarget;
       const currentCount = voteCounts.get(allianceTarget) || 0;
       voteCounts.set(allianceTarget, currentCount + 1);
@@ -178,30 +173,24 @@ export const processVoting = (
       }
     });
     
-    votes[voter.name] = targetName;
-    const currentCount = voteCounts.get(targetName) || 0;
-    voteCounts.set(targetName, currentCount + 1);
+    // Fallback: if no target computed (e.g. all filtered), pick a valid non-immune opponent
+    if (!targetName) {
+      const pool = activeContestants
+        .map(c => c.name)
+        .filter(n => n !== voter.name && n !== immunityWinner);
+      if (pool.length > 0) {
+        targetName = pool[Math.floor(Math.random() * pool.length)];
+      }
+    }
     
-    // Record voting reasoning in memory
-    const reasoning = `Voting for ${targetName} based on threat level and relationships`;
-    memoryEngine.updateVotingPlan(voter.id, targetName, reasoning);
-  });
-
-  // Include player's vote if provided
-  if (playerVote && playerVote !== immunityWinner && playerVote !== playerName) {
-    votes[playerName] = playerVote;
-    const current = voteCounts.get(playerVote) || 0;
-    voteCounts.set(playerVote, current + 1);
-  }
-
-  // Find who received the most votes
-  let eliminated = '';
-  let maxVotes = 0;
-  
-  voteCounts.forEach((count, name) => {
-    if (count > maxVotes) {
-      maxVotes = count;
-      eliminated = name;
+    if (targetName) {
+      votes[voter.name] = targetName;
+      const currentCount = voteCounts.get(targetName) || 0;
+      voteCounts.set(targetName, currentCount + 1);
+      
+      // Record voting reasoning in memory
+      const reasoning = `Voting for ${targetName} based on threat level and relationships`;
+      memoryEngine.updateVotingPlan(voter.id, targetName, reasoning);
     }
   });
 
