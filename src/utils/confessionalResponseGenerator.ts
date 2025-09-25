@@ -37,7 +37,7 @@ const RESPONSE_TEMPLATES: ResponseTemplate[] = [
   {
     category: 'voting',
     responses: [
-      "If I had to vote right now, I'd probably go after the biggest competition threat.",
+      "If I had to vote right now, I'd probably go after the biggest overall threat.",
       "This vote is crucial - it could completely shift the power dynamics in the house.",
       "I'm torn between making a big move and playing it safe for another week.",
       "The house seems to be leaning one way, but I'm not sure that's the right move.",

@@ -103,19 +103,29 @@ export class EnhancedConfessionalEngine {
       });
     }
 
-    // Threat assessment
+    // Threat assessment (realistic, no fabricated competition wins)
     const competitionThreats = activeContestants.filter(c => 
       c.name !== gameState.playerName && c.psychProfile && 
-      c.psychProfile.disposition && c.psychProfile.disposition.includes('competitive')
+      Array.isArray(c.psychProfile.disposition) && c.psychProfile.disposition.includes('competitive')
     );
 
     if (competitionThreats.length > 0) {
       const threat = competitionThreats[0];
+
+      // Only reference an actual competition win if we have evidence (current immunity)
+      const hasProvenWin = gameState.immunityWinner === threat.name;
+
+      const promptText = hasProvenWin
+        ? `${threat.name} just won immunity. Are they someone you need to worry about?`
+        : `${threat.name} is widely seen as highly competitive. Are they someone you need to worry about?`;
+
       prompts.push({
         id: 'competition-threat',
         category: 'strategy',
-        prompt: `${threat.name} has been winning a lot of competitions. Are they someone you need to worry about?`,
-        followUp: "When would be the right time to make a move against them?",
+        prompt: promptText,
+        followUp: hasProvenWin
+          ? "How does their immunity change your plans this week?"
+          : "When would be the right time to make a move against them?",
         suggestedTones: ['strategic', 'aggressive', 'dramatic'],
         editPotential: 8
       });
@@ -211,6 +221,31 @@ export class EnhancedConfessionalEngine {
         prompt: "The finale is in sight. What moves do you need to make to secure your spot?",
         suggestedTones: ['strategic', 'dramatic'],
         editPotential: 9
+      });
+    }
+
+    // Persona-aware edit shaping prompts (expanded confessionals, realistic)
+    const persona = gameState.editPerception.persona;
+    const isUnderedited = persona === 'Underedited' || persona === 'Ghosted';
+    const isComicOrSocial = persona === 'Comic Relief' || persona === 'Social Butterfly';
+
+    if (isUnderedited) {
+      additionalPrompts.push({
+        id: 'edit-shaping',
+        category: 'general' as const,
+        prompt: "You haven't been shown much yet. How will you get more screen time without blowing up your game?",
+        followUp: "What kind of confessional will make producers take notice while staying authentic?",
+        suggestedTones: ['dramatic', 'humorous', 'strategic'],
+        editPotential: 7
+      });
+    } else if (isComicOrSocial) {
+      additionalPrompts.push({
+        id: 'balance-comedy-strategy',
+        category: 'reflection' as const,
+        prompt: "Viewers see your humorous side. How do you balance that with real strategic gameplay?",
+        followUp: "What's one move you made that people might not have noticed?",
+        suggestedTones: ['humorous', 'strategic', 'vulnerable'],
+        editPotential: 6
       });
     }
 
