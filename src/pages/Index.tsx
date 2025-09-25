@@ -12,6 +12,8 @@ import { PlayerVoteScreen } from '@/components/game/PlayerVoteScreen';
 import { Final3VoteScreen } from '@/components/game/Final3VoteScreen';
 import { PostSeasonRecapScreen } from '@/components/game/PostSeasonRecapScreen';
 import { VotingDebugPanel } from '@/components/game/VotingDebugPanel';
+import { DashboardHeader } from '@/components/game/DashboardHeader';
+import { ErrorBoundary } from '@/components/game/ErrorBoundary';
 
 const Index = () => {
   const {
@@ -35,6 +37,11 @@ const Index = () => {
     handleTieBreakResult,
     proceedToJuryVote,
     toggleDebugMode,
+    saveGame,
+    loadSavedGame,
+    deleteSavedGame,
+    hasSavedGame,
+    goToTitle,
   } = useGameState();
 
   // Keyboard shortcut: Shift+D to toggle debug HUD
@@ -64,12 +71,25 @@ const Index = () => {
 
     window.addEventListener('testForceElimination', handleTestElimination);
     return () => window.removeEventListener('testForceElimination', handleTestElimination);
-  }, [continueFromElimination]);
+  }, [continueFromElimination, gameState]);
 
   const renderScreen = () => {
     switch (gameState.gamePhase) {
       case 'intro':
-        return <IntroScreen onStartGame={startGame} />;
+        return (
+          <IntroScreen 
+            onStartGame={startGame}
+            onContinue={loadSavedGame}
+            onDeleteSave={() => {
+              if (window.confirm('Delete saved game? This cannot be undone.')) {
+                deleteSavedGame();
+              }
+            }}
+            debugMode={gameState.debugMode}
+            onToggleDebug={toggleDebugMode}
+            hasSave={hasSavedGame()}
+          />
+        );
       case 'premiere':
         return <PremiereCutscene onComplete={completePremiere} />;
       
@@ -160,8 +180,25 @@ const Index = () => {
     }
   };
 
+  const showHeader = gameState.gamePhase !== 'intro';
+
   return (
-    <>
+    <ErrorBoundary>
+      {showHeader && (
+        <DashboardHeader 
+          gameState={gameState}
+          onSave={saveGame}
+          onLoad={loadSavedGame}
+          onDeleteSave={() => {
+            if (window.confirm('Delete saved game? This cannot be undone.')) {
+              deleteSavedGame();
+            }
+          }}
+          onTitle={goToTitle}
+          onToggleDebug={toggleDebugMode}
+          hasSave={hasSavedGame()}
+        />
+      )}
       {renderScreen()}
       <VotingDebugPanel
         gameState={gameState}
@@ -170,7 +207,7 @@ const Index = () => {
         onContinueFromElimination={() => continueFromElimination()}
         onToggleDebug={toggleDebugMode}
       />
-    </>
+    </ErrorBoundary>
   );
 };
 

@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Contestant } from '@/types/game';
+import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
+import { Badge } from '@/components/ui/badge';
 
 interface ConversationDialogProps {
   isOpen: boolean;
@@ -16,6 +18,19 @@ interface ConversationDialogProps {
   presetTarget?: string;
   forcedTopic?: string;
 }
+
+const PRESETS = [
+  { label: 'Alliance pitch', tone: 'strategic', text: (name: string) => `I think we can be solid—two votes locked. You in, ${name}?` },
+  { label: 'Coordinate votes', tone: 'strategic', text: (name: string) => `Numbers look tight. If we aim at one name, can you pull yours, ${name}?` },
+  { label: 'Probe for info', tone: 'suspicious', text: (name: string) => `Where's your head at? Who do you trust least right now, ${name}?` },
+  { label: 'Reveal soft secret', tone: 'friendly', text: (name: string) => `Between us, I heard a whisper on ${name}—keep this narrow, just us.` },
+  { label: 'Boost morale', tone: 'friendly', text: (name: string) => `You're good. Keep steady. We can control the next vote together.` },
+  { label: 'Deflect drama', tone: 'friendly', text: (name: string) => `Let's keep it calm in public and talk substance privately.` },
+  { label: 'Test loyalty', tone: 'strategic', text: (name: string) => `Can you lock this name with me? Quiet and clean, ${name}.` },
+  { label: 'Call out softly', tone: 'aggressive', text: (name: string) => `Some stories don't add up. Walk me through your last move, ${name}.` },
+  { label: 'Light flirt', tone: 'flirty', text: (name: string) => `You make the house interesting. Maybe we work together... and enjoy it.` },
+  { label: 'Make a joke', tone: 'friendly', text: (_: string) => `If the house had a thermostat, it'd be set to 'subtle chaos'.` },
+];
 
 export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, forced, presetTarget, forcedTopic }: ConversationDialogProps) => {
   const [selectedTarget, setSelectedTarget] = useState<string>('');
@@ -48,6 +63,18 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, for
     { value: 'suspicious', label: 'Suspicious', description: 'Question their motives' }
   ];
 
+  const preview = useMemo(() => {
+    if (!selectedTarget || !tone) return null;
+    const npc = contestants.find(c => c.name === selectedTarget);
+    if (!npc) return null;
+    const trust = getTrustDelta(tone, npc.psychProfile.disposition);
+    const susp = getSuspicionDelta(tone, content || '');
+    // Simple heuristics for influence/entertainment previews
+    const influence = tone === 'strategic' ? 2 : tone === 'aggressive' ? -1 : 1;
+    const entertainment = tone === 'flirty' ? 2 : tone === 'aggressive' ? 2 : 1;
+    return { trust, susp, influence, entertainment };
+  }, [selectedTarget, tone, content, contestants]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
@@ -72,6 +99,27 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, for
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Quick Suggestions */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Quick Suggestions</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => {
+                    const txt = p.text(selectedTarget || 'them');
+                    setContent(txt);
+                    setTone(p.tone);
+                  }}
+                  className="p-2 text-left border border-border rounded hover:bg-muted transition-colors"
+                >
+                  <div className="text-xs text-muted-foreground">{p.label}</div>
+                  <div className="text-sm">{p.text(selectedTarget || 'them')}</div>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -103,6 +151,19 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, for
               ))}
             </div>
           </div>
+
+          {/* Outcome Preview */}
+          {preview && (
+            <div className="flex items-center flex-wrap gap-2 bg-muted/40 border border-border/60 rounded p-2.5">
+              <span className="text-xs text-muted-foreground">Preview</span>
+              <Badge variant="outline">Trust {preview.trust >= 0 ? `+${preview.trust}` : preview.trust}</Badge>
+              <Badge variant="outline" className={preview.susp < 0 ? 'text-edit-hero' : 'text-edit-villain'}>
+                Suspicion {preview.susp >= 0 ? `+${preview.susp}` : preview.susp}
+              </Badge>
+              <Badge variant="outline">Influence {preview.influence >= 0 ? `+${preview.influence}` : preview.influence}</Badge>
+              <Badge variant="outline">Entertainment {preview.entertainment >= 0 ? `+${preview.entertainment}` : preview.entertainment}</Badge>
+            </div>
+          )}
 
           <div className="flex gap-3">
             <Button variant="outline" onClick={onClose} className="flex-1">

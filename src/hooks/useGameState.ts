@@ -1,17 +1,15 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { npcResponseEngine } from '@/utils/npcResponseEngine';
-import { GameState, Contestant, PlayerAction, Confessional, EditPerception, Alliance, VotingRecord, ReactionSummary, ReactionTake } from '@/types/game';
-import { ConfessionalEngine } from '@/utils/confessionalEngine';
+import { GameState, PlayerAction, ReactionSummary, ReactionTake } from '@/types/game';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { AllianceManager } from '@/utils/allianceManager';
-import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { InformationTradingEngine } from '@/utils/informationTradingEngine';
 import { calculateAFPRanking } from '@/utils/afpCalculator';
 import { gameSystemIntegrator } from '@/utils/gameSystemIntegrator';
 import { processVoting } from '@/utils/votingEngine';
-import { getTrustDelta, getSuspicionDelta, calculateLeakChance, calculateSchemeSuccess, generateNPCInteractions } from '@/utils/actionEngine';
+import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { generateLocalAIReply } from '@/utils/localLLM';
@@ -24,16 +22,7 @@ const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
-    // Load from localStorage if available
-    try {
-      const raw = localStorage.getItem('rtv_game_state');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        return parsed as GameState;
-      }
-    } catch (e) {
-      console.warn('Failed to load saved game state', e);
-    }
+    // Fresh start every load; manual save/load only
     return {
       currentDay: 1,
       playerName: '',
@@ -121,14 +110,11 @@ export const useGameState = () => {
       interactionLog: [],
       tagChoiceCooldowns: {},
       reactionProfiles,
+      debugMode: false,
     };
     console.log('Game started, transitioning to premiere');
     setGameState(newState);
-    try {
-      localStorage.setItem('rtv_game_state', JSON.stringify(newState));
-    } catch (e) {
-      console.warn('Failed to save game state', e);
-    }
+    // No autosave; player must press Save
   }, []);
 
   const advanceDay = useCallback(() => {
@@ -401,6 +387,33 @@ export const useGameState = () => {
       console.log('New action count will be:', newActionCount);
       console.log('Updated actions:', updatedActions);
 
+      // Build minimal reaction summary for non-enhanced actions
+      let reactionSummary: ReactionSummary | undefined = undefined;
+      if (target) {
+        const npc = updatedContestants.find(c => c.name === target);
+        const trustDelta = npc ? (npc.psychProfile.trustLevel - (prev.contestants.find(c => c.name === target)?.psychProfile.trustLevel || 0)) : 0;
+        const suspDelta = npc ? (npc.psychProfile.suspicionLevel - (prev.contestants.find(c => c.name === target)?.psychProfile.suspicionLevel || 0)) : 0;
+        const context: ReactionSummary['context'] =
+          actionType === 'dm' ? 'private' :
+          actionType === 'scheme' ? 'scheme' :
+          actionType === 'activity' ? 'activity' : 'public';
+        const take: ReactionTake =
+          trustDelta > 0 && suspDelta <= 0 ? 'positive' :
+          trustDelta < 0 && suspDelta > 0 ? 'pushback' :
+          suspDelta > 0 ? 'suspicious' : 'neutral';
+        reactionSummary = {
+          take,
+          context,
+          notes: content || undefined,
+          deltas: {
+            trust: Math.round(trustDelta),
+            suspicion: Math.round(suspDelta),
+            influence: actionType === 'scheme' ? 2 : actionType === 'dm' ? 1 : 1,
+            entertainment: actionType === 'activity' ? 2 : 1,
+          }
+        };
+      }
+
       const newState = {
         ...prev,
         contestants: updatedContestants,
@@ -408,6 +421,7 @@ export const useGameState = () => {
         dailyActionCount: newActionCount, // This was the main issue!
         lastActionType: actionType as PlayerAction['type'],
         lastActionTarget: target,
+        lastAIReaction: reactionSummary,
         // Add to interaction log
         interactionLog: [
           ...(prev.interactionLog || []),
@@ -1146,12 +1160,13 @@ export const useGameState = () => {
     });
   }, []);
 
-  // Auto-save on state changes
-  useEffect(() => {
+  // Manual Save/Load/Delete API
+  const saveGame = useCallback(() => {
     try {
       localStorage.setItem('rtv_game_state', JSON.stringify(gameState));
+      console.log('Game saved manually.');
     } catch (e) {
-      console.warn('Failed to auto-save game state', e);
+      console.warn('Failed to save game state', e);
     }
   }, [gameState]);
 
@@ -1161,10 +1176,35 @@ export const useGameState = () => {
       if (raw) {
         const parsed = JSON.parse(raw);
         setGameState(parsed as GameState);
+        console.log('Loaded saved game.');
       }
     } catch (e) {
       console.warn('Failed to load saved game state', e);
     }
+  }, []);
+
+  const deleteSavedGame = useCallback(() => {
+    try {
+      localStorage.removeItem('rtv_game_state');
+      console.log('Deleted saved game.');
+    } catch (e) {
+      console.warn('Failed to delete saved game state', e);
+    }
+  }, []);
+
+  const hasSavedGame = useCallback(() => {
+    try {
+      return !!localStorage.getItem('rtv_game_state');
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const goToTitle = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      gamePhase: 'intro',
+    }));
   }, []);
 
   const toggleDebugMode = useCallback(() => {
@@ -1197,6 +1237,10 @@ export const useGameState = () => {
     handleTieBreakResult,
     proceedToJuryVote,
     loadSavedGame,
+    saveGame,
+    deleteSavedGame,
+    hasSavedGame,
+    goToTitle,
     toggleDebugMode,
   };
 };

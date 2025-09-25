@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 interface ActivityDialogProps {
   isOpen: boolean;
@@ -12,22 +13,22 @@ interface ActivityDialogProps {
 const ACTIVITIES = [
   {
     value: 'group_task',
-    title: 'Group Task',
-    description: 'Coordinate a small house task together (light cleaning, cooking, organizing).'
+    title: 'Organize Pantry',
+    description: 'Coordinate a small house task together (light cleaning, organizing).'
   },
   {
     value: 'workout_session',
-    title: 'Workout Session',
+    title: 'Stretch Circle',
     description: 'Lead a casual workout to bond and show leadership.'
   },
   {
     value: 'truth_or_dare',
-    title: 'Truth or Dare Circle',
+    title: 'Soft Truth/Dare',
     description: 'Spark mild drama and reveals without direct confrontation.'
   },
   {
     value: 'cook_off',
-    title: 'Cook-Off Mini Challenge',
+    title: 'Duo Cook-Off',
     description: 'Friendly competition that creates light rivalries and alliances.'
   }
 ];
@@ -41,6 +42,16 @@ export const ActivityDialog = ({ isOpen, onClose, onSubmit }: ActivityDialogProp
       setSelected('');
     }
   };
+
+  const preview = useMemo(() => {
+    if (!selected) return null;
+    // Low-stakes deltas
+    const trust = selected === 'group_task' || selected === 'stretch_session' ? 2 : 1;
+    const susp = selected === 'truth_or_dare' ? 2 : -1;
+    const influence = selected === 'cook_off' ? 2 : 1;
+    const entertainment = selected === 'truth_or_dare' || selected === 'cook_off' ? 3 : 2;
+    return { trust, susp, influence, entertainment };
+  }, [selected]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -71,6 +82,19 @@ export const ActivityDialog = ({ isOpen, onClose, onSubmit }: ActivityDialogProp
                 ))}
               </div>
             </div>
+
+            {/* Outcome Preview */}
+            {preview && (
+              <div className="flex items-center flex-wrap gap-2 bg-muted/40 border border-border/60 rounded p-2.5">
+                <span className="text-xs text-muted-foreground">Preview</span>
+                <Badge variant="outline">Trust {preview.trust >= 0 ? `+${preview.trust}` : preview.trust}</Badge>
+                <Badge variant="outline" className={preview.susp < 0 ? 'text-edit-hero' : 'text-edit-villain'}>
+                  Suspicion {preview.susp >= 0 ? `+${preview.susp}` : preview.susp}
+                </Badge>
+                <Badge variant="outline">Influence {preview.influence >= 0 ? `+${preview.influence}` : preview.influence}</Badge>
+                <Badge variant="outline">Entertainment {preview.entertainment >= 0 ? `+${preview.entertainment}` : preview.entertainment}</Badge>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button variant="outline" onClick={onClose} className="flex-1">
