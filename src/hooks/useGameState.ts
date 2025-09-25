@@ -148,8 +148,7 @@ export const useGameState = () => {
   };
 
   const [gameState, setGameState] = useState<GameState>(() => {
-    // Always start from default state at opening menu.
-    // Saved games are only loaded explicitly via "Continue" or "Load".
+    // Always start fresh at intro; loading is explicit via loadSavedGame()
     return createDefaultState();
   });
 
