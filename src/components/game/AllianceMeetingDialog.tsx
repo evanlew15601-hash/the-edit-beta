@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Alliance, Contestant } from '@/types/game';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
-import { Users, Shield, Eye } from 'lucide-react';
+import { Users, Shield } from 'lucide-react';
 
 interface AllianceMeetingDialogProps {
   isOpen: boolean;
@@ -18,10 +18,13 @@ interface AllianceMeetingDialogProps {
   onSubmit: (allianceId: string, agenda: string, tone: string) => void;
 }
 
+type Preset = { id: string; label: string; text: string; tone: 'strategic' | 'reassuring' | 'warning' | 'deceptive' };
+
 export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants, playerName, onSubmit }: AllianceMeetingDialogProps) => {
   const [selectedAlliance, setSelectedAlliance] = useState<string>('');
   const [agenda, setAgenda] = useState('');
   const [tone, setTone] = useState<string>('');
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
 
   const handleSubmit = () => {
     if (selectedAlliance && agenda && tone) {
@@ -29,6 +32,7 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
       setSelectedAlliance('');
       setAgenda('');
       setTone('');
+      setSelectedPreset('');
     }
   };
 
@@ -50,6 +54,31 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
   ];
 
   const selectedAllianceData = alliances.find(a => a.id === selectedAlliance);
+
+  const presets: Preset[] = useMemo(() => {
+    return [
+      { id: 'lock_targets', label: 'Lock targets (strategic)', tone: 'strategic', text: 'Two names only this week. Keep chatter minimal. We move as one and show no cracks.' },
+      { id: 'reassure', label: 'Reassure members', tone: 'reassuring', text: 'We keep it steady and protect each other. If someone hears noise, bring it here first.' },
+      { id: 'warn', label: 'Warning about leaks', tone: 'warning', text: 'A leak hit the room. We tighten channels—no side DMs. If you hear my name, report immediately.' },
+      { id: 'deception_plan', label: 'Deception: fake bond', tone: 'deceptive', text: 'We set a soft trap: offer a casual bond to an outsider and trace if they leak. Keep receipts.' },
+    ];
+  }, []);
+
+  const preview = useMemo(() => {
+    if (!tone || !selectedAllianceData) return null;
+    let trust = tone === 'reassuring' ? 0.12 : tone === 'strategic' ? 0.08 : tone === 'warning' ? -0.02 : tone === 'deceptive' ? -0.06 : 0.05;
+    let suspicion = tone === 'deceptive' ? 0.08 : tone === 'warning' ? 0.06 : tone === 'strategic' ? 0.02 : tone === 'reassuring' ? -0.02 : 0.03;
+    let influence = tone === 'strategic' ? 0.08 : 0.06;
+    let entertainment = 0.04;
+    const round = (n: number) => Math.round(n * 100) / 100;
+    return { trust: round(trust), suspicion: round(suspicion), influence: round(influence), entertainment: round(entertainment) };
+  }, [tone, selectedAllianceData]);
+
+  const handlePresetClick = (p: Preset) => {
+    setSelectedPreset(p.id);
+    setTone(p.tone);
+    setAgenda(p.text);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -146,30 +175,60 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
               </div>
             </div>
 
+            {/* Quick presets */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Meeting Tone</label>
-              <div className="grid grid-cols-1 gap-3">
-                {toneOptions.map((option) => (
+              <label className="text-sm font-medium">Quick Suggestions</label>
+              <div className="grid grid-cols-2 gap-3">
+                {presets.map((p) => (
                   <button
-                    key={option.value}
-                    onClick={() => setTone(option.value)}
+                    key={p.id}
+                    onClick={() => handlePresetClick(p)}
                     className={`p-3 text-left border border-border rounded transition-colors ${
-                      tone === option.value 
-                        ? 'bg-primary/10 border-primary' 
-                        : 'hover:bg-muted'
+                      selectedPreset === p.id ? 'bg-primary/10 border-primary' : 'hover:bg-muted'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{option.icon}</span>
-                      <div>
-                        <div className="font-medium">{option.label}</div>
-                        <div className="text-sm text-muted-foreground">{option.description}</div>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{p.label}</div>
+                      <Badge variant="outline" className="text-xs capitalize">{p.tone}</Badge>
                     </div>
+                    <div className="text-sm text-muted-foreground mt-1 line-clamp-3">{p.text}</div>
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Outcome preview */}
+            {preview && (
+              <div className="text-sm bg-muted/40 rounded-md p-2.5 flex items-center flex-wrap border border-border/60">
+                <span className="text-xs text-muted-foreground mr-3">Likely effects</span>
+                <div className="inline-flex items-center gap-2">
+                  <span className={`${preview.trust > 0 ? 'text-edit-hero' : 'text-edit-villain'} text-xs`}>Trust {preview.trust > 0 ? '+' : ''}{preview.trust}</span>
+                  <span className={`${preview.suspicion > 0 ? 'text-edit-villain' : 'text-edit-hero'} text-xs`}>Suspicion {preview.suspicion > 0 ? '+' : ''}{preview.suspicion}</span>
+                  <span className="text-xs">Influence {preview.influence > 0 ? '+' : ''}{preview.influence}</span>
+                  <span className="text-xs">Entertainment {preview.entertainment > 0 ? '+' : ''}{preview.entertainment}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={onClose} className="flex-1">
+                Cancel
+              </Button>
+              <Button 
+                variant="action" 
+                onClick={handleSubmit} 
+                disabled={!selectedAlliance || !agenda || !tone}
+                className="flex-1"
+              >
+                Call Meeting
+              </Button>
+            </div>
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
             <div className="flex gap-3">
               <Button variant="outline" onClick={onClose} className="flex-1">
