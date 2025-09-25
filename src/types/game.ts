@@ -103,7 +103,6 @@ export interface GameState {
   immunityWinner?: string; // Who won immunity this week
   juryMembers?: string[]; // Who is on the jury (odd number to avoid ties)
   finaleSpeechesGiven?: boolean; // Track finale speeches
-  finaleSpeech?: string; // Store player's finale speech for jury consideration
   aiSettings: AISettings; // Controls reply depth and additions
   // New: queue of NPC-initiated forced conversations (at least one per day)
   forcedConversationsQueue?: { from: string; topic: string; urgency: 'casual' | 'important'; day: number }[];
@@ -117,6 +116,8 @@ export interface GameState {
   reactionProfiles?: { [npcIdOrName: string]: import('./tagDialogue').ReactionProfile };
   // Debug flag to surface dev-only UI
   debugMode?: boolean;
+  // Optional schema version for migration during load
+  schemaVersion?: number;
   // Post-game data
   gameWinner?: string;
   finalJuryVotes?: { [juryMember: string]: string };
@@ -133,6 +134,7 @@ export interface GameState {
     winners: string[];
     selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual';
   };
+  finaleSpeech?: string; // Store player's finale speech for jury consideration
 }
 
 export interface Confessional {
