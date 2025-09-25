@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
+import { Progress } from '@/components/ui/progress';
 import { Crown, Vote, Users } from 'lucide-react';
 import { GameState, Contestant } from '@/types/game';
 
@@ -15,6 +16,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   const [winner, setWinner] = useState<string>('');
   const [showResults, setShowResults] = useState(false);
   const [voteStable, setVoteStable] = useState(false); // FIXED: Prevent vote flickering
+  const [deliberationProgress, setDeliberationProgress] = useState(0);
 
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
   const juryMembers = gameState.contestants.filter(c => 
@@ -88,6 +90,27 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       setVoteStable(true);
     }
   }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, voteStable, isPlayerInJury]);
+
+  // Visual deliberation progress indicator
+  useEffect(() => {
+    if (showResults) {
+      setDeliberationProgress(100);
+      return;
+    }
+
+    // If player is in the jury and hasn't voted, progress caps at 80% until they vote.
+    const awaitingPlayer = isPlayerInJury && !votes[gameState.playerName];
+    const target = awaitingPlayer ? 80 : 100;
+
+    const interval = setInterval(() => {
+      setDeliberationProgress(prev => {
+        if (prev >= target) return prev;
+        return Math.min(prev + 4, target);
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [isPlayerInJury, votes, gameState.playerName, showResults]);
 
   // Once votes are stable, compute the winner and show results once.
   useEffect(() => {
@@ -191,9 +214,18 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                   <h3 className="text-xl font-medium mb-2">
                     {isPlayerInJury ? "Other jury members are deliberating..." : "The jury is deliberating..."}
                   </h3>
-                  <p className="text-muted-foreground">
+                  <p className="text-muted-foreground mb-4">
                     Each jury member is considering the finalists' games and casting their vote.
                   </p>
+
+                  <div className="space-y-2">
+                    <Progress value={deliberationProgress} />
+                    <div className="text-xs text-muted-foreground">
+                      {isPlayerInJury && !votes[gameState.playerName]
+                        ? `Awaiting your vote to complete deliberations (${deliberationProgress}%)`
+                        : `Deliberation progress: ${deliberationProgress}%`}
+                    </div>
+                  </div>
                 </div>
               
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
