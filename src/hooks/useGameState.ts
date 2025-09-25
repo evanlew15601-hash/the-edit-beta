@@ -955,6 +955,20 @@ export const useGameState = () => {
           }
         };
 
+        const lastTagOutcome = {
+          choiceId: choice.choiceId,
+          intent: choice.intent,
+          topic: choice.topics[0],
+          outcome: {
+            trustDelta: outcome.trustDelta,
+            suspicionDelta: outcome.suspicionDelta,
+            entertainmentDelta: outcome.entertainmentDelta,
+            influenceDelta: outcome.influenceDelta,
+            category: outcome.category,
+            notes: outcome.notes,
+          }
+        };
+
         // Append interaction log with tag metadata to support repetition heuristics
         const tagPattern = `[TAG intent=${choice.intent} topic=${choice.topics[0]}]`;
         const interactionEntry = {
@@ -979,6 +993,7 @@ export const useGameState = () => {
           lastActionType: interaction,
           lastActionTarget: target,
           lastAIReaction: reactionSummary,
+          lastTagOutcome,
           interactionLog: [...(prev.interactionLog || []), interactionEntry],
           tagChoiceCooldowns: updatedCooldowns,
           editPerception: updatedEdit,

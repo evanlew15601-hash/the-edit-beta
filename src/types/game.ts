@@ -59,6 +59,20 @@ export interface ReactionSummary {
   };
 }
 
+export interface LastTagOutcome {
+  choiceId: string;
+  intent: string;
+  topic: string;
+  outcome: {
+    trustDelta: number;
+    suspicionDelta: number;
+    entertainmentDelta: number;
+    influenceDelta: number;
+    category: 'positive' | 'neutral' | 'negative';
+    notes?: string;
+  };
+}
+
 export interface GameState {
   currentDay: number;
   playerName: string;
@@ -97,6 +111,7 @@ export interface GameState {
   // New: local interaction log for viral moments and memory tab
   interactionLog?: InteractionLogEntry[];
   tagChoiceCooldowns?: { [key: string]: number };
+  lastTagOutcome?: LastTagOutcome; // For debugging/verification of tag engine integration
   // Post-game data
   gameWinner?: string;
   finalJuryVotes?: { [juryMember: string]: string };
