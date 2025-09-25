@@ -66,13 +66,63 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
 
   const preview = useMemo(() => {
     if (!tone || !selectedAllianceData) return null;
+
+    // Aggregate alliance composition
+    const members = selectedAllianceData.members;
+    const memberInfos = members.map(m => {
+      const c = contestants.find(x => x.name === m);
+      const rel = relationshipGraphEngine.getRelationship(playerName, m);
+      const trust = Math.max(0, Math.min(100, (rel?.trust ?? 50)));
+      const disp = ((c?.psychProfile?.disposition ?? []) as string[]).join(' ').toLowerCase();
+      return {
+        trust,
+        isParanoid: disp.includes('paranoid'),
+        isStrategic: disp.includes('strategic'),
+        isSocial: disp.includes('social'),
+      };
+    });
+
+    const avgTrust = memberInfos.length ? memberInfos.reduce((s, i) => s + i.trust, 0) / memberInfos.length : 50;
+    const paranoidRatio = memberInfos.length ? memberInfos.filter(i => i.isParanoid).length / memberInfos.length : 0;
+    const strategicRatio = memberInfos.length ? memberInfos.filter(i => i.isStrategic).length / memberInfos.length : 0;
+    const socialRatio = memberInfos.length ? memberInfos.filter(i => i.isSocial).length / memberInfos.length : 0;
+
+    // Baseline by tone
     let trust = tone === 'reassuring' ? 0.12 : tone === 'strategic' ? 0.08 : tone === 'warning' ? -0.02 : tone === 'deceptive' ? -0.06 : 0.05;
     let suspicion = tone === 'deceptive' ? 0.08 : tone === 'warning' ? 0.06 : tone === 'strategic' ? 0.02 : tone === 'reassuring' ? -0.02 : 0.03;
     let influence = tone === 'strategic' ? 0.08 : 0.06;
     let entertainment = 0.04;
+
+    // Adjustments by composition
+    // Higher average trust amplifies positive tones, dampens negative; lower trust does opposite
+    const trustFactor = (avgTrust - 50) / 100; // -0.5..+0.5
+    trust += trustFactor * (tone === 'reassuring' ? 0.08 : tone === 'strategic' ? 0.04 : -0.03);
+    suspicion += -trustFactor * (tone === 'reassuring' ? 0.04 : tone === 'strategic' ? 0.02 : 0.03);
+
+    // Paranoid members increase suspicion and reduce trust for warning/deceptive tones
+    suspicion += paranoidRatio * (tone === 'warning' ? 0.06 : tone === 'deceptive' ? 0.08 : 0.02);
+    trust += -paranoidRatio * (tone === 'warning' ? 0.03 : tone === 'deceptive' ? 0.05 : 0.01);
+
+    // Strategic members improve influence and make strategic tone more effective
+    influence += strategicRatio * 0.06;
+    trust += strategicRatio * (tone === 'strategic' ? 0.03 : 0);
+    suspicion += -strategicRatio * (tone === 'strategic' ? 0.01 : 0);
+
+    // Social members slightly improve trust and entertainment for reassuring tone
+    trust += socialRatio * (tone === 'reassuring' ? 0.04 : 0.01);
+    entertainment += socialRatio * 0.03;
+
+    // Clamp and round
+    const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
     const round = (n: number) => Math.round(n * 100) / 100;
-    return { trust: round(trust), suspicion: round(suspicion), influence: round(influence), entertainment: round(entertainment) };
-  }, [tone, selectedAllianceData]);
+
+    return {
+      trust: round(clamp(trust, -0.2, 0.2)),
+      suspicion: round(clamp(suspicion, -0.2, 0.2)),
+      influence: round(clamp(influence, -0.2, 0.2)),
+      entertainment: round(clamp(entertainment, -0.2, 0.2)),
+    };
+  }, [tone, selectedAllianceData, contestants, playerName]);
 
   const handlePresetClick = (p: Preset) => {
     setSelectedPreset(p.id);
