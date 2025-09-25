@@ -48,10 +48,11 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
 
         {/* Tabbed Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="stats">Statistics</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="final3">Final 3 Tie-Break</TabsTrigger>
             <TabsTrigger value="awards">Awards</TabsTrigger>
           </TabsList>
 
@@ -267,7 +268,7 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                         </div>
                         {vote.tieBreak && (
                           <div className="text-xs text-primary mt-1">
-                            Tie-break resolution occurred
+                            Tie-break: {vote.tieBreak.method === 'revote' ? 'Revote' : 'Sudden Death'}
                           </div>
                         )}
                       </div>
@@ -288,6 +289,59 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                   </div>
                 </div>
               </ScrollArea>
+            </Card>
+          </TabsContent>
+
+          {/* Final 3 Tie-Break Recap */}
+          <TabsContent value="final3" className="space-y-6">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-primary" />
+                <h3 className="text-xl font-medium">Final 3 Tie-Break</h3>
+              </div>
+
+              {!gameState.final3TieBreak ? (
+                <div className="p-4 border border-border rounded text-sm text-muted-foreground">
+                  No 1-1-1 tie occurred during the Final 3.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 border border-border rounded">
+                    <div className="font-medium">Method</div>
+                    <div className="text-sm text-muted-foreground capitalize">
+                      {gameState.final3TieBreak.method.replace('_', ' ')}
+                    </div>
+                  </div>
+
+                  <div className="p-4 border border-border rounded">
+                    <div className="font-medium">Outcome</div>
+                    <div className="text-sm text-muted-foreground">
+                      Eliminated: <span className="font-medium">{gameState.final3TieBreak.eliminated}</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Advanced to Final 2: <span className="font-medium">{gameState.final3TieBreak.winners.join(', ')}</span>
+                    </div>
+                  </div>
+
+                  {(gameState.final3TieBreak.results && gameState.final3TieBreak.results.length > 0) && (
+                    <Card className="p-4">
+                      <h4 className="font-medium mb-2">Challenge Results</h4>
+                      <div className="space-y-2">
+                        {gameState.final3TieBreak.results
+                          ?.sort((a, b) => a.time - b.time)
+                          .map((res, idx) => (
+                            <div key={res.name} className={`flex justify-between p-2 border rounded ${idx < 2 ? 'border-primary/20 bg-primary/10' : 'border-destructive/20 bg-destructive/10'}`}>
+                              <span className={res.name === gameState.playerName ? 'text-primary font-medium' : 'font-medium'}>
+                                {res.name}{res.name === gameState.playerName ? ' (You)' : ''}
+                              </span>
+                              <span className="text-sm">{Math.floor(res.time / 60)}:{Math.floor(res.time % 60).toString().padStart(2, '0')}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              )}
             </Card>
           </TabsContent>
 
