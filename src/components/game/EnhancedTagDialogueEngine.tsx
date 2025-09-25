@@ -81,7 +81,16 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
     }
   };
 
-  const pickVariant = (choice: Choice): string => {
+  const pickVariant = (choice: Choice, playerPersona: string): string => {
+    // Deterministic persona bucket selection when provided
+    const heroLabels = new Set(['Hero', 'Fan Favorite', 'Contender']);
+    const villainLabels = new Set(['Villain', 'Antagonist', 'Troublemaker', 'Puppet Master', 'Mastermind']);
+    const bucket = heroLabels.has(playerPersona) ? 'Hero' : villainLabels.has(playerPersona) ? 'Villain' : null;
+
+    if (choice.personaVariants && bucket) {
+      const list = choice.personaVariants[bucket as 'Hero' | 'Villain'] || [];
+      if (list.length) return list[Math.floor(Math.random() * list.length)];
+    }
     const variants = choice.textVariants || [];
     if (!variants.length) return '';
     const idx = Math.floor(Math.random() * variants.length);
@@ -89,7 +98,8 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
   };
 
   const toTagChoice = (choice: Choice, targetName: string): TagChoice => {
-    const text = personalizeText(pickVariant(choice), targetName, gameState.editPerception.persona);
+    const raw = pickVariant(choice, gameState.editPerception.persona);
+    const text = personalizeText(raw, targetName, gameState.editPerception.persona);
     const type = mapIntentToType(choice.intent);
     const cooldown = choice.cooldownDays || 0;
     // Lightweight consequence hints based on intent

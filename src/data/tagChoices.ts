@@ -1031,5 +1031,138 @@ export const TAG_CHOICES: Choice[] = [
     interactionTypes: ['talk'],
     cooldownDays: 2,
     weight: 1.0
+  },
+
+  // ================= NEW: Stronger public deflections =================
+  {
+    choiceId: 'TALK_DEFLECT_PUBLIC_STRONG_NEUTRAL_1',
+    textVariants: [
+      'Not in public. If you want to talk votes, do it properly.',
+      'I won’t entertain paranoia in front of everyone.',
+      'Table it. Public chaos helps no one.'
+    ],
+    personaVariants: {
+      Hero: [
+        'Let’s not stir things in front of everyone. We can talk later.',
+        'Respect the room—handle vote talk privately.',
+      ],
+      Villain: [
+        'Not giving the cameras a meltdown. Take it offline.',
+        'Save the theatrics. If you have something real, bring it in private.',
+      ]
+    },
+    intent: 'Deflect',
+    tone: 'Dismissive',
+    topics: ['Production', 'Game'],
+    targetType: 'Group',
+    interactionTypes: ['talk'],
+    cooldownDays: 2,
+    weight: 1.0
+  },
+
+  // ================= NEW: Alliance trust tests =================
+  {
+    choiceId: 'TALK_TEST_ALLIANCE_LOYALTY_SINCERE_1',
+    textVariants: [
+      'If we’re solid, you’ll hear a name from me and keep it quiet.',
+      'I need to know you won’t repeat this. Can you handle that?',
+      'I’ll give you a piece—don’t let it travel.'
+    ],
+    personaVariants: {
+      Hero: [
+        'I’m trusting you with this. Please keep it contained.',
+        'This stays between us. I believe you’ll protect it.',
+      ],
+      Villain: [
+        'I leak to see who talks. Don’t make me test you.',
+        'Prove you’re useful—hold this and don’t flinch.',
+      ]
+    },
+    intent: 'ProbeForInfo',
+    tone: 'Sincere',
+    topics: ['Strategy', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['talk', 'dm'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+
+  // ================= NEW: Ultimatum schemes =================
+  {
+    choiceId: 'SCHEME_ULTIMATUM_BLOCK_AGGRESSIVE_1',
+    textVariants: [
+      'Pick a side now or I assume you’re against me.',
+      'You’re either with us tonight or you’re a number for them.',
+      'No more neutral—commit or be treated like opposition.'
+    ],
+    personaVariants: {
+      Hero: [
+        'We need clarity. If you’re with us, show it tonight.',
+        'I won’t bully you, but I need a real commitment.',
+      ],
+      Villain: [
+        'Choose now. Waver and I’ll make sure it costs you.',
+        'Fence-sitters get burned. Decide.',
+      ]
+    },
+    intent: 'SowDoubt',
+    tone: 'Aggressive',
+    topics: ['Strategy', 'Eviction'],
+    targetType: 'Person',
+    interactionTypes: ['scheme'],
+    cooldownDays: 5,
+    weight: 1.0
+  },
+  {
+    choiceId: 'SCHEME_ULTIMATUM_COUNTERMOVE_AGGRESSIVE_1',
+    textVariants: [
+      'If they move on me, I move on them. Pass that along.',
+      'You can stop a war or start one. Your call.',
+      'Try me and see how loud it gets.'
+    ],
+    personaVariants: {
+      Hero: [
+        'I’ll defend myself, but I’d rather we avoid escalation.',
+        'I prefer peace. Don’t force me to play messy.',
+      ],
+      Villain: [
+        'Push me and I’ll set the house on fire—socially.',
+        'Make it ugly and I’ll make it unforgettable.',
+      ]
+    },
+    intent: 'SowDoubt',
+    tone: 'Aggressive',
+    topics: ['Strategy', 'Rumor'],
+    targetType: 'Person',
+    interactionTypes: ['scheme'],
+    cooldownDays: 5,
+    weight: 1.0
+  },
+
+  // ================= NEW: Hard strategic moves (public pressure) =================
+  {
+    choiceId: 'TALK_PRESSURE_PUBLIC_STRATEGY_NEUTRAL_1',
+    textVariants: [
+      'Numbers matter: say who you’re voting now.',
+      'We’re clarifying the vote. Name your target.',
+      'No smoke—state your plan.'
+    ],
+    personaVariants: {
+      Hero: [
+        'Let’s align on facts. Who are you voting?',
+        'We need transparency to avoid chaos—who’s your vote?',
+      ],
+      Villain: [
+        'Stop hiding. Say your target now.',
+        'If you’re scared to show your vote, we’ll remember.',
+      ]
+    },
+    intent: 'ProbeForInfo',
+    tone: 'Neutral',
+    topics: ['Game', 'Eviction'],
+    targetType: 'Group',
+    interactionTypes: ['talk'],
+    cooldownDays: 3,
+    weight: 1.0
   }
 ];
