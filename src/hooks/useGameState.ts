@@ -473,12 +473,91 @@ export const useGameState = () => {
     }));
   }, []);
 
-  // FIXED: Add dedicated function to proceed from finale to jury vote
+  // FIXED: Proceed to jury vote by constructing a valid Final 2 that includes the player
   const proceedToJuryVote = useCallback(() => {
-    setGameState(prev => ({
-      ...prev,
-      gamePhase: 'jury_vote' as const
-    }));
+    setGameState(prev => {
+      // Ensure exactly two finalists with the player included.
+      const contestants = [...prev.contestants];
+
+      // Determine if player is currently eliminated
+      const playerIdx = contestants.findIndex(c => c.name === prev.playerName);
+      const playerIsEliminated = playerIdx >= 0 ? !!contestants[playerIdx].isEliminated : false;
+
+      // Choose the other finalist:
+      // Prefer an existing active non-player. If none, revive the most recently eliminated non-player.
+      const activeNonPlayer = contestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+      let otherFinalistName: string | undefined = activeNonPlayer[0]?.name;
+
+      if (!otherFinalistName) {
+        const mostRecentEliminatedNonPlayer = contestants
+          .filter(c => c.isEliminated && c.name !== prev.playerName)
+          .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))[0];
+        otherFinalistName = mostRecentEliminatedNonPlayer?.name;
+      }
+
+      // If we still don't have another finalist, fall back to first non-player contestant.
+      if (!otherFinalistName) {
+        const anyNonPlayer = contestants.find(c => c.name !== prev.playerName);
+        otherFinalistName = anyNonPlayer?.name;
+      }
+
+      // If we couldn't find any other finalist (degenerate cast), just keep player solo and pick first available.
+      if (!otherFinalistName) {
+        console.warn('proceedToJuryVote: No non-player contestant found; unable to create proper Final 2.');
+        return {
+          ...prev,
+          gamePhase: 'jury_vote' as const,
+          // Keep existing juryMembers; the JuryVoteScreen will guard and show awaiting finalists
+        };
+      }
+
+      // Construct Final 2: player + otherFinalistName
+      const finalists = new Set<string>([prev.playerName, otherFinalistName]);
+
+      // Apply finalist statuses
+      const updatedContestants = contestants.map(c => {
+        if (finalists.has(c.name)) {
+          // Ensure finalists are active
+          return {
+            ...c,
+            isEliminated: false,
+            eliminationDay: undefined
+          };
+        }
+        // Everyone else is eliminated (if not already), mark elimination day for ordering
+        if (!c.isEliminated) {
+          return {
+            ...c,
+            isEliminated: true,
+            eliminationDay: prev.currentDay
+          };
+        }
+        return c;
+      });
+
+      // Build a jury of up to 7 most recently eliminated contestants (excluding finalists)
+      const juryMembers = updatedContestants
+        .filter(c => c.isEliminated && !finalists.has(c.name))
+        .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+        .slice(0, 7)
+        .map(c => c.name);
+
+      // If we don't have enough eliminated contestants to form a jury,
+      // leave the list as-is (screen handles empty jury gracefully).
+      const nextState: GameState = {
+        ...prev,
+        contestants: updatedContestants,
+        juryMembers,
+        isPlayerEliminated: false, // Player is a finalist for this test path
+        gamePhase: 'jury_vote' as const
+      };
+
+      // Log for debugging
+      console.log('proceedToJuryVote constructed finalists:', Array.from(finalists));
+      console.log('proceedToJuryVote juryMembers:', juryMembers);
+
+      return nextState;
+    });
   }, []);
 
   const submitPlayerVote = useCallback((choice: string) => {
