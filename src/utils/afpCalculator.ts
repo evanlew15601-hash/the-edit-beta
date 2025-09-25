@@ -97,6 +97,8 @@ function calculateGameScore(contestant: any, gameState: GameState): number {
 
 function calculateAudienceScore(contestant: any, gameState: GameState, playerVote?: string): number {
   let score = 50; // Base score
+
+  const persona = (contestant.publicPersona || '').toLowerCase();
   
   // Player vote influence (20% boost if they voted for this person)
   if (playerVote === contestant.name) {
@@ -104,13 +106,23 @@ function calculateAudienceScore(contestant: any, gameState: GameState, playerVot
   }
   
   // Personality factors that audiences typically love
-  if (contestant.publicPersona.includes('underdog')) score += 15;
-  if (contestant.publicPersona.includes('entertaining')) score += 15;
-  if (contestant.publicPersona.includes('honest')) score += 10;
-  if (contestant.publicPersona.includes('strategic') && !contestant.publicPersona.includes('ruthless')) score += 10;
+  if (persona.includes('underdog')) score += 15;
+  if (persona.includes('entertaining')) score += 15;
+  if (persona.includes('honest')) score += 10;
+  if (persona.includes('strategic') && !persona.includes('ruthless')) score += 10;
+
+  // Favor positive personas (Hero/Fan Favorite/Contender); gentle nudge
+  if (persona.includes('hero') || persona.includes('fan favorite') || persona.includes('contender')) {
+    score += 12;
+  }
+  // Villain bias: slightly negative unless also entertaining (then offset)
+  if (persona.includes('villain') || persona.includes('antagonist') || persona.includes('troublemaker')) {
+    score -= 5;
+    if (persona.includes('entertaining')) score += 8;
+  }
   
   // Social game strength
-  const socialConnections = contestant.memory.filter(m => 
+  const socialConnections = contestant.memory.filter((m: any) => 
     m.emotionalImpact > 0
   ).length;
   score += Math.min(socialConnections, 15);
@@ -126,8 +138,8 @@ function calculateAudienceScore(contestant: any, gameState: GameState, playerVot
   }
 
   // Penalty for being too strategic/ruthless
-  if (contestant.publicPersona.includes('ruthless')) score -= 10;
-  if (contestant.publicPersona.includes('manipulative')) score -= 15;
+  if (persona.includes('ruthless')) score -= 10;
+  if (persona.includes('manipulative')) score -= 15;
   
   return Math.max(0, Math.min(100, score));
 }
