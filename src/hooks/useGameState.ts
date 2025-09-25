@@ -17,6 +17,7 @@ import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
 import { getReactionProfileForNPC } from '@/utils/tagDialogueEngine';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogueEngine';
+import { ConfessionalEngine } from '@/utils/confessionalEngine';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -327,48 +328,36 @@ export const useGameState = () => {
     // Handle confessional explicitly: persist to confessionals and update edit perception
     if (actionType === 'confessional') {
       setGameState(prev => {
-        const toneImpactMap: { [k: string]: number } = {
-          strategic: 6,
-          vulnerable: 8,
-          aggressive: 5,
-          humorous: 4,
-          dramatic: 10,
-          evasive: 2,
-        };
-        const impact = tone ? (toneImpactMap[tone] ?? 4) : 4;
+        const trimmed = (content || '').trim();
+        const confTone = tone || 'neutral';
 
-        const conf = {
+        // Build confessional object and use ConfessionalEngine for selection + impact
+        const baseConf = {
           id: Date.now().toString(),
           day: prev.currentDay,
-          content: (content || '').trim(),
-          tone: tone || 'neutral',
-          editImpact: impact,
-          audienceScore: Math.max(
-            0,
-            Math.min(
-              100,
-              50 + impact * 3 + ((content || '').length > 180 ? 10 : 0)
-            )
-          ),
-          selected: impact >= 6,
+          content: trimmed,
+          tone: confTone,
+        } as any;
+
+        // Determine if this confessional makes the edit and calculate impact
+        const willAir = ConfessionalEngine.selectConfessionalForEdit(baseConf, prev);
+        const editImpact = ConfessionalEngine.calculateEditImpact(baseConf, prev, willAir);
+        const audienceScore = ConfessionalEngine.generateAudienceScore(baseConf, editImpact);
+
+        const conf = {
+          ...baseConf,
+          editImpact,
+          audienceScore,
+          selected: willAir,
         };
 
-        const updatedEditPerception = {
-          ...prev.editPerception,
-          screenTimeIndex: Math.max(
-            0,
-            Math.min(100, prev.editPerception.screenTimeIndex + impact)
-          ),
-          audienceApproval: Math.max(
-            -100,
-            Math.min(
-              100,
-              prev.editPerception.audienceApproval +
-                Math.round(((conf.audienceScore || 50) - 50) / 5)
-            )
-          ),
-          lastEditShift: impact,
-        };
+        // Update edit perception using legacy calculator with full context
+        const updatedEditPerception = calculateLegacyEditPerception(
+          [...prev.confessionals, conf],
+          prev.editPerception,
+          prev.currentDay,
+          prev
+        );
 
         const updatedActions = prev.playerActions.map(action =>
           action.type === 'confessional'
@@ -395,7 +384,7 @@ export const useGameState = () => {
                 day: prev.currentDay,
                 type: 'confessional_leak' as const,
                 participants: [prev.playerName, c.name],
-                content: `Heard a confessional vibe: "${(content || '').slice(0, 60)}..."`,
+                content: `Heard a confessional vibe: "${trimmed.slice(0, 60)}..."`,
                 emotionalImpact: -1,
                 timestamp: Date.now(),
                 tags: ['rumor'],
@@ -410,8 +399,8 @@ export const useGameState = () => {
           day: prev.currentDay,
           type: 'confessional' as const,
           participants: [prev.playerName],
-          content,
-          tone,
+          content: trimmed,
+          tone: confTone,
           source: 'player' as const,
         };
 
@@ -426,8 +415,8 @@ export const useGameState = () => {
           lastAIReaction: {
             take: 'neutral',
             context: 'public',
-            notes: content || undefined,
-            deltas: { trust: 0, suspicion: 0, influence: 0, entertainment: impact },
+            notes: trimmed || undefined,
+            deltas: { trust: 0, suspicion: 0, influence: 0, entertainment: editImpact },
           },
           interactionLog: [...(prev.interactionLog || []), interactionEntry],
           contestants: updatedContestants,
