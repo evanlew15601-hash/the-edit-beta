@@ -16,10 +16,10 @@ export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
   const [favorPositive, setFavorPositive] = useState(false);
 
   const candidates = useMemo(() => {
-    let list = gameState.contestants.slice();
+    let list = (Array.isArray(gameState.contestants) ? gameState.contestants : []).filter(Boolean);
 
     if (excludeWinner && gameState.gameWinner) {
-      list = list.filter(c => c.name !== gameState.gameWinner);
+      list = list.filter(c => c && c.name !== gameState.gameWinner);
     }
 
     // Favor positive personas (reorder only)
@@ -28,16 +28,20 @@ export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
       list = list
         .slice()
         .sort((a, b) => {
-          const aPos = positiveKeywords.some(k => (a.publicPersona || '').toLowerCase().includes(k.toLowerCase())) ? 1 : 0;
-          const bPos = positiveKeywords.some(k => (b.publicPersona || '').toLowerCase().includes(k.toLowerCase())) ? 1 : 0;
+          const aName = (a?.name || '').toString();
+          const bName = (b?.name || '').toString();
+          const aPersona = (a?.publicPersona || '').toLowerCase();
+          const bPersona = (b?.publicPersona || '').toLowerCase();
+          const aPos = positiveKeywords.some(k => aPersona.includes(k.toLowerCase())) ? 1 : 0;
+          const bPos = positiveKeywords.some(k => bPersona.includes(k.toLowerCase())) ? 1 : 0;
           if (aPos !== bPos) return bPos - aPos;
-          return a.name.localeCompare(b.name);
+          return aName.localeCompare(bName);
         });
     } else {
-      list = list.slice().sort((a, b) => a.name.localeCompare(b.name));
+      list = list.slice().sort((a, b) => (a?.name || '').toString().localeCompare((b?.name || '').toString()));
     }
 
-    return list.map(c => c.name);
+    return list.map(c => c?.name || '').filter(Boolean);
   }, [gameState.contestants, gameState.gameWinner, excludeWinner, favorPositive]);
 
   const handleVote = (name: string) => {

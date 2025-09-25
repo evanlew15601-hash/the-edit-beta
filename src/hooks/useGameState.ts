@@ -73,7 +73,45 @@ export const useGameState = () => {
     const safe = { ...base, ...raw } as GameState;
 
     // Ensure required arrays/objects exist
-    safe.contestants = Array.isArray(raw.contestants) ? raw.contestants : base.contestants;
+    const contestantsRaw = Array.isArray(raw.contestants) ? raw.contestants : base.contestants;
+
+    // Deep-normalize contestants to avoid runtime errors
+    const normContestants = (contestantsRaw || [])
+      .filter(Boolean)
+      .map((c: any, idx: number) => {
+        const mem = Array.isArray(c?.memory) ? c.memory.filter(Boolean) : [];
+        const pp = c?.psychProfile || {};
+        const disp = Array.isArray(pp.disposition) ? pp.disposition : [];
+        const clampNum = (n: any, min: number, max: number, d = 0) =>
+          typeof n === 'number' ? Math.max(min, Math.min(max, n)) : d;
+
+        return {
+          id: String(c?.id || `c_${idx}_${Date.now()}`),
+          name: String(c?.name || `Contestant ${idx + 1}`),
+          publicPersona: typeof c?.publicPersona === 'string' ? c.publicPersona : '',
+          psychProfile: {
+            disposition: disp.map(String),
+            trustLevel: clampNum(pp.trustLevel, -100, 100, 0),
+            suspicionLevel: clampNum(pp.suspicionLevel, 0, 100, 0),
+            emotionalCloseness: clampNum(pp.emotionalCloseness, 0, 100, 0),
+            editBias: clampNum(pp.editBias, -50, 50, 0),
+          },
+          memory: mem.map((m: any) => ({
+            day: typeof m?.day === 'number' ? m.day : 1,
+            type: m?.type || 'conversation',
+            participants: Array.isArray(m?.participants) ? m.participants : [],
+            content: typeof m?.content === 'string' ? m.content : '',
+            emotionalImpact: clampNum(m?.emotionalImpact, -10, 10, 0),
+            timestamp: typeof m?.timestamp === 'number' ? m.timestamp : Date.now(),
+          })),
+          isEliminated: Boolean(c?.isEliminated),
+          eliminationDay: typeof c?.eliminationDay === 'number' ? c.eliminationDay : undefined,
+          isMole: Boolean(c?.isMole),
+        };
+      });
+
+    safe.contestants = normContestants;
+
     safe.playerActions = Array.isArray(raw.playerActions) ? raw.playerActions : base.playerActions;
     safe.confessionals = Array.isArray(raw.confessionals) ? raw.confessionals : base.confessionals;
     safe.alliances = Array.isArray(raw.alliances) ? raw.alliances : base.alliances;
@@ -605,13 +643,24 @@ export const useGameState = () => {
 
   const submitAFPVote = useCallback((choice: string) => {
     setGameState(prev => {
-      // Calculate AFP ranking with player's vote
-      const afpRanking = calculateAFPRanking(prev, choice);
+      let afpRanking: { name: string; score: number }[] = [];
+      try {
+        // Calculate AFP ranking with player's vote
+        afpRanking = calculateAFPRanking(prev, choice);
+      } catch (err) {
+        console.warn('AFP ranking failed, using fallback ranking', err);
+        // Fallback: safe scoring with minimal assumptions
+        const list = (Array.isArray(prev.contestants) ? prev.contestants : []).filter(Boolean);
+        afpRanking = list.map((c: any) => {
+          const boost = c?.name === choice ? 20 : 0;
+          return { name: String(c?.name || ''), score: Math.max(0, Math.min(100, 50 + boost)) };
+        }).filter(c => c.name).sort((a, b) => b.score - a.score);
+      }
       
       return {
         ...prev,
         afpVote: choice,
-        afpRanking: afpRanking
+        afpRanking
       };
     });
   }, []);
