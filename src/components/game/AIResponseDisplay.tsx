@@ -45,12 +45,12 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: A
   }
 
   return (
-    <Card className="p-4 animate-fade-in border-l-4 border-l-primary">
+    <Card className="p-4 md:p-5 animate-fade-in border-l-4 border-l-primary/80 rounded-lg shadow-sm bg-gradient-to-r from-primary/5 to-transparent">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {getReactionIcon()}
-            <span className="text-sm font-medium">{lastTarget} reacted</span>
+            <span className="text-sm md:text-base font-medium tracking-wide">{lastTarget} reacted</span>
             <span className="text-lg">{getContextIcon()}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -58,10 +58,10 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: A
               reactionSummary.take === 'positive' ? 'secondary' :
               reactionSummary.take === 'pushback' ? 'destructive' :
               reactionSummary.take === 'suspicious' ? 'outline' : 'outline'
-            }>
+            } className="uppercase tracking-wide">
               {reactionSummary.take}
             </Badge>
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-[10px] md:text-xs uppercase tracking-wider">
               {reactionSummary.context}
             </Badge>
           </div>
@@ -69,19 +69,21 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: A
 
         {/* Surface actual outcome deltas after execution */}
         {reactionSummary.deltas && (
-          <div className="text-sm bg-muted/40 rounded p-2 flex items-center flex-wrap">
-            <span className="text-xs text-muted-foreground mr-3">Outcome:</span>
-            {renderDelta('Trust', reactionSummary.deltas.trust)}
-            {renderDelta('Suspicion', reactionSummary.deltas.suspicion, 'text-edit-villain', 'text-edit-hero')}
-            {renderDelta('Influence', reactionSummary.deltas.influence)}
-            {renderDelta('Entertainment', reactionSummary.deltas.entertainment)}
+          <div className="text-sm bg-muted/40 rounded-md p-2.5 flex items-center flex-wrap border border-border/60">
+            <span className="text-xs text-muted-foreground mr-3">Outcome</span>
+            <div className="inline-flex items-center gap-2">
+              {renderDelta('Trust', reactionSummary.deltas.trust)}
+              {renderDelta('Suspicion', reactionSummary.deltas.suspicion, 'text-edit-villain', 'text-edit-hero')}
+              {renderDelta('Influence', reactionSummary.deltas.influence)}
+              {renderDelta('Entertainment', reactionSummary.deltas.entertainment)}
+            </div>
           </div>
         )}
         
         {reactionSummary.notes && (
-          <div className="text-sm text-muted-foreground bg-muted/50 rounded p-2">
-            <span className="font-medium">💭 </span>
-            {reactionSummary.notes}
+          <div className="text-sm text-muted-foreground bg-muted/50 rounded-md p-2.5 border border-border/60">
+            <span className="font-medium opacity-80">💭 </span>
+            <span className="leading-relaxed">{reactionSummary.notes}</span>
           </div>
         )}
       </div>
