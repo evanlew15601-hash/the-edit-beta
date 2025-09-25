@@ -110,16 +110,8 @@ export const useGameState = () => {
   };
 
   const [gameState, setGameState] = useState<GameState>(() => {
-    // Load from localStorage if available
-    try {
-      const raw = localStorage.getItem('rtv_game_state');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        return migrateAndNormalize(parsed);
-      }
-    } catch (e) {
-      console.warn('Failed to load saved game state', e);
-    }
+    // Always start from default state at opening menu.
+    // Saved games are only loaded explicitly via "Continue" or "Load".
     return createDefaultState();
   });
 
@@ -173,11 +165,8 @@ export const useGameState = () => {
     };
     console.log('Game started, transitioning to premiere');
     setGameState(newState);
-    try {
-      localStorage.setItem('rtv_game_state', JSON.stringify(newState));
-    } catch (e) {
-      console.warn('Failed to save game state', e);
-    }
+    // Do not auto-save when starting a game.
+    // Saving only occurs when explicitly requested by the player.
   }, []);
 
   const advanceDay = useCallback(() => {
@@ -1195,10 +1184,7 @@ export const useGameState = () => {
     });
   }, []);
 
-  // Auto-save on state changes
-  useEffect(() => {
-    try {
-      localStorage.setItem('rtv_game_state', JSON.stringify(gameState));
+  // Removed auto-save: the game should not save unless the player explicitlyage.setItem('rtv_game_state', JSON.stringify(gameState));
     } catch (e) {
       console.warn('Failed to auto-save game state', e);
     }
