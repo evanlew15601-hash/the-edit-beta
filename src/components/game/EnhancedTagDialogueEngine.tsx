@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState } from '@/types/game';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { Brain, Heart, Zap, Shield, Target, Clock } from 'lucide-react';
-import type { Choice, InteractionType, IntentTag } from '@/types/tagDialogue';
+import type { Choice, IntentTag, ToneTag, TopicTag } from '@/types/tagDialogue';
 
 interface TagChoice {
   id: string;
@@ -55,9 +55,30 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
     }
   };
 
-  const personalizeText = (text: string, targetName: string) => {
-    // Replace hard-coded names like "Alex" with the chosen target's name
-    return text.replace(/Alex/gi, targetName);
+  const personalizeText = (text: string, targetName: string, playerPersona: string) => {
+    // Replace hard-coded names like "Alex" or placeholder with the chosen target's name
+    const base = text.replace(/Alex/gi, targetName).replace(/\{\{\s*target\s*\}\}/gi, targetName);
+
+    // Persona-driven voice tweaks for the player
+    switch (playerPersona) {
+      case 'Villain':
+      case 'Antagonist':
+      case 'Troublemaker':
+        return base.replace(/just/g, 'simply').replace(/maybe/g, 'clearly');
+      case 'Hero':
+      case 'Fan Favorite':
+      case 'Contender':
+        return base.replace(/idiot/gi, 'short-sighted').replace(/pathetic/gi, 'weak');
+      case 'Comic Relief':
+      case 'Class Clown':
+        return base + ' 😅';
+      case 'Mastermind':
+      case 'Puppet Master':
+      case 'Strategic Player':
+        return base.replace(/plan/gi, 'framework').replace(/strategy/gi, 'architecture');
+      default:
+        return base;
+    }
   };
 
   const pickVariant = (choice: Choice): string => {
@@ -68,7 +89,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
   };
 
   const toTagChoice = (choice: Choice, targetName: string): TagChoice => {
-    const text = personalizeText(pickVariant(choice), targetName);
+    const text = personalizeText(pickVariant(choice), targetName, gameState.editPerception.persona);
     const type = mapIntentToType(choice.intent);
     const cooldown = choice.cooldownDays || 0;
     // Lightweight consequence hints based on intent
@@ -343,6 +364,41 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
 
   if (availableTargets.length === 0) return null;
 
+  // Tone-aware preview based on target heuristics
+  const computeOutcomePreview = (choiceId: string, targetName: string) => {
+    const target = contestants.find(c => c.name === targetName);
+    if (!target) return { trust: 0, suspicion: 0, influence: 0, entertainment: 0 };
+    // Heuristics from psychProfile and interaction type
+    const disp = target.psychProfile.disposition.join(' ').toLowerCase();
+    const baseTrust = interactionType === 'talk' ? 0.1 : interactionType === 'dm' ? 0.12 : interactionType === 'scheme' ? -0.05 : 0.08;
+    const baseSusp = interactionType === 'scheme' ? 0.12 : interactionType === 'dm' ? 0.06 : 0.04;
+    const isParanoid = disp.includes('paranoid');
+    const isStrategic = disp.includes('strategic');
+    const isSocial = disp.includes('social');
+
+    let trust = baseTrust;
+    let suspicion = baseSusp;
+    let influence = isStrategic ? 0.1 : 0.05;
+    let entertainment = isSocial ? 0.08 : 0.05;
+
+    // Tweak by intent from choiceId suffixes
+    if (choiceId.includes('BUILD_ALLY')) { trust += 0.08; suspicion -= 0.04; }
+    if (choiceId.includes('SOW_DOUBT')) { trust -= 0.06; suspicion += isParanoid ? 0.12 : 0.08; influence += 0.1; }
+    if (choiceId.includes('REVEAL')) { trust += 0.06; suspicion += 0.03; influence += 0.08; }
+    if (choiceId.includes('INSULT')) { trust -= 0.12; suspicion += 0.1; entertainment += 0.06; }
+    if (choiceId.includes('FLIRT')) { trust += 0.05; suspicion -= 0.02; entertainment += 0.1; }
+    if (choiceId.includes('JOKE')) { entertainment += 0.12; trust += 0.02; }
+    if (choiceId.includes('DEFLECT')) { trust -= 0.02; suspicion += 0.05; }
+    if (choiceId.includes('PROBE')) { influence += 0.08; suspicion += isParanoid ? 0.08 : 0.05; }
+
+    return {
+      trust: Math.round(trust * 100) / 100,
+      suspicion: Math.round(suspicion * 100) / 100,
+      influence: Math.round(influence * 100) / 100,
+      entertainment: Math.round(entertainment * 100) / 100,
+    };
+  };
+
   return (
     <Card className="p-6">
       <div className="mb-4">
@@ -392,6 +448,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
               {availableChoices.map((choice) => {
                 const cooldownDays = getRemainingCooldown(choice.id);
                 const isOnCooldown = cooldownDays > 0;
+                const outcome = computeOutcomePreview(choice.id, selectedTarget);
                 
                 return (
                   <div 
@@ -431,6 +488,21 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
                               • {consequence}
                             </p>
                           ))}
+                        </div>
+                        <div className="mt-2 text-[11px] text-muted-foreground">
+                          Likely effects: 
+                          <span className={outcome.trust > 0 ? 'text-edit-hero ml-1' : 'text-edit-villain ml-1'}>
+                            Trust {outcome.trust > 0 ? '+' : ''}{outcome.trust}
+                          </span>
+                          <span className={outcome.suspicion > 0 ? 'text-edit-villain ml-2' : 'text-edit-hero ml-2'}>
+                            Suspicion {outcome.suspicion > 0 ? '+' : ''}{outcome.suspicion}
+                          </span>
+                          <span className="ml-2">
+                            Influence {outcome.influence > 0 ? '+' : ''}{outcome.influence}
+                          </span>
+                          <span className="ml-2">
+                            Entertainment {outcome.entertainment > 0 ? '+' : ''}{outcome.entertainment}
+                          </span>
                         </div>
                       </div>
                     </div>
