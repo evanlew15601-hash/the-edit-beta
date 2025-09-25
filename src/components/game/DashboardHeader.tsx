@@ -128,7 +128,7 @@ export const DashboardHeader = ({ gameState, onSaveGame, onLoadGame, onDeleteGam
             )}
 
             {/* Save/Load/Delete/Title - minimal, unobtrusive */}
-            <div className="hidden md:flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <button
                 onClick={onSaveGame}
                 className="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-muted/80"

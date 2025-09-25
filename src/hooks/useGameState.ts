@@ -1254,5 +1254,7 @@ export const useGameState = () => {
     handleTieBreakResult,
     proceedToJuryVote,
     loadSavedGame,
+    saveGame,
+    goToTitle,
   };
 };
