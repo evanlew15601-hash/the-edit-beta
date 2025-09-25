@@ -11,6 +11,7 @@ import { FinaleEpisode } from '@/components/game/FinaleEpisode';
 import { PlayerVoteScreen } from '@/components/game/PlayerVoteScreen';
 import { Final3VoteScreen } from '@/components/game/Final3VoteScreen';
 import { PostSeasonRecapScreen } from '@/components/game/PostSeasonRecapScreen';
+import { VotingDebugPanel } from '@/components/game/VotingDebugPanel';
 
 const Index = () => {
   const {
@@ -33,7 +34,19 @@ const Index = () => {
     tagTalk,
     handleTieBreakResult,
     proceedToJuryVote,
+    toggleDebugMode,
   } = useGameState();
+
+  // Keyboard shortcut: Shift+D to toggle debug HUD
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.shiftKey && e.key.toLowerCase() === 'd') {
+        toggleDebugMode();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleDebugMode]);
 
   // Test force elimination event handler
   React.useEffect(() => {
@@ -147,7 +160,18 @@ const Index = () => {
     }
   };
 
-  return renderScreen();
+  return (
+    <>
+      {renderScreen()}
+      <VotingDebugPanel
+        gameState={gameState}
+        onAdvanceDay={advanceDay}
+        onProceedToJuryVote={proceedToJuryVote}
+        onContinueFromElimination={() => continueFromElimination()}
+        onToggleDebug={toggleDebugMode}
+      />
+    </>
+  );
 };
 
 export default Index;
