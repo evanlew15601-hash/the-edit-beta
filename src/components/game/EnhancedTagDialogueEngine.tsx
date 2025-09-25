@@ -3,9 +3,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState, Contestant } from '@/types/game';
+import { GameState } from '@/types/game';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { Brain, Heart, Zap, Shield, Target, Clock } from 'lucide-react';
+import type { Choice, InteractionType, IntentTag } from '@/types/tagDialogue';
 
 interface TagChoice {
   id: string;
@@ -34,17 +35,92 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
     }
   }, [selectedTarget, interactionType, currentDay]);
 
+  const mapIntentToType = (intent: IntentTag): TagChoice['type'] => {
+    switch (intent) {
+      case 'BuildAlliance':
+      case 'ProbeForInfo':
+      case 'RevealSecret':
+        return 'strategic';
+      case 'BoostMorale':
+      case 'Flirt':
+      case 'Divert':
+        return 'emotional';
+      case 'Insult':
+        return 'aggressive';
+      case 'SowDoubt':
+        return 'deceptive';
+      case 'Deflect':
+      default:
+        return 'neutral';
+    }
+  };
+
+  const personalizeText = (text: string, targetName: string) => {
+    // Replace hard-coded names like "Alex" with the chosen target's name
+    return text.replace(/Alex/gi, targetName);
+  };
+
+  const pickVariant = (choice: Choice): string => {
+    const variants = choice.textVariants || [];
+    if (!variants.length) return '';
+    const idx = Math.floor(Math.random() * variants.length);
+    return variants[idx];
+  };
+
+  const toTagChoice = (choice: Choice, targetName: string): TagChoice => {
+    const text = personalizeText(pickVariant(choice), targetName);
+    const type = mapIntentToType(choice.intent);
+    const cooldown = choice.cooldownDays || 0;
+    // Lightweight consequence hints based on intent
+    const consequences = (() => {
+      switch (choice.intent) {
+        case 'BuildAlliance':
+          return ['May strengthen trust', 'Could create visible ties'];
+        case 'ProbeForInfo':
+          return ['Gain intel', 'May raise suspicion'];
+        case 'SowDoubt':
+          return ['Undermine opponent', 'Risk blowback'];
+        case 'BoostMorale':
+          return ['Improve mood', 'Minimal strategic impact'];
+        case 'Flirt':
+          return ['Build bond', 'May shift perception'];
+        case 'Insult':
+          return ['Increase tension', 'Potential social fallout'];
+        case 'MakeJoke':
+          return ['Lighten mood', 'May seem unserious'];
+        case 'RevealSecret':
+          return ['Share leverage', 'Risk trust if exposed'];
+        case 'Deflect':
+          return ['Avoid topic', 'May seem evasive'];
+        case 'Divert':
+          return ['Change focus', 'Reduce pressure'];
+        default:
+          return [];
+      }
+    })();
+    return {
+      id: choice.choiceId,
+      text,
+      type,
+      consequences,
+      cooldown,
+    };
+  };
+
   const generateContextualChoices = () => {
     const target = contestants.find(c => c.name === selectedTarget);
     if (!target) return;
 
-    const baseChoices = TAG_CHOICES[interactionType] || [];
-    
+    // Base choices from data filtered by interaction type
+    const baseChoicesFromData: TagChoice[] = TAG_CHOICES
+      .filter((c: Choice) => (c.interactionTypes || []).includes(interactionType))
+      .map((c: Choice) => toTagChoice(c, target.name));
+
     // Enhanced choices based on relationship and context
     const enhancedChoices: TagChoice[] = [
-      ...baseChoices,
-      
-      // High trust relationships - variety of strategic options
+      ...baseChoicesFromData,
+
+      // High trust relationships
       ...(target.psychProfile.trustLevel > 70 ? [
         {
           id: `share-strategy-${target.name}`,
@@ -68,8 +144,8 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 3
         }
       ] : []),
-      
-      // Medium trust - balanced approach
+
+      // Medium trust
       ...(target.psychProfile.trustLevel >= 30 && target.psychProfile.trustLevel <= 70 ? [
         {
           id: `test-loyalty-${target.name}`,
@@ -100,8 +176,8 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 2
         }
       ] : []),
-      
-      // Low trust - repair or exploit
+
+      // Low trust
       ...(target.psychProfile.trustLevel < 30 ? [
         {
           id: `damage-control-${target.name}`,
@@ -132,8 +208,8 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 4
         }
       ] : []),
-      
-      // Disposition-based choices with variety
+
+      // Disposition-based choices
       ...(target.psychProfile.disposition.includes('Paranoid') ? [
         {
           id: `reassure-${target.name}`,
@@ -150,7 +226,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 4
         }
       ] : []),
-      
+
       ...(target.psychProfile.disposition.includes('Strategic') ? [
         {
           id: `strategic-discussion-${target.name}`,
@@ -160,7 +236,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 3
         }
       ] : []),
-      
+
       ...(target.psychProfile.disposition.includes('Social') ? [
         {
           id: `social-bonding-${target.name}`,
@@ -170,7 +246,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 1
         }
       ] : []),
-      
+
       // Game phase specific choices
       ...(gameState.gamePhase === 'player_vote' || gameState.currentDay === gameState.nextEliminationDay ? [
         {
@@ -181,7 +257,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 7
         }
       ] : []),
-      
+
       // Alliance-based choices
       ...(gameState.alliances.some(a => a.members.includes(target.name) && a.members.includes(playerName)) ? [
         {
@@ -190,6 +266,41 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           type: 'strategic' as const,
           consequences: ['Strengthen alliance', 'Exclude other members'],
           cooldown: 2
+        }
+      ] : []),
+
+      // Additional variety for DM and Scheme formats
+      ...(interactionType === 'dm' ? [
+        {
+          id: `backchannel-${target.name}`,
+          text: `Start a backchannel with ${target.name}—quiet updates only`,
+          type: 'strategic' as const,
+          consequences: ['Private intel flow', 'Risk logs leaking'],
+          cooldown: 2
+        },
+        {
+          id: `midnight-checkin-${target.name}`,
+          text: `Late-night check-in with ${target.name}—reset trust`,
+          type: 'emotional' as const,
+          consequences: ['Rebuild rapport', 'May look suspicious'],
+          cooldown: 2
+        }
+      ] : []),
+
+      ...(interactionType === 'scheme' ? [
+        {
+          id: `fake-leak-${target.name}`,
+          text: `Prime ${target.name} with a controlled fake leak`,
+          type: 'deceptive' as const,
+          consequences: ['Test their loyalty', 'High risk if traced'],
+          cooldown: 4
+        },
+        {
+          id: `misdirect-${target.name}`,
+          text: `Misdirect ${target.name} toward a decoy target`,
+          type: 'strategic' as const,
+          consequences: ['Protect true plan', 'May reduce trust'],
+          cooldown: 3
         }
       ] : [])
     ];
@@ -200,7 +311,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
       return !cooldownEnd || currentDay >= cooldownEnd;
     });
 
-    setAvailableChoices(filteredChoices.slice(0, 8)); // Limit to 8 choices for UI
+    setAvailableChoices(filteredChoices.slice(0, 10)); // Slightly more variety
   };
 
   const getChoiceIcon = (type: TagChoice['type']) => {
