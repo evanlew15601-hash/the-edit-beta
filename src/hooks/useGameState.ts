@@ -592,6 +592,24 @@ export const useGameState = () => {
     });
   }, []);
 
+  // Listen for AI settings updates from ActionPanel and merge into state
+  useEffect(() => {
+    const handler = (e: any) => {
+      const next = e.detail;
+      setGameState(prev => ({
+        ...prev,
+        aiSettings: { 
+          ...prev.aiSettings, 
+          ...next,
+          additions: next.additions || prev.aiSettings.additions,
+          outcomeScaling: next.outcomeScaling || prev.aiSettings.outcomeScaling,
+        }
+      }));
+    };
+    window.addEventListener('updateAISettings', handler);
+    return () => window.removeEventListener('updateAISettings', handler);
+  }, []);
+
   const completePremiere = useCallback(() => {
     setGameState(prev => ({
       ...prev,
@@ -600,13 +618,18 @@ export const useGameState = () => {
   }, []);
 
   const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }, rationales?: { [juryMember: string]: string }) => {
-    setGameState(prev => ({
-      ...prev,
-      gamePhase: 'post_season' as const,
-      gameWinner: winner,
-      finalJuryVotes: votes,
-      juryRationales: rationales || prev.juryRationales
-    }));
+    setGameState(prev => {
+      const alreadyRanked = prev.afpRanking && prev.afpRanking.length > 0;
+      const afpRanking = alreadyRanked ? prev.afpRanking : calculateAFPRanking(prev, prev.afpVote);
+      return {
+        ...prev,
+        gamePhase: 'post_season' as const,
+        gameWinner: winner,
+        finalJuryVotes: votes,
+        juryRationales: rationales || prev.juryRationales,
+        afpRanking,
+      };
+    });
   }, []);
 
   const continueFromElimination = useCallback((forcePlayerElimination = false) => {
@@ -840,6 +863,16 @@ export const useGameState = () => {
             contestant.psychProfile.suspicionLevel + suspicionDelta
           ));
           
+          // Tag resolved micro-events for jury reasoning (rumor/correction/trap)
+          const microTag = (() => {
+            const id = (event.id || '').toString().toLowerCase();
+            const title = (event.title || '').toString().toLowerCase();
+            if (id.includes('whisper') || title.includes('whisper') || title.includes('rumor')) return 'rumor';
+            if (id.includes('misquote') || title.includes('misquote') || title.includes('correction')) return 'correction';
+            if (id.includes('soft_betrayal') || title.includes('trap')) return 'trap';
+            return undefined;
+          })();
+
           // Add memory of the emergent event
           const newMemory = {
             day: prev.currentDay,
@@ -847,7 +880,8 @@ export const useGameState = () => {
             participants: event.participants,
             content: `${event.title}: ${prev.playerName} chose to ${choice === 'pacifist' ? 'defuse' : 'escalate'} the situation`,
             emotionalImpact: Math.floor(trustDelta / 5),
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            tags: microTag ? [microTag] : undefined,
           };
           
           return {
@@ -918,11 +952,13 @@ export const useGameState = () => {
 
         const outcome = evaluateChoice(choice, targetNPC, prev.playerName, prev);
         // Scale normalized deltas (-1..1) into game point changes
-        const scale = 40; // tuned: 0.1 -> 4 pts
-        const trustPts = Math.round((outcome.trustDelta || 0) * scale);
-        const suspPts = Math.round((outcome.suspicionDelta || 0) * scale);
-        const inflPts = Math.round((outcome.influenceDelta || 0) * 20); // softer
-        const entPts = Math.round((outcome.entertainmentDelta || 0) * 20); // softer
+        const trustSuspScale = prev.aiSettings?.outcomeScaling?.trustSuspicionScale ?? 40;
+        const influenceScale = prev.aiSettings?.outcomeScaling?.influenceScale ?? 20;
+        const entertainmentScale = prev.aiSettings?.outcomeScaling?.entertainmentScale ?? 20;
+        const trustPts = Math.round((outcome.trustDelta || 0) * trustSuspScale);
+        const suspPts = Math.round((outcome.suspicionDelta || 0) * trustSuspScale);
+        const inflPts = Math.round((outcome.influenceDelta || 0) * influenceScale);
+        const entPts = Math.round((outcome.entertainmentDelta || 0) * entertainmentScale);
 
         // Apply trust/suspicion to target
         const updatedContestants = prev.contestants.map(c => {

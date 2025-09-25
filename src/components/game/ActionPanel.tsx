@@ -14,6 +14,7 @@ import { AllianceMeetingDialog } from './AllianceMeetingDialog';
 import { TagConversationDialog } from './TagConversationDialog';
 import { CreateAllianceDialog } from './CreateAllianceDialog';
 import { AddAllianceMemberDialog } from './AddAllianceMemberDialog';
+import { AISettingsPanel } from './AISettingsPanel';
 import { Plus, UserPlus } from 'lucide-react';
 
 interface ActionPanelProps {
@@ -130,6 +131,29 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
               </p>
             </div>
           ))}
+        </div>
+
+        {/* Settings panel for deterministic variants and outcome scaling */}
+        <div className="mt-6 pt-6 border-t border-border">
+          <h3 className="text-lg font-medium mb-3">AI & Dialogue Settings</h3>
+          <AISettingsPanel
+            depth={gameState.aiSettings.depth}
+            additions={gameState.aiSettings.additions}
+            deterministicPersonaVariants={gameState.aiSettings.deterministicPersonaVariants}
+            outcomeScaling={gameState.aiSettings.outcomeScaling}
+            onChange={(next) => {
+              // Merge into aiSettings within gameState
+              const merged = {
+                ...gameState.aiSettings,
+                ...('depth' in next ? { depth: next.depth } : {}),
+                ...('additions' in next ? { additions: next.additions! } : {}),
+                ...('deterministicPersonaVariants' in next ? { deterministicPersonaVariants: next.deterministicPersonaVariants } : {}),
+                ...('outcomeScaling' in next ? { outcomeScaling: next.outcomeScaling } : {}),
+              };
+              // Local update only – ActionPanel isn't the state owner; dispatch via custom event
+              window.dispatchEvent(new CustomEvent('updateAISettings', { detail: merged }));
+            }}
+          />
         </div>
 
         {allActionsUsed && (
