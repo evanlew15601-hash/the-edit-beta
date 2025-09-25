@@ -1167,6 +1167,18 @@ export const useGameState = () => {
     }
   }, []);
 
+  const saveGame = useCallback(() => {
+    try {
+      localStorage.setItem('rtv_game_state', JSON.stringify(gameState));
+    } catch (e) {
+      console.warn('Failed to save game state', e);
+    }
+  }, [gameState]);
+
+  const goToTitle = useCallback(() => {
+    setGameState(prev => ({ ...prev, gamePhase: 'intro' as const }));
+  }, []);
+
   return {
     gameState,
     startGame,

@@ -19,12 +19,21 @@ interface GameplayScreenProps {
   onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
   onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
+  onSaveGame?: () => void;
+  onLoadGame?: () => void;
+  onDeleteGame?: () => void;
+  onQuitToTitle?: () => void;
 }
 
-export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk }: GameplayScreenProps) => {
+export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk, onSaveGame, onLoadGame, onDeleteGame, onQuitToTitle }: GameplayScreenProps) => {
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader gameState={gameState} />
+      <DashboardHeader gameState={gameState} 
+        onSaveGame={onSaveGame}
+        onLoadGame={onLoadGame}
+        onDeleteGame={onDeleteGame}
+        onQuitToTitle={onQuitToTitle}
+      />
       
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Twist Notification */}
@@ -36,9 +45,6 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           actionType={gameState.lastActionType}
           reactionSummary={gameState.lastAIReaction}
         />
-
-        {/* Debug surface for verifying Tag Dialogue integration (hidden unless debugMode) */}
-        {gameState.debugMode && <AIOutcomeDebug gameState={gameState} />}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Action Panel */}

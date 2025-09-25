@@ -5,9 +5,13 @@ import { GameState } from '@/types/game';
 
 interface DashboardHeaderProps {
   gameState: GameState;
+  onSaveGame?: () => void;
+  onLoadGame?: () => void;
+  onDeleteGame?: () => void;
+  onQuitToTitle?: () => void;
 }
 
-export const DashboardHeader = ({ gameState }: DashboardHeaderProps) => {
+export const DashboardHeader = ({ gameState, onSaveGame, onLoadGame, onDeleteGame, onQuitToTitle }: DashboardHeaderProps) => {
   const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
   const remainingCount = activeContestants.length;
   
@@ -103,7 +107,6 @@ export const DashboardHeader = ({ gameState }: DashboardHeaderProps) => {
             {remainingCount > 3 && (
               <button 
                 onClick={() => {
-                  // Trigger skip to jury via window event
                   window.dispatchEvent(new CustomEvent('skipToJury'));
                 }}
                 className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded hover:bg-secondary/80"
@@ -116,7 +119,6 @@ export const DashboardHeader = ({ gameState }: DashboardHeaderProps) => {
             {isJuryPhase && (
               <button 
                 onClick={() => {
-                  // Trigger force elimination test
                   window.dispatchEvent(new CustomEvent('testForceElimination'));
                 }}
                 className="px-2 py-1 text-xs bg-destructive text-destructive-foreground rounded hover:bg-destructive/80"
@@ -124,6 +126,38 @@ export const DashboardHeader = ({ gameState }: DashboardHeaderProps) => {
                 Test Elimination
               </button>
             )}
+
+            {/* Save/Load/Delete/Title - minimal, unobtrusive */}
+            <div className="hidden md:flex items-center gap-2">
+              <button
+                onClick={onSaveGame}
+                className="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-muted/80"
+                title="Save"
+              >
+                Save
+              </button>
+              <button
+                onClick={onLoadGame}
+                className="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-muted/80"
+                title="Load"
+              >
+                Load
+              </button>
+              <button
+                onClick={onDeleteGame}
+                className="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-muted/80"
+                title="Delete Save"
+              >
+                Delete
+              </button>
+              <button
+                onClick={onQuitToTitle}
+                className="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-muted/80"
+                title="Quit to Title"
+              >
+                Title
+              </button>
+            </div>
             
             {/* Action Count */}
             <div className="text-right">

@@ -1,13 +1,24 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/enhanced-button';
 import { Input } from '@/components/ui/input';
 
 interface IntroScreenProps {
   onStartGame: (playerName: string) => void;
+  onLoadGame?: () => void;
+  onDeleteSave?: () => void;
 }
 
-export const IntroScreen = ({ onStartGame }: IntroScreenProps) => {
+export const IntroScreen = ({ onStartGame, onLoadGame, onDeleteSave }: IntroScreenProps) => {
   const [playerName, setPlayerName] = useState('');
+  const [hasSave, setHasSave] = useState(false);
+
+  useEffect(() => {
+    try {
+      setHasSave(!!localStorage.getItem('rtv_game_state'));
+    } catch {
+      setHasSave(false);
+    }
+  }, []);
 
   const handleSubmit = () => {
     if (playerName.trim()) {
@@ -51,7 +62,7 @@ export const IntroScreen = ({ onStartGame }: IntroScreenProps) => {
             <p className="text-foreground">
               Please introduce yourself.
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Input
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}
@@ -68,6 +79,17 @@ export const IntroScreen = ({ onStartGame }: IntroScreenProps) => {
                 Enter the House
               </Button>
             </div>
+
+            {hasSave && (
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <Button variant="outline" onClick={onLoadGame}>
+                  Continue
+                </Button>
+                <Button variant="destructive" onClick={onDeleteSave}>
+                  Delete Save
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 

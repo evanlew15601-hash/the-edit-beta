@@ -33,7 +33,15 @@ const Index = () => {
     tagTalk,
     handleTieBreakResult,
     proceedToJuryVote,
+    loadSavedGame,
+    // new helpers
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...rest
   } = useGameState();
+
+  // derive helpers from hook via rest if needed
+  const saveGame = (rest as any).saveGame as () => void;
+  const goToTitle = (rest as any).goToTitle as () => void;
 
   // Test force elimination event handler
   React.useEffect(() => {
@@ -56,7 +64,7 @@ const Index = () => {
   const renderScreen = () => {
     switch (gameState.gamePhase) {
       case 'intro':
-        return <IntroScreen onStartGame={startGame} />;
+        return <IntroScreen onStartGame={startGame} onLoadGame={loadSavedGame} onDeleteSave={resetGame} />;
       case 'premiere':
         return <PremiereCutscene onComplete={completePremiere} />;
       
@@ -69,6 +77,10 @@ const Index = () => {
               onEmergentEventChoice={handleEmergentEventChoice}
               onForcedConversationReply={respondToForcedConversation}
               onTagTalk={tagTalk}
+              onSaveGame={saveGame}
+              onLoadGame={loadSavedGame}
+              onDeleteGame={resetGame}
+              onQuitToTitle={goToTitle}
             />
         );
       
