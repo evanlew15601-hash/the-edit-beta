@@ -1232,11 +1232,7 @@ export const useGameState = () => {
     });
   }, []);
 
-  // Removed auto-save: the game should not save unless the player explicitlyage.setItem('rtv_game_state', JSON.stringify(gameState));
-    } catch (e) {
-      console.warn('Failed to auto-save game state', e);
-    }
-  }, [gameState]);
+  
 
   const loadSavedGame = useCallback(() => {
     try {
