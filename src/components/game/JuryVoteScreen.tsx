@@ -13,6 +13,8 @@ interface JuryVoteScreenProps {
 
 export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteScreenProps) => {
   const [votes, setVotes] = useState<{ [juryMember: string]: string }>({});
+  // Use stored finale speech if provided via game state
+  const effectivePlayerSpeech = (playerSpeech && playerSpeech.trim()) || gameState.finaleSpeech || '';
   const [winner, setWinner] = useState<string>('');
   const [showResults, setShowResults] = useState(false);
   const [voteStable, setVoteStable] = useState(false); // FIXED: Prevent vote flickering
@@ -72,8 +74,8 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
         score += relationshipScore * 5;
 
         // Speech impact (if it was the player finalist)
-        if (finalist.name === gameState.playerName && playerSpeech) {
-          const speechImpact = playerSpeech.length > 100 ? 15 : 5;
+        if (finalist.name === gameState.playerName && effectivePlayerSpeech) {
+          const speechImpact = effectivePlayerSpeech.length > 180 ? 20 : effectivePlayerSpeech.length > 60 ? 10 : 4;
           score += speechImpact;
         }
 

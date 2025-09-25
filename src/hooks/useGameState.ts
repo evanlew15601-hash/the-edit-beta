@@ -447,6 +447,7 @@ export const useGameState = () => {
     setGameState(prev => ({
       ...prev,
       finaleSpeechesGiven: true,
+      finaleSpeech: (speech || '').trim(),
       gamePhase: 'jury_vote' as const
     }));
   }, []);
