@@ -11,7 +11,12 @@ interface AFPCardProps {
 
 export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
   const [voted, setVoted] = useState(false);
-  const allContestants = gameState.contestants.map(c => c.name);
+  
+  // Get only the final 4 contestants (non-eliminated at start of finale phase)
+  const finalFourContestants = gameState.contestants
+    .filter(c => !c.isEliminated || (c.eliminationDay && c.eliminationDay >= gameState.currentDay - 2))
+    .slice(0, 4)
+    .map(c => c.name);
 
   const handleVote = (name: string) => {
     onAFPVote(name);
@@ -26,7 +31,7 @@ export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
       </p>
       <ScrollArea className="max-h-56 pr-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {allContestants.map((name) => (
+          {finalFourContestants.map((name) => (
             <Button
               key={name}
               variant={voted ? 'disabled' : 'surveillance'}

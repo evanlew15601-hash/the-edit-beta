@@ -22,7 +22,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     gameState.juryMembers?.includes(c.name)
   );
   
-  // Check if player is eliminated - use gameState flag first, then contestant status
+  // Check if player is eliminated and in jury
   const playerContestant = gameState.contestants.find(c => c.name === gameState.playerName);
   const playerEliminated = gameState.isPlayerEliminated || playerContestant?.isEliminated || false;
   const isPlayerInJury = playerEliminated && gameState.juryMembers?.includes(gameState.playerName);
@@ -143,31 +143,84 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
           </div>
 
           {!showResults ? (
-            <div className="text-center space-y-6">
-              <div className="bg-primary/10 border border-primary/20 rounded p-6">
-                <Users className="w-12 h-12 text-primary mx-auto mb-4" />
-                <h3 className="text-xl font-medium mb-2">
-                  The jury is deliberating...
-                </h3>
-                <p className="text-muted-foreground">
-                  Each jury member is considering the finalists' games and casting their vote.
+            <div className="space-y-6">
+              <Card className="p-6">
+                <h2 className="text-2xl font-light mb-4">
+                  {isPlayerInJury ? "Cast Your Jury Vote" : "Jury Deliberation"}
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                  {isPlayerInJury 
+                    ? "As a jury member, you now vote for who should win the game..."
+                    : "The jury is now deliberating and voting for the winner..."
+                  }
                 </p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {finalTwo.map(finalist => (
-                  <Card key={finalist.id} className="p-4">
-                    <div className={`font-medium text-center ${
-                      finalist.name === gameState.playerName ? 'text-primary' : ''
-                    }`}>
-                      {finalist.name}
-                      {finalist.name === gameState.playerName && ' (You)'}
-                    </div>
-                    <div className="text-sm text-muted-foreground text-center">
-                      {finalist.publicPersona}
+                
+                {/* Player Jury Vote Section */}
+                {isPlayerInJury && !votes[gameState.playerName] && (
+                  <Card className="p-4 border-primary/20 bg-primary/10 mb-6">
+                    <h3 className="font-medium mb-3">Your Jury Vote</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Vote for who you think deserves to win based on their gameplay, strategy, and speeches.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {finalTwo.map(finalist => (
+                        <Button
+                          key={finalist.name}
+                          variant="surveillance"
+                          onClick={() => {
+                            setVotes(prev => ({ ...prev, [gameState.playerName]: finalist.name }));
+                            // Continue simulation for other jury members
+                            setTimeout(() => setVoteStable(true), 1500);
+                          }}
+                          className="h-auto p-4"
+                        >
+                          <div className="text-center">
+                            <div className="font-medium">{finalist.name}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {finalist.publicPersona}
+                            </div>
+                          </div>
+                        </Button>
+                      ))}
                     </div>
                   </Card>
-                ))}
+                )}
+                
+                {votes[gameState.playerName] && (
+                  <Card className="p-4 border-primary/20 bg-primary/10 mb-6">
+                    <p className="text-sm">
+                      <strong>Your vote:</strong> You voted for {votes[gameState.playerName]} to win.
+                    </p>
+                  </Card>
+                )}
+              </Card>
+              
+              <div className="text-center space-y-6">
+                <div className="bg-primary/10 border border-primary/20 rounded p-6">
+                  <Users className="w-12 h-12 text-primary mx-auto mb-4" />
+                  <h3 className="text-xl font-medium mb-2">
+                    {isPlayerInJury ? "Other jury members are deliberating..." : "The jury is deliberating..."}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Each jury member is considering the finalists' games and casting their vote.
+                  </p>
+                </div>
+              
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {finalTwo.map(finalist => (
+                    <Card key={finalist.id} className="p-4">
+                      <div className={`font-medium text-center ${
+                        finalist.name === gameState.playerName ? 'text-primary' : ''
+                      }`}>
+                        {finalist.name}
+                        {finalist.name === gameState.playerName && ' (You)'}
+                      </div>
+                      <div className="text-sm text-muted-foreground text-center">
+                        {finalist.publicPersona}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (

@@ -8,6 +8,7 @@ import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { AllianceManager } from '@/utils/allianceManager';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { InformationTradingEngine } from '@/utils/informationTradingEngine';
+import { calculateAFPRanking } from '@/utils/afpCalculator';
 import { gameSystemIntegrator } from '@/utils/gameSystemIntegrator';
 import { processVoting } from '@/utils/votingEngine';
 import { getTrustDelta, getSuspicionDelta, calculateLeakChance, calculateSchemeSuccess, generateNPCInteractions } from '@/utils/actionEngine';
@@ -522,67 +523,13 @@ export const useGameState = () => {
 
   const submitAFPVote = useCallback((choice: string) => {
     setGameState(prev => {
-      // Calculate AFP ranking based on comprehensive edit perception system
-      const afpRanking = prev.contestants
-        .map(c => {
-          // Get edit perception for this contestant
-          const editData = prev.editPerception[c.name] || {
-            screenTimeIndex: 20,
-            audienceApproval: 0,
-            persona: 'Underedited' as EditPerception['persona']
-          };
-          
-          // Base score from edit perception
-          let score = editData.screenTimeIndex * 0.6 + (editData.audienceApproval + 100) * 0.4;
-          
-          // Persona-based modifiers (some personas are more AFP-worthy)
-          const personaModifiers: { [key: string]: number } = {
-            'Hero': 25, 'Fan Favorite': 30, 'Comic Relief': 20,
-            'Strategic Player': 15, 'Dark Horse': 10, 'Contender': 18,
-            'Social Butterfly': 12, 'Romantic': 8, 'Mastermind': 5,
-            'Villain': -15, 'Antagonist': -10, 'Troublemaker': -8,
-            'Pariah': -20, 'Controversial': -5, 'Underedited': -10,
-            'Ghosted': -25, 'Floater': -5, 'Class Clown': 8
-          };
-          
-          score += personaModifiers[editData.persona] || 0;
-          
-          // Memory-based scoring (positive interactions boost AFP chances)
-          const positiveMemories = c.memory.filter(m => 
-            m.emotionalImpact > 0 && m.type !== 'elimination'
-          ).length;
-          const negativeMemories = c.memory.filter(m => 
-            m.emotionalImpact < -2
-          ).length;
-          
-          score += positiveMemories * 2 - negativeMemories * 3;
-          
-          // Survival bonus (longer-playing contestants tend to be more memorable)
-          const survivalDays = c.eliminationDay || prev.currentDay;
-          score += Math.min(20, survivalDays * 0.5);
-          
-          // Add some AI background voting randomness (20% variation)
-          score += (Math.random() - 0.5) * 40;
-          
-          // Special boost for player choice
-          if (c.name === choice) {
-            score += 15; // Player vote matters
-          }
-          
-          return {
-            name: c.name,
-            score: Math.max(0, score)
-          };
-        })
-        .sort((a, b) => b.score - a.score);
-      
-      console.log('AFP vote submitted for:', choice);
-      console.log('AFP ranking:', afpRanking);
+      // Calculate AFP ranking with player's vote
+      const afpRanking = calculateAFPRanking(prev, choice);
       
       return {
         ...prev,
         afpVote: choice,
-        afpRanking
+        afpRanking: afpRanking
       };
     });
   }, []);
