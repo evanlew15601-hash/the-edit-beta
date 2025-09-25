@@ -69,7 +69,7 @@ const Index = () => {
   const renderScreen = () => {
     switch (gameState.gamePhase) {
       case 'intro':
-        return <IntroScreen onStartGame={startGame} onLoadGame={loadSavedGame} onDeleteSave={resetGame} />;
+        return <IntroScreen onStartGame={startGame} onLoadGame={loadSavedGame} onDeleteSave={resetGame} onToggleDebug={toggleDebugMode} />;
       case 'premiere':
         return <PremiereCutscene onComplete={completePremiere} />;
       

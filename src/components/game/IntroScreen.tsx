@@ -6,11 +6,13 @@ interface IntroScreenProps {
   onStartGame: (playerName: string) => void;
   onLoadGame?: () => void;
   onDeleteSave?: () => void;
+  onToggleDebug?: () => void;
 }
 
-export const IntroScreen = ({ onStartGame, onLoadGame, onDeleteSave }: IntroScreenProps) => {
+export const IntroScreen = ({ onStartGame, onLoadGame, onDeleteSave, onToggleDebug }: IntroScreenProps) => {
   const [playerName, setPlayerName] = useState('');
   const [hasSave, setHasSave] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
 
   useEffect(() => {
     try {
@@ -27,7 +29,47 @@ export const IntroScreen = ({ onStartGame, onLoadGame, onDeleteSave }: IntroScre
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="min-h-screen bg-background">
+      {/* Minimal top bar with load/delete and debug toggle */}
+      <div className="bg-background/95 backdrop-blur-sm border-b border-border sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">Main Menu</div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={onLoadGame}
+              disabled={!hasSave}
+              title="Load saved game"
+              className="text-xs px-2 py-1"
+            >
+              Continue
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirm('Delete save file? This cannot be undone.')) onDeleteSave?.();
+              }}
+              disabled={!hasSave}
+              title="Delete saved game"
+              className="text-xs px-2 py-1"
+            >
+              Delete Save
+            </Button>
+            <Button
+              variant={debugMode ? 'action' : 'outline'}
+              onClick={() => {
+                setDebugMode((d) => !d);
+                onToggleDebug?.();
+              }}
+              title="Toggle Debug"
+              className="text-xs px-2 py-1"
+            >
+              {debugMode ? 'Debug: ON' : 'Debug: OFF'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-2xl mx-auto text-center space-y-8 p-8">
         <div className="space-y-4">
           <h1 className="text-5xl font-light tracking-wide text-foreground">
