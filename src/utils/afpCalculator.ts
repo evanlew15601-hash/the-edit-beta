@@ -51,21 +51,25 @@ export const calculateAFPRanking = (gameState: GameState, playerVote?: string): 
 
 function calculateEditScore(contestant: any, gameState: GameState): number {
   let score = 50; // Base score
+
+  // Defensive guards for legacy or partial saves
+  const mem = Array.isArray(contestant?.memory) ? contestant.memory : [];
+  const persona = (contestant?.publicPersona || '').toLowerCase();
   
   // Positive edit factors
-  if (contestant.memory.length > 15) score += 20; // High screen time
-  if (contestant.publicPersona.includes('strategic')) score += 15;
-  if (contestant.publicPersona.includes('social')) score += 15;
-  if (contestant.publicPersona.includes('challenge')) score += 10;
+  if (mem.length > 15) score += 20; // High screen time
+  if (persona.includes('strategist') || persona.includes('strategic')) score += 15;
+  if (persona.includes('social')) score += 15;
+  if (persona.includes('challenge') || persona.includes('competitor')) score += 10;
   
   // Alliance leadership bonus
-  const allianceLeader = gameState.alliances.some(a => 
+  const allianceLeader = Array.isArray(gameState.alliances) && gameState.alliances.some(a => 
     a.members.includes(contestant.name) && a.members[0] === contestant.name
   );
   if (allianceLeader) score += 15;
   
   // Confessional quality (if player)
-  if (contestant.name === gameState.playerName) {
+  if (contestant?.name === gameState.playerName) {
     const confessionals = gameState.confessionals?.length || 0;
     score += Math.min(confessionals * 2, 30);
   }
@@ -77,17 +81,19 @@ function calculateGameScore(contestant: any, gameState: GameState): number {
   let score = 30; // Base score
   
   // Days survived bonus
-  const daysPlayed = contestant.eliminationDay || gameState.currentDay;
-  score += (daysPlayed / gameState.currentDay) * 40;
+  const daysPlayed = contestant?.eliminationDay || gameState.currentDay;
+  score += (daysPlayed / Math.max(1, gameState.currentDay)) * 40;
   
   // Strategic gameplay
-  const strategicMoves = contestant.memory.filter(m => 
+  const mem = Array.isArray(contestant?.memory) ? contestant.memory : [];
+  const strategicMoves = mem.filter((m: any) => 
     m.type === 'conversation' || m.type === 'scheme'
   ).length;
   score += Math.min(strategicMoves, 20);
   
   // Alliance performance
-  const successfulAlliances = gameState.alliances.filter(a => 
+  const alliances = Array.isArray(gameState.alliances) ? gameState.alliances : [];
+  const successfulAlliances = alliances.filter(a => 
     a.members.includes(contestant.name) && !a.dissolved
   ).length;
   score += successfulAlliances * 5;
@@ -98,10 +104,10 @@ function calculateGameScore(contestant: any, gameState: GameState): number {
 function calculateAudienceScore(contestant: any, gameState: GameState, playerVote?: string): number {
   let score = 50; // Base score
 
-  const persona = (contestant.publicPersona || '').toLowerCase();
+  const persona = (contestant?.publicPersona || '').toLowerCase();
   
   // Player vote influence (20% boost if they voted for this person)
-  if (playerVote === contestant.name) {
+  if (playerVote === contestant?.name) {
     score += 20;
   }
   
@@ -122,7 +128,8 @@ function calculateAudienceScore(contestant: any, gameState: GameState, playerVot
   }
   
   // Social game strength
-  const socialConnections = contestant.memory.filter((m: any) => 
+  const mem = Array.isArray(contestant?.memory) ? contestant.memory : [];
+  const socialConnections = mem.filter((m: any) => 
     m.emotionalImpact > 0
   ).length;
   score += Math.min(socialConnections, 15);
@@ -130,7 +137,7 @@ function calculateAudienceScore(contestant: any, gameState: GameState, playerVot
   // Weekly audience signals from favoriteTally
   const tallies = gameState.favoriteTally || {};
   const maxTally = Object.values(tallies).length ? Math.max(...Object.values(tallies)) : 0;
-  const contestantTally = tallies[contestant.name] || 0;
+  const contestantTally = tallies[contestant?.name] || 0;
   if (maxTally > 0) {
     // Scale to up to +25 points
     const bonus = Math.min(25, (contestantTally / maxTally) * 25);
