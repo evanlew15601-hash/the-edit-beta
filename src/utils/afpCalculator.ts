@@ -115,6 +115,16 @@ function calculateAudienceScore(contestant: any, gameState: GameState, playerVot
   ).length;
   score += Math.min(socialConnections, 15);
   
+  // Weekly audience signals from favoriteTally
+  const tallies = gameState.favoriteTally || {};
+  const maxTally = Object.values(tallies).length ? Math.max(...Object.values(tallies)) : 0;
+  const contestantTally = tallies[contestant.name] || 0;
+  if (maxTally > 0) {
+    // Scale to up to +25 points
+    const bonus = Math.min(25, (contestantTally / maxTally) * 25);
+    score += bonus;
+  }
+
   // Penalty for being too strategic/ruthless
   if (contestant.publicPersona.includes('ruthless')) score -= 10;
   if (contestant.publicPersona.includes('manipulative')) score -= 15;

@@ -102,6 +102,7 @@ export interface GameState {
     results?: { name: string; time: number }[];
     eliminated: string;
     winners: string[];
+    selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual';
   };
 }
 

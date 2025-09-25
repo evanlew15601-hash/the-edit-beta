@@ -880,7 +880,8 @@ export const useGameState = () => {
     winner1: string,
     winner2: string,
     method?: 'challenge' | 'fire_making' | 'random_draw',
-    results?: { name: string; time: number }[]
+    results?: { name: string; time: number }[],
+    selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual'
   ) => {
     setGameState(prev => {
       const newState = { ...prev };
@@ -927,6 +928,7 @@ export const useGameState = () => {
         results,
         eliminated,
         winners: [winner1, winner2],
+        selectionReason,
       };
       
       newState.votingHistory = [...prev.votingHistory.slice(0, -1), tieBreakRecord];

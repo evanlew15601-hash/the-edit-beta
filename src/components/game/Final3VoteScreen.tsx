@@ -128,6 +128,11 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
   useEffect(() => {
     if (!tieBreakActive || !tieBreakMethod) return;
 
+    const selectionReason: 'player_persuasion' | 'npc_choice' | 'manual' =
+      persuasionOutcome === 'success' ? 'player_persuasion' :
+      persuasionOutcome === 'fail' ? 'npc_choice' :
+      'manual';
+
     if (tieBreakMethod === 'challenge') {
       const results = finalThree.map(contestant => ({
         name: contestant.name,
@@ -137,7 +142,7 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
       setChallengeResults(results);
       
       setTimeout(() => {
-        onTieBreakResult(results[2].name, results[0].name, results[1].name, 'challenge', results);
+        onTieBreakResult(results[2].name, results[0].name, results[1].name, 'challenge', results, selectionReason);
       }, 4000);
     }
 
@@ -151,7 +156,7 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
       setChallengeResults(results);
 
       setTimeout(() => {
-        onTieBreakResult(results[2].name, results[0].name, results[1].name, 'fire_making', results);
+        onTieBreakResult(results[2].name, results[0].name, results[1].name, 'fire_making', results, selectionReason);
       }, 4000);
     }
 
@@ -164,10 +169,10 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
       setChallengeResults([]);
 
       setTimeout(() => {
-        onTieBreakResult(eliminated, remaining[0], remaining[1], 'random_draw', []);
+        onTieBreakResult(eliminated, remaining[0], remaining[1], 'random_draw', [], selectionReason);
       }, 2000);
     }
-  }, [tieBreakActive, tieBreakMethod, finalThree, onTieBreakResult]);
+  }, [tieBreakActive, tieBreakMethod, finalThree, onTieBreakResult, persuasionOutcome]);
 
   const handleSubmitVote = () => {
     if (choice) {
@@ -254,6 +259,7 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
 
                         if (success && playerPreferredMethod) {
                           setTieBreakMethod(playerPreferredMethod);
+                          setPersuasionOutcome('success');
                         } else {
                           // NPCs choose a method based on their preferences
                           const npcPreferred = (() => {
@@ -275,6 +281,7 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
                             return 'challenge';
                           })();
                           setTieBreakMethod(npcPreferred);
+                          setPersuasionOutcome('fail');
                         }
                       }}
                       className="transition-transform hover:scale-[1.02]"
