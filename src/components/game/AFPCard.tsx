@@ -12,21 +12,13 @@ interface AFPCardProps {
 export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
   const [voted, setVoted] = useState(false);
   
-  // Get final 4 contestants (all contestants, but limit to top 4 by placement)
-  const finalFourContestants = gameState.contestants
-    .sort((a, b) => {
-      // Sort by elimination day descending (later elimination = better placement)
-      // Non-eliminated contestants get current day as their "placement"
-      const aDay = a.eliminationDay || gameState.currentDay + 100; // Non-eliminated get high number
-      const bDay = b.eliminationDay || gameState.currentDay + 100;
-      return bDay - aDay;
-    })
-    .slice(0, 4) // Take top 4 by placement
+  // Show all contestants for AFP voting (scrollable)
+  const afpCandidates = gameState.contestants
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
     .map(c => c.name);
-    
-  console.log('AFPCard - All contestants:', gameState.contestants.map(c => ({ name: c.name, eliminated: c.isEliminated, day: c.eliminationDay })));
-  console.log('AFPCard - Final 4 for AFP:', finalFourContestants);
-  console.log('AFPCard - Current day:', gameState.currentDay);
+
+  console.log('AFPCard - AFP candidates:', afpCandidates);
 
   const handleVote = (name: string) => {
     onAFPVote(name);

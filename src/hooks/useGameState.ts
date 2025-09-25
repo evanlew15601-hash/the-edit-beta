@@ -481,7 +481,17 @@ export const useGameState = () => {
           ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
           : c
       );
-      
+
+      // If we're in jury phase, ensure eliminated is added to jury (up to 7)
+      let updatedJuryMembers = [...(prev.juryMembers || [])];
+      const inJuryPhase = updatedJuryMembers.length > 0;
+      if (inJuryPhase && votingResult.eliminated && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
+        updatedJuryMembers.push(votingResult.eliminated);
+      }
+
+      // Flag player elimination for downstream UIs (e.g., jury voting screen)
+      const isPlayerEliminated = votingResult.eliminated === prev.playerName || prev.isPlayerEliminated;
+
       // Set next elimination day
       const nextElimDay = prev.currentDay + 7;
       
@@ -492,6 +502,8 @@ export const useGameState = () => {
         gamePhase: 'elimination' as const,
         nextEliminationDay: nextElimDay,
         immunityWinner: undefined, // Reset immunity
+        juryMembers: updatedJuryMembers.length ? updatedJuryMembers : prev.juryMembers,
+        isPlayerEliminated,
       };
     });
   }, []);
