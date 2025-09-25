@@ -38,6 +38,11 @@ export type InteractionType = 'talk' | 'dm' | 'scheme' | 'activity';
 export interface Choice {
   choiceId: string;
   textVariants: string[];
+  // Optional persona-specific variants for deterministic selection by player persona
+  personaVariants?: {
+    Hero?: string[];
+    Villain?: string[];
+  };
   intent: IntentTag;
   tone: ToneTag;
   topics: TopicTag[];

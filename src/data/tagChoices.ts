@@ -20,6 +20,21 @@ export const TAG_CHOICES: Choice[] = [
     weight: 1.0
   },
   {
+    choiceId: 'TALK_BUILD_ALLY_GAME_SINCERE_2',
+    textVariants: [
+      'Let’s align our games—quietly and precisely.',
+      'You fit how I want to play. Let’s lock it in.',
+      'We’re compatible strategically. Work with me?'
+    ],
+    intent: 'BuildAlliance',
+    tone: 'Sincere',
+    topics: ['Game', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['talk'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+  {
     choiceId: 'TALK_BUILD_ALLY_CHALLENGE_PLAYFUL_1',
     textVariants: [
       'We crushed that last challenge together!',
@@ -80,6 +95,26 @@ export const TAG_CHOICES: Choice[] = [
     weight: 1.0
   },
 
+  // Persona-tailored phrasing (Hero vs Villain) via variants
+  {
+    choiceId: 'TALK_BUILD_ALLY_GAME_PERSONA_1',
+    textVariants: [
+      // Hero voice
+      'We can protect each other and play clean. Team up?',
+      'I want to make moves the right way. With you.',
+      // Villain voice
+      'You and I can control the board. Quietly.',
+      'Let’s corner the narrative together—no apologies.'
+    ],
+    intent: 'BuildAlliance',
+    tone: 'Sincere',
+    topics: ['Game', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['talk'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+
   // ProbeForInfo + All Topics for Talk
   {
     choiceId: 'TALK_PROBE_GAME_NEUTRAL_1',
@@ -94,6 +129,21 @@ export const TAG_CHOICES: Choice[] = [
     targetType: 'Person',
     interactionTypes: ['talk'],
     cooldownDays: 1,
+    weight: 1.0
+  },
+  {
+    choiceId: 'TALK_PROBE_GAME_NEUTRAL_2',
+    textVariants: [
+      'Give me your honest read—who’s pushing which names?',
+      'Who’s coordinating right now, in your view?',
+      'What’s the pattern you’re seeing on votes?'
+    ],
+    intent: 'ProbeForInfo',
+    tone: 'Neutral',
+    topics: ['Game', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['talk'],
+    cooldownDays: 2,
     weight: 1.0
   },
   {
@@ -389,6 +439,21 @@ export const TAG_CHOICES: Choice[] = [
     weight: 1.0
   },
   {
+    choiceId: 'DM_BUILD_ALLY_STRATEGY_SINCERE_2',
+    textVariants: [
+      'Off-record: I want to build something real with you.',
+      'Quietly—let’s protect each other.',
+      'We move better in sync. You in?'
+    ],
+    intent: 'BuildAlliance',
+    tone: 'Sincere',
+    topics: ['Strategy', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+  {
     choiceId: 'DM_BUILD_ALLY_ROMANCE_FLIRTY_1',
     textVariants: [
       'Maybe we should be more than just game allies...',
@@ -430,6 +495,21 @@ export const TAG_CHOICES: Choice[] = [
     intent: 'ProbeForInfo',
     tone: 'Neutral',
     topics: ['Rumor', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 2,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_PROBE_STRATEGY_HARD_NEUTRAL_1',
+    textVariants: [
+      'Names. I need real names—who are you targeting?',
+      'Cut the noise. Who are you voting tonight?',
+      'I won’t leak. Give me the plan, no fluff.'
+    ],
+    intent: 'ProbeForInfo',
+    tone: 'Neutral',
+    topics: ['Strategy', 'Game'],
     targetType: 'Person',
     interactionTypes: ['dm'],
     cooldownDays: 2,
@@ -483,6 +563,100 @@ export const TAG_CHOICES: Choice[] = [
     targetType: 'Person',
     interactionTypes: ['dm'],
     cooldownDays: 3,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_SOW_DOUBT_RUMOR_DISMISSIVE_1',
+    textVariants: [
+      '{{target}} talks a lot in private and says nothing in public.',
+      'People keep repeating {{target}}\'s “harmless” slips.',
+      'Watch who {{target}} smiles at right after meetings.'
+    ],
+    intent: 'SowDoubt',
+    tone: 'Dismissive',
+    topics: ['Rumor', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+
+  // RevealSecret + All Topics for DM
+  {
+    choiceId: 'DM_REVEAL_STRATEGY_SINCERE_1',
+    textVariants: [
+      'Nobody else can know this...',
+      'Saw something that changes everything.',
+      'I need you to know what really happened.'
+    ],
+    intent: 'RevealSecret',
+    tone: 'Sincere',
+    topics: ['Strategy', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 5,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_REVEAL_GAME_SINCERE_2',
+    textVariants: [
+      'I covered for you last round. Don\'t waste it.',
+      'You were a target—someone flipped last second.',
+      'Your name leaked. I shut it down.'
+    ],
+    intent: 'RevealSecret',
+    tone: 'Sincere',
+    topics: ['Game', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 4,
+    weight: 1.0
+  },
+
+  // Defensive social (use Deflect/Divert/BoostMorale patterns via DM)
+  {
+    choiceId: 'DM_DEFLECT_RUMOR_APOLOGETIC_1',
+    textVariants: [
+      'I\'m not engaging rumors about me. Ask me direct if you need.',
+      'If you hear my name, come to me. I won’t chase gossip.',
+      'I’m not fueling he-said-she-said. Let’s keep it simple.'
+    ],
+    intent: 'Deflect',
+    tone: 'Apologetic',
+    topics: ['Rumor', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 1,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_DIVERT_PRESSURE_NEUTRAL_1',
+    textVariants: [
+      'Let’s reset. Too much pressure makes bad reads.',
+      'Take a breath—tomorrow we reassess.',
+      'We’re forcing moves. That’s how people implode.'
+    ],
+    intent: 'Divert',
+    tone: 'Neutral',
+    topics: ['Game', 'PersonalHistory'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 1,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_BOOST_MORALE_REASSURE_SINCERE_1',
+    textVariants: [
+      'I vouch for you in rooms. Keep calm—we’re fine.',
+      'You’re good. I’m keeping your name clean.',
+      'Eyes on the long game. We still control our lane.'
+    ],
+    intent: 'BoostMorale',
+    tone: 'Sincere',
+    topics: ['Game', 'PersonalHistory'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 1,
     weight: 1.0
   },
 
@@ -856,6 +1030,139 @@ export const TAG_CHOICES: Choice[] = [
     targetType: 'Person',
     interactionTypes: ['talk'],
     cooldownDays: 2,
+    weight: 1.0
+  },
+
+  // ================= NEW: Stronger public deflections =================
+  {
+    choiceId: 'TALK_DEFLECT_PUBLIC_STRONG_NEUTRAL_1',
+    textVariants: [
+      'Not in public. If you want to talk votes, do it properly.',
+      'I won’t entertain paranoia in front of everyone.',
+      'Table it. Public chaos helps no one.'
+    ],
+    personaVariants: {
+      Hero: [
+        'Let’s not stir things in front of everyone. We can talk later.',
+        'Respect the room—handle vote talk privately.',
+      ],
+      Villain: [
+        'Not giving the cameras a meltdown. Take it offline.',
+        'Save the theatrics. If you have something real, bring it in private.',
+      ]
+    },
+    intent: 'Deflect',
+    tone: 'Dismissive',
+    topics: ['Production', 'Game'],
+    targetType: 'Group',
+    interactionTypes: ['talk'],
+    cooldownDays: 2,
+    weight: 1.0
+  },
+
+  // ================= NEW: Alliance trust tests =================
+  {
+    choiceId: 'TALK_TEST_ALLIANCE_LOYALTY_SINCERE_1',
+    textVariants: [
+      'If we’re solid, you’ll hear a name from me and keep it quiet.',
+      'I need to know you won’t repeat this. Can you handle that?',
+      'I’ll give you a piece—don’t let it travel.'
+    ],
+    personaVariants: {
+      Hero: [
+        'I’m trusting you with this. Please keep it contained.',
+        'This stays between us. I believe you’ll protect it.',
+      ],
+      Villain: [
+        'I leak to see who talks. Don’t make me test you.',
+        'Prove you’re useful—hold this and don’t flinch.',
+      ]
+    },
+    intent: 'ProbeForInfo',
+    tone: 'Sincere',
+    topics: ['Strategy', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['talk', 'dm'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+
+  // ================= NEW: Ultimatum schemes =================
+  {
+    choiceId: 'SCHEME_ULTIMATUM_BLOCK_AGGRESSIVE_1',
+    textVariants: [
+      'Pick a side now or I assume you’re against me.',
+      'You’re either with us tonight or you’re a number for them.',
+      'No more neutral—commit or be treated like opposition.'
+    ],
+    personaVariants: {
+      Hero: [
+        'We need clarity. If you’re with us, show it tonight.',
+        'I won’t bully you, but I need a real commitment.',
+      ],
+      Villain: [
+        'Choose now. Waver and I’ll make sure it costs you.',
+        'Fence-sitters get burned. Decide.',
+      ]
+    },
+    intent: 'SowDoubt',
+    tone: 'Aggressive',
+    topics: ['Strategy', 'Eviction'],
+    targetType: 'Person',
+    interactionTypes: ['scheme'],
+    cooldownDays: 5,
+    weight: 1.0
+  },
+  {
+    choiceId: 'SCHEME_ULTIMATUM_COUNTERMOVE_AGGRESSIVE_1',
+    textVariants: [
+      'If they move on me, I move on them. Pass that along.',
+      'You can stop a war or start one. Your call.',
+      'Try me and see how loud it gets.'
+    ],
+    personaVariants: {
+      Hero: [
+        'I’ll defend myself, but I’d rather we avoid escalation.',
+        'I prefer peace. Don’t force me to play messy.',
+      ],
+      Villain: [
+        'Push me and I’ll set the house on fire—socially.',
+        'Make it ugly and I’ll make it unforgettable.',
+      ]
+    },
+    intent: 'SowDoubt',
+    tone: 'Aggressive',
+    topics: ['Strategy', 'Rumor'],
+    targetType: 'Person',
+    interactionTypes: ['scheme'],
+    cooldownDays: 5,
+    weight: 1.0
+  },
+
+  // ================= NEW: Hard strategic moves (public pressure) =================
+  {
+    choiceId: 'TALK_PRESSURE_PUBLIC_STRATEGY_NEUTRAL_1',
+    textVariants: [
+      'Numbers matter: say who you’re voting now.',
+      'We’re clarifying the vote. Name your target.',
+      'No smoke—state your plan.'
+    ],
+    personaVariants: {
+      Hero: [
+        'Let’s align on facts. Who are you voting?',
+        'We need transparency to avoid chaos—who’s your vote?',
+      ],
+      Villain: [
+        'Stop hiding. Say your target now.',
+        'If you’re scared to show your vote, we’ll remember.',
+      ]
+    },
+    intent: 'ProbeForInfo',
+    tone: 'Neutral',
+    topics: ['Game', 'Eviction'],
+    targetType: 'Group',
+    interactionTypes: ['talk'],
+    cooldownDays: 3,
     weight: 1.0
   }
 ];

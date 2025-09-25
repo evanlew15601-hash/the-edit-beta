@@ -49,6 +49,28 @@ export interface ReactionSummary {
   take: ReactionTake;
   context: 'public' | 'private' | 'scheme' | 'activity';
   notes?: string;
+  // Optional: surface actual applied outcome deltas for the last choice
+  // These are scaled to game points (e.g., trust -100..100, suspicion 0..100)
+  deltas?: {
+    trust?: number;
+    suspicion?: number;
+    entertainment?: number;
+    influence?: number;
+  };
+}
+
+export interface LastTagOutcome {
+  choiceId: string;
+  intent: string;
+  topic: string;
+  outcome: {
+    trustDelta: number;
+    suspicionDelta: number;
+    entertainmentDelta: number;
+    influenceDelta: number;
+    category: 'positive' | 'neutral' | 'negative';
+    notes?: string;
+  };
 }
 
 export interface GameState {
@@ -81,6 +103,7 @@ export interface GameState {
   immunityWinner?: string; // Who won immunity this week
   juryMembers?: string[]; // Who is on the jury (odd number to avoid ties)
   finaleSpeechesGiven?: boolean; // Track finale speeches
+  finaleSpeech?: string; // Store player's finale speech for jury consideration
   aiSettings: AISettings; // Controls reply depth and additions
   // New: queue of NPC-initiated forced conversations (at least one per day)
   forcedConversationsQueue?: { from: string; topic: string; urgency: 'casual' | 'important'; day: number }[];
@@ -89,9 +112,15 @@ export interface GameState {
   // New: local interaction log for viral moments and memory tab
   interactionLog?: InteractionLogEntry[];
   tagChoiceCooldowns?: { [key: string]: number };
+  lastTagOutcome?: LastTagOutcome; // For debugging/verification of tag engine integration
+  // Persistent Reaction Profiles (computed at start and updated incrementally)
+  reactionProfiles?: { [npcIdOrName: string]: import('./tagDialogue').ReactionProfile };
+  // Debug flag to surface dev-only UI
+  debugMode?: boolean;
   // Post-game data
   gameWinner?: string;
   finalJuryVotes?: { [juryMember: string]: string };
+  juryRationales?: { [juryMember: string]: string };
   isPlayerEliminated?: boolean;
   afpVote?: string;
   afpRanking?: { name: string; score: number }[];

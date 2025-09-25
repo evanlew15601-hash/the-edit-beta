@@ -266,6 +266,164 @@ export class EnhancedEmergentEvents {
       });
     }
 
+    // Subtle mid-game intrigue events (low-amplitude, frequentable)
+    // Whisper network ping
+    if (gameState.currentDay % 3 === 0 && !this.eventHistory.includes(`whisper_${gameState.currentDay}`)) {
+      const partner = activeContestants.find(c => c.name !== gameState.playerName)?.name || '';
+      events.push({
+        id: `whisper_${gameState.currentDay}`,
+        title: 'Whisper Network',
+        description: `${partner} heard something about a name being floated. It might be nothing—or not.`,
+        type: 'social_drama',
+        day: gameState.currentDay,
+        participants: [gameState.playerName, partner].filter(Boolean),
+        choices: [
+          {
+            id: 'probe_quietly',
+            text: 'Probe quietly',
+            description: 'Ask around without tipping your hand',
+            consequences: {
+              immediate: 'You learn fragments, but your interest is noticed by a few',
+              longTerm: 'Mild suspicion; potential intel later'
+            },
+            relationshipEffects: activeContestants.slice(0, 2).reduce((acc, c) =>
+              c.name !== gameState.playerName ? { ...acc, [c.name]: -2 } : acc, {}),
+            trustEffects: {},
+            editEffect: 2
+          },
+          {
+            id: 'ignore_for_now',
+            text: 'Ignore for now',
+            description: 'Don’t feed the rumor mill',
+            consequences: {
+              immediate: 'Nothing changes visibly',
+              longTerm: 'You remain out of this thread'
+            },
+            relationshipEffects: {},
+            trustEffects: {},
+            editEffect: -1
+          },
+          {
+            id: 'seed_counter_rumor',
+            text: 'Seed a soft counter-rumor',
+            description: 'Float a vague alternative narrative',
+            consequences: {
+              immediate: 'Slightly redirects attention elsewhere',
+              longTerm: 'May boomerang later'
+            },
+            relationshipEffects: activeContestants.slice(0, 3).reduce((acc, c) =>
+              c.name !== gameState.playerName ? { ...acc, [c.name]: -3 } : acc, {}),
+            trustEffects: {},
+            editEffect: 4
+          }
+        ]
+      });
+    }
+
+    // Misquote leak (trust shift)
+    if (recentInteractions.some(log => log.type === 'talk') && !this.eventHistory.includes(`misquote_${gameState.currentDay}`)) {
+      const p1 = activeContestants[0]?.name || '';
+      const p2 = activeContestants[1]?.name || '';
+      events.push({
+        id: `misquote_${gameState.currentDay}`,
+        title: 'Misquote Spreads',
+        description: `A comment you made about ${p1} is being repeated with extra spice.`,
+        type: 'trust_shift',
+        day: gameState.currentDay,
+        participants: [gameState.playerName, p1, p2].filter(Boolean),
+        choices: [
+          {
+            id: 'clarify_privately',
+            text: 'Clarify privately',
+            description: 'Speak to them one-on-one to de-escalate',
+            consequences: {
+              immediate: 'Tension cools, but gossipers remain active',
+              longTerm: 'Trust trend stabilizes'
+            },
+            relationshipEffects: { [p1]: 3 },
+            trustEffects: { [p1]: 6 },
+            editEffect: -1
+          },
+          {
+            id: 'public_correction',
+            text: 'Public correction',
+            description: 'Correct the record in front of others',
+            consequences: {
+              immediate: 'You look assertive; some think you’re defensive',
+              longTerm: 'Gossip reduces, but image shifts'
+            },
+            relationshipEffects: {},
+            trustEffects: activeContestants.reduce((acc, c) =>
+              c.name === p1 ? { ...acc, [c.name]: 4 } : acc, {}),
+            editEffect: 5
+          },
+          {
+            id: 'play_it_off',
+            text: 'Play it off',
+            description: 'Don’t dignify it; keep moving',
+            consequences: {
+              immediate: 'Some believe the misquote; others move on',
+              longTerm: 'Minor lingering suspicion'
+            },
+            relationshipEffects: {},
+            trustEffects: { [p1]: -4 },
+            editEffect: 2
+          }
+        ]
+      });
+    }
+
+    // Soft betrayal hint (strategy leak style)
+    if (playerAlliances.length && !this.eventHistory.includes(`soft_betrayal_${gameState.currentDay}`)) {
+      const allied = playerAlliances[0].members.find(m => m !== gameState.playerName) || '';
+      events.push({
+        id: `soft_betrayal_${gameState.currentDay}`,
+        title: 'Soft Betrayal Hint',
+        description: `${allied} was seen talking alone with someone pushing your name.`,
+        type: 'strategy_leak',
+        day: gameState.currentDay,
+        participants: [gameState.playerName, allied].filter(Boolean),
+        choices: [
+          {
+            id: 'test_loyalty',
+            text: 'Test loyalty quietly',
+            description: 'Offer them a small piece of info and watch what happens',
+            consequences: {
+              immediate: 'They feel included; the info may travel',
+              longTerm: 'You learn their true reliability'
+            },
+            relationshipEffects: { [allied]: 2 },
+            trustEffects: { [allied]: 3 },
+            editEffect: 3
+          },
+          {
+            id: 'set_trap',
+            text: 'Set a simple trap',
+            description: 'Leak a harmless decoy and trace the path',
+            consequences: {
+              immediate: 'If it spreads, you’ll know',
+              longTerm: 'Potential confrontation later'
+            },
+            relationshipEffects: {},
+            trustEffects: { [allied]: -2 },
+            editEffect: 6
+          },
+          {
+            id: 'let_it_slide',
+            text: 'Let it slide',
+            description: 'Don’t overreact; maintain the relationship',
+            consequences: {
+              immediate: 'Calm water—for now',
+              longTerm: 'Possible blind spot later'
+            },
+            relationshipEffects: { [allied]: 1 },
+            trustEffects: {},
+            editEffect: -1
+          }
+        ]
+      });
+    }
+
     // Select event based on narrative consistency
     if (events.length === 0) return null;
     

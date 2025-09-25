@@ -130,7 +130,10 @@ export const evaluateChoice = (
 ): ComputedOutcome => {
   const topic = choice.topics[0];
   const base = (BASE_EFFECTS[choice.intent]?.[topic] || DEFAULT_BASE);
-  const profile = getReactionProfileForNPC(npc);
+
+  // Prefer persistent profile if present in game state
+  const persisted = (gameState as any).reactionProfiles?.[npc.id] || (gameState as any).reactionProfiles?.[npc.name];
+  const profile = persisted || getReactionProfileForNPC(npc);
 
   const affinity = profile.topicAffinity[topic] ?? 0.6;
   const toneMod = profile.toneSensitivity[choice.tone] ?? 1;

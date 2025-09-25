@@ -10,6 +10,7 @@ import { EnhancedInformationPanel } from './EnhancedInformationPanel';
 import { EnhancedTagDialogueEngine } from './EnhancedTagDialogueEngine';
 import { EnhancedEmergentEvents } from './EnhancedEmergentEvents';
 import { AllianceIntelligencePanel } from './AllianceIntelligencePanel';
+import { AIOutcomeDebug } from './AIOutcomeDebug';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -35,6 +36,9 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           actionType={gameState.lastActionType}
           reactionSummary={gameState.lastAIReaction}
         />
+
+        {/* Debug surface for verifying Tag Dialogue integration (hidden unless debugMode) */}
+        {gameState.debugMode && <AIOutcomeDebug gameState={gameState} />}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Action Panel */}

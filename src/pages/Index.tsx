@@ -119,6 +119,7 @@ const Index = () => {
         return (
           <JuryVoteScreen
             gameState={gameState}
+            playerSpeech={gameState.finaleSpeech}
             onGameEnd={endGame}
           />
         );
