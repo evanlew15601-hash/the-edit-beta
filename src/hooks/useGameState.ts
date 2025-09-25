@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { npcResponseEngine } from '@/utils/npcResponseEngine';
-import { GameState, PlayerAction, ReactionSummary, ReactionTake } from '@/types/game';
+import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant } from '@/types/game';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { AllianceManager } from '@/utils/allianceManager';
@@ -65,7 +65,14 @@ export const useGameState = () => {
 
   const startGame = useCallback((playerName: string) => {
     console.log('Starting game with player:', playerName);
-    const contestants = generateContestants(16).map(c => c.name === playerName ? { ...c, name: playerName } : c);
+
+    // Generate cast and guarantee the player is in it
+    const baseContestants = generateContestants(16);
+    let contestants: Contestant[] = baseContestants;
+    if (!baseContestants.some(c => c.name === playerName)) {
+      const first = baseContestants[0];
+      contestants = [{ ...first, name: playerName }, ...baseContestants.slice(1)];
+    }
 
     // Build initial persistent reaction profiles
     const reactionProfiles: any = {};
@@ -570,6 +577,7 @@ export const useGameState = () => {
         juryMembers: updatedJuryMembers,
         votingHistory: [...prev.votingHistory, votingResult],
         gamePhase: remainingCount === 2 ? 'finale' : 'elimination',
+        isPlayerEliminated: votingResult.eliminated === prev.playerName || prev.isPlayerEliminated,
       };
     });
   }, []);
