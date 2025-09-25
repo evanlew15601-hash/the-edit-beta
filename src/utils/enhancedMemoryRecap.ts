@@ -69,7 +69,7 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
     memoryConfessionals.map(e => ({
       id: `memory-${e.id}`,
       day: e.day,
-      content: e.content.replace(/^Confessional \([^)]+\): "/, '').replace(/"$/, ''),
+      content: e.content.replace(/^Confessional \([^)]+\): \"/, '').replace(/\"$/, ''),
       tone: e.content.match(/Confessional \(([^)]+)\):/)?.[1] || 'strategic',
       editImpact: e.strategicImportance,
       audienceScore: e.emotionalImpact * 10,
@@ -239,4 +239,49 @@ function generateDynamicQuote(gameState: GameState, week: number, playerEvents: 
     default:
       return `Day ${week * 7} and I'm still here. Every day is a victory and I'm not taking anything for granted.`;
   }
+}
+
+// New: Build a per-contestant memory recap for finale dialogs
+export function buildContestantMemoryRecap(gameState: GameState, contestantName: string) {
+  const contestant = gameState.contestants.find(c => c.name === contestantName);
+  if (!contestant) {
+    return {
+      name: contestantName,
+      summary: `No data available.`,
+      topMoments: [],
+      sentiment: 0,
+    };
+  }
+
+  // Recent memories (last 30)
+  const recent = contestant.memory.slice(-30);
+
+  // Compute sentiment and categorize events
+  const sentiment = recent.reduce((sum, m) => sum + m.emotionalImpact, 0);
+  const schemes = recent.filter(m => m.type === 'scheme').length;
+  const talks = recent.filter(m => m.type === 'conversation').length;
+  const betrayals = recent.filter(m => m.content.toLowerCase().includes('betrayal')).length;
+
+  const summaryParts = [];
+  summaryParts.push(`${contestant.name} showed ${schemes} strategic move${schemes !== 1 ? 's' : ''} and ${talks} key conversation${talks !== 1 ? 's' : ''} in recent days.`);
+  if (betrayals > 0) summaryParts.push(`${betrayals} betrayal-related event${betrayals !== 1 ? 's' : ''} impacted perception.`);
+  summaryParts.push(`Overall recent sentiment: ${sentiment >= 0 ? 'positive' : 'negative'} (${sentiment}).`);
+
+  const topMoments = recent
+    .sort((a, b) => Math.abs(b.emotionalImpact) - Math.abs(a.emotionalImpact))
+    .slice(0, 8)
+    .map(m => ({
+      day: m.day,
+      type: m.type,
+      content: m.content,
+      emotionalImpact: m.emotionalImpact,
+      participants: m.participants,
+    }));
+
+  return {
+    name: contestant.name,
+    summary: summaryParts.join(' '),
+    topMoments,
+    sentiment,
+  };
 }

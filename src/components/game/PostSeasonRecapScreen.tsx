@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { buildContestantMemoryRecap } from '@/utils/enhancedMemoryRecap';
 import { GameState } from '@/types/game';
 import { Crown, Trophy, Target, Heart, TrendingUp, Calendar, Users, Zap } from 'lucide-react';
 
@@ -150,36 +151,43 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
               <div className="mt-6">
                 <h4 className="font-medium mb-3">Finalists Memory Recaps</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {gameState.contestants.filter(c => !c.isEliminated).map(finalist => (
-                    <Dialog key={finalist.id}>
-                      <DialogTrigger asChild>
-                        <Button variant="surveillance" className="justify-between">
-                          <span>{finalist.name} — View Memory Recap</span>
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>{finalist.name} — Memory Recap</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-2">
-                          {finalist.memory.slice(-20).reverse().map((m, idx) => (
-                            <div key={idx} className="p-2 border border-border rounded">
-                              <div className="text-sm font-medium">Day {m.day} — {m.type}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {m.content}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Emotional impact: {m.emotionalImpact}
-                              </div>
+                  {gameState.contestants.filter(c => !c.isEliminated).map(finalist => {
+                    const recap = buildContestantMemoryRecap(gameState, finalist.name);
+                    return (
+                      <Dialog key={finalist.id}>
+                        <DialogTrigger asChild>
+                          <Button variant="surveillance" className="justify-between">
+                            <span>{finalist.name} — View Memory Recap</span>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>{finalist.name} — Memory Recap</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-3">
+                            <div className="p-2 border border-border rounded text-sm">
+                              {recap.summary}
                             </div>
-                          ))}
-                          {finalist.memory.length === 0 && (
-                            <div className="text-sm text-muted-foreground">No recorded memories for this finalist.</div>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  ))}
+                            {recap.topMoments.length > 0 ? (
+                              recap.topMoments.map((m, idx) => (
+                                <div key={idx} className="p-2 border border-border rounded">
+                                  <div className="text-sm font-medium">Day {m.day} — {m.type}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {m.content}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Emotional impact: {m.emotionalImpact}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-sm text-muted-foreground">No significant moments recorded for this finalist.</div>
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    );
+                  })}
                 </div>
               </div>
             </Card>
