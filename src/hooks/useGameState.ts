@@ -20,41 +20,53 @@ import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
 export const useGameState = () => {
-  const [gameState, setGameState] = useState<GameState>({
-    currentDay: 1,
-    playerName: '',
-    contestants: [],
-    playerActions: [
-      { type: 'talk', used: false, usageCount: 0 },
-      { type: 'dm', used: false, usageCount: 0 },
-      { type: 'confessional', used: false, usageCount: 0 },
-      { type: 'observe', used: false, usageCount: 0 },
-      { type: 'scheme', used: false, usageCount: 0 },
-      { type: 'activity', used: false, usageCount: 0 }
-    ] as PlayerAction[],
-    confessionals: [],
-    editPerception: {
-      screenTimeIndex: 45,
-      audienceApproval: 0,
-      persona: 'Underedited',
-      lastEditShift: 0
-    },
-    alliances: [],
-    votingHistory: [],
-    gamePhase: 'intro',
-    twistsActivated: [],
-    nextEliminationDay: 7,
-    daysUntilJury: 28,
-    dailyActionCount: 0,
-    dailyActionCap: 10,
-    aiSettings: {
-      depth: 'standard',
-      additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
-    },
-    forcedConversationsQueue: [],
-    favoriteTally: {},
-    interactionLog: [],
-    tagChoiceCooldowns: {},
+  const [gameState, setGameState] = useState<GameState>(() => {
+    // Load from localStorage if available
+    try {
+      const raw = localStorage.getItem('rtv_game_state');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed as GameState;
+      }
+    } catch (e) {
+      console.warn('Failed to load saved game state', e);
+    }
+    return {
+      currentDay: 1,
+      playerName: '',
+      contestants: [],
+      playerActions: [
+        { type: 'talk', used: false, usageCount: 0 },
+        { type: 'dm', used: false, usageCount: 0 },
+        { type: 'confessional', used: false, usageCount: 0 },
+        { type: 'observe', used: false, usageCount: 0 },
+        { type: 'scheme', used: false, usageCount: 0 },
+        { type: 'activity', used: false, usageCount: 0 }
+      ] as PlayerAction[],
+      confessionals: [],
+      editPerception: {
+        screenTimeIndex: 45,
+        audienceApproval: 0,
+        persona: 'Underedited',
+        lastEditShift: 0
+      },
+      alliances: [],
+      votingHistory: [],
+      gamePhase: 'intro',
+      twistsActivated: [],
+      nextEliminationDay: 7,
+      daysUntilJury: 28,
+      dailyActionCount: 0,
+      dailyActionCap: 10,
+      aiSettings: {
+        depth: 'standard',
+        additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
+      },
+      forcedConversationsQueue: [],
+      favoriteTally: {},
+      interactionLog: [],
+      tagChoiceCooldowns: {},
+    } as GameState;
   });
 
   const startGame = useCallback((playerName: string) => {
@@ -98,6 +110,11 @@ export const useGameState = () => {
     };
     console.log('Game started, transitioning to premiere');
     setGameState(newState);
+    try {
+      localStorage.setItem('rtv_game_state', JSON.stringify(newState));
+    } catch (e) {
+      console.warn('Failed to save game state', e);
+    }
   }, []);
 
   const advanceDay = useCallback(() => {
@@ -729,6 +746,11 @@ export const useGameState = () => {
       interactionLog: [],
       tagChoiceCooldowns: {},
     });
+    try {
+      localStorage.removeItem('rtv_game_state');
+    } catch (e) {
+      console.warn('Failed to clear saved game state', e);
+    }
   }, []);
 
   const handleEmergentEventChoice = useCallback((event: any, choice: 'pacifist' | 'headfirst') => {
@@ -875,7 +897,14 @@ export const useGameState = () => {
     return () => window.removeEventListener('skipToJury', handleSkip);
   }, [skipToJury]);
 
-  const handleTieBreakResult = useCallback((eliminated: string, winner1: string, winner2: string) => {
+  const handleTieBreakResult = useCallback((
+    eliminated: string,
+    winner1: string,
+    winner2: string,
+    method?: 'challenge' | 'fire_making' | 'random_draw',
+    results?: { name: string; time: number }[],
+    selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual'
+  ) => {
     setGameState(prev => {
       const newState = { ...prev };
       
@@ -898,14 +927,30 @@ export const useGameState = () => {
         eliminated,
         votes: { [winner1]: 'n/a', [winner2]: 'n/a', [eliminated]: 'n/a' },
         playerVote: prev.votingHistory[prev.votingHistory.length - 1]?.playerVote,
-        reason: `${eliminated} lost Final 3 tie-break challenge`,
+        reason: method
+          ? `${eliminated} lost Final 3 tie-break (${method.replace('_', ' ')})`
+          : `${eliminated} lost Final 3 tie-break challenge`,
         tieBreak: {
           tied: [winner1, winner2, eliminated],
-          method: 'sudden_death' as const,
+          method: method ? (method as 'revote' | 'sudden_death') : 'sudden_death',
           suddenDeathWinner: winner1,
           suddenDeathLoser: eliminated,
-          log: [`Final 3 tie resulted in physical challenge`, `${winner1} and ${winner2} advance to finale`]
+          log: [
+            `Final 3 tie resolved via ${method || 'challenge'}`,
+            `${winner1} and ${winner2} advance to finale`
+          ],
+          revote: undefined
         }
+      };
+
+      // Persist final 3 tie-break metadata for recap
+      newState.final3TieBreak = {
+        day: prev.currentDay,
+        method: method || 'challenge',
+        results,
+        eliminated,
+        winners: [winner1, winner2],
+        selectionReason,
       };
       
       newState.votingHistory = [...prev.votingHistory.slice(0, -1), tieBreakRecord];
@@ -913,6 +958,27 @@ export const useGameState = () => {
       
       return newState;
     });
+  }, []);
+
+  // Auto-save on state changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('rtv_game_state', JSON.stringify(gameState));
+    } catch (e) {
+      console.warn('Failed to auto-save game state', e);
+    }
+  }, [gameState]);
+
+  const loadSavedGame = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('rtv_game_state');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setGameState(parsed as GameState);
+      }
+    } catch (e) {
+      console.warn('Failed to load saved game state', e);
+    }
   }, []);
 
   return {
@@ -937,5 +1003,6 @@ export const useGameState = () => {
     tagTalk,
     handleTieBreakResult,
     proceedToJuryVote,
+    loadSavedGame,
   };
 };

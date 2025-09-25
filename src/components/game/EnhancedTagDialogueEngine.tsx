@@ -3,9 +3,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState, Contestant } from '@/types/game';
+import { GameState } from '@/types/game';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { Brain, Heart, Zap, Shield, Target, Clock } from 'lucide-react';
+import type { Choice, IntentTag, ToneTag, TopicTag } from '@/types/tagDialogue';
 
 interface TagChoice {
   id: string;
@@ -34,17 +35,113 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
     }
   }, [selectedTarget, interactionType, currentDay]);
 
+  const mapIntentToType = (intent: IntentTag): TagChoice['type'] => {
+    switch (intent) {
+      case 'BuildAlliance':
+      case 'ProbeForInfo':
+      case 'RevealSecret':
+        return 'strategic';
+      case 'BoostMorale':
+      case 'Flirt':
+      case 'Divert':
+        return 'emotional';
+      case 'Insult':
+        return 'aggressive';
+      case 'SowDoubt':
+        return 'deceptive';
+      case 'Deflect':
+      default:
+        return 'neutral';
+    }
+  };
+
+  const personalizeText = (text: string, targetName: string, playerPersona: string) => {
+    // Replace hard-coded names like "Alex" or placeholder with the chosen target's name
+    const base = text.replace(/Alex/gi, targetName).replace(/\{\{\s*target\s*\}\}/gi, targetName);
+
+    // Persona-driven voice tweaks for the player
+    switch (playerPersona) {
+      case 'Villain':
+      case 'Antagonist':
+      case 'Troublemaker':
+        return base.replace(/just/g, 'simply').replace(/maybe/g, 'clearly');
+      case 'Hero':
+      case 'Fan Favorite':
+      case 'Contender':
+        return base.replace(/idiot/gi, 'short-sighted').replace(/pathetic/gi, 'weak');
+      case 'Comic Relief':
+      case 'Class Clown':
+        return base + ' 😅';
+      case 'Mastermind':
+      case 'Puppet Master':
+      case 'Strategic Player':
+        return base.replace(/plan/gi, 'framework').replace(/strategy/gi, 'architecture');
+      default:
+        return base;
+    }
+  };
+
+  const pickVariant = (choice: Choice): string => {
+    const variants = choice.textVariants || [];
+    if (!variants.length) return '';
+    const idx = Math.floor(Math.random() * variants.length);
+    return variants[idx];
+  };
+
+  const toTagChoice = (choice: Choice, targetName: string): TagChoice => {
+    const text = personalizeText(pickVariant(choice), targetName, gameState.editPerception.persona);
+    const type = mapIntentToType(choice.intent);
+    const cooldown = choice.cooldownDays || 0;
+    // Lightweight consequence hints based on intent
+    const consequences = (() => {
+      switch (choice.intent) {
+        case 'BuildAlliance':
+          return ['May strengthen trust', 'Could create visible ties'];
+        case 'ProbeForInfo':
+          return ['Gain intel', 'May raise suspicion'];
+        case 'SowDoubt':
+          return ['Undermine opponent', 'Risk blowback'];
+        case 'BoostMorale':
+          return ['Improve mood', 'Minimal strategic impact'];
+        case 'Flirt':
+          return ['Build bond', 'May shift perception'];
+        case 'Insult':
+          return ['Increase tension', 'Potential social fallout'];
+        case 'MakeJoke':
+          return ['Lighten mood', 'May seem unserious'];
+        case 'RevealSecret':
+          return ['Share leverage', 'Risk trust if exposed'];
+        case 'Deflect':
+          return ['Avoid topic', 'May seem evasive'];
+        case 'Divert':
+          return ['Change focus', 'Reduce pressure'];
+        default:
+          return [];
+      }
+    })();
+    return {
+      id: choice.choiceId,
+      text,
+      type,
+      consequences,
+      cooldown,
+    };
+  };
+
   const generateContextualChoices = () => {
     const target = contestants.find(c => c.name === selectedTarget);
     if (!target) return;
 
-    const baseChoices = TAG_CHOICES[interactionType] || [];
-    
+    // Base choices from data filtered by interaction type
+    const baseChoicesFromData: TagChoice[] = TAG_CHOICES
+      .filter((c: Choice) => (c.interactionTypes || []).includes(interactionType))
+      .map((c: Choice) => toTagChoice(c, target.name));
+
     // Enhanced choices based on relationship and context
     const enhancedChoices: TagChoice[] = [
-      ...baseChoices,
-      
-      // High trust relationships - variety of strategic options
+      ...baseChoicesFromData,
+
+      // High trust relationships
       ...(target.psychProfile.trustLevel > 70 ? [
         {
           id: `share-strategy-${target.name}`,
@@ -68,8 +165,8 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 3
         }
       ] : []),
-      
-      // Medium trust - balanced approach
+
+      // Medium trust
       ...(target.psychProfile.trustLevel >= 30 && target.psychProfile.trustLevel <= 70 ? [
         {
           id: `test-loyalty-${target.name}`,
@@ -100,8 +197,8 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 2
         }
       ] : []),
-      
-      // Low trust - repair or exploit
+
+      // Low trust
       ...(target.psychProfile.trustLevel < 30 ? [
         {
           id: `damage-control-${target.name}`,
@@ -132,8 +229,8 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 4
         }
       ] : []),
-      
-      // Disposition-based choices with variety
+
+      // Disposition-based choices
       ...(target.psychProfile.disposition.includes('Paranoid') ? [
         {
           id: `reassure-${target.name}`,
@@ -150,7 +247,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 4
         }
       ] : []),
-      
+
       ...(target.psychProfile.disposition.includes('Strategic') ? [
         {
           id: `strategic-discussion-${target.name}`,
@@ -160,7 +257,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 3
         }
       ] : []),
-      
+
       ...(target.psychProfile.disposition.includes('Social') ? [
         {
           id: `social-bonding-${target.name}`,
@@ -170,7 +267,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 1
         }
       ] : []),
-      
+
       // Game phase specific choices
       ...(gameState.gamePhase === 'player_vote' || gameState.currentDay === gameState.nextEliminationDay ? [
         {
@@ -181,7 +278,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           cooldown: 7
         }
       ] : []),
-      
+
       // Alliance-based choices
       ...(gameState.alliances.some(a => a.members.includes(target.name) && a.members.includes(playerName)) ? [
         {
@@ -190,6 +287,41 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           type: 'strategic' as const,
           consequences: ['Strengthen alliance', 'Exclude other members'],
           cooldown: 2
+        }
+      ] : []),
+
+      // Additional variety for DM and Scheme formats
+      ...(interactionType === 'dm' ? [
+        {
+          id: `backchannel-${target.name}`,
+          text: `Start a backchannel with ${target.name}—quiet updates only`,
+          type: 'strategic' as const,
+          consequences: ['Private intel flow', 'Risk logs leaking'],
+          cooldown: 2
+        },
+        {
+          id: `midnight-checkin-${target.name}`,
+          text: `Late-night check-in with ${target.name}—reset trust`,
+          type: 'emotional' as const,
+          consequences: ['Rebuild rapport', 'May look suspicious'],
+          cooldown: 2
+        }
+      ] : []),
+
+      ...(interactionType === 'scheme' ? [
+        {
+          id: `fake-leak-${target.name}`,
+          text: `Prime ${target.name} with a controlled fake leak`,
+          type: 'deceptive' as const,
+          consequences: ['Test their loyalty', 'High risk if traced'],
+          cooldown: 4
+        },
+        {
+          id: `misdirect-${target.name}`,
+          text: `Misdirect ${target.name} toward a decoy target`,
+          type: 'strategic' as const,
+          consequences: ['Protect true plan', 'May reduce trust'],
+          cooldown: 3
         }
       ] : [])
     ];
@@ -200,7 +332,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
       return !cooldownEnd || currentDay >= cooldownEnd;
     });
 
-    setAvailableChoices(filteredChoices.slice(0, 8)); // Limit to 8 choices for UI
+    setAvailableChoices(filteredChoices.slice(0, 10)); // Slightly more variety
   };
 
   const getChoiceIcon = (type: TagChoice['type']) => {
@@ -231,6 +363,41 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
   const availableTargets = contestants.filter(c => !c.isEliminated && c.name !== playerName);
 
   if (availableTargets.length === 0) return null;
+
+  // Tone-aware preview based on target heuristics
+  const computeOutcomePreview = (choiceId: string, targetName: string) => {
+    const target = contestants.find(c => c.name === targetName);
+    if (!target) return { trust: 0, suspicion: 0, influence: 0, entertainment: 0 };
+    // Heuristics from psychProfile and interaction type
+    const disp = target.psychProfile.disposition.join(' ').toLowerCase();
+    const baseTrust = interactionType === 'talk' ? 0.1 : interactionType === 'dm' ? 0.12 : interactionType === 'scheme' ? -0.05 : 0.08;
+    const baseSusp = interactionType === 'scheme' ? 0.12 : interactionType === 'dm' ? 0.06 : 0.04;
+    const isParanoid = disp.includes('paranoid');
+    const isStrategic = disp.includes('strategic');
+    const isSocial = disp.includes('social');
+
+    let trust = baseTrust;
+    let suspicion = baseSusp;
+    let influence = isStrategic ? 0.1 : 0.05;
+    let entertainment = isSocial ? 0.08 : 0.05;
+
+    // Tweak by intent from choiceId suffixes
+    if (choiceId.includes('BUILD_ALLY')) { trust += 0.08; suspicion -= 0.04; }
+    if (choiceId.includes('SOW_DOUBT')) { trust -= 0.06; suspicion += isParanoid ? 0.12 : 0.08; influence += 0.1; }
+    if (choiceId.includes('REVEAL')) { trust += 0.06; suspicion += 0.03; influence += 0.08; }
+    if (choiceId.includes('INSULT')) { trust -= 0.12; suspicion += 0.1; entertainment += 0.06; }
+    if (choiceId.includes('FLIRT')) { trust += 0.05; suspicion -= 0.02; entertainment += 0.1; }
+    if (choiceId.includes('JOKE')) { entertainment += 0.12; trust += 0.02; }
+    if (choiceId.includes('DEFLECT')) { trust -= 0.02; suspicion += 0.05; }
+    if (choiceId.includes('PROBE')) { influence += 0.08; suspicion += isParanoid ? 0.08 : 0.05; }
+
+    return {
+      trust: Math.round(trust * 100) / 100,
+      suspicion: Math.round(suspicion * 100) / 100,
+      influence: Math.round(influence * 100) / 100,
+      entertainment: Math.round(entertainment * 100) / 100,
+    };
+  };
 
   return (
     <Card className="p-6">
@@ -281,6 +448,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
               {availableChoices.map((choice) => {
                 const cooldownDays = getRemainingCooldown(choice.id);
                 const isOnCooldown = cooldownDays > 0;
+                const outcome = computeOutcomePreview(choice.id, selectedTarget);
                 
                 return (
                   <div 
@@ -320,6 +488,21 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
                               • {consequence}
                             </p>
                           ))}
+                        </div>
+                        <div className="mt-2 text-[11px] text-muted-foreground">
+                          Likely effects: 
+                          <span className={outcome.trust > 0 ? 'text-edit-hero ml-1' : 'text-edit-villain ml-1'}>
+                            Trust {outcome.trust > 0 ? '+' : ''}{outcome.trust}
+                          </span>
+                          <span className={outcome.suspicion > 0 ? 'text-edit-villain ml-2' : 'text-edit-hero ml-2'}>
+                            Suspicion {outcome.suspicion > 0 ? '+' : ''}{outcome.suspicion}
+                          </span>
+                          <span className="ml-2">
+                            Influence {outcome.influence > 0 ? '+' : ''}{outcome.influence}
+                          </span>
+                          <span className="ml-2">
+                            Entertainment {outcome.entertainment > 0 ? '+' : ''}{outcome.entertainment}
+                          </span>
                         </div>
                       </div>
                     </div>

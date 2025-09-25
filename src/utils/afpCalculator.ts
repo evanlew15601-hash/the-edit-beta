@@ -9,22 +9,25 @@ interface AFPCandidate {
 }
 
 export const calculateAFPRanking = (gameState: GameState, playerVote?: string): AFPCandidate[] => {
-  // Get final 4 contestants for AFP eligibility
-  const finalFour = gameState.contestants
-    .filter(c => !c.isEliminated || (c.eliminationDay && c.eliminationDay >= gameState.currentDay - 2))
-    .slice(0, 4);
+  // Eligibility: all contestants who made jury or deeper (common AFP pool),
+  // but if fewer, include everyone to avoid empty results.
+  const eligible = (() => {
+    const jurySet = new Set(gameState.juryMembers || []);
+    const fromJury = gameState.contestants.filter(c => jurySet.has(c.name));
+    return fromJury.length >= 5 ? fromJury : gameState.contestants;
+  })();
 
-  const afpCandidates: AFPCandidate[] = finalFour.map(contestant => {
+  const afpCandidates: AFPCandidate[] = eligible.map(contestant => {
     // Calculate edit perception score (40% of total)
     const editScore = calculateEditScore(contestant, gameState);
     
-    // Calculate game performance score (40% of total)  
+    // Calculate game performance score (35% of total)  
     const gameScore = calculateGameScore(contestant, gameState);
     
-    // Calculate audience vote simulation (20% of total)
+    // Calculate audience vote simulation (25% of total)
     const audienceScore = calculateAudienceScore(contestant, gameState, playerVote);
     
-    const totalScore = (editScore * 0.4) + (gameScore * 0.4) + (audienceScore * 0.2);
+    const totalScore = (editScore * 0.4) + (gameScore * 0.35) + (audienceScore * 0.25);
     
     return {
       name: contestant.name,
@@ -35,8 +38,15 @@ export const calculateAFPRanking = (gameState: GameState, playerVote?: string): 
     };
   });
 
-  // Sort by total score descending
-  return afpCandidates.sort((a, b) => b.score - a.score);
+  // Sort by total score descending and normalize scores to 0-100 band for display consistency
+  const ranked = afpCandidates.sort((a, b) => b.score - a.score);
+  const maxScore = ranked[0]?.score || 1;
+  const normalized = ranked.map(c => ({
+    ...c,
+    score: Math.min(100, Math.max(0, (c.score / maxScore) * 100))
+  }));
+
+  return normalized;
 };
 
 function calculateEditScore(contestant: any, gameState: GameState): number {
@@ -105,6 +115,16 @@ function calculateAudienceScore(contestant: any, gameState: GameState, playerVot
   ).length;
   score += Math.min(socialConnections, 15);
   
+  // Weekly audience signals from favoriteTally
+  const tallies = gameState.favoriteTally || {};
+  const maxTally = Object.values(tallies).length ? Math.max(...Object.values(tallies)) : 0;
+  const contestantTally = tallies[contestant.name] || 0;
+  if (maxTally > 0) {
+    // Scale to up to +25 points
+    const bonus = Math.min(25, (contestantTally / maxTally) * 25);
+    score += bonus;
+  }
+
   // Penalty for being too strategic/ruthless
   if (contestant.publicPersona.includes('ruthless')) score -= 10;
   if (contestant.publicPersona.includes('manipulative')) score -= 15;

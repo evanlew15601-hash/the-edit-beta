@@ -114,9 +114,10 @@ export const TAG_CHOICES: Choice[] = [
   {
     choiceId: 'TALK_PROBE_ROMANCE_PLAYFUL_1',
     textVariants: [
-      'So what\'s the deal with you and Alex?',
+      'So what\'s the deal with you and {{target}}?',
       'Spill the tea on the house romance.',
-      'Come on, give me the relationship gossip.'
+      'Come on, give me the relationship gossip.',
+      'Is there something going on between you and {{target}}?'
     ],
     intent: 'ProbeForInfo',
     tone: 'Playful',
@@ -178,9 +179,10 @@ export const TAG_CHOICES: Choice[] = [
   {
     choiceId: 'TALK_SOW_DOUBT_STRATEGY_SARCASTIC_1',
     textVariants: [
-      'Funny how Alex is suddenly everyone\'s best friend.',
-      'Wild that Alex found time to charm the whole house overnight.',
-      'Interesting strategy Alex has been playing lately.'
+      'Funny how {{target}} is suddenly everyone\'s best friend.',
+      'Wild that {{target}} found time to charm the whole house overnight.',
+      'Interesting strategy {{target}} has been playing lately.',
+      'Feels like {{target}} is trying too hard this week.'
     ],
     intent: 'SowDoubt',
     tone: 'Sarcastic',
@@ -470,9 +472,10 @@ export const TAG_CHOICES: Choice[] = [
   {
     choiceId: 'DM_SOW_DOUBT_STRATEGY_SARCASTIC_1',
     textVariants: [
-      'Funny how Alex suddenly cares about loyalty.',
-      'Notice how Alex\'s story keeps changing?',
-      'Think Alex is playing you? Just saying.'
+      'Funny how {{target}} suddenly cares about loyalty.',
+      'Notice how {{target}}\'s story keeps changing?',
+      'Think {{target}} is playing you? Just saying.',
+      '{{target}} keeps making promises that don\'t add up.'
     ],
     intent: 'SowDoubt',
     tone: 'Sarcastic',
@@ -506,9 +509,10 @@ export const TAG_CHOICES: Choice[] = [
   {
     choiceId: 'SCHEME_SOW_DOUBT_STRATEGY_AGGRESSIVE_1',
     textVariants: [
-      'Alex is playing everyone. Time to expose them.',
-      'We need to turn people against Alex before it\'s too late.',
-      'Alex thinks they\'re untouchable. Let\'s prove them wrong.'
+      '{{target}} is playing everyone. Time to expose them.',
+      'We need to turn people against {{target}} before it\'s too late.',
+      '{{target}} thinks they\'re untouchable. Let\'s prove them wrong.',
+      'Let\'s start planting seeds against {{target}} now.'
     ],
     intent: 'SowDoubt',
     tone: 'Aggressive',
@@ -604,9 +608,10 @@ export const TAG_CHOICES: Choice[] = [
   {
     choiceId: 'SCHEME_INSULT_STRATEGY_AGGRESSIVE_1',
     textVariants: [
-      'Alex is an idiot if they think this will work.',
-      'Time to show everyone how pathetic Alex really is.',
-      'Alex\'s strategy is so bad it\'s embarrassing.'
+      '{{target}} is an idiot if they think this will work.',
+      'Time to show everyone how pathetic {{target}} really is.',
+      '{{target}}\'s strategy is so bad it\'s embarrassing.',
+      '{{target}} keeps fumbling basic moves.'
     ],
     intent: 'Insult',
     tone: 'Aggressive',
@@ -823,9 +828,10 @@ export const TAG_CHOICES: Choice[] = [
   {
     choiceId: 'SCHEME_SOW_DOUBT_FOOD_DISMISSIVE_1',
     textVariants: [
-      'Notice how Alex always eats alone?',
-      'Weird how Alex hoards food but acts generous.',
-      'Food behavior reveals true character.'
+      'Notice how {{target}} always eats alone?',
+      'Weird how {{target}} hoards food but acts generous.',
+      'Food behavior reveals true character.',
+      '{{target}}\'s kitchen behavior is telling.'
     ],
     intent: 'SowDoubt',
     tone: 'Dismissive',

@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { buildContestantMemoryRecap } from '@/utils/enhancedMemoryRecap';
 import { GameState } from '@/types/game';
 import { Crown, Trophy, Target, Heart, TrendingUp, Calendar, Users, Zap } from 'lucide-react';
 
@@ -48,10 +50,11 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
 
         {/* Tabbed Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="stats">Statistics</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="final3">Final 3 Tie-Break</TabsTrigger>
             <TabsTrigger value="awards">Awards</TabsTrigger>
           </TabsList>
 
@@ -142,6 +145,50 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Finalists Memory Recap Links */}
+              <div className="mt-6">
+                <h4 className="font-medium mb-3">Finalists Memory Recaps</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {gameState.contestants.filter(c => !c.isEliminated).map(finalist => {
+                    const recap = buildContestantMemoryRecap(gameState, finalist.name);
+                    return (
+                      <Dialog key={finalist.id}>
+                        <DialogTrigger asChild>
+                          <Button variant="surveillance" className="justify-between">
+                            <span>{finalist.name} — View Memory Recap</span>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>{finalist.name} — Memory Recap</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-3">
+                            <div className="p-2 border border-border rounded text-sm">
+                              {recap.summary}
+                            </div>
+                            {recap.topMoments.length > 0 ? (
+                              recap.topMoments.map((m, idx) => (
+                                <div key={idx} className="p-2 border border-border rounded">
+                                  <div className="text-sm font-medium">Day {m.day} — {m.type}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {m.content}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Emotional impact: {m.emotionalImpact}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-sm text-muted-foreground">No significant moments recorded for this finalist.</div>
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    );
+                  })}
+                </div>
               </div>
             </Card>
           </TabsContent>
@@ -267,7 +314,7 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                         </div>
                         {vote.tieBreak && (
                           <div className="text-xs text-primary mt-1">
-                            Tie-break resolution occurred
+                            Tie-break: {vote.tieBreak.method === 'revote' ? 'Revote' : 'Sudden Death'}
                           </div>
                         )}
                       </div>
@@ -288,6 +335,70 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                   </div>
                 </div>
               </ScrollArea>
+            </Card>
+          </TabsContent>
+
+          {/* Final 3 Tie-Break Recap */}
+          <TabsContent value="final3" className="space-y-6">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-primary" />
+                <h3 className="text-xl font-medium">Final 3 Tie-Break</h3>
+              </div>
+
+              {!gameState.final3TieBreak ? (
+                <div className="p-4 border border-border rounded text-sm text-muted-foreground">
+                  No 1-1-1 tie occurred during the Final 3.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 border border-border rounded">
+                    <div className="font-medium">Method</div>
+                    <div className="text-sm text-muted-foreground capitalize">
+                      {gameState.final3TieBreak.method.replace('_', ' ')}
+                    </div>
+                  </div>
+
+                  {gameState.final3TieBreak.selectionReason && (
+                    <div className="p-4 border border-border rounded">
+                      <div className="font-medium">How the route was chosen</div>
+                      <div className="text-sm text-muted-foreground">
+                        {gameState.final3TieBreak.selectionReason === 'player_persuasion' && 'Chosen via player persuasion (the group agreed to the player’s proposal).'}
+                        {gameState.final3TieBreak.selectionReason === 'npc_choice' && 'NPCs selected the route after declining the player’s proposal.'}
+                        {gameState.final3TieBreak.selectionReason === 'manual' && 'Route chosen directly without persuasion.'}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-4 border border-border rounded">
+                    <div className="font-medium">Outcome</div>
+                    <div className="text-sm text-muted-foreground">
+                      Eliminated: <span className="font-medium">{gameState.final3TieBreak.eliminated}</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Advanced to Final 2: <span className="font-medium">{gameState.final3TieBreak.winners.join(', ')}</span>
+                    </div>
+                  </div>
+
+                  {(gameState.final3TieBreak.results && gameState.final3TieBreak.results.length > 0) && (
+                    <Card className="p-4">
+                      <h4 className="font-medium mb-2">Challenge Results</h4>
+                      <div className="space-y-2">
+                        {gameState.final3TieBreak.results
+                          ?.sort((a, b) => a.time - b.time)
+                          .map((res, idx) => (
+                            <div key={res.name} className={`flex justify-between p-2 border rounded ${idx < 2 ? 'border-primary/20 bg-primary/10' : 'border-destructive/20 bg-destructive/10'}`}>
+                              <span className={res.name === gameState.playerName ? 'text-primary font-medium' : 'font-medium'}>
+                                {res.name}{res.name === gameState.playerName ? ' (You)' : ''}
+                              </span>
+                              <span className="text-sm">{Math.floor(res.time / 60)}:{Math.floor(res.time % 60).toString().padStart(2, '0')}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              )}
             </Card>
           </TabsContent>
 
@@ -353,6 +464,14 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                   <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded">
                     <p className="text-sm">
                       <strong>Your Vote:</strong> You voted for {gameState.afpVote} as America's Favorite Player.
+                    </p>
+                  </div>
+                )}
+
+                {gameState.favoriteTally && Object.keys(gameState.favoriteTally).length > 0 && (
+                  <div className="mt-4 p-3 bg-muted/50 border border-border rounded">
+                    <p className="text-xs text-muted-foreground">
+                      Weekly audience signals influenced AFP scoring based on favoriteTally.
                     </p>
                   </div>
                 )}

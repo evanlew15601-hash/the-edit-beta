@@ -95,6 +95,15 @@ export interface GameState {
   isPlayerEliminated?: boolean;
   afpVote?: string;
   afpRanking?: { name: string; score: number }[];
+  // Final 3 tie-break metadata for recap screens
+  final3TieBreak?: {
+    day: number;
+    method: 'challenge' | 'fire_making' | 'random_draw';
+    results?: { name: string; time: number }[];
+    eliminated: string;
+    winners: string[];
+    selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual';
+  };
 }
 
 export interface Confessional {
