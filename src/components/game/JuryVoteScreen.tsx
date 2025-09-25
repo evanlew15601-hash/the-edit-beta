@@ -18,6 +18,14 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   const [voteStable, setVoteStable] = useState(false); // FIXED: Prevent vote flickering
   const [deliberationProgress, setDeliberationProgress] = useState(0);
 
+  // Pacing controls
+  const RESULT_DELAY_MS = 1500;
+  const REVEAL_INTERVAL_MS = 700;
+  const PROGRESS_STEP = 3;
+
+  // Animated reveal of jury votes
+  const [revealedCount, setRevealedCount] = useState(0);
+
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
   const juryMembers = gameState.contestants.filter(c => 
     c.isEliminated && 
@@ -105,12 +113,12 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     const interval = setInterval(() => {
       setDeliberationProgress(prev => {
         if (prev >= target) return prev;
-        return Math.min(prev + 4, target);
+        return Math.min(prev + PROGRESS_STEP, target);
       });
-    }, 100);
+    }, 120);
 
     return () => clearInterval(interval);
-  }, [isPlayerInJury, votes, gameState.playerName, showResults]);
+  }, [isPlayerInJury, votes, gameState.playerName, showResults, PROGRESS_STEP]);
 
   // Once votes are stable, compute the winner and show results once.
   useEffect(() => {
@@ -130,12 +138,41 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     setWinner(winnerName);
 
     // Show results after a brief delay for dramatic effect
-    const timer = setTimeout(() => setShowResults(true), 2000);
+    const timer = setTimeout(() => setShowResults(true), RESULT_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [voteStable, votes, finalTwo, showResults]);
+  }, [voteStable, votes, finalTwo, showResults, RESULT_DELAY_MS]);
 
-  const getVoteCount = (finalist: string) => {
-    return Object.values(votes).filter(vote => vote === finalist).length;
+  // Start animated per-juror reveal once results are shown
+  useEffect(() => {
+    if (!showResults) {
+      setRevealedCount(0);
+      return;
+    }
+
+    // Reveal one juror at a time
+    const interval = setInterval(() => {
+      setRevealedCount(prev => {
+        const next = prev + 1;
+        if (next >= juryMembers.length) {
+          clearInterval(interval);
+          return juryMembers.length;
+        }
+        return next;
+      });
+    }, REVEAL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [showResults, juryMembers.length, REVEAL_INTERVAL_MS]);
+
+  const getVoteCount = (finalist: string, revealedOnly?: boolean) => {
+    if (!revealedOnly) {
+      return Object.values(votes).filter(vote => vote === finalist).length;
+    }
+    // Count only revealed juror votes
+    const revealedJurors = juryMembers.slice(0, revealedCount).map(j => j.name);
+    return revealedJurors.reduce((sum, jurorName) => {
+      return votes[jurorName] === finalist ? sum + 1 : sum;
+    }, 0);
   };
 
   return (
@@ -250,22 +287,25 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
               <Card className="p-6">
                 <h3 className="font-medium mb-4">Jury Votes</h3>
                 <div className="space-y-3">
-                  {/* Show all jury members (player included if in jury) */}
-                  {juryMembers.map(jury => (
-                    <div
-                      key={jury.id}
-                      className={`flex justify-between items-center p-3 border rounded ${
-                        jury.name === gameState.playerName ? 'border-primary/20 bg-primary/10' : 'border-border'
-                      }`}
-                    >
-                      <span className={`font-medium ${jury.name === gameState.playerName ? 'text-primary' : ''}`}>
-                        {jury.name}{jury.name === gameState.playerName ? ' (You)' : ''}
-                      </span>
-                      <span className="font-medium text-muted-foreground">
-                        voted for {votes[jury.name]}
-                      </span>
-                    </div>
-                  ))}
+                  {/* Animated per-juror reveal */}
+                  {juryMembers.map((jury, idx) => {
+                    const revealed = idx < revealedCount;
+                    return (
+                      <div
+                        key={jury.id}
+                        className={`flex justify-between items-center p-3 border rounded transition-colors ${
+                          jury.name === gameState.playerName ? 'border-primary/20 bg-primary/10' : 'border-border'
+                        }`}
+                      >
+                        <span className={`font-medium ${jury.name === gameState.playerName ? 'text-primary' : ''}`}>
+                          {jury.name}{jury.name === gameState.playerName ? ' (You)' : ''}
+                        </span>
+                        <span className={`font-medium ${revealed ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          {revealed ? `voted for ${votes[jury.name]}` : 'vote sealed...'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </Card>
 
@@ -281,7 +321,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                         {finalist.name === gameState.playerName && ' (You)'}
                       </span>
                       <span className="font-medium">
-                        {getVoteCount(finalist.name)} votes
+                        {getVoteCount(finalist.name, true)} votes
                       </span>
                     </div>
                   ))}
@@ -304,12 +344,13 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                   }
                 </p>
                 <div className="text-lg font-medium mb-6">
-                  Final Score: {getVoteCount(winner)} - {getVoteCount(finalTwo.find(f => f.name !== winner)?.name || '')}
+                  Final Score: {getVoteCount(winner, true)} - {getVoteCount(finalTwo.find(f => f.name !== winner)?.name || '', true)}
                 </div>
                 <Button
                   variant="action"
                   onClick={() => onGameEnd(winner, votes)}
                   className="w-full"
+                  disabled={revealedCount < juryMembers.length}
                 >
                   View Game Summary
                 </Button>
