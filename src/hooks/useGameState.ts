@@ -737,61 +737,57 @@ export const useGameState = () => {
       const isJuryPhase = prev.juryMembers && prev.juryMembers.length > 0;
       if (playerEliminated && isJuryPhase) {
         console.log('continueFromElimination - Player eliminated during jury, simulating eliminations to final 2');
-        
+
         // Mark player as eliminated and set isPlayerEliminated flag
-        let updatedContestants = prev.contestants.map(c => 
-          c.name === prev.playerName 
+        let updatedContestants = prev.contestants.map(c =>
+          c.name === prev.playerName
             ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
             : c
         );
-        
-        // Set jury to exactly 7 members, including player since they're eliminated
+
+        // Ensure jury has at most 7 members (most recently eliminated), including player if applicable
         let updatedJuryMembers = updatedContestants
-          .filter(c => c.isEliminated) // Now player is marked as eliminated
+          .filter(c => c.isEliminated)
           .sort((a, b) => (b.eliminationDay || prev.currentDay) - (a.eliminationDay || prev.currentDay))
           .slice(0, 7)
           .map(c => c.name);
-        
+
         console.log('Updated jury members (7 max):', updatedJuryMembers);
         console.log('Player should be included:', updatedJuryMembers.includes(prev.playerName));
-        
-        const activeContestants = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
-        
-        // Simulate eliminations down to final 2
-        // (jury already set above)
-        
-        // Eliminate down to 2 remaining contestants
-        const toEliminate = activeContestants.length - 2;
-        for (let i = 0; i < toEliminate; i++) {
+
+        // Work on a dynamic list of currently active non-player contestants
+        let activeNonPlayerContestants = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+
+        // Eliminate down to 2 remaining contestants (excluding the player who is eliminated)
+        while (activeNonPlayerContestants.length > 2) {
           // Use relationship-based elimination (eliminate least connected)
-          const remaining = activeContestants.filter((_, index) => index >= i);
-          
-          let eliminationTarget = remaining[0];
+          let eliminationTarget = activeNonPlayerContestants[0];
           let lowestConnections = Infinity;
-          
-          remaining.forEach(contestant => {
+
+          activeNonPlayerContestants.forEach(contestant => {
             const connections = prev.alliances.reduce((count, alliance) => {
               return count + (alliance.members.includes(contestant.name) ? alliance.members.length - 1 : 0);
             }, 0);
-            
+
             if (connections < lowestConnections) {
               lowestConnections = connections;
               eliminationTarget = contestant;
             }
           });
-          
+
           // Eliminate the target
-          updatedContestants = updatedContestants.map(c => 
-            c.name === eliminationTarget.name 
+          updatedContestants = updatedContestants.map(c =>
+            c.name === eliminationTarget.name
               ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
               : c
           );
-          
-          // Don't add to jury during finale simulation - jury is already set
-          
+
+          // Update dynamic active list after elimination
+          activeNonPlayerContestants = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+
           console.log(`Simulated elimination: ${eliminationTarget.name}`);
         }
-        
+
         return {
           ...prev,
           contestants: updatedContestants,
@@ -1186,23 +1182,27 @@ export const useGameState = () => {
     setGameState(prev => {
       const contestants = prev.contestants;
       const activePlayers = contestants.filter(c => !c.isEliminated);
-      
-      // Keep player + 6 others to reach jury phase (7 total)
-      const survivorsToKeep = activePlayers.slice(0, 6);
-      const toEliminate = activePlayers.slice(6);
-      
+
+      // Ensure we keep the player plus 6 others (total 7 survivors entering jury phase)
+      const nonPlayerActives = activePlayers.filter(c => c.name !== prev.playerName);
+      const keepNonPlayers = nonPlayerActives.slice(0, 6);
+      const keepNames = new Set<string>([prev.playerName, ...keepNonPlayers.map(c => c.name)]);
+
       const updatedContestants = contestants.map(c => {
-        if (toEliminate.includes(c)) {
-          return { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+        if (keepNames.has(c.name)) {
+          return c; // keep active
         }
-        return c;
+        // eliminate everyone not in keep set
+        return { ...c, isEliminated: true, eliminationDay: prev.currentDay };
       });
-      
-      // Create jury from eliminated
+
+      // Build a jury of the most recently eliminated (up to 7)
       const juryMembers = updatedContestants
-        .filter(c => c.isEliminated && c.eliminationDay)
+        .filter(c => c.isEliminated && typeof c.eliminationDay !== 'undefined')
+        .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+        .slice(0, 7)
         .map(c => c.name);
-      
+
       return {
         ...prev,
         contestants: updatedContestants,
