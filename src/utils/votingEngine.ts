@@ -1,6 +1,7 @@
 import { Contestant, Alliance, VotingRecord, GameState } from '@/types/game';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
+import { AllianceManager } from '@/utils/allianceManager';
 
 export const processVoting = (
   contestants: Contestant[],
@@ -75,7 +76,12 @@ export const processVoting = (
     
     // Check if any of voter's alliances want to coordinate
     for (const alliance of voterAlliances) {
-      const { AllianceManager } = require('@/utils/allianceManager');
+      // Use static import for AllianceManager to avoid runtime require issues
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      // const { AllianceManager } = require('@/utils/allianceManager');
+      // Replace dynamic require with direct usage of imported engine
+      // NOTE: getCoordinatedTarget is expected to be a static helper on AllianceManager.
+      // We import it at module top level.
       const validTargets = activeContestants
         .filter(c => c.name !== voter.name && c.name !== immunityWinner)
         .map(c => c.name);
