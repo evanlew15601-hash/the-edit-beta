@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Contestant } from '@/types/game';
+import { Badge } from '@/components/ui/badge';
 
 interface SchemeDialogProps {
   isOpen: boolean;
@@ -12,6 +13,14 @@ interface SchemeDialogProps {
   contestants: Contestant[];
   onSubmit: (target: string, content: string, tone: string) => void;
 }
+
+const PRESETS = [
+  { label: 'Tilt vote', value: 'vote_manipulation', text: (name: string) => `Push subtle arguments against ${name}; never show your hand.` },
+  { label: 'Seed split', value: 'alliance_break', text: (name: string) => `Plant small doubts to fracture ${name}'s alliance from inside.` },
+  { label: 'Soft rumor', value: 'rumor_spread', text: (name: string) => `Float a vague concern about ${name}, no hard claims—let it breathe.` },
+  { label: 'Fake bond', value: 'fake_alliance', text: (name: string) => `Offer trust to ${name} you won't keep; pull leverage later.` },
+  { label: 'Trade secret', value: 'information_trade', text: (_: string) => `Exchange minor intel for loyalty—keep your core safe.` },
+];
 
 export const SchemeDialog = ({ isOpen, onClose, contestants, onSubmit }: SchemeDialogProps) => {
   const [schemeType, setSchemeType] = useState<string>('');
@@ -62,6 +71,30 @@ export const SchemeDialog = ({ isOpen, onClose, contestants, onSubmit }: SchemeD
 
   const selectedScheme = schemeOptions.find(s => s.value === schemeType);
 
+  const preview = useMemo(() => {
+    if (!selectedTarget || !schemeType) return null;
+    // Baseline suspicion higher for schemes; trust varies by type
+    const trust =
+      schemeType === 'information_trade' ? 2 :
+      schemeType === 'vote_manipulation' ? 1 :
+      schemeType === 'rumor_spread' ? -2 :
+      schemeType === 'fake_alliance' ? -4 :
+      schemeType === 'alliance_break' ? -3 : 0;
+    const suspicionBase =
+      schemeType === 'information_trade' ? 2 :
+      schemeType === 'vote_manipulation' ? 4 :
+      schemeType === 'rumor_spread' ? 6 :
+      schemeType === 'fake_alliance' ? 8 :
+      schemeType === 'alliance_break' ? 7 : 3;
+    const influence =
+      schemeType === 'vote_manipulation' ? 3 :
+      schemeType === 'alliance_break' ? 2 :
+      schemeType === 'information_trade' ? 2 : 1;
+    const entertainment =
+      schemeType === 'rumor_spread' || schemeType === 'fake_alliance' ? 3 : 2;
+    return { trust, susp: suspicionBase, influence, entertainment };
+  }, [selectedTarget, schemeType]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
@@ -99,6 +132,28 @@ export const SchemeDialog = ({ isOpen, onClose, contestants, onSubmit }: SchemeD
             </div>
           </div>
 
+          {/* Quick Suggestions */}
+          {schemeType && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Quick Suggestions</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {PRESETS.filter(p => p.value === schemeType || schemeType).map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={() => {
+                      const txt = p.text(selectedTarget || 'them');
+                      setContent(txt);
+                    }}
+                    className="p-2 text-left border border-border rounded hover:bg-muted transition-colors"
+                  >
+                    <div className="text-xs text-muted-foreground">{p.label}</div>
+                    <div className="text-sm">{p.text(selectedTarget || 'them')}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {schemeType && (
             <>
               <div className="space-y-2">
@@ -126,6 +181,19 @@ export const SchemeDialog = ({ isOpen, onClose, contestants, onSubmit }: SchemeD
                   className="min-h-[120px]"
                 />
               </div>
+
+              {/* Outcome Preview */}
+              {preview && (
+                <div className="flex items-center flex-wrap gap-2 bg-muted/40 border border-border/60 rounded p-2.5">
+                  <span className="text-xs text-muted-foreground">Preview</span>
+                  <Badge variant="outline">Trust {preview.trust >= 0 ? `+${preview.trust}` : preview.trust}</Badge>
+                  <Badge variant="outline" className={preview.susp < 0 ? 'text-edit-hero' : 'text-edit-villain'}>
+                    Suspicion {preview.susp >= 0 ? `+${preview.susp}` : preview.susp}
+                  </Badge>
+                  <Badge variant="outline">Influence {preview.influence >= 0 ? `+${preview.influence}` : preview.influence}</Badge>
+                  <Badge variant="outline">Entertainment {preview.entertainment >= 0 ? `+${preview.entertainment}` : preview.entertainment}</Badge>
+                </div>
+              )}
 
               <div className="bg-card border border-border rounded p-4">
                 <h4 className="font-medium mb-2">Scheme Analysis</h4>

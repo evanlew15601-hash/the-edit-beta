@@ -1,5 +1,4 @@
 import { GameState } from '@/types/game';
-import { DashboardHeader } from './DashboardHeader';
 import { ActionPanel } from './ActionPanel';
 import { ContestantGrid } from './ContestantGrid';
 import { TwistNotification } from './TwistNotification';
@@ -24,8 +23,6 @@ interface GameplayScreenProps {
 export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk }: GameplayScreenProps) => {
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader gameState={gameState} />
-      
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Twist Notification */}
         <TwistNotification gameState={gameState} />

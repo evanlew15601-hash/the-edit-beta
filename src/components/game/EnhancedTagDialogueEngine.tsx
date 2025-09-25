@@ -81,24 +81,40 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
     }
   };
 
-  const pickVariant = (choice: Choice, playerPersona: string): string => {
+  // Simple deterministic hash for repeatable variant selection
+  const stableIndex = (seed: string, modulo: number) => {
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return Math.abs(h) % Math.max(1, modulo);
+  };
+
+  const pickVariant = (choice: Choice, playerPersona: string, seedKey?: string): string => {
     // Deterministic persona bucket selection when provided
     const heroLabels = new Set(['Hero', 'Fan Favorite', 'Contender']);
     const villainLabels = new Set(['Villain', 'Antagonist', 'Troublemaker', 'Puppet Master', 'Mastermind']);
     const bucket = heroLabels.has(playerPersona) ? 'Hero' : villainLabels.has(playerPersona) ? 'Villain' : null;
 
+    const deterministic = gameState.aiSettings?.deterministicPersonaVariants;
+
     if (choice.personaVariants && bucket) {
       const list = choice.personaVariants[bucket as 'Hero' | 'Villain'] || [];
-      if (list.length) return list[Math.floor(Math.random() * list.length)];
+      if (list.length) {
+        const idx = deterministic && seedKey ? stableIndex(`${seedKey}:${bucket}:${choice.choiceId}`, list.length) : Math.floor(Math.random() * list.length);
+        return list[idx];
+      }
     }
     const variants = choice.textVariants || [];
     if (!variants.length) return '';
-    const idx = Math.floor(Math.random() * variants.length);
+    const idx = deterministic && seedKey ? stableIndex(`${seedKey}:${choice.choiceId}`, variants.length) : Math.floor(Math.random() * variants.length);
     return variants[idx];
   };
 
   const toTagChoice = (choice: Choice, targetName: string): TagChoice => {
-    const raw = pickVariant(choice, gameState.editPerception.persona);
+    const seedKey = `${gameState.playerName}:${targetName}:${gameState.currentDay}`;
+    const raw = pickVariant(choice, gameState.editPerception.persona, seedKey);
     const text = personalizeText(raw, targetName, gameState.editPerception.persona);
     const type = mapIntentToType(choice.intent);
     const cooldown = choice.cooldownDays || 0;

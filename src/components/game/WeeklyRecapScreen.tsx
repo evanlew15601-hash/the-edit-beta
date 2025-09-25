@@ -134,6 +134,27 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
           </div>
         </Card>
 
+        {/* Editing Controls in Effect */}
+        <Card className="p-6">
+          <h3 className="text-xl font-light mb-4">Edit Controls in Effect</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div className="p-3 border rounded">
+              <div className="text-muted-foreground">Deterministic Persona Variants</div>
+              <div className="font-medium">{gameState.aiSettings?.deterministicPersonaVariants ? 'On' : 'Off'}</div>
+            </div>
+            <div className="p-3 border rounded">
+              <div className="text-muted-foreground">Trust/Suspicion Scale</div>
+              <div className="font-medium">{gameState.aiSettings?.outcomeScaling?.trustSuspicionScale ?? 40}</div>
+            </div>
+            <div className="p-3 border rounded">
+              <div className="text-muted-foreground">Influence / Entertainment</div>
+              <div className="font-medium">
+                {(gameState.aiSettings?.outcomeScaling?.influenceScale ?? 20)} / {(gameState.aiSettings?.outcomeScaling?.entertainmentScale ?? 20)}
+              </div>
+            </div>
+          </div>
+        </Card>
+
         {/* Viral Moments (actually happened) */}
         {weeklyEdit.viralMoments?.length ? (
           <Card className="p-6">

@@ -22,6 +22,8 @@ export interface GameMemory {
   content: string;
   emotionalImpact: number; // -10 to 10
   timestamp: number;
+  // Optional memory tagging to influence downstream reasoning (e.g., jury rationale)
+  tags?: string[]; // e.g., ['rumor'], ['correction'], ['trap']
 }
 
 export interface InteractionLogEntry {
@@ -210,5 +212,13 @@ export interface AISettings {
     followUp: boolean;
     riskEstimate: boolean;
     memoryImpact: boolean;
+  };
+  // New: deterministic persona variant selection in Enhanced Tag Dialogue
+  deterministicPersonaVariants?: boolean;
+  // New: outcome scaling controls to tune applied deltas
+  outcomeScaling?: {
+    trustSuspicionScale: number; // default 40
+    influenceScale: number;      // default 20
+    entertainmentScale: number;  // default 20
   };
 }

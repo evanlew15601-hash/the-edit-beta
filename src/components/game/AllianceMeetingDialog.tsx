@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Alliance, Contestant } from '@/types/game';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
-import { Users, Shield, Eye } from 'lucide-react';
+import { Users, Shield } from 'lucide-react';
 
 interface AllianceMeetingDialogProps {
   isOpen: boolean;
@@ -17,6 +17,13 @@ interface AllianceMeetingDialogProps {
   playerName: string;
   onSubmit: (allianceId: string, agenda: string, tone: string) => void;
 }
+
+const QUICK_SUGGESTIONS = [
+  { label: 'Lock targets (strategic)', tone: 'strategic', agenda: 'Lock next target and assign cover stories.' },
+  { label: 'Reassure', tone: 'reassuring', agenda: 'Reassure everyone of loyalty and tighten trust.' },
+  { label: 'Warn', tone: 'warning', agenda: 'Issue quiet warnings about possible betrayals.' },
+  { label: 'Deception plan', tone: 'deceptive', agenda: 'Share a deceptive narrative to mislead outsiders.' },
+];
 
 export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants, playerName, onSubmit }: AllianceMeetingDialogProps) => {
   const [selectedAlliance, setSelectedAlliance] = useState<string>('');
@@ -50,6 +57,45 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
   ];
 
   const selectedAllianceData = alliances.find(a => a.id === selectedAlliance);
+
+  const preview = useMemo(() => {
+    if (!selectedAllianceData || !tone) return null;
+    const members = selectedAllianceData.members
+      .map(name => contestants.find(c => c.name === name))
+      .filter(Boolean) as Contestant[];
+    if (!members.length) return null;
+
+    const avgTrust = members.reduce((sum, m) => sum + (m.psychProfile.trustLevel || 0), 0) / members.length;
+    const paranoidCount = members.filter(m => m.psychProfile.disposition.includes('paranoid')).length;
+    const strategicCount = members.filter(m => m.psychProfile.disposition.includes('calculating') || m.psychProfile.disposition.includes('analytical')).length;
+    const socialCount = members.filter(m => m.psychProfile.disposition.includes('diplomatic') || m.psychProfile.disposition.includes('agreeable')).length;
+
+    // Base deltas scaled by tone
+    let trust = tone === 'reassuring' ? 4 : tone === 'strategic' ? 2 : tone === 'warning' ? -1 : -2;
+    let susp = tone === 'deceptive' ? 4 : tone === 'warning' ? 3 : tone === 'strategic' ? 1 : -1;
+    let influence = tone === 'strategic' ? 4 : tone === 'deceptive' ? 3 : 2;
+    let entertainment = tone === 'reassuring' ? 2 : tone === 'warning' ? 2 : 1;
+
+    // Persona-aware weights
+    trust += Math.round((avgTrust / 50) - 1); // avgTrust amplifies/dampens
+    susp += paranoidCount; // paranoid members increase suspicion
+    trust += Math.max(0, socialCount - 1); // social members increase trust
+    entertainment += Math.max(0, Math.floor(socialCount / 2)); // social -> more entertainment
+    influence += Math.max(0, strategicCount - 1); // strategic -> more influence
+
+    // Tone-specific adjustments
+    if (tone === 'warning') {
+      trust -= paranoidCount; // warnings hurt trust with paranoid folks
+    }
+    if (tone === 'strategic') {
+      influence += Math.ceil(strategicCount / 2);
+    }
+    if (tone === 'deceptive') {
+      susp += Math.ceil(paranoidCount / 2);
+    }
+
+    return { trust, susp, influence, entertainment };
+  }, [selectedAllianceData, tone, contestants]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -146,6 +192,26 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
               </div>
             </div>
 
+            {/* Quick Suggestions */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Quick Suggestions</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {QUICK_SUGGESTIONS.map((q) => (
+                  <button
+                    key={q.label}
+                    onClick={() => {
+                      setAgenda(q.agenda);
+                      setTone(q.tone);
+                    }}
+                    className="p-2 text-left border border-border rounded hover:bg-muted transition-colors"
+                  >
+                    <div className="text-xs text-muted-foreground">{q.label}</div>
+                    <div className="text-sm">{q.agenda}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Meeting Tone</label>
               <div className="grid grid-cols-1 gap-3">
@@ -170,6 +236,19 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
                 ))}
               </div>
             </div>
+
+            {/* Outcome Preview */}
+            {preview && (
+              <div className="flex items-center flex-wrap gap-2 bg-muted/40 border border-border/60 rounded p-2.5">
+                <span className="text-xs text-muted-foreground">Preview</span>
+                <Badge variant="outline">Trust {preview.trust >= 0 ? `+${preview.trust}` : preview.trust}</Badge>
+                <Badge variant="outline" className={preview.susp < 0 ? 'text-edit-hero' : 'text-edit-villain'}>
+                  Suspicion {preview.susp >= 0 ? `+${preview.susp}` : preview.susp}
+                </Badge>
+                <Badge variant="outline">Influence {preview.influence >= 0 ? `+${preview.influence}` : preview.influence}</Badge>
+                <Badge variant="outline">Entertainment {preview.entertainment >= 0 ? `+${preview.entertainment}` : preview.entertainment}</Badge>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button variant="outline" onClick={onClose} className="flex-1">
