@@ -875,7 +875,13 @@ export const useGameState = () => {
     return () => window.removeEventListener('skipToJury', handleSkip);
   }, [skipToJury]);
 
-  const handleTieBreakResult = useCallback((eliminated: string, winner1: string, winner2: string) => {
+  const handleTieBreakResult = useCallback((
+    eliminated: string,
+    winner1: string,
+    winner2: string,
+    method?: 'challenge' | 'fire_making' | 'random_draw',
+    results?: { name: string; time: number }[]
+  ) => {
     setGameState(prev => {
       const newState = { ...prev };
       
@@ -898,14 +904,29 @@ export const useGameState = () => {
         eliminated,
         votes: { [winner1]: 'n/a', [winner2]: 'n/a', [eliminated]: 'n/a' },
         playerVote: prev.votingHistory[prev.votingHistory.length - 1]?.playerVote,
-        reason: `${eliminated} lost Final 3 tie-break challenge`,
+        reason: method
+          ? `${eliminated} lost Final 3 tie-break (${method.replace('_', ' ')})`
+          : `${eliminated} lost Final 3 tie-break challenge`,
         tieBreak: {
           tied: [winner1, winner2, eliminated],
-          method: 'sudden_death' as const,
+          method: method ? (method as 'revote' | 'sudden_death') : 'sudden_death',
           suddenDeathWinner: winner1,
           suddenDeathLoser: eliminated,
-          log: [`Final 3 tie resulted in physical challenge`, `${winner1} and ${winner2} advance to finale`]
+          log: [
+            `Final 3 tie resolved via ${method || 'challenge'}`,
+            `${winner1} and ${winner2} advance to finale`
+          ],
+          revote: undefined
         }
+      };
+
+      // Persist final 3 tie-break metadata for recap
+      newState.final3TieBreak = {
+        day: prev.currentDay,
+        method: method || 'challenge',
+        results,
+        eliminated,
+        winners: [winner1, winner2],
       };
       
       newState.votingHistory = [...prev.votingHistory.slice(0, -1), tieBreakRecord];
