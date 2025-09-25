@@ -49,6 +49,14 @@ export interface ReactionSummary {
   take: ReactionTake;
   context: 'public' | 'private' | 'scheme' | 'activity';
   notes?: string;
+  // Optional: surface actual applied outcome deltas for the last choice
+  // These are scaled to game points (e.g., trust -100..100, suspicion 0..100)
+  deltas?: {
+    trust?: number;
+    suspicion?: number;
+    entertainment?: number;
+    influence?: number;
+  };
 }
 
 export interface GameState {

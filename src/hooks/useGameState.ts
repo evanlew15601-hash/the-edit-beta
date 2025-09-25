@@ -16,6 +16,8 @@ import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { generateLocalAIReply } from '@/utils/localLLM';
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
+import { TAG_CHOICES } from '@/data/tagChoices';
+import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogueEngine';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -853,9 +855,142 @@ export const useGameState = () => {
   const tagTalk = useCallback((target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => {
     console.log('=== TAG TALK TRIGGERED ===');
     console.log('Target:', target, 'Choice:', choiceId, 'Interaction:', interaction);
-    
-    // Use the existing useAction function to process the tag talk
-    useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
+
+    // Compute precise outcome using ReactionProfile + choice metadata
+    // and surface actual deltas in lastAIReaction. Also apply cooldowns.
+    setGameState(prev => {
+      const targetNPC = prev.contestants.find(c => c.name === target);
+      if (!targetNPC) {
+        console.warn('TagTalk: target not found', target);
+        // Fallback to generic action
+        useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
+        return prev;
+      }
+
+      // Load choice from data
+      try {
+        const choice = (TAG_CHOICES as any[]).find((c: any) => c.choiceId === choiceId);
+        if (!choice) {
+          console.warn('TagTalk: choice not found', choiceId);
+          useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
+          return prev;
+        }
+
+        const outcome = evaluateChoice(choice, targetNPC, prev.playerName, prev);
+        // Scale normalized deltas (-1..1) into game point changes
+        const scale = 40; // tuned: 0.1 -> 4 pts
+        const trustPts = Math.round((outcome.trustDelta || 0) * scale);
+        const suspPts = Math.round((outcome.suspicionDelta || 0) * scale);
+        const inflPts = Math.round((outcome.influenceDelta || 0) * 20); // softer
+        const entPts = Math.round((outcome.entertainmentDelta || 0) * 20); // softer
+
+        // Apply trust/suspicion to target
+        const updatedContestants = prev.contestants.map(c => {
+          if (c.name !== target) return c;
+          const newTrustLevel = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustPts));
+          const newSuspicionLevel = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspPts));
+
+          // Memory entry
+          const memType = interaction === 'dm' ? 'dm' : interaction === 'scheme' ? 'scheme' : 'conversati_code'activity' ? 'activity' : 'conversation';
+          const newMemory = {
+            day: prev.currentDay,
+            type: memType as any,
+            participants: [prev.playerName, target],
+            content: `[TAG intent=${choice.intent} topic=${choice.topics[0]}] ${reactionText(target, choice, outcome)}`,
+            emotionalImpact: Math.max(-10, Math.min(10, Math.floor(trustPts / 5))),
+            timestamp: Date.now()
+          };
+
+          return {
+            ...c,
+            psychProfile: {
+              ...c.psychProfile,
+              trustLevel: newTrustLevel,
+              suspicionLevel: newSuspicionLevel,
+            },
+            memory: [...c.memory, newMemory],
+          };
+        });
+
+        // Optionally nudge edit perception based on entertainment/influence
+        const updatedEdit = {
+          ...prev.editPerception,
+          screenTimeIndex: Math.max(0, Math.min(100, prev.editPerception.screenTimeIndex + entPts)),
+          lastEditShift: entPts,
+          audienceApproval: Math.max(-100, Math.min(100, prev.editPerception.audienceApproval + Math.round(inflPts / 2))),
+        };
+
+        // Cooldown handling
+        const cooldownDays = choice.cooldownDays || 0;
+        const cooldownKey = getCooldownKey(prev.playerName, target, choice.choiceId);
+        const updatedCooldowns = { ...(prev.tagChoiceCooldowns || {}) };
+        if (cooldownDays > 0) {
+          updatedCooldowns[cooldownKey] = prev.currentDay + cooldownDays;
+          // Also store by raw choice.id for UI that keyed directly by id
+          updatedCooldowns[choice.choiceId] = prev.currentDay + cooldownDays;
+        }
+
+        // Determine take from outcome category
+        const cat = outcome.category;
+        const take: ReactionTake =
+          cat === 'positive' ? 'positive' :
+          cat === 'neutral' ? 'neutral' : 'pushback';
+
+        const context: ReactionSummary['context'] =
+          interaction === 'dm' ? 'private' :
+          interaction === 'scheme' ? 'scheme' :
+          interaction === 'activity' ? 'activity' : 'public';
+
+        // Build reaction text and deltas for UI
+        const reactText = reactionText(target, choice, outcome);
+        const reactionSummary: ReactionSummary = {
+          take,
+          context,
+          notes: reactText,
+          deltas: {
+            trust: trustPts,
+            suspicion: suspPts,
+            influence: inflPts,
+            entertainment: entPts,
+          }
+        };
+
+        // Append interaction log with tag metadata to support repetition heuristics
+        const tagPattern = `[TAG intent=${choice.intent} topic=${choice.topics[0]}]`;
+        const interactionEntry = {
+          day: prev.currentDay,
+          type: interaction,
+          participants: [prev.playerName, target],
+          content: `${tagPattern} ${choice.choiceId}`,
+          tone: choice.tone,
+          source: 'player' as const,
+        };
+
+        // Update actions usage for the specific interaction
+        const updatedActions = prev.playerActions.map(a =>
+          a.type === interaction ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
+        );
+
+        const newState: GameState = {
+          ...prev,
+          contestants: updatedContestants,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: interaction,
+          lastActionTarget: target,
+          lastAIReaction: reactionSummary,
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
+          tagChoiceCooldowns: updatedCooldowns,
+          editPerception: updatedEdit,
+        };
+
+        return newState;
+      } catch (e) {
+        console.warn('TagTalk: evaluate/apply failed, fallback to generic action', e);
+        useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
+        return prev;
+      }
+    });
   }, [useAction]);
 
   // Add skip to jury handler

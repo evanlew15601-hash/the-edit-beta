@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ReactionSummary } from '@/types/game';
-import { MessageCircle, Users, Eye, Zap } from 'lucide-react';
+import { MessageCircle, Eye, Zap } from 'lucide-react';
 
 interface AIResponseDisplayProps {
   lastTarget?: string;
@@ -27,6 +27,17 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: A
       case 'activity': return '🏃';
       default: return '💬';
     }
+  };
+
+  const renderDelta = (label: string, value?: number, positiveClass = 'text-edit-hero', negativeClass = 'text-edit-villain') => {
+    if (value === undefined || value === 0) return null;
+    const sign = value > 0 ? '+' : '';
+    const color = value > 0 ? positiveClass : negativeClass;
+    return (
+      <span className={`text-xs ${color} mr-3`}>
+        {label} {sign}{value}
+      </span>
+    );
   };
 
   if (!lastTarget || !reactionSummary) {
@@ -55,6 +66,17 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: A
             </Badge>
           </div>
         </div>
+
+        {/* Surface actual outcome deltas after execution */}
+        {reactionSummary.deltas && (
+          <div className="text-sm bg-muted/40 rounded p-2 flex items-center flex-wrap">
+            <span className="text-xs text-muted-foreground mr-3">Outcome:</span>
+            {renderDelta('Trust', reactionSummary.deltas.trust)}
+            {renderDelta('Suspicion', reactionSummary.deltas.suspicion, 'text-edit-villain', 'text-edit-hero')}
+            {renderDelta('Influence', reactionSummary.deltas.influence)}
+            {renderDelta('Entertainment', reactionSummary.deltas.entertainment)}
+          </div>
+        )}
         
         {reactionSummary.notes && (
           <div className="text-sm text-muted-foreground bg-muted/50 rounded p-2">
