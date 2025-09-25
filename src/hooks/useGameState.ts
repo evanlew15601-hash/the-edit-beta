@@ -1167,6 +1167,13 @@ export const useGameState = () => {
     }
   }, []);
 
+  const toggleDebugMode = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      debugMode: !prev.debugMode,
+    }));
+  }, []);
+
   return {
     gameState,
     startGame,
@@ -1190,5 +1197,6 @@ export const useGameState = () => {
     handleTieBreakResult,
     proceedToJuryVote,
     loadSavedGame,
+    toggleDebugMode,
   };
 };

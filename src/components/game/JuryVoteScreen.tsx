@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Progress } from '@/components/ui/progress';
-import { Crown, Vote, Users } from 'lucide-react';
+import { Crown, Gavel, Users } from 'lucide-react';
 import { GameState } from '@/types/game';
 
 interface JuryVoteScreenProps {
@@ -200,7 +200,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
         <div className="max-w-4xl mx-auto space-y-6">
           <Card className="p-6">
             <div className="flex items-center gap-3 mb-6">
-              <Vote className="w-8 h-8 text-primary" />
+              <Gavel className="w-8 h-8 text-primary" />
               <div>
                 <h1 className="text-3xl font-light">Jury Vote</h1>
                 <p className="text-muted-foreground">Awaiting finalists</p>
@@ -222,7 +222,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       <div className="max-w-4xl mx-auto space-y-6">
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-6">
-            <Vote className="w-8 h-8 text-primary" />
+            <Gavel className="w-8 h-8 text-primary" />
             <div>
               <h1 className="text-3xl font-light">Jury Vote</h1>
               <p className="text-muted-foreground">The jury decides the winner</p>
