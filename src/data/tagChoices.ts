@@ -20,6 +20,21 @@ export const TAG_CHOICES: Choice[] = [
     weight: 1.0
   },
   {
+    choiceId: 'TALK_BUILD_ALLY_GAME_SINCERE_2',
+    textVariants: [
+      'Let’s align our games—quietly and precisely.',
+      'You fit how I want to play. Let’s lock it in.',
+      'We’re compatible strategically. Work with me?'
+    ],
+    intent: 'BuildAlliance',
+    tone: 'Sincere',
+    topics: ['Game', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['talk'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+  {
     choiceId: 'TALK_BUILD_ALLY_CHALLENGE_PLAYFUL_1',
     textVariants: [
       'We crushed that last challenge together!',
@@ -80,6 +95,26 @@ export const TAG_CHOICES: Choice[] = [
     weight: 1.0
   },
 
+  // Persona-tailored phrasing (Hero vs Villain) via variants
+  {
+    choiceId: 'TALK_BUILD_ALLY_GAME_PERSONA_1',
+    textVariants: [
+      // Hero voice
+      'We can protect each other and play clean. Team up?',
+      'I want to make moves the right way. With you.',
+      // Villain voice
+      'You and I can control the board. Quietly.',
+      'Let’s corner the narrative together—no apologies.'
+    ],
+    intent: 'BuildAlliance',
+    tone: 'Sincere',
+    topics: ['Game', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['talk'],
+    cooldownDays: 3,
+    weight: 1.0
+  },
+
   // ProbeForInfo + All Topics for Talk
   {
     choiceId: 'TALK_PROBE_GAME_NEUTRAL_1',
@@ -94,6 +129,21 @@ export const TAG_CHOICES: Choice[] = [
     targetType: 'Person',
     interactionTypes: ['talk'],
     cooldownDays: 1,
+    weight: 1.0
+  },
+  {
+    choiceId: 'TALK_PROBE_GAME_NEUTRAL_2',
+    textVariants: [
+      'Give me your honest read—who’s pushing which names?',
+      'Who’s coordinating right now, in your view?',
+      'What’s the pattern you’re seeing on votes?'
+    ],
+    intent: 'ProbeForInfo',
+    tone: 'Neutral',
+    topics: ['Game', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['talk'],
+    cooldownDays: 2,
     weight: 1.0
   },
   {
@@ -386,6 +436,24 @@ export const TAG_CHOICES: Choice[] = [
     targetType: 'Person',
     interactionTypes: ['dm'],
     cooldownDays: 2,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_BUILD_ALLY_STRATEGY_PERSONA_1',
+    textVariants: [
+      // Hero
+      'I want a clean, loyal path forward. Just us.',
+      'Let’s keep each other safe and honest.',
+      // Villain
+      'We can steer this from the shadows. You in?',
+      'I protect assets. You could be one.'
+    ],
+    intent: 'BuildAlliance',
+    tone: 'Sincere',
+    topics: ['Strategy', 'Game'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 3,
     weight: 1.0
   },
   {

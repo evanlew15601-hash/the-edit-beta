@@ -112,6 +112,8 @@ export interface GameState {
   interactionLog?: InteractionLogEntry[];
   tagChoiceCooldowns?: { [key: string]: number };
   lastTagOutcome?: LastTagOutcome; // For debugging/verification of tag engine integration
+  // Persistent Reaction Profiles (computed at start and updated incrementally)
+  reactionProfiles?: { [npcIdOrName: string]: import('./tagDialogue').ReactionProfile };
   // Post-game data
   gameWinner?: string;
   finalJuryVotes?: { [juryMember: string]: string };

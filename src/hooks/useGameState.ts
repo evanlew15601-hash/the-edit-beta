@@ -16,6 +16,7 @@ import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { generateLocalAIReply } from '@/utils/localLLM';
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
+import { getReactionProfileForNPC } from '@/utils/tagDialogueEngine';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogueEngine';
 
@@ -68,12 +69,21 @@ export const useGameState = () => {
       favoriteTally: {},
       interactionLog: [],
       tagChoiceCooldowns: {},
+      reactionProfiles: {},
     } as GameState;
   });
 
   const startGame = useCallback((playerName: string) => {
     console.log('Starting game with player:', playerName);
     const contestants = generateContestants(16).map(c => c.name === playerName ? { ...c, name: playerName } : c);
+
+    // Build initial persistent reaction profiles
+    const reactionProfiles: any = {};
+    contestants.forEach(c => {
+      reactionProfiles[c.id] = getReactionProfileForNPC(c);
+      reactionProfiles[c.name] = reactionProfiles[c.id];
+    });
+
     const newState: GameState = {
       currentDay: 1,
       playerName,
@@ -109,6 +119,7 @@ export const useGameState = () => {
       favoriteTally: {},
       interactionLog: [],
       tagChoiceCooldowns: {},
+      reactionProfiles,
     };
     console.log('Game started, transitioning to premiere');
     setGameState(newState);
@@ -891,7 +902,7 @@ export const useGameState = () => {
           const newSuspicionLevel = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspPts));
 
           // Memory entry
-          const memType = interaction === 'dm' ? 'dm' : interaction === 'scheme' ? 'scheme' : 'conversati_code'activity' ? 'activity' : 'conversation';
+          const memType = interaction === 'dm' ? 'dm' : interaction === 'scheme' ? 'scheme' : 'conversation';
           const newMemory = {
             day: prev.currentDay,
             type: memType as any,
@@ -911,6 +922,15 @@ export const useGameState = () => {
             memory: [...c.memory, newMemory],
           };
         });
+
+        // Refresh persistent reaction profile for the target based on updated psych state
+        const updatedProfiles = { ...(prev.reactionProfiles || {}) };
+        const refreshedTarget = updatedContestants.find(c => c.name === target);
+        if (refreshedTarget) {
+          const prof = getReactionProfileForNPC(refreshedTarget);
+          updatedProfiles[refreshedTarget.id] = prof;
+          updatedProfiles[refreshedTarget.name] = prof;
+        }
 
         // Optionally nudge edit perception based on entertainment/influence
         const updatedEdit = {
@@ -997,6 +1017,7 @@ export const useGameState = () => {
           interactionLog: [...(prev.interactionLog || []), interactionEntry],
           tagChoiceCooldowns: updatedCooldowns,
           editPerception: updatedEdit,
+          reactionProfiles: updatedProfiles,
         };
 
         return newState;

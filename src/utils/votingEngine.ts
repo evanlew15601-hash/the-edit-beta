@@ -76,7 +76,6 @@ export const processVoting = (
     
     // Check if any of voter's alliances want to coordinate
     for (const alliance of voterAlliances) {
-      // Use static import for AllianceManager to avoid runtime require issues
       const validTargets = activeContestants
         .filter(c => c.name !== voter.name && c.name !== immunityWinner)
         .map(c => c.name);
@@ -104,7 +103,7 @@ export const processVoting = (
       minImportance: 3
     });
     
-    const strategicContext = memoryEngine.getStrategicContext(voter.id, gameState);
+    memoryEngine.getStrategicContext(voter.id, gameState);
     
     // Find target with highest threat that isn't in voter's alliance
     const allianceMembers = new Set(voterAlliances.flatMap(a => a.members));
@@ -194,10 +193,23 @@ export const processVoting = (
     }
   });
 
-  // Detect ties at max
-  const tiedAtMax = [...voteCounts.entries()]
-    .filter(([name, count]) => count === maxVotes && name)
-    .map(([name]) => name);
+  // Add player's vote if valid
+  if (playerVote && playerVote !== immunityWinner && playerVote !== playerName) {
+    votes[playerName] = playerVote;
+    voteCounts.set(playerVote, (voteCounts.get(playerVote) || 0) + 1);
+  }
+
+  // Compute max votes and initial eliminated candidate
+  let eliminated = '';
+  const entries = [...voteCounts.entries()];
+  const maxVotes = entries.reduce((m, [, c]) => Math.max(m, c), -Infinity);
+  const tiedAtMax = entries.filter(([, c]) => c === maxVotes).map(([n]) => n);
+  if (tiedAtMax.length >= 1) {
+    // If multiple tied, leave eliminated to be resolved below; if one, set it
+    if (tiedAtMax.length === 1) {
+      eliminated = tiedAtMax[0];
+    }
+  }
 
   let tieBreak: VotingRecord['tieBreak'] | undefined = undefined;
 
@@ -209,7 +221,7 @@ export const processVoting = (
 
     activeContestants.forEach(voter => {
       if (voter.name === playerName) return; // Player not simulated here
-      if (revoteCandidates.has(voter.name)) return; // Tied players can't vote for themselves usually; they abstain
+      if (revoteCandidates.has(voter.name)) return; // Tied players abstain
 
       // Choose among tied based on threat + relationships
       let choice = '';
@@ -283,7 +295,13 @@ export const processVoting = (
     }
   }
 
-  // If player received most votes and no tie-break changed it
+  // If still no eliminated (e.g., single winner path), pick the sole max target
+  if (!eliminated) {
+    const sole = entries.find(([, c]) => c === maxVotes)?.[0];
+    if (sole) eliminated = sole;
+  }
+
+  // Reason line
   const reason = eliminated === playerName 
     ? 'You have been eliminated by the other contestants'
     : tieBreak
