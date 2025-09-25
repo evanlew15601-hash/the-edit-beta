@@ -7,6 +7,9 @@ interface VotingDebugPanelProps {
   gameState: GameState;
   onAdvanceDay: () => void;
   onProceedToJuryVote: () => void;
+  onProceedToFinaleAsJuror: () => void;
+  onProceedToJuryVoteAsJuror: () => void;
+  onGoToFinal3Vote: () => void;
   onContinueFromElimination: () => void;
   onToggleDebug: () => void;
 }
@@ -15,6 +18,9 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
   gameState,
   onAdvanceDay,
   onProceedToJuryVote,
+  onProceedToFinaleAsJuror,
+  onProceedToJuryVoteAsJuror,
+  onGoToFinal3Vote,
   onContinueFromElimination,
   onToggleDebug,
 }) => {
@@ -70,7 +76,16 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
             Advance Day
           </Button>
           <Button variant="action" onClick={onProceedToJuryVote} className="w-full">
-            Proceed to Jury Vote
+            Proceed to Jury Vote (Player Finalist)
+          </Button>
+          <Button variant="secondary" onClick={onProceedToFinaleAsJuror} className="w-full">
+            Proceed to Finale (Player as Juror)
+          </Button>
+          <Button variant="secondary" onClick={onProceedToJuryVoteAsJuror} className="w-full">
+            Direct to Jury Vote (Player as Juror)
+          </Button>
+          <Button variant="outline" onClick={onGoToFinal3Vote} className="w-full">
+            Go to Final 3 Vote (Test)
           </Button>
           <Button variant="surveillance" onClick={() => onContinueFromElimination()} className="w-full">
             Continue From Elimination

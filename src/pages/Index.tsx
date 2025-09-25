@@ -36,6 +36,10 @@ const Index = () => {
     tagTalk,
     handleTieBreakResult,
     proceedToJuryVote,
+    // New debug/test helpers
+    proceedToFinaleAsJuror,
+    proceedToJuryVoteAsJuror,
+    setupFinal3,
     toggleDebugMode,
     saveGame,
     loadSavedGame,
@@ -204,6 +208,9 @@ const Index = () => {
         gameState={gameState}
         onAdvanceDay={advanceDay}
         onProceedToJuryVote={proceedToJuryVote}
+        onProceedToFinaleAsJuror={proceedToFinaleAsJuror}
+        onProceedToJuryVoteAsJuror={proceedToJuryVoteAsJuror}
+        onGoToFinal3Vote={setupFinal3}
         onContinueFromElimination={() => continueFromElimination()}
         onToggleDebug={toggleDebugMode}
       />
