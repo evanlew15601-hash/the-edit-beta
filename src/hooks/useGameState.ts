@@ -323,6 +323,118 @@ export const useGameState = () => {
       });
       return;
     }
+
+    // Handle confessional explicitly: persist to confessionals and update edit perception
+    if (actionType === 'confessional') {
+      setGameState(prev => {
+        const toneImpactMap: { [k: string]: number } = {
+          strategic: 6,
+          vulnerable: 8,
+          aggressive: 5,
+          humorous: 4,
+          dramatic: 10,
+          evasive: 2,
+        };
+        const impact = tone ? (toneImpactMap[tone] ?? 4) : 4;
+
+        const conf = {
+          id: Date.now().toString(),
+          day: prev.currentDay,
+          content: (content || '').trim(),
+          tone: tone || 'neutral',
+          editImpact: impact,
+          audienceScore: Math.max(
+            0,
+            Math.min(
+              100,
+              50 + impact * 3 + ((content || '').length > 180 ? 10 : 0)
+            )
+          ),
+          selected: impact >= 6,
+        };
+
+        const updatedEditPerception = {
+          ...prev.editPerception,
+          screenTimeIndex: Math.max(
+            0,
+            Math.min(100, prev.editPerception.screenTimeIndex + impact)
+          ),
+          audienceApproval: Math.max(
+            -100,
+            Math.min(
+              100,
+              prev.editPerception.audienceApproval +
+                Math.round(((conf.audienceScore || 50) - 50) / 5)
+            )
+          ),
+          lastEditShift: impact,
+        };
+
+        const updatedActions = prev.playerActions.map(action =>
+          action.type === 'confessional'
+            ? {
+                ...action,
+                used: true,
+                usageCount: (action.usageCount || 0) + 1,
+                content,
+                tone,
+              }
+            : action
+        );
+
+        // Optional: small chance a confessional vibe leaks to 1-2 houseguests
+        let updatedContestants = prev.contestants;
+        if (Math.random() < 0.2) {
+          const leaks = prev.contestants
+            .filter(c => !c.isEliminated && c.name !== prev.playerName)
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 2);
+          updatedContestants = prev.contestants.map(c => {
+            if (leaks.some(l => l.name === c.name)) {
+              const newMemory = {
+                day: prev.currentDay,
+                type: 'confessional_leak' as const,
+                participants: [prev.playerName, c.name],
+                content: `Heard a confessional vibe: "${(content || '').slice(0, 60)}..."`,
+                emotionalImpact: -1,
+                timestamp: Date.now(),
+                tags: ['rumor'],
+              };
+              return { ...c, memory: [...c.memory, newMemory] };
+            }
+            return c;
+          });
+        }
+
+        const interactionEntry = {
+          day: prev.currentDay,
+          type: 'confessional' as const,
+          participants: [prev.playerName],
+          content,
+          tone,
+          source: 'player' as const,
+        };
+
+        return {
+          ...prev,
+          confessionals: [...prev.confessionals, conf],
+          editPerception: updatedEditPerception,
+          playerActions: updatedActions,
+          dailyActionCount: prev.dailyActionCount + 1,
+          lastActionType: 'confessional',
+          lastActionTarget: undefined,
+          lastAIReaction: {
+            take: 'neutral',
+            context: 'public',
+            notes: content || undefined,
+            deltas: { trust: 0, suspicion: 0, influence: 0, entertainment: impact },
+          },
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
+          contestants: updatedContestants,
+        };
+      });
+      return;
+    }
     
     setGameState(prev => {
       console.log('Previous action count:', prev.dailyActionCount);
@@ -557,6 +669,142 @@ export const useGameState = () => {
       console.log('proceedToJuryVote juryMembers:', juryMembers);
 
       return nextState;
+    });
+  }, []);
+
+  // New: debug helpers to construct juror scenario and Final 3 testing
+  const proceedToFinaleAsJuror = useCallback(() => {
+    setGameState(prev => {
+      const contestants = [...prev.contestants];
+
+      // Pick two non-player finalists (prefer currently active)
+      const nonPlayerActives = contestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+      let finalistNames: string[] = nonPlayerActives.slice(0, 2).map(c => c.name);
+
+      if (finalistNames.length < 2) {
+        const mostRecentNonPlayers = contestants
+          .filter(c => c.name !== prev.playerName)
+          .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+          .slice(0, 2 - finalistNames.length)
+          .map(c => c.name);
+        finalistNames = [...finalistNames, ...mostRecentNonPlayers].slice(0, 2);
+      }
+
+      const finalists = new Set<string>(finalistNames);
+
+      const updatedContestants = contestants.map(c => {
+        if (c.name === prev.playerName) {
+          return { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+        }
+        if (finalists.has(c.name)) {
+          return { ...c, isEliminated: false, eliminationDay: undefined };
+        }
+        return c.isEliminated ? c : { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+      });
+
+      const updatedJuryMembers = updatedContestants
+        .filter(c => c.isEliminated)
+        .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+        .slice(0, 7)
+        .map(c => c.name);
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        juryMembers: updatedJuryMembers,
+        isPlayerEliminated: true,
+        gamePhase: 'finale' as const,
+      };
+    });
+  }, []);
+
+  const proceedToJuryVoteAsJuror = useCallback(() => {
+    setGameState(prev => {
+      const contestants = [...prev.contestants];
+
+      // Pick two non-player finalists (prefer currently active)
+      const nonPlayerActives = contestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+      let finalistNames: string[] = nonPlayerActives.slice(0, 2).map(c => c.name);
+
+      if (finalistNames.length < 2) {
+        const mostRecentNonPlayers = contestants
+          .filter(c => c.name !== prev.playerName)
+          .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+          .slice(0, 2 - finalistNames.length)
+          .map(c => c.name);
+        finalistNames = [...finalistNames, ...mostRecentNonPlayers].slice(0, 2);
+      }
+
+      const finalists = new Set<string>(finalistNames);
+
+      const updatedContestants = contestants.map(c => {
+        if (c.name === prev.playerName) {
+          return { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+        }
+        if (finalists.has(c.name)) {
+          return { ...c, isEliminated: false, eliminationDay: undefined };
+        }
+        return c.isEliminated ? c : { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+      });
+
+      const updatedJuryMembers = updatedContestants
+        .filter(c => c.isEliminated)
+        .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+        .slice(0, 7)
+        .map(c => c.name);
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        juryMembers: updatedJuryMembers,
+        isPlayerEliminated: true,
+        gamePhase: 'jury_vote' as const,
+      };
+    });
+  }, []);
+
+  const setupFinal3 = useCallback(() => {
+    setGameState(prev => {
+      const contestants = [...prev.contestants];
+
+      // Ensure player + two others are active
+      const others = contestants.filter(c => c.name !== prev.playerName);
+      const activeOthers = others.filter(c => !c.isEliminated);
+      const needed = 2 - activeOthers.length;
+      let selectedOthers = activeOthers.slice(0, 2).map(c => c.name);
+
+      if (needed > 0) {
+        const revivals = others
+          .filter(c => c.isEliminated)
+          .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+          .slice(0, needed)
+          .map(c => c.name);
+        selectedOthers = [...selectedOthers, ...revivals].slice(0, 2);
+      }
+
+      const activeSet = new Set<string>([prev.playerName, ...selectedOthers]);
+
+      const updatedContestants = contestants.map(c => {
+        if (activeSet.has(c.name)) {
+          return { ...c, isEliminated: false, eliminationDay: undefined };
+        }
+        return c.isEliminated ? c : { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+      });
+
+      // Build jury (up to 7 most recent eliminated)
+      const juryMembers = updatedContestants
+        .filter(c => c.isEliminated)
+        .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+        .slice(0, 7)
+        .map(c => c.name);
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        juryMembers,
+        isPlayerEliminated: false,
+        gamePhase: 'final_3_vote' as const,
+      };
     });
   }, []);
 
@@ -1359,6 +1607,11 @@ export const useGameState = () => {
     tagTalk,
     handleTieBreakResult,
     proceedToJuryVote,
+    // New debug/test helpers
+    proceedToFinaleAsJuror,
+    proceedToJuryVoteAsJuror,
+    setupFinal3,
+    // Save/Load
     loadSavedGame,
     saveGame,
     deleteSavedGame,

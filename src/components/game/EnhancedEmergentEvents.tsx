@@ -108,6 +108,21 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
         type: 'betrayal' as const,
         weight: gameState.alliances.length > 0 ? 2 : 0,
         generator: () => generateBetrayalEvent(contestants)
+      },
+      {
+        type: 'romance' as const,
+        weight: tension < 70 ? 2 : 1,
+        generator: () => generateRomanceEvent(contestants)
+      },
+      {
+        type: 'rumor_spread' as const,
+        weight: 2,
+        generator: () => generateRumorEvent(contestants)
+      },
+      {
+        type: 'power_shift' as const,
+        weight: gameState.currentDay % 7 >= 5 ? 2 : 1,
+        generator: () => generatePowerShiftEvent(contestants)
       }
     ];
 
@@ -213,6 +228,94 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
         }
       ],
       autoResolveTime: 20000
+    };
+  };
+
+  const generateRomanceEvent = (contestants: any[]): EmergentEvent => {
+    const participants = getRandomParticipants(contestants, 2);
+    const title = 'Unexpected Chemistry';
+    const desc = `${participants[0]} and ${participants[1]} were spotted getting close. People are starting to talk.`;
+
+    return {
+      id: `romance-${Date.now()}`,
+      type: 'romance',
+      title,
+      description: desc,
+      participants,
+      intensity: 'low',
+      playerInvolvement: participants.includes(gameState.playerName) ? 'participant' : Math.random() > 0.5 ? 'witness' : 'none',
+      choices: [
+        {
+          id: 'pacifist',
+          text: 'Downplay the romance',
+          consequences: ['Reduce attention', 'Protect social image'],
+          type: 'social',
+        },
+        {
+          id: 'headfirst',
+          text: 'Lean into it',
+          consequences: ['Increase screen time', 'Risk strategic blowback'],
+          type: 'aggressive',
+        },
+      ],
+      autoResolveTime: 30000,
+    };
+  };
+
+  const generateRumorEvent = (contestants: any[]): EmergentEvent => {
+    const participants = getRandomParticipants(contestants, 2);
+    const rumorTarget = participants[1];
+    return {
+      id: `rumor-${Date.now()}`,
+      type: 'rumor_spread',
+      title: 'Whispers Spread',
+      description: `${participants[0]} heard something about ${rumorTarget}. The house is buzzing.`,
+      participants,
+      intensity: 'medium',
+      playerInvolvement: participants.includes(gameState.playerName) ? 'participant' : 'witness',
+      choices: [
+        {
+          id: 'pacifist',
+          text: 'Quietly fact-check',
+          consequences: ['Reduce misinformation', 'Appear calm'],
+          type: 'strategic',
+        },
+        {
+          id: 'headfirst',
+          text: 'Amplify the rumor',
+          consequences: ['Create chaos', 'Damage relationships'],
+          type: 'aggressive',
+        },
+      ],
+      autoResolveTime: participants.includes(gameState.playerName) ? undefined : 25000,
+    };
+  };
+
+  const generatePowerShiftEvent = (contestants: any[]): EmergentEvent => {
+    const group = getRandomParticipants(contestants, 3);
+    return {
+      id: `power-${Date.now()}`,
+      type: 'power_shift',
+      title: 'Numbers Shift Quietly',
+      description: `${group.join(', ')} are recalculating the vote. The plan might be changing.`,
+      participants: group,
+      intensity: 'high',
+      playerInvolvement: group.includes(gameState.playerName) ? 'participant' : Math.random() > 0.6 ? 'witness' : 'none',
+      choices: [
+        {
+          id: 'pacifist',
+          text: 'Stabilize the plan',
+          consequences: ['Prevent flip', 'Maintain trust'],
+          type: 'strategic',
+        },
+        {
+          id: 'headfirst',
+          text: 'Push the flip',
+          consequences: ['Upset alliances', 'Increase threat level'],
+          type: 'aggressive',
+        },
+      ],
+      autoResolveTime: 20000,
     };
   };
 
