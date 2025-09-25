@@ -144,7 +144,9 @@ export const DashboardHeader = ({ gameState, onSaveGame, onLoadGame, onDeleteGam
                 Load
               </button>
               <button
-                onClick={onDeleteGame}
+                onClick={() => {
+                  if (confirm('Delete save file? This cannot be undone.')) onDeleteGame?.();
+                }}
                 className="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-muted/80"
                 title="Delete Save"
               >

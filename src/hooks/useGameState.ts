@@ -23,55 +23,104 @@ import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogu
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
 export const useGameState = () => {
+
+  // Central default state creator (to avoid drift and support migrations)
+  const createDefaultState = (): GameState => ({
+    currentDay: 1,
+    playerName: '',
+    contestants: [],
+    playerActions: [
+      { type: 'talk', used: false, usageCount: 0 },
+      { type: 'dm', used: false, usageCount: 0 },
+      { type: 'confessional', used: false, usageCount: 0 },
+      { type: 'observe', used: false, usageCount: 0 },
+      { type: 'scheme', used: false, usageCount: 0 },
+      { type: 'activity', used: false, usageCount: 0 }
+    ] as PlayerAction[],
+    confessionals: [],
+    editPerception: {
+      screenTimeIndex: 45,
+      audienceApproval: 0,
+      persona: 'Underedited',
+      lastEditShift: 0
+    },
+    alliances: [],
+    votingHistory: [],
+    gamePhase: 'intro',
+    twistsActivated: [],
+    nextEliminationDay: 7,
+    daysUntilJury: 28,
+    dailyActionCount: 0,
+    dailyActionCap: 10,
+    aiSettings: {
+      depth: 'standard',
+      additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
+    },
+    forcedConversationsQueue: [],
+    favoriteTally: {},
+    interactionLog: [],
+    tagChoiceCooldowns: {},
+    reactionProfiles: {},
+    debugMode: false,
+    schemaVersion: 1,
+  });
+
+  const migrateAndNormalize = (raw: any): GameState => {
+    const base = createDefaultState();
+    if (!raw || typeof raw !== 'object') return base;
+
+    // Basic shape validation
+    const safe = { ...base, ...raw } as GameState;
+
+    // Ensure required arrays/objects exist
+    safe.contestants = Array.isArray(raw.contestants) ? raw.contestants : base.contestants;
+    safe.playerActions = Array.isArray(raw.playerActions) ? raw.playerActions : base.playerActions;
+    safe.confessionals = Array.isArray(raw.confessionals) ? raw.confessionals : base.confessionals;
+    safe.alliances = Array.isArray(raw.alliances) ? raw.alliances : base.alliances;
+    safe.votingHistory = Array.isArray(raw.votingHistory) ? raw.votingHistory : base.votingHistory;
+    safe.twistsActivated = Array.isArray(raw.twistsActivated) ? raw.twistsActivated : base.twistsActivated;
+    safe.forcedConversationsQueue = Array.isArray(raw.forcedConversationsQueue) ? raw.forcedConversationsQueue : base.forcedConversationsQueue;
+    safe.favoriteTally = raw.favoriteTally && typeof raw.favoriteTally === 'object' ? raw.favoriteTally : base.favoriteTally;
+    safe.interactionLog = Array.isArray(raw.interactionLog) ? raw.interactionLog : base.interactionLog;
+    safe.tagChoiceCooldowns = raw.tagChoiceCooldowns && typeof raw.tagChoiceCooldowns === 'object' ? raw.tagChoiceCooldowns : base.tagChoiceCooldowns;
+    safe.reactionProfiles = raw.reactionProfiles && typeof raw.reactionProfiles === 'object' ? raw.reactionProfiles : base.reactionProfiles;
+
+    // Clamp numeric fields to guard corrupted saves
+    const clamp = (n: any, min: number, max: number, d: number) => typeof n === 'number' ? Math.max(min, Math.min(max, n)) : d;
+    safe.currentDay = clamp(raw.currentDay, 1, 365, base.currentDay);
+    safe.dailyActionCount = clamp(raw.dailyActionCount, 0, 100, base.dailyActionCount);
+    safe.dailyActionCap = clamp(raw.dailyActionCap, 1, 100, base.dailyActionCap);
+    safe.nextEliminationDay = clamp(raw.nextEliminationDay, 1, 365, base.nextEliminationDay);
+    safe.daysUntilJury = clamp(raw.daysUntilJury, 0, 365, base.daysUntilJury!);
+
+    // Ensure valid phase
+    const validPhases = new Set(['intro','premiere','daily','player_vote','elimination','weekly_recap','finale','immunity_competition','jury_vote','final_3_vote','post_season']);
+    safe.gamePhase = validPhases.has(raw.gamePhase) ? raw.gamePhase : base.gamePhase;
+
+    // Ensure editPerception exists
+    safe.editPerception = {
+      ...base.editPerception,
+      ...(raw.editPerception || {})
+    };
+
+    // Increment or set schemaVersion
+    safe.schemaVersion = typeof raw.schemaVersion === 'number' ? Math.max(1, raw.schemaVersion) : 1;
+
+    return safe;
+  };
+
   const [gameState, setGameState] = useState<GameState>(() => {
     // Load from localStorage if available
     try {
       const raw = localStorage.getItem('rtv_game_state');
       if (raw) {
         const parsed = JSON.parse(raw);
-        return parsed as GameState;
+        return migrateAndNormalize(parsed);
       }
     } catch (e) {
       console.warn('Failed to load saved game state', e);
     }
-    return {
-      currentDay: 1,
-      playerName: '',
-      contestants: [],
-      playerActions: [
-        { type: 'talk', used: false, usageCount: 0 },
-        { type: 'dm', used: false, usageCount: 0 },
-        { type: 'confessional', used: false, usageCount: 0 },
-        { type: 'observe', used: false, usageCount: 0 },
-        { type: 'scheme', used: false, usageCount: 0 },
-        { type: 'activity', used: false, usageCount: 0 }
-      ] as PlayerAction[],
-      confessionals: [],
-      editPerception: {
-        screenTimeIndex: 45,
-        audienceApproval: 0,
-        persona: 'Underedited',
-        lastEditShift: 0
-      },
-      alliances: [],
-      votingHistory: [],
-      gamePhase: 'intro',
-      twistsActivated: [],
-      nextEliminationDay: 7,
-      daysUntilJury: 28,
-      dailyActionCount: 0,
-      dailyActionCap: 10,
-      aiSettings: {
-        depth: 'standard',
-        additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
-      },
-      forcedConversationsQueue: [],
-      favoriteTally: {},
-      interactionLog: [],
-      tagChoiceCooldowns: {},
-      reactionProfiles: {},
-      debugMode: false,
-    } as GameState;
+    return createDefaultState();
   });
 
   const startGame = useCallback((playerName: string) => {
@@ -1160,7 +1209,8 @@ export const useGameState = () => {
       const raw = localStorage.getItem('rtv_game_state');
       if (raw) {
         const parsed = JSON.parse(raw);
-        setGameState(parsed as GameState);
+        const normalized = migrateAndNormalize(parsed);
+        setGameState(normalized);
       }
     } catch (e) {
       console.warn('Failed to load saved game state', e);
@@ -1169,7 +1219,9 @@ export const useGameState = () => {
 
   const saveGame = useCallback(() => {
     try {
-      localStorage.setItem('rtv_game_state', JSON.stringify(gameState));
+      // ensure schemaVersion persists
+      const toSave = { ...gameState, schemaVersion: gameState.schemaVersion || 1 };
+      localStorage.setItem('rtv_game_state', JSON.stringify(toSave));
     } catch (e) {
       console.warn('Failed to save game state', e);
     }

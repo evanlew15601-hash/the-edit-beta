@@ -85,7 +85,9 @@ export const IntroScreen = ({ onStartGame, onLoadGame, onDeleteSave }: IntroScre
                 <Button variant="outline" onClick={onLoadGame}>
                   Continue
                 </Button>
-                <Button variant="destructive" onClick={onDeleteSave}>
+                <Button variant="destructive" onClick={() => {
+                  if (confirm('Delete save file? This cannot be undone.')) onDeleteSave?.();
+                }}>
                   Delete Save
                 </Button>
               </div>
