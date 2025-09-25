@@ -34,7 +34,10 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
         onLoadGame={onLoadGame}
         onDeleteGame={onDeleteGame}
         onQuitToTitle={onQuitToTitle}
-        onToggleDebug={(window as any).toggleDebugMode?.() || undefined}
+        onToggleDebug={() => {
+          const fn = (window as any).toggleDebugMode;
+          if (typeof fn === 'function') fn();
+        }}
       />
       
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
