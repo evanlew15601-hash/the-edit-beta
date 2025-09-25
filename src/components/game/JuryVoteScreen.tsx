@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Crown, Vote, Users } from 'lucide-react';
-import { GameState } from '@/types/game';
+import { GameState, Contestant } from '@/types/game';
 
 interface JuryVoteScreenProps {
   gameState: GameState;
@@ -14,7 +14,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   const [votes, setVotes] = useState<{ [juryMember: string]: string }>({});
   const [winner, setWinner] = useState<string>('');
   const [showResults, setShowResults] = useState(false);
-  const [othersComputed, setOthersComputed] = useState(false); // Prevent recomputation
+  const [voteStable, setVoteStable] = useState(false); // FIXED: Prevent vote flickering
 
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
   const juryMembers = gameState.contestants.filter(c => 
@@ -35,39 +35,23 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   console.log('JuryVoteScreen - Player eliminated?', playerEliminated);
   console.log('JuryVoteScreen - isPlayerEliminated flag?', gameState.isPlayerEliminated);
   console.log('JuryVoteScreen - Player in jury?', isPlayerInJury);
-
-  // Helper to compute winner and show results
-  const computeWinnerAndReveal = (currentVotes: { [juryMember: string]: string }) => {
-    const voteCounts: { [finalist: string]: number } = {};
-    finalTwo.forEach(f => voteCounts[f.name] = 0);
-    Object.values(currentVotes).forEach(vote => {
-      if (vote in voteCounts) voteCounts[vote]++;
-    });
-    const winnerName = Object.entries(voteCounts).reduce((prev, current) => 
-      current[1] > prev[1] ? current : prev
-    )[0];
-    setWinner(winnerName);
-    setTimeout(() => setShowResults(true), 2000);
-  };
   
   useEffect(() => {
-    if (othersComputed) return;
+    // FIXED: Only calculate votes once to prevent flickering
+    if (voteStable) return;
     
-    // Simulate jury voting for NON-PLAYER members based on relationships and speeches
+    // Simulate jury voting based on relationships and speeches
     const juryVotes: { [juryMember: string]: string } = {};
     
+    // Regular jury voting
     juryMembers.forEach(juryMember => {
-      if (isPlayerInJury && juryMember.name === gameState.playerName) {
-        // Skip player's vote; allow manual selection
-        return;
-      }
       // Calculate vote probability for each finalist
       const finalTwoScores = finalTwo.map(finalist => {
         let score = 50; // Base score
         
         // Relationship with jury member
         const memories = juryMember.memory.filter(m => 
-          m.participants.includes(finalist.name)
+          m.participants.includes(finalist.name === gameState.playerName ? gameState.playerName : finalist.name)
         );
         
         const relationshipScore = memories.reduce((sum, memory) => {
@@ -96,14 +80,53 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       juryVotes[juryMember.name] = topChoice.name;
     });
     
-    setVotes(juryVotes);
-    setOthersComputed(true);
-
-    // If player is NOT in the jury, we can reveal results immediately
-    if (!isPlayerInJury) {
-      computeWinnerAndReveal(juryVotes);
+    // FIXED: Add player jury vote if they're eliminated
+    if (isPlayerInJury) {
+      // Player votes based on their own preferences/relationships
+      const finalTwoScores = finalTwo.map(finalist => {
+        let score = 50;
+        
+        // Check alliances
+        const sharedAlliances = gameState.alliances.filter(a => 
+          a.members.includes(gameState.playerName) && a.members.includes(finalist.name)
+        ).length;
+        
+        score += sharedAlliances * 20;
+        
+        // Random factor
+        score += (Math.random() - 0.5) * 15;
+        
+        return { name: finalist.name, score };
+      });
+      
+      const playerChoice = finalTwoScores.reduce((prev, current) => 
+        current.score > prev.score ? current : prev
+      );
+      
+      juryVotes[gameState.playerName] = playerChoice.name;
+      console.log('Player jury vote:', playerChoice.name);
     }
-  }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, isPlayerInJury, gameState.alliances, othersComputed]);
+    
+    setVotes(juryVotes);
+    
+    // Determine winner
+    const voteCounts: { [finalist: string]: number } = {};
+    finalTwo.forEach(f => voteCounts[f.name] = 0);
+    
+    Object.values(juryVotes).forEach(vote => {
+      voteCounts[vote]++;
+    });
+    
+    const winnerName = Object.entries(voteCounts).reduce((prev, current) => 
+      current[1] > prev[1] ? current : prev
+    )[0];
+    
+    setWinner(winnerName);
+    setVoteStable(true); // FIXED: Lock in votes to prevent re-calculation
+    
+    // Show results after a delay
+    setTimeout(() => setShowResults(true), 2000);
+  }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, voteStable, isPlayerInJury, gameState.alliances]);
 
   const getVoteCount = (finalist: string) => {
     return Object.values(votes).filter(vote => vote === finalist).length;
@@ -147,9 +170,9 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                           key={finalist.name}
                           variant="surveillance"
                           onClick={() => {
-                            const updated = { ...votes, [gameState.playerName]: finalist.name };
-                            setVotes(updated);
-                            computeWinnerAndReveal(updated);
+                            setVotes(prev => ({ ...prev, [gameState.playerName]: finalist.name }));
+                            // Continue simulation for other jury members
+                            setTimeout(() => setVoteStable(true), 1500);
                           }}
                           className="h-auto p-4"
                         >
@@ -165,7 +188,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                   </Card>
                 )}
                 
-                {isPlayerInJury && votes[gameState.playerName] && (
+                {votes[gameState.playerName] && (
                   <Card className="p-4 border-primary/20 bg-primary/10 mb-6">
                     <p className="text-sm">
                       <strong>Your vote:</strong> You voted for {votes[gameState.playerName]} to win.
