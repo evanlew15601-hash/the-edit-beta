@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Progress } from '@/components/ui/progress';
 import { Crown, Vote, Users } from 'lucide-react';
-import { GameState, Contestant } from '@/types/game';
+import { GameState } from '@/types/game';
 
 interface JuryVoteScreenProps {
   gameState: GameState;
@@ -174,6 +174,30 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       return votes[jurorName] === finalist ? sum + 1 : sum;
     }, 0);
   };
+
+  // Guard: ensure we have exactly two finalists
+  if (finalTwo.length !== 2) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <Vote className="w-8 h-8 text-primary" />
+              <div>
+                <h1 className="text-3xl font-light">Jury Vote</h1>
+                <p className="text-muted-foreground">Awaiting finalists</p>
+              </div>
+            </div>
+            <div className="bg-warning/10 border border-warning/20 rounded p-4">
+              <p className="text-sm text-muted-foreground">
+                Jury voting requires exactly two finalists. Current finalists: {finalTwo.map(c => c.name).join(', ') || 'none'}.
+              </p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
