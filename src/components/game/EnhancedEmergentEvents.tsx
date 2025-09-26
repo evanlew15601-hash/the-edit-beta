@@ -201,9 +201,29 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
   const generateBetrayalEvent = (contestants: any[]): EmergentEvent => {
     const alliance = gameState.alliances[Math.floor(Math.random() * gameState.alliances.length)];
     if (!alliance) return generateConflictEvent(contestants);
-    
-    const betrayer = alliance.members[Math.floor(Math.random() * alliance.members.length)];
-    const target = alliance.members.find(m => m !== betrayer) || alliance.members[0];
+
+    // Ensure we have at least two distinct members to avoid self-targeting events
+    const distinctMembers = Array.from(new Set(alliance.members));
+    if (distinctMembers.length < 2) {
+      // Fallback to a generic conflict if alliance is malformed/single-member
+      return generateConflictEvent(contestants);
+    }
+
+    const betrayer = distinctMembers[Math.floor(Math.random() * distinctMembers.length)];
+    let target = distinctMembers.find(m => m !== betrayer);
+
+    // If no target found inside alliance (shouldn't happen with length >= 2), pick an external target
+    if (!target) {
+      const nonAllies = contestants
+        .map((c: any) => c.name)
+        .filter((n: string) => n !== betrayer && !distinctMembers.includes(n));
+      target = nonAllies[Math.floor(Math.random() * Math.max(1, nonAllies.length))] || distinctMembers.find(m => m !== betrayer)!;
+    }
+
+    // Safety: if still identical (edge cases), fallback to conflict generator
+    if (target === betrayer) {
+      return generateConflictEvent(contestants);
+    }
     
     return {
       id: `betrayal-${Date.now()}`,

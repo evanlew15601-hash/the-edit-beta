@@ -148,10 +148,20 @@ export const evaluateChoice = (
 
   const noise = 1 + seededNoise(`${gameState.currentDay}|${playerName}|${npc.id}|${choice.choiceId}`);
 
-  const trustDelta = clamp(base.trust * affinity * toneMod * (1 + mood) * memoryMod * repetitionPenalty * noise, -0.25, 0.25);
-  const suspicionDelta = clamp(base.suspicion * (2 - affinity) * (2 - toneMod) * (1 - mood) * repetitionPenalty * noise, -0.25, 0.25);
-  const entertainmentDelta = clamp(base.entertainment * (0.8 + affinity * 0.4) * (choice.tone === 'Playful' ? 1.1 : 1) * noise, -0.25, 0.25);
-  const influenceDelta = clamp(base.influence * (0.9 + trust / 400) * noise, -0.25, 0.25);
+  let trustDelta = clamp(base.trust * affinity * toneMod * (1 + mood) * memoryMod * repetitionPenalty * noise, -0.25, 0.25);
+  let suspicionDelta = clamp(base.suspicion * (2 - affinity) * (2 - toneMod) * (1 - mood) * repetitionPenalty * noise, -0.25, 0.25);
+  let entertainmentDelta = clamp(base.entertainment * (0.8 + affinity * 0.4) * (choice.tone === 'Playful' ? 1.1 : 1) * noise, -0.25, 0.25);
+  let influenceDelta = clamp(base.influence * (0.9 + trust / 400) * noise, -0.25, 0.25);
+
+  // Alliance synergy: probing an ally should feel safer and yield more useful signals
+  if (choice.intent === 'ProbeForInfo') {
+    const inAlliance = gameState.alliances.some(a => a.members.includes(npc.name) && a.members.includes(playerName));
+    if (inAlliance) {
+      trustDelta = clamp(trustDelta + 0.04, -0.25, 0.25);
+      suspicionDelta = clamp(suspicionDelta - 0.05, -0.25, 0.25);
+      influenceDelta = clamp(influenceDelta + 0.02, -0.25, 0.25);
+    }
+  }
 
   const catScore = trustDelta - suspicionDelta + entertainmentDelta * 0.5;
   const category: ComputedOutcome['category'] = catScore > 0.03 ? 'positive' : catScore < -0.02 ? 'negative' : 'neutral';
