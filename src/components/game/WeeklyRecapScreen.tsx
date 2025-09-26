@@ -25,6 +25,15 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
   
   console.log(`Week ${currentWeek} confessionals:`, weeklyConfessionals.length, 'from days', weekStartDay, 'to', weekEndDay);
 
+  // Ratings history helpers for weekly recap cards
+  const history = gameState.ratingsHistory || [];
+  const weeklyEntries = history.filter(h => h.day >= weekStartDay && h.day <= weekEndDay);
+  const currentWeekly = weeklyEntries.length > 0 ? weeklyEntries[weeklyEntries.length - 1] : undefined;
+  // Previous week's last entry (or last entry before this week starts)
+  const prevEntryIdx = history.findIndex(h => h.day >= weekStartDay);
+  const prevWeekly = prevEntryIdx > 0 ? history[prevEntryIdx - 1] : undefined;
+  const weeklyDelta = (currentWeekly?.rating ?? gameState.viewerRating ?? 3.8) - (prevWeekly?.rating ?? gameState.viewerRating ?? 3.8);
+
   // Generate enhanced weekly edit summary and update edit perception
   const weeklyEdit: WeeklyEdit = buildEnhancedWeeklyEdit(gameState);
   const updatedEditPerception = calculateLegacyEditPerception(
@@ -88,7 +97,7 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
               {weeklyDelta > 0.01 ? <TrendingUp className="w-4 h-4 text-green-500" /> :
                weeklyDelta < -0.01 ? <TrendingDown className="w-4 h-4 text-destructive" /> :
                <Activity className="w-4 h-4 text-muted-foreground" />}
-              <span className="ml-1">{weeklyDelta > 0 ? '+' : ''}{weeklyDelta}</span>
+              <span className="ml-1">{weeklyDelta > 0 ? '+' : ''}{Number.isFinite(weeklyDelta) ? Math.round(weeklyDelta * 100) / 100 : 0}</span>
             </Badge>
           </div>
           <div className="text-3xl font-light">
