@@ -163,13 +163,10 @@ export function CharacterCreation({ onCreate }: CharacterCreationProps) {
                   key={opt.key}
                   variant={inclination === opt.key ? 'action' : 'surveillance'}
                   onClick={() => setInclination(opt.key)}
-                  className="h-auto min-h-20 w-full py-3 text-left whitespace-normal break-words items-start justify-start"
+                  className="h-auto min-h-14 w-full py-3 text-left items-start justify-start"
                 >
-                  <div className="flex flex-col items-start gap-1 w-full">
+                  <div className="flex flex-col items-start w-full">
                     <div className="font-medium">{opt.label}</div>
-                    <div className="text-xs text-muted-foreground leading-relaxed break-words">
-                      {opt.hint}
-                    </div>
                   </div>
                 </Button>
               ))}
