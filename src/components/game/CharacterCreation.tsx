@@ -94,7 +94,7 @@ export function CharacterCreation({
   const canSubmit = name.trim().length >= 2 && typeof age === 'number' && age >= 18 && age <= 65;
   const handleSubmit = () => {
     if (!canSubmit) return;
-    const id = `player_${name.toLowerCase().replace(/\\s+/g, '_')}`;
+    const id = `player_${name.toLowerCase().replace(/\s+/g, '_')}`;
     const persona = statBiased.strategy >= statBiased.social && statBiased.strategy >= statBiased.physical && statBiased.strategy >= statBiased.deception ? 'Strategic Player' : statBiased.social >= statBiased.physical && statBiased.social >= statBiased.deception ? 'Social Butterfly' : statBiased.physical >= statBiased.deception ? 'Competitor' : 'Wildcard';
     const player: Contestant = {
       id,
@@ -158,10 +158,10 @@ export function CharacterCreation({
           <div className="space-y-2">
             <label className="text-sm font-medium">Stat Inclination</label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {STAT_OPTIONS.map(opt => <Button key={opt.key} variant={inclination === opt.key ? 'action' : 'surveillance'} onClick={() => setInclination(opt.key)} className="h-auto py-3">
+              {STAT_OPTIONS.map(opt => <Button key={opt.key} variant={inclination === opt.key ? 'action' : 'surveillance'} onClick={() => setInclination(opt.key)} className="h-auto py-3 min-h-[72px]">
                   <div>
                     <div className="font-medium">{opt.label}</div>
-                    
+                    <div className="text-xs text-muted-foreground mt-1 leading-snug">{opt.hint}</div>
                   </div>
                 </Button>)}
             </div>
