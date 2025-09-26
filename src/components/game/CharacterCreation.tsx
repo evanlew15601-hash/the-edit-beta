@@ -167,7 +167,7 @@ export function CharacterCreation({ onCreate }: CharacterCreationProps) {
                 >
                   <div className="flex flex-col items-start w-full">
                     <div className="font-medium">{opt.label}</div>
-                  </div>
+
                 </Button>
               ))}
             </div>
