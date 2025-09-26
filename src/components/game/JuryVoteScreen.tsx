@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Progress } from '@/components/ui/progress';
 import { Crown, Gavel, Users } from 'lucide-react';
 import { GameState } from '@/types/game';
+import { analyzeFinaleSpeech } from '@/utils/speechQuality';
 
 interface JuryVoteScreenProps {
   gameState: GameState;
@@ -15,6 +16,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   const [votes, setVotes] = useState<{ [juryMember: string]: string }>({});
   // Use stored finale speech if provided via game state
   const effectivePlayerSpeech = (playerSpeech && playerSpeech.trim()) || gameState.finaleSpeech || '';
+  const speechEval = analyzeFinaleSpeech(effectivePlayerSpeech);
   const [winner, setWinner] = useState<string>('');
   const [showResults, setShowResults] = useState(false);
   const [voteStable, setVoteStable] = useState(false); // FIXED: Prevent vote flickering
@@ -77,8 +79,8 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
 
         // Speech impact (if it was the player finalist)
         if (finalist.name === gameState.playerName && effectivePlayerSpeech) {
-          const speechImpact = effectivePlayerSpeech.length > 180 ? 20 : effectivePlayerSpeech.length > 60 ? 10 : 4;
-          score += speechImpact;
+          // Use analyzer instead of raw length so "hi" has no effect
+          score += speechEval.impact;
         }
 
         // Random factor for unpredictability (applied once)
@@ -102,7 +104,10 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
         'neutral history';
       const speechPhrase =
         (topChoice.name === gameState.playerName && effectivePlayerSpeech)
-          ? (effectivePlayerSpeech.length > 180 ? 'compelling speech' : 'solid speech')
+          ? (speechEval.tier === 'compelling' ? 'compelling speech'
+             : speechEval.tier === 'solid' ? 'solid speech'
+             : speechEval.tier === 'weak' ? 'weak speech'
+             : 'no meaningful speech')
           : 'overall gameplay';
 
       rationaleMap[juryMember.name] = `Chose ${topChoice.name} due to ${relationPhrase} and ${speechPhrase}.`;
@@ -115,7 +120,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     if (!isPlayerInJury) {
       setVoteStable(true);
     }
-  }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, voteStable, isPlayerInJury]);
+  }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier]);
 
   // Visual deliberation progress indicator
   useEffect(() => {

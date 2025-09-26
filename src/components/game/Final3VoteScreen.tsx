@@ -392,6 +392,7 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
   if (showingResults) {
     const maxVotes = Math.max(...Object.values(voteResults));
     const eliminated = Object.entries(voteResults).find(([_, votes]) => votes === maxVotes)?.[0];
+    const finalists = finalThree.filter(c => c.name !== eliminated);
 
     return (
       <div className="min-h-screen bg-background p-6">
@@ -448,6 +449,20 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
                   </p>
                 </div>
               )}
+            </Card>
+
+            <Card className="p-6">
+              <h3 className="font-medium mb-3">Final 2</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {finalists.map(f => (
+                  <div key={f.id} className="flex items-center justify-between p-3 border rounded bg-primary/5">
+                    <div className={`font-medium ${f.name === gameState.playerName ? 'text-primary' : ''}`}>
+                      {f.name}{f.name === gameState.playerName ? ' (You)' : ''}
+                    </div>
+                    <span className="text-xs text-primary">Advances</span>
+                  </div>
+                ))}
+              </div>
             </Card>
           </Card>
         </div>
