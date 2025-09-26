@@ -213,6 +213,11 @@ const Index = () => {
         onGoToFinal3Vote={setupFinal3}
         onContinueFromElimination={() => continueFromElimination()}
         onToggleDebug={toggleDebugMode}
+        // New phase-specific quick actions
+        onSubmitPlayerVote={submitPlayerVote}
+        onSubmitFinal3Vote={submitFinal3Vote}
+        onTieBreakResult={(eliminated, w1, w2, method) => handleTieBreakResult(eliminated, w1, w2, method)}
+        onEndGame={(winner, votes, rationales) => endGame(winner, votes, rationales)}
       />
     </ErrorBoundary>
   );

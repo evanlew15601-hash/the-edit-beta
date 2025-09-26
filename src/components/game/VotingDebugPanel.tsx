@@ -12,6 +12,11 @@ interface VotingDebugPanelProps {
   onGoToFinal3Vote: () => void;
   onContinueFromElimination: () => void;
   onToggleDebug: () => void;
+  // New: phase-specific actions
+  onSubmitPlayerVote?: (choice: string) => void;
+  onSubmitFinal3Vote?: (choice: string) => void;
+  onTieBreakResult?: (eliminated: string, winner1: string, winner2: string, method?: 'challenge' | 'fire_making' | 'random_draw') => void;
+  onEndGame?: (winner: string, votes: { [juryMember: string]: string }, rationales?: { [juryMember: string]: string }) => void;
 }
 
 export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
@@ -97,6 +102,77 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
           >
             Force Player Elimination (Test)
           </Button>
+
+          {/* Phase-specific quick actions */}
+          {gameState.gamePhase === 'player_vote' && onSubmitPlayerVote && (
+            <div className="mt-2 border-t border-border pt-2">
+              <div className="text-xs text-muted-foreground mb-1">Quick Player Vote</div>
+              {nonPlayerActive.map(c => (
+                <Button
+                  key={c.name}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onSubmitPlayerVote(c.name)}
+                  className="w-full mb-1"
+                >
+                  Vote: {c.name}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {gameState.gamePhase === 'final_3_vote' && (onSubmitFinal3Vote || onTieBreakResult) && (
+            <div className="mt-2 border-t border-border pt-2">
+              <div className="text-xs text-muted-foreground mb-1">Quick Final 3 Vote</div>
+              {/* Submit vote against one of the non-player finalists */}
+              {nonPlayerActive.map(c => (
+                <Button
+                  key={`f3-${c.name}`}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onSubmitFinal3Vote && onSubmitFinal3Vote(c.name)}
+                  className="w-full mb-1"
+                >
+                  Vote Out: {c.name}
+                </Button>
+              ))}
+              {/* Simple tie-break helpers: pick a winner among non-player actives */}
+              {onTieBreakResult && nonPlayerActive.length >= 2 && (
+                <div className="mt-2">
+                  <div className="text-[11px] text-muted-foreground mb-1">Tie-break helpers</div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const winners = nonPlayerActive.slice(0, 2).map(c => c.name);
+                      const eliminated = active.find(c => c.name !== gameState.playerName && !winners.includes(c.name))?.name || nonPlayerActive[2]?.name || '';
+                      onTieBreakResult(eliminated || '', winners[0], winners[1], 'challenge');
+                    }}
+                    className="w-full"
+                  >
+                    Tie-break: Advance first two non-player actives
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {gameState.gamePhase === 'jury_vote' && onEndGame && (
+            <div className="mt-2 border-t border-border pt-2">
+              <div className="text-xs text-muted-foreground mb-1">Quick Jury Result</div>
+              {active.map(c => (
+                <Button
+                  key={`jury-${c.name}`}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEndGame && onEndGame(c.name, {}, {})}
+                  className="w-full mb-1"
+                >
+                  Set Winner: {c.name}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-3 text-[11px] text-muted-foreground">
