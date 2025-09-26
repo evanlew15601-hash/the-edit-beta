@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+
 import { npcResponseEngine } from '@/utils/npcResponseEngine';
 import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant } from '@/types/game';
 import { generateContestants } from '@/utils/contestantGenerator';
@@ -13,7 +13,7 @@ import { processVoting } from '@/utils/votingEngine';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
-import { generateLocalAIReply } from '@/utils/localLLM';
+
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
 import { getReactionProfileForNPC } from '@/utils/tagDialogueEngine';
 import { TAG_CHOICES } from '@/data/tagChoices';
