@@ -134,12 +134,15 @@ const Index = () => {
         );
       
       case 'finale':
+        // If the player is eliminated and watching as a juror, continue to the juror-specific jury vote flow.
+        // Otherwise, proceed to the standard jury vote where the player is a finalist.
+        const onFinaleContinue = gameState.isPlayerEliminated ? proceedToJuryVoteAsJuror : proceedToJuryVote;
         return (
           <FinaleEpisode
             gameState={gameState}
             onSubmitSpeech={submitFinaleSpeech}
             onAFPVote={submitAFPVote}
-            onContinue={proceedToJuryVote}
+            onContinue={onFinaleContinue}
           />
         );
       
