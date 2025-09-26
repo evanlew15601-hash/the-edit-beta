@@ -28,11 +28,17 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
   onGoToFinal3Vote,
   onContinueFromElimination,
   onToggleDebug,
+  // Include optional handlers so they are in scope when used below
+  onSubmitPlayerVote,
+  onSubmitFinal3Vote,
+  onTieBreakResult,
+  onEndGame,
 }) => {
   if (!gameState.debugMode) return null;
 
   const active = gameState.contestants.filter(c => !c.isEliminated);
   const eliminated = gameState.contestants.filter(c => c.isEliminated);
+  const nonPlayerActive = active.filter(c => c.name !== gameState.playerName);
 
   return (
     <div className="fixed bottom-4 right-4 z-50 w-[340px]">
