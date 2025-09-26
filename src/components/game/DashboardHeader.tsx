@@ -20,10 +20,11 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
   const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
   const remainingCount = activeContestants.length;
   
-  // Calculate weeks until jury (enhanced countdown)
-  const daysUntilJury = Math.max(0, (gameState.daysUntilJury || 0) - (gameState.currentDay - 1));
+  // Calculate weeks until jury
+  // daysUntilJury in game state already represents an estimated remaining-day countdown from "now".
+  const daysUntilJury = Math.max(0, gameState.daysUntilJury || 0);
   const weeksUntilJury = daysUntilJury > 0 ? Math.ceil(daysUntilJury / 7) : 0;
-  const isJuryPhase = gameState.juryMembers && gameState.juryMembers.length > 0;
+  const isJuryPhase = !!(gameState.juryMembers && gameState.juryMembers.length > 0);
   
   // Elimination countdown
   const daysUntilElimination = gameState.nextEliminationDay ? 

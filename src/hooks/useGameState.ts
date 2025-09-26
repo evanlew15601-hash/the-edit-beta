@@ -1100,8 +1100,11 @@ export const useGameState = () => {
   const finalizeCharacterCreation = useCallback((player: Contestant) => {
     setGameState(prev => {
       const playerName = player.name || prev.playerName || 'You';
-      const npcs = generateStaticNPCs({ count: 15, excludeNames: [playerName], includeSpecials: true });
-      const contestants: Contestant[] = [{ ...player }, ...npcs];
+      // Twists apply only to the player character. Do not assign special backgrounds to NPCs.
+      const npcs = generateStaticNPCs({ count: 15, excludeNames: [playerName], includeSpecials: false });
+      // Extra safety: strip any specials from non-player contestants if present
+      const sanitizedNPCs = npcs.map(c => ({ ...c, special: { kind: 'none' as const } }));
+      const contestants: Contestant[] = [{ ...player }, ...sanitizedNPCs];
 
       // Build reaction profiles
       const reactionProfiles: any = {};

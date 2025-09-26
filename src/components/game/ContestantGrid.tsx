@@ -162,12 +162,12 @@ export const ContestantGrid = ({ contestants, playerName }: ContestantGridProps)
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    {/* Special background badge with tooltips */}
-                    {contestant.special && contestant.special.kind !== 'none' && (
+                    {/* Special background badge with tooltips - only show for the player */}
+                    {contestant.name === playerName && contestant.special && contestant.special.kind !== 'none' && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Badge
-                            variant={contestant.name === playerName ? 'secondary' : 'outline'}
+                            variant="secondary"
                             className="text-[10px] ml-1 cursor-help"
                           >
                             {contestant.special.kind === 'hosts_estranged_child' && 'Host’s Child'}
