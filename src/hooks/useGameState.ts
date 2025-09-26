@@ -67,12 +67,13 @@ export const useGameState = () => {
     } as GameState;
   });
 
-  const startGame = useCallback((playerName: string) => {
-    console.log('Starting game, proceeding to character creation for:', playerName);
+  const startGame = useCallback((playerName?: string) => {
+    console.log('Starting game, proceeding to character creation.', playerName ? `Provided name (ignored here): ${playerName}` : '');
 
     const newState: GameState = {
       currentDay: 1,
-      playerName,
+      // Name will be finalized in character creation
+      playerName: '',
       contestants: [],
       playerActions: [
         { type: 'talk', used: false, usageCount: 0 },
