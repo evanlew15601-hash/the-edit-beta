@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { npcResponseEngine } from '@/utils/npcResponseEngine';
 import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant } from '@/types/game';
 import { generateContestants } from '@/utils/contestantGenerator';
+import { generateStaticNPCs } from '@/utils/npcGeneration';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { AllianceManager } from '@/utils/allianceManager';
 import { InformationTradingEngine } from '@/utils/informationTradingEngine';
