@@ -208,30 +208,33 @@ class EmergentEventEngine {
   }
 
   private updateDramaTension(gameState: GameState): void {
-    gameState.contestants.forEach(contestant => {
-      if (contestant.isEliminated || contestant.name === 'Player') return;
-      
+    const nonPlayerContestants = gameState.contestants.filter(
+      contestant => !contestant.isEliminated && contestant.name !== gameState.playerName
+    );
+
+    nonPlayerContestants.forEach(contestant => {
       let tension = 0;
-      
+
       // Calculate tension from relationships
       const relationships = relationshipGraphEngine.getRelationshipsForContestant(contestant.name);
-      const averageSuspicion = relationships.reduce((sum, rel) => sum + rel.suspicion, 0) / relationships.length;
-      const averageTrust = relationships.reduce((sum, rel) => sum + rel.trust, 0) / relationships.length;
-      
+      const relCount = relationships.length || 1;
+      const averageSuspicion = relationships.reduce((sum, rel) => sum + rel.suspicion, 0) / relCount;
+      const averageTrust = relationships.reduce((sum, rel) => sum + rel.trust, 0) / relCount;
+
       tension += averageSuspicion;
       tension += Math.max(0, 50 - averageTrust);
-      
+
       // Add tension from recent negative memories
-      const recentNegativeMemories = contestant.memory.filter(m => 
+      const recentNegativeMemories = contestant.memory.filter(m =>
         m.day >= gameState.currentDay - 3 && m.emotionalImpact < -3
       );
       tension += recentNegativeMemories.length * 10;
-      
+
       // Add tension from motives
       const motives = npcAutonomyEngine.getNPCMotives(contestant.name);
       const highIntensityMotives = motives.filter(m => m.intensity > 70);
       tension += highIntensityMotives.length * 15;
-      
+
       this.dramaTensionLevels.set(contestant.name, Math.min(100, tension));
     });
   }
@@ -255,9 +258,8 @@ class EmergentEventEngine {
     const events: EmergentEvent[] = [];
     
     // Look for patterns in memories that could trigger events
-    gameState.contestants.forEach(contestant => {
-      if (contestant.isEliminated || contestant.name === 'Player') return;
-      
+    const nonPlayerContestants = gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName);
+    nonPlayerContestants.forEach(contestant => {
       // Check for revenge triggers
       const betrayalMemories = contestant.memory.filter(m => 
         m.type === 'scheme' && m.emotionalImpact < -5 && m.day >= gameState.currentDay - 5
@@ -310,11 +312,11 @@ class EmergentEventEngine {
 
   private generateMinimumDramaEvent(gameState: GameState): EmergentEvent | null {
     // Generate a low-key drama event to maintain engagement
-    const activeContestants = gameState.contestants.filter(c => !c.isEliminated && c.name !== 'Player');
+    const activeNonPlayer = gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName);
     
-    if (activeContestants.length < 2) return null;
+    if (activeNonPlayer.length < 2) return null;
     
-    const randomPair = this.getRandomPair(activeContestants);
+    const randomPair = this.getRandomPair(activeNonPlayer);
     
     return {
       id: `forced-drama-${Date.now()}`,
