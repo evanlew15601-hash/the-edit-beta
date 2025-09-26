@@ -8,10 +8,20 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// In non-browser environments (SSR/build), window.localStorage is not available.
+// Guard its usage so the bundle can build successfully.
+const authOptions =
+  typeof window !== 'undefined'
+    ? {
+        storage: window.localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    : {
+        persistSession: true,
+        autoRefreshToken: true,
+      };
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
+  auth: authOptions,
 });
