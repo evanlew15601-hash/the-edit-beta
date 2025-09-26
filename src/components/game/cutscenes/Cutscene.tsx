@@ -19,6 +19,31 @@ interface CutsceneProps {
 
 export const Cutscene = ({ title, slides, onComplete, ctaLabel = 'Continue' }: CutsceneProps) => {
   const [index, setIndex] = useState(0);
+
+  // Guard: handle empty or invalid slide arrays safely
+  if (!slides || slides.length === 0) {
+    return (
+      <div className="min-h-screen bg-background px-6 py-10">
+        <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-light text-foreground">{title}</h1>
+            <div className="w-20 h-px bg-primary mx-auto" />
+          </div>
+          <Card className="p-6">
+            <div className="space-y-4">
+              <p className="text-muted-foreground">No scenes available.</p>
+              <div className="flex justify-end">
+                <Button variant="action" size="sm" onClick={onComplete}>
+                  {ctaLabel}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   const current = slides[index];
   const isLast = index === slides.length - 1;
 
@@ -40,14 +65,14 @@ export const Cutscene = ({ title, slides, onComplete, ctaLabel = 'Continue' }: C
         <Card className="p-6">
           <ScrollArea className="max-h-[50vh] pr-4">
             <div className="space-y-3">
-              {current.title && (
+              {current?.title && (
                 <div className="text-sm uppercase tracking-wide text-muted-foreground">{current.title}</div>
               )}
-              {current.speaker && (
+              {current?.speaker && (
                 <div className="text-sm text-primary/80">{current.speaker}</div>
               )}
-              <p className="text-foreground leading-relaxed">{current.text}</p>
-              {current.aside && (
+              <p className="text-foreground leading-relaxed">{current?.text || ''}</p>
+              {current?.aside && (
                 <p className="text-sm text-muted-foreground italic">{current.aside}</p>
               )}
             </div>
