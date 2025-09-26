@@ -982,6 +982,13 @@ export const useGameState = () => {
     }));
   }, []);
 
+  const openRoster = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      gamePhase: 'houseguests_roster' as const
+    }));
+  }, []);
+
   // Finalize character creation: build cast and proceed to premiere
   const finalizeCharacterCreation = useCallback((player: Contestant) => {
     setGameState(prev => {
@@ -1695,6 +1702,7 @@ export const useGameState = () => {
     submitAFPVote,
     completePremiere,
     completeRoster,
+    openRoster,
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,

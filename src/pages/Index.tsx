@@ -36,6 +36,7 @@ const Index = () => {
     handleEmergentEventChoice,
     completePremiere,
     completeRoster,
+    openRoster,
     tagTalk,
     handleTieBreakResult,
     proceedToJuryVote,
@@ -220,6 +221,7 @@ const Index = () => {
           onTitle={goToTitle}
           onToggleDebug={toggleDebugMode}
           hasSave={hasSavedGame()}
+          onOpenRoster={openRoster}
         />
       )}
       {renderScreen()}

@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, Shield, Crown, Timer } from 'lucide-react';
+import { Users, Shield, Crown, Timer, Star } from 'lucide-react';
 import { GameState } from '@/types/game';
 
 interface DashboardHeaderProps {
@@ -12,9 +13,10 @@ interface DashboardHeaderProps {
   onTitle?: () => void;
   onToggleDebug?: () => void;
   hasSave?: boolean;
+  onOpenRoster?: () => void;
 }
 
-export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTitle, onToggleDebug, hasSave }: DashboardHeaderProps) => {
+export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTitle, onToggleDebug, hasSave, onOpenRoster }: DashboardHeaderProps) => {
   const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
   const remainingCount = activeContestants.length;
   
@@ -34,6 +36,24 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
     if (weeksUntilJury <= 2) return "Pre-Jury Finale";
     return "Pre-Jury";
   };
+
+  // Roster quick access toggle, persisted
+  const [rosterPinned, setRosterPinned] = useState<boolean>(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('rtv_roster_button_pinned');
+      setRosterPinned(raw ? JSON.parse(raw) : false);
+    } catch {}
+  }, []);
+  const toggleRosterPinned = () => {
+    const next = !rosterPinned;
+    setRosterPinned(next);
+    try {
+      localStorage.setItem('rtv_roster_button_pinned', JSON.stringify(next));
+    } catch {}
+  };
+
+  const showRosterButton = gameState.gamePhase === 'premiere' || rosterPinned;
 
   return (
     <div className="bg-background/90 backdrop-blur-md border-b border-border/60 sticky top-0 z-50">
@@ -88,6 +108,27 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
                   <Shield className="w-3 h-3" />
                   {gameState.immunityWinner} has immunity
                 </Badge>
+              )}
+
+              {/* Roster quick access */}
+              {showRosterButton && (
+                <div className="flex items-center gap-1">
+                  <Button variant="secondary" size="sm" onClick={onOpenRoster} aria-label="Meet the Houseguests">
+                    <Users className="w-4 h-4 mr-1" />
+                    Roster
+                  </Button>
+                  <Button
+                    variant={rosterPinned ? 'secondary' : 'outline'}
+                    size="icon"
+                    onClick={toggleRosterPinned}
+                    aria-pressed={rosterPinned}
+                    aria-label="Pin roster button"
+                    className="h-8 w-8"
+                    title="Pin roster button"
+                  >
+                    <Star className="w-4 h-4" />
+                  </Button>
+                </div>
               )}
             </div>
           </div>
