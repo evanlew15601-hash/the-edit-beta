@@ -72,6 +72,12 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
     return speeches[Math.floor(Math.random() * speeches.length)];
   };
 
+  const tooShort = (() => {
+    const trimmed = playerSpeech.trim();
+    const words = (trimmed.match(/\b[\w']+\b/g) || []).length;
+    return trimmed.length < 40 || words < 8;
+  })();
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -144,12 +150,17 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
                 value={playerSpeech}
                 onChange={(e) => setPlayerSpeech(e.target.value)}
                 placeholder="Address the jury. Explain your strategy, acknowledge your moves, and make your case for why you deserve to win..."
-                className="min-h-[120px] mb-4"
+                className="min-h-[120px] mb-2"
               />
+              {tooShort && (
+                <div className="text-xs text-muted-foreground mb-2">
+                  Tip: Write at least two sentences and mention your strategy, relationships, and key moves.
+                </div>
+              )}
               <Button
                 variant="action"
                 onClick={handleSubmitSpeech}
-                disabled={!playerSpeech.trim()}
+                disabled={!playerSpeech.trim() || tooShort}
                 className="w-full"
               >
                 Deliver Speech
