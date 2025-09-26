@@ -372,12 +372,13 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
   };
 
   const getChoiceColor = (type: TagChoice['type']) => {
+    // Dark-theme friendly tints to avoid white-on-white text blending
     switch (type) {
-      case 'strategic': return 'border-blue-200 hover:bg-blue-50';
-      case 'emotional': return 'border-pink-200 hover:bg-pink-50';
-      case 'aggressive': return 'border-red-200 hover:bg-red-50';
-      case 'deceptive': return 'border-purple-200 hover:bg-purple-50';
-      case 'neutral': return 'border-gray-200 hover:bg-gray-50';
+      case 'strategic': return 'border-blue-400/40 hover:bg-blue-900/20';
+      case 'emotional': return 'border-pink-400/40 hover:bg-pink-900/20';
+      case 'aggressive': return 'border-red-400/40 hover:bg-red-900/20';
+      case 'deceptive': return 'border-purple-400/40 hover:bg-purple-900/20';
+      case 'neutral': return 'border-gray-500/40 hover:bg-muted';
     }
   };
 
@@ -444,7 +445,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           <select 
             value={selectedTarget} 
             onChange={(e) => setSelectedTarget(e.target.value)}
-            className="w-full p-2 border border-border rounded text-sm"
+            className="w-full px-3 py-2 border border-border rounded-md text-sm bg-input focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
             <option value="">Select target...</option>
             {availableTargets.map(c => (
@@ -457,7 +458,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           <select 
             value={interactionType} 
             onChange={(e) => setInteractionType(e.target.value as any)}
-            className="w-full p-2 border border-border rounded text-sm"
+            className="w-full px-3 py-2 border border-border rounded-md text-sm bg-input focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
             <option value="talk">Talk</option>
             <option value="dm">Direct Message</option>
@@ -479,7 +480,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
                 return (
                   <div 
                     key={choice.id}
-                    className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                    className={`p-3 border rounded-lg cursor-pointer transition-all bg-card/50 shadow-sm ${
                       getChoiceColor(choice.type)
                     } ${selectedChoice === choice.id ? 'ring-2 ring-primary' : ''} ${
                       isOnCooldown ? 'opacity-50 cursor-not-allowed' : ''

@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState } from '@/types/game';
 import { EnhancedConfessionalEngine, DynamicConfessionalPrompt } from '@/utils/enhancedConfessionalEngine';
 import { generateResponseOptions } from '@/utils/confessionalResponseGenerator';
-import { RefreshCw, Zap } from 'lucide-react';
+import { RefreshCw, Zap, Camera } from 'lucide-react';
 
 interface ConfessionalDialogProps {
   isOpen: boolean;
@@ -98,7 +98,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

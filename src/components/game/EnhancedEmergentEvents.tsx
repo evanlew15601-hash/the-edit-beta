@@ -355,7 +355,7 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
       case 'betrayal': return <Target className="w-5 h-5 text-purple-500" />;
       case 'romance': return <Heart className="w-5 h-5 text-pink-500" />;
       case 'rumor_spread': return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
-      case 'power_shift': return <Crown className="w-5 h-5 text-gold-500" />;
+      case 'power_shift': return <Crown className="w-5 h-5 text-yellow-500" />;
     }
   };
 

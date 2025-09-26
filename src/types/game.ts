@@ -135,6 +135,10 @@ export interface GameState {
     winners: string[];
     selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual';
   };
+
+  // Viewer Ratings - light system based on house events and NPC behavior
+  viewerRating?: number; // 0.0 - 10.0
+  ratingsHistory?: { day: number; rating: number; reason?: string }[];
 }
 
 export interface Confessional {

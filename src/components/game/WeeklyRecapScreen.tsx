@@ -6,6 +6,8 @@ import { generateFanReactions } from '@/utils/fanReactions';
 import { buildWeeklyEdit } from '@/utils/weeklyEditBuilder';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { buildEnhancedWeeklyEdit } from '@/utils/enhancedMemoryRecap';
+import { Badge } from '@/components/ui/badge';
+import { Tv, TrendingUp, TrendingDown, Activity } from 'lucide-react';
 
 interface WeeklyRecapScreenProps {
   gameState: GameState;
@@ -75,6 +77,31 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
           </p>
         </div>
 
+        {/* Episode Ratings (Weekly) */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Tv className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-light">Episode Rating</h2>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {weeklyDelta > 0.01 ? <TrendingUp className="w-4 h-4 text-green-500" /> :
+               weeklyDelta < -0.01 ? <TrendingDown className="w-4 h-4 text-destructive" /> :
+               <Activity className="w-4 h-4 text-muted-foreground" />}
+              <span className="ml-1">{weeklyDelta > 0 ? '+' : ''}{weeklyDelta}</span>
+            </Badge>
+          </div>
+          <div className="text-3xl font-light">
+            {(currentWeekly?.rating ?? gameState.viewerRating ?? 3.8).toFixed(1)} <span className="text-sm text-muted-foreground">/ 10</span>
+          </div>
+          {weeklyEntries.length > 0 && (
+            <div className="mt-3 text-sm text-muted-foreground">
+              {weeklyEntries.slice(-3).reverse().map((e, i) => (
+                <div key={i}>• {e.reason}</div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* Player Edit Summary */}
         <Card className="p-8 space-y-6">

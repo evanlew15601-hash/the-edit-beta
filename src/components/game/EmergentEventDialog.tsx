@@ -19,7 +19,7 @@ export const EmergentEventDialog = ({ event, isOpen, onChoice, onClose }: Emerge
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-2xl" aria-describedby="emergent-event-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

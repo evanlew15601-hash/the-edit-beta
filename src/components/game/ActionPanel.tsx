@@ -92,15 +92,15 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <h2 className="text-xl font-light mb-1">Daily Actions</h2>
+      <Card className="p-6 md:p-7 rounded-lg shadow-sm">
+        <h2 className="text-xl md:text-2xl font-medium tracking-wide mb-2">Daily Actions</h2>
         <p className="text-sm text-muted-foreground mb-6">
           Use up to {gameState.dailyActionCap} actions per day (optional). Used {gameState.dailyActionCount}/{gameState.dailyActionCap}.
         </p>
         
         <div className="grid gap-4">
           {gameState.playerActions.map((action, index) => (
-            <div key={index} className="border border-border rounded p-4">
+            <div key={index} className="ring-1 ring-border rounded-lg p-4 hover:bg-muted/40 transition-colors">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium capitalize">{action.type.replace('_', ' ')}</h3>
                 <div className="flex gap-2">
