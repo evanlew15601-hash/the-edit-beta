@@ -17,6 +17,30 @@ interface BasicOption {
 }
 
 const BASIC_OPTIONS: BasicOption[] = [
+  // Neutral idle chatter (steady state, minimal impact)
+  {
+    id: 'idle_chatter_kitchen',
+    label: 'Idle chatter (kitchen)',
+    tone: 'neutral',
+    text: (name) => `Talk with ${name} about cooking plans and snacks—keep it light.`,
+    description: 'Steady vibe; tiny trust gains, low suspicion',
+  },
+  {
+    id: 'idle_chatter_weather',
+    label: 'Idle chatter (weather)',
+    tone: 'neutral',
+    text: (name) => `Comment with ${name} on the AC, lighting, and general house comfort.`,
+    description: 'Non-game talk; maintains stability',
+  },
+  {
+    id: 'idle_chatter_chores',
+    label: 'Idle chatter (chores)',
+    tone: 'neutral',
+    text: (name) => `Coordinate dish duty with ${name} and joke about the cleanup rotation.`,
+    description: 'Shared task chat; minor rapport signals',
+  },
+
+  // Friendly social builders
   {
     id: 'friendly_smalltalk',
     label: 'Friendly small talk',
@@ -25,40 +49,78 @@ const BASIC_OPTIONS: BasicOption[] = [
     description: 'Build light rapport; lowers suspicion slightly',
   },
   {
-    id: 'strategic_probe',
-    label: 'Strategic probe',
-    tone: 'strategic',
-    text: (name) => `Gently ask ${name} what they\'re hearing about the vote without pushing.`,
-    description: 'Gain intel; may raise suspicion',
-  },
-  {
-    id: 'neutral_chat',
-    label: 'Neutral chat',
-    tone: 'neutral',
-    text: (name) => `Talk with ${name} about food, chores, and weather—no game talk.`,
-    description: 'Keep things steady; minimal impact',
-  },
-  {
     id: 'light_tease',
     label: 'Light tease',
     tone: 'friendly',
     text: (name) => `Tease ${name} lightly about a harmless habit; keep it playful.`,
     description: 'Slight bond-building if they enjoy banter',
   },
+
+  // Romance-heavy choices
   {
-    id: 'flirt_soft',
-    label: 'Soft flirt',
+    id: 'romance_flirt_direct',
+    label: 'Direct flirt',
     tone: 'flirty',
-    text: (name) => `Offer ${name} a mild compliment that could hint at chemistry.`,
-    description: 'Build closeness; may change perception',
+    text: (name) => `Tell ${name} they look great today and you enjoy their energy around you.`,
+    description: 'Stronger closeness; can lower suspicion if reciprocated',
   },
   {
-    id: 'call_out',
+    id: 'romance_cozy_chat',
+    label: 'Cozy late-night chat',
+    tone: 'flirty',
+    text: (name) => `Invite ${name} to a quiet, cozy chat—share a personal story and listen to theirs.`,
+    description: 'Deepen bond; mild trust bump, decent entertainment',
+  },
+  {
+    id: 'romance_playful_banter',
+    label: 'Playful banter',
+    tone: 'flirty',
+    text: (name) => `Trade a couple of playful lines with ${name}—keep it charming, not heavy.`,
+    description: 'Light attraction signal; low risk, modest closeness',
+  },
+
+  // Calm drama options (defuse, redirect without confrontation)
+  {
+    id: 'calm_drama_defuse',
+    label: 'Calmly defuse drama',
+    tone: 'friendly',
+    text: (name) => `Acknowledge tension and suggest to ${name} a cool-down—no public escalation.`,
+    description: 'Reduce suspicion; modest trust if they value calm',
+  },
+  {
+    id: 'calm_drama_redirect',
+    label: 'Redirect away from drama',
+    tone: 'neutral',
+    text: (name) => `Steer ${name} toward neutral topics to avoid vote talk and rumors.`,
+    description: 'Keeps things steady; lowers risk of blowback',
+  },
+  {
+    id: 'calm_drama_validate',
+    label: 'Validate and reframe',
+    tone: 'friendly',
+    text: (name) => `Let ${name} vent briefly, validate feelings, then reframe toward solutions.`,
+    description: 'Builds trust; reduces paranoia slightly',
+  },
+
+  // Strategic probes (lightweight)
+  {
+    id: 'strategic_probe',
+    label: 'Strategic probe',
+    tone: 'strategic',
+    text: (name) => `Gently ask ${name} what they\'re hearing about the vote without pushing.`,
+    description: 'Gain intel; may raise suspicion',
+  },
+
+  // Soft accountability without aggression
+  {
+    id: 'soft_call_out',
     label: 'Soft call-out',
     tone: 'aggressive',
     text: (name) => `Point out a small inconsistency in ${name}\'s story—calm but firm.`,
     description: 'Tests honesty; risks trust hit',
   },
+
+  // Light skepticism (non-hostile questioning)
   {
     id: 'skeptical_question',
     label: 'Skeptical question',
