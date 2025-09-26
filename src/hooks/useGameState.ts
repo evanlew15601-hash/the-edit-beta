@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { npcResponseEngine } from '@/utils/npcResponseEngine';
 import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant } from '@/types/game';
 import { generateContestants } from '@/utils/contestantGenerator';
+import { generateStaticNPCs } from '@/utils/npcGeneration';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { AllianceManager } from '@/utils/allianceManager';
 import { InformationTradingEngine } from '@/utils/informationTradingEngine';
@@ -66,27 +67,12 @@ export const useGameState = () => {
   });
 
   const startGame = useCallback((playerName: string) => {
-    console.log('Starting game with player:', playerName);
-
-    // Generate cast and guarantee the player is in it
-    const baseContestants = generateContestants(16);
-    let contestants: Contestant[] = baseContestants;
-    if (!baseContestants.some(c => c.name === playerName)) {
-      const first = baseContestants[0];
-      contestants = [{ ...first, name: playerName }, ...baseContestants.slice(1)];
-    }
-
-    // Build initial persistent reaction profiles
-    const reactionProfiles: any = {};
-    contestants.forEach(c => {
-      reactionProfiles[c.id] = getReactionProfileForNPC(c);
-      reactionProfiles[c.name] = reactionProfiles[c.id];
-    });
+    console.log('Starting game, proceeding to character creation for:', playerName);
 
     const newState: GameState = {
       currentDay: 1,
       playerName,
-      contestants,
+      contestants: [],
       playerActions: [
         { type: 'talk', used: false, usageCount: 0 },
         { type: 'dm', used: false, usageCount: 0 },
@@ -104,7 +90,7 @@ export const useGameState = () => {
       },
       alliances: [],
       votingHistory: [],
-      gamePhase: 'premiere',
+      gamePhase: 'character_creation',
       twistsActivated: [],
       nextEliminationDay: 7,
       daysUntilJury: 28,
@@ -118,12 +104,10 @@ export const useGameState = () => {
       favoriteTally: {},
       interactionLog: [],
       tagChoiceCooldowns: {},
-      reactionProfiles,
+      reactionProfiles: {},
       debugMode: false,
     };
-    console.log('Game started, transitioning to premiere');
     setGameState(newState);
-    // No autosave; player must press Save
   }, []);
 
   const advanceDay = useCallback(() => {
@@ -982,6 +966,30 @@ export const useGameState = () => {
     }));
   }, []);
 
+  // Finalize character creation: build cast and proceed to premiere
+  const finalizeCharacterCreation = useCallback((player: Contestant) => {
+    setGameState(prev => {
+      const playerName = player.name || prev.playerName || 'You';
+      const npcs = generateStaticNPCs({ count: 15, excludeNames: [playerName], includeSpecials: true });
+      const contestants: Contestant[] = [{ ...player }, ...npcs];
+
+      // Build reaction profiles
+      const reactionProfiles: any = {};
+      contestants.forEach(c => {
+        reactionProfiles[c.id] = getReactionProfileForNPC(c);
+        reactionProfiles[c.name] = reactionProfiles[c.id];
+      });
+
+      return {
+        ...prev,
+        playerName,
+        contestants,
+        reactionProfiles,
+        gamePhase: 'premiere' as const,
+      };
+    });
+  }, []);
+
   const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }, rationales?: { [juryMember: string]: string }) => {
     setGameState(prev => {
       const alreadyRanked = prev.afpRanking && prev.afpRanking.length > 0;
@@ -1680,5 +1688,7 @@ export const useGameState = () => {
     hasSavedGame,
     goToTitle,
     toggleDebugMode,
+    // Character creation finalize
+    finalizeCharacterCreation,
   };
 };

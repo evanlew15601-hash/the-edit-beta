@@ -6,6 +6,7 @@ import { WeeklyRecapScreen } from '@/components/game/WeeklyRecapScreen';
 import { ImmunityCompetitionScreen } from '@/components/game/ImmunityCompetitionScreen';
 import { JuryVoteScreen } from '@/components/game/JuryVoteScreen';
 import { PremiereCutscene } from '@/components/game/PremiereCutscene';
+import { CharacterCreation } from '@/components/game/CharacterCreation';
 import { EliminationEpisode } from '@/components/game/EliminationEpisode';
 import { FinaleEpisode } from '@/components/game/FinaleEpisode';
 import { PlayerVoteScreen } from '@/components/game/PlayerVoteScreen';
@@ -46,6 +47,7 @@ const Index = () => {
     deleteSavedGame,
     hasSavedGame,
     goToTitle,
+  finalizeCharacterCreation,
   } = useGameState();
 
   // Keyboard shortcut: Shift+D to toggle debug HUD
@@ -94,8 +96,14 @@ const Index = () => {
             hasSave={hasSavedGame()}
           />
         );
+      case 'character_creation':
+        return (
+          <CharacterCreation
+            onCreate={finalizeCharacterCreation}
+          />
+        );
       case 'premiere':
-        return <PremiereCutscene onComplete={completePremiere} />;
+        return <PremiereCutscene onComplete={completePremiere} gameState={gameState} />;
       
       case 'daily':
         return (

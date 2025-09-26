@@ -155,6 +155,7 @@ export interface GameState {
   votingHistory: VotingRecord[];
   gamePhase:
     | 'intro'
+    | 'character_creation'
     | 'premiere'
     | 'daily'
     | 'player_vote'

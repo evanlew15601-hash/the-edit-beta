@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Contestant } from '@/types/game';
-import { Heart, Shield, Eye, Zap, AlertTriangle } from 'lucide-react';
+import { Heart, Shield, Eye, Zap, AlertTriangle, Star } from 'lucide-react';
 import { memoryEngine } from '@/utils/memoryEngine';
 
 interface ContestantGridProps {
@@ -144,6 +144,20 @@ export const ContestantGrid = ({ contestants, playerName }: ContestantGridProps)
                         {trait}
                       </Badge>
                     ))}
+                    {/* Stat inclination badge (separate from weekly edit persona) */}
+                    {contestant.stats?.primary && (
+                      <Badge variant="secondary" className="text-[10px] ml-1">
+                        <Star className="w-3 h-3 mr-1" />
+                        {contestant.stats.primary}
+                      </Badge>
+                    )}
+                    {/* Special background badge */}
+                    {contestant.special && contestant.special.kind !== 'none' && (
+                      <Badge variant="outline" className="text-[10px] ml-1">
+                        {contestant.special.kind === 'hosts_estranged_child' && 'Host’s Child'}
+                        {contestant.special.kind === 'planted_houseguest' && 'Planted HG'}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </Card>
