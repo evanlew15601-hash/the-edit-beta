@@ -322,55 +322,65 @@ export class EnhancedEmergentEvents {
 
     // Misquote leak (trust shift)
     if (recentInteractions.some(log => log.type === 'talk') && !this.eventHistory.includes(`misquote_${gameState.currentDay}`)) {
-      const p1 = activeContestants[0]?.name || '';
-      const p2 = activeContestants[1]?.name || '';
-      events.push({
-        id: `misquote_${gameState.currentDay}`,
-        title: 'Misquote Spreads',
-        description: `A comment you made about ${p1} is being repeated with extra spice.`,
-        type: 'trust_shift',
-        day: gameState.currentDay,
-        participants: [gameState.playerName, p1, p2].filter(Boolean),
-        choices: [
-          {
-            id: 'clarify_privately',
-            text: 'Clarify privately',
-            description: 'Speak to them one-on-one to de-escalate',
-            consequences: {
-              immediate: 'Tension cools, but gossipers remain active',
-              longTerm: 'Trust trend stabilizes'
+      // Ensure the subject(s) of the misquote are not the player themself
+      const nonPlayerContestants = activeContestants.filter(c => c.name !== gameState.playerName);
+      const p1 = nonPlayerContestants[0]?.name;
+      const p2 = nonPlayerContestants[1]?.name;
+
+      // If there are no other contestants to be the subject, don't generate this event
+      if (!p1) {
+        // Not enough non-player participants to form a sensible misquote
+      } else {
+        const participants = [gameState.playerName, p1, p2].filter(Boolean);
+
+        events.push({
+          id: `misquote_${gameState.currentDay}`,
+          title: 'Misquote Spreads',
+          description: `A comment you made about ${p1} is being repeated with extra spice.`,
+          type: 'trust_shift',
+          day: gameState.currentDay,
+          participants,
+          choices: [
+            {
+              id: 'clarify_privately',
+              text: 'Clarify privately',
+              description: 'Speak to them one-on-one to de-escalate',
+              consequences: {
+                immediate: 'Tension cools, but gossipers remain active',
+                longTerm: 'Trust trend stabilizes'
+              },
+              relationshipEffects: { [p1]: 3 },
+              trustEffects: { [p1]: 6 },
+              editEffect: -1
             },
-            relationshipEffects: { [p1]: 3 },
-            trustEffects: { [p1]: 6 },
-            editEffect: -1
-          },
-          {
-            id: 'public_correction',
-            text: 'Public correction',
-            description: 'Correct the record in front of others',
-            consequences: {
-              immediate: 'You look assertive; some think you’re defensive',
-              longTerm: 'Gossip reduces, but image shifts'
+            {
+              id: 'public_correction',
+              text: 'Public correction',
+              description: 'Correct the record in front of others',
+              consequences: {
+                immediate: 'You look assertive; some think you’re defensive',
+                longTerm: 'Gossip reduces, but image shifts'
+              },
+              relationshipEffects: {},
+              trustEffects: nonPlayerContestants.reduce((acc, c) =>
+                c.name === p1 ? { ...acc, [c.name]: 4 } : acc, {}),
+              editEffect: 5
             },
-            relationshipEffects: {},
-            trustEffects: activeContestants.reduce((acc, c) =>
-              c.name === p1 ? { ...acc, [c.name]: 4 } : acc, {}),
-            editEffect: 5
-          },
-          {
-            id: 'play_it_off',
-            text: 'Play it off',
-            description: 'Don’t dignify it; keep moving',
-            consequences: {
-              immediate: 'Some believe the misquote; others move on',
-              longTerm: 'Minor lingering suspicion'
-            },
-            relationshipEffects: {},
-            trustEffects: { [p1]: -4 },
-            editEffect: 2
-          }
-        ]
-      });
+            {
+              id: 'play_it_off',
+              text: 'Play it off',
+              description: 'Don’t dignify it; keep moving',
+              consequences: {
+                immediate: 'Some believe the misquote; others move on',
+                longTerm: 'Minor lingering suspicion'
+              },
+              relationshipEffects: {},
+              trustEffects: { [p1]: -4 },
+              editEffect: 2
+            }
+          ]
+        });
+      }
     }
 
     // Soft betrayal hint (strategy leak style)
