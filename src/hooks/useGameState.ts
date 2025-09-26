@@ -1561,8 +1561,10 @@ export const useGameState = () => {
   }, []);
 
   const goToTitle = useCallback(() => {
+    // Explicit user intent to return to title screen; clear playerName to avoid watchdog reverting
     setGameState(prev => ({
       ...prev,
+      playerName: '', // signal title mode
       gamePhase: 'intro',
     }));
   }, []);
@@ -1573,6 +1575,18 @@ export const useGameState = () => {
       debugMode: !prev.debugMode,
     }));
   }, []);
+
+  // Phase watchdog: prevent unintended jumps back to intro if a player is active.
+  // If some component accidentally sets `intro` while a playerName exists, revert to daily.
+  useEffect(() => {
+    if (gameState.gamePhase === 'intro' && gameState.playerName) {
+      console.warn('Phase watchdog: Blocking unintended transition to intro while player is active');
+      setGameState(prev => ({
+        ...prev,
+        gamePhase: prev.gamePhase && prev.gamePhase !== 'intro' ? prev.gamePhase : 'daily',
+      }));
+    }
+  }, [gameState.gamePhase, gameState.playerName]);
 
   return {
     gameState,
