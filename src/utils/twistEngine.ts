@@ -65,50 +65,10 @@ export class TwistEngine {
     }
   }
 
-  // Leak recent confessionals to all contestants
+  // Leak recent confessionals - player-only effect
   private static executeConfessionalLeak(gameState: GameState, twistId: string): Partial<GameState> {
-    const recentConfessionals = gameState.confessionals.slice(-2); // Last 2 confessionals
-    
-    const updatedContestants = gameState.contestants.map(contestant => {
-      if (contestant.isEliminated) return contestant;
-      
-      // Add leaked confessionals to memory
-      const leakMemories = recentConfessionals.map(conf => ({
-        day: gameState.currentDay,
-        type: 'confessional_leak' as const,
-        participants: [gameState.playerName],
-        content: `LEAKED: \"${conf.content}\" (${conf.tone})`,
-        emotionalImpact: conf.tone === 'aggressive' ? -3 : conf.tone === 'strategic' ? -2 : -1,
-        timestamp: gameState.currentDay * 1000 + Math.random() * 1000
-      }));
-
-      // Adjust trust and suspicion based on leaked content
-      let trustDelta = -10; // Base trust loss
-      let suspicionDelta = 15; // Base suspicion increase
-      
-      recentConfessionals.forEach(conf => {
-        if (conf.content.toLowerCase().includes(contestant.name.toLowerCase())) {
-          trustDelta -= 15; // Extra penalty if they were mentioned
-          suspicionDelta += 10;
-        }
-        if (conf.tone === 'aggressive') {
-          trustDelta -= 5;
-          suspicionDelta += 5;
-        }
-      });
-
-      return {
-        ...contestant,
-        psychProfile: {
-          ...contestant.psychProfile,
-          trustLevel: Math.max(-100, contestant.psychProfile.trustLevel + trustDelta),
-          suspicionLevel: Math.min(100, contestant.psychProfile.suspicionLevel + suspicionDelta)
-        },
-        memory: [...contestant.memory, ...leakMemories]
-      };
-    });
-
-    // Edit perception also takes a hit
+    // This twist should not add tags/memories or goal changes to NPCs.
+    // Apply consequences only to the player's edit perception.
     const editPenalty = {
       ...gameState.editPerception,
       audienceApproval: Math.max(-100, gameState.editPerception.audienceApproval - 20),
@@ -117,63 +77,16 @@ export class TwistEngine {
     };
 
     return {
-      contestants: updatedContestants,
       editPerception: editPenalty,
       twistsActivated: [...gameState.twistsActivated, twistId]
     };
   }
 
-  // Reveal the mole contestant
+  // Reveal the mole contestant - player-only twist (no NPC state changes)
   private static executeMoleReveal(gameState: GameState, twistId: string): Partial<GameState> {
-    const mole = gameState.contestants.find(c => c.isMole && !c.isEliminated);
-    if (!mole) return { twistsActivated: [...gameState.twistsActivated, twistId] };
-
-    const updatedContestants = gameState.contestants.map(contestant => {
-      if (contestant.isEliminated) return contestant;
-      
-      // Everyone learns about the mole
-      const moleMemory = {
-        day: gameState.currentDay,
-        type: 'observation' as const,
-        participants: [mole.name],
-        content: `TWIST REVEALED: ${mole.name} was secretly working for production`,
-        emotionalImpact: contestant.name === mole.name ? 5 : -2, // Mole gets boost, others get paranoid
-        timestamp: gameState.currentDay * 1000 + Math.random() * 1000
-      };
-
-      let trustDelta = 0;
-      let suspicionDelta = 0;
-
-      if (contestant.name === mole.name) {
-        // Mole gets immunity and trust boost
-        trustDelta = 30;
-        suspicionDelta = -20;
-      } else {
-        // Others become more paranoid
-        suspicionDelta = 10;
-        // If they trusted the mole, they lose trust in everyone
-        const moleRelationship = contestant.memory.filter(m => 
-          m.participants.includes(mole.name) && m.emotionalImpact > 0
-        ).length;
-        if (moleRelationship > 2) {
-          trustDelta = -15; // Betrayal penalty
-          suspicionDelta += 5;
-        }
-      }
-
-      return {
-        ...contestant,
-        psychProfile: {
-          ...contestant.psychProfile,
-          trustLevel: Math.max(-100, Math.min(100, contestant.psychProfile.trustLevel + trustDelta)),
-          suspicionLevel: Math.max(0, Math.min(100, contestant.psychProfile.suspicionLevel + suspicionDelta))
-        },
-        memory: [...contestant.memory, moleMemory]
-      };
-    });
-
+    // Do not add NPC memories or modify NPC psych profiles.
+    // Limit the twist to tracking-only for now.
     return {
-      contestants: updatedContestants,
       twistsActivated: [...gameState.twistsActivated, twistId]
     };
   }
@@ -221,46 +134,10 @@ export class TwistEngine {
     };
   }
 
-  // Public vote overrides normal elimination
+  // Public vote override - player-only tracking, no NPC memories
   private static executePublicVote(gameState: GameState, twistId: string): Partial<GameState> {
-    // Simulate audience vote based on edit perception
-    const fanFavorites = gameState.contestants
-      .filter(c => !c.isEliminated)
-      .sort((a, b) => {
-        // Simulate fan preference based on player interactions
-        const aPlayerInteractions = a.memory.filter(m => m.participants.includes(gameState.playerName)).length;
-        const bPlayerInteractions = b.memory.filter(m => m.participants.includes(gameState.playerName)).length;
-        
-        // Fans tend to save people the player interacted with positively
-        const aScore = aPlayerInteractions + (a.psychProfile.trustLevel / 10);
-        const bScore = bPlayerInteractions + (b.psychProfile.trustLevel / 10);
-        
-        return bScore - aScore;
-      });
-
-    const publicSave = fanFavorites[0]?.name || '';
-
-    // Add memory to all contestants about public intervention
-    const updatedContestants = gameState.contestants.map(contestant => {
-      if (contestant.isEliminated) return contestant;
-      
-      const publicVoteMemory = {
-        day: gameState.currentDay,
-        type: 'observation' as const,
-        participants: [publicSave],
-        content: `PUBLIC VOTE: Audience saved ${publicSave} from elimination`,
-        emotionalImpact: contestant.name === publicSave ? 3 : -1,
-        timestamp: gameState.currentDay * 1000 + Math.random() * 1000
-      };
-
-      return {
-        ...contestant,
-        memory: [...contestant.memory, publicVoteMemory]
-      };
-    });
-
+    // Keep twist tracking only; avoid adding tags/memories/goals to NPCs.
     return {
-      contestants: updatedContestants,
       twistsActivated: [...gameState.twistsActivated, twistId]
     };
   }
