@@ -157,26 +157,21 @@ export function CharacterCreation({ onCreate }: CharacterCreationProps) {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Stat Inclination</label>
-            {/* Use a RadioGroup to avoid overlapping text and ensure proper wrapping */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {STAT_OPTIONS.map(opt => (
-                <label key={opt.key} className="flex items-start gap-3 p-3 border border-border rounded-md bg-card cursor-pointer">
-                  <input
-                    type="radio"
-                    name="stat_inclination"
-                    value={opt.key}
-                    checked={inclination === opt.key}
-                    onChange={() => setInclination(opt.key)}
-                    className="mt-1 h-4 w-4 accent-primary"
-                    aria-label={opt.label}
-                  />
-                  <div className="space-y-1">
+                <Button
+                  key={opt.key}
+                  variant={inclination === opt.key ? 'action' : 'surveillance'}
+                  onClick={() => setInclination(opt.key)}
+                  className="h-auto py-3 text-left whitespace-normal break-words"
+                >
+                  <div className="flex flex-col items-start gap-1">
                     <div className="font-medium">{opt.label}</div>
-                    <div className="text-xs text-muted-foreground break-words">
+                    <div className="text-xs text-muted-foreground leading-normal">
                       {opt.hint}
                     </div>
                   </div>
-                </label>
+                </Button>
               ))}
             </div>
 
