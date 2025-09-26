@@ -54,7 +54,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
     if (targetType) pool = pool.filter(c => c.targetType === targetType);
     if (interaction) pool = pool.filter(c => (c.interactionTypes || ['talk']).includes(interaction));
     if (targetContestant) pool = pool.filter(ch => isChoiceAvailable(ch, targetContestant, gameState.playerName, gameState));
-    return pool.slice(0, 12);
+    return pool;
   }, [intent, tone, topic, targetType, interaction, targetContestant, gameState]);
 
   const handleSubmit = () => {
@@ -72,6 +72,9 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
   const targetTypes: TargetType[] = ['Person','Group','Self','Object','Audience'];
   const interactions: InteractionType[] = ['talk','dm','scheme','activity'];
 
+  const targetOptions = targetType === 'Person'
+    ? contestants.filter((c) => c.name !== gameState.playerName)
+    : contestants;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -131,7 +134,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
               <Select value={selectedTarget} onValueChange={setSelectedTarget} disabled={targetType !== 'Person'}>
                 <SelectTrigger><SelectValue placeholder={targetType === 'Person' ? 'Choose who to talk to...' : `Not needed for ${targetType}`} /></SelectTrigger>
                 <SelectContent className="z-50 bg-popover text-popover-foreground">
-                  {contestants.map((contestant) => (
+                  {targetOptions.map((contestant) => (
                     <SelectItem key={contestant.id} value={contestant.name}>
                       {contestant.name} - {contestant.publicPersona}
                     </SelectItem>
@@ -141,7 +144,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
             </div>
           </div>
 
-          <ScrollArea className="max-h-[50vh] pr-4">
+          <ScrollArea className="h-[50vh] pr-4">
             <div className="grid grid-cols-1 gap-3">
               {filtered.map((ch) => {
                 const seed = `${gameState.currentDay}|${gameState.playerName}|${selectedTarget}|${ch.choiceId}`;

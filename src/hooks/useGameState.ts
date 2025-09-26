@@ -1461,6 +1461,19 @@ export const useGameState = () => {
           return prev;
         }
 
+        // Prevent self-targeting unless the choice explicitly targets Self
+        if (target === prev.playerName && choice.targetType !== 'Self') {
+          return {
+            ...prev,
+            lastAIReaction: {
+              take: 'neutral',
+              context: interaction === 'dm' ? 'private' : interaction === 'scheme' ? 'scheme' : interaction === 'activity' ? 'activity' : 'public',
+              notes: 'You cannot target yourself with this choice. Select Target Type "Self" if you want to monologue.',
+              deltas: { trust: 0, suspicion: 0, influence: 0, entertainment: 0 }
+            }
+          };
+        }
+
         const outcome = evaluateChoice(choice, targetNPC, prev.playerName, prev);
         // Scale normalized deltas (-1..1) into game point changes
         const trustSuspScale = prev.aiSettings?.outcomeScaling?.trustSuspicionScale ?? 40;
@@ -1477,7 +1490,7 @@ export const useGameState = () => {
           const newTrustLevel = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustPts));
           const newSuspicionLevel = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspPts));
 
-          // Memory entry
+        // Memory entry
           const memType = interaction === 'dm' ? 'dm' : interaction === 'scheme' ? 'scheme' : 'conversation';
           const newMemory = {
             day: prev.currentDay,
@@ -1506,6 +1519,20 @@ export const useGameState = () => {
           const prof = getReactionProfileForNPC(refreshedTarget);
           updatedProfiles[refreshedTarget.id] = prof;
           updatedProfiles[refreshedTarget.name] = prof;
+        }
+
+        // If probing for info with an ally or trusted NPC, surface actual intel via the trading engine
+        if (choice.intent === 'ProbeForInfo') {
+          const inAlliance = prev.alliances.some(a => a.members.includes(target) && a.members.includes(prev.playerName));
+          const trusted = (refreshedTarget?.psychProfile.trustLevel || 0) > 40;
+          if (inAlliance || trusted) {
+            InformationTradingEngine.shareInformation(
+              target,
+              prev.playerName,
+              prev,
+              interaction === 'dm' ? 'dm' : 'conversation'
+            );
+          }
         }
 
         // Optionally nudge edit perception based on entertainment/influence

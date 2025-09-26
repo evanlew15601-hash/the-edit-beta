@@ -251,14 +251,14 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
       <ConversationDialog
         isOpen={activeDialog === 'talk'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
+        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
         onSubmit={(target, content, tone) => handleActionSubmit('talk', target, content, tone)}
       />
       
       <DirectMessageDialog
         isOpen={activeDialog === 'dm'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
+        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
         onSubmit={(target, content, tone) => handleActionSubmit('dm', target, content, tone)}
       />
       
@@ -272,14 +272,14 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
       <ObservationDialog
         isOpen={activeDialog === 'observe'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
+        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
         onSubmit={() => handleActionSubmit('observe')}
       />
       
       <SchemeDialog
         isOpen={activeDialog === 'scheme'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
+        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
         onSubmit={(target, content, tone) => handleActionSubmit('scheme', target, content, tone)}
       />
 

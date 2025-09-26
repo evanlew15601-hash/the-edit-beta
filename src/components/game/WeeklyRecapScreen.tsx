@@ -36,6 +36,20 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
 
   const fanReactions = generateFanReactions(gameState);
 
+  // Ratings history derived metrics for the recap header
+  const history = gameState.ratingsHistory || [];
+  const weeklyHistory = history.filter(
+    (h) => typeof h.reason === 'string' && h.reason.toLowerCase().startsWith('weekly')
+  );
+  const entriesToUse = weeklyHistory.length >= 2 ? weeklyHistory : history;
+  const currentWeekly = entriesToUse[entriesToUse.length - 1];
+  const previousWeekly = entriesToUse[entriesToUse.length - 2];
+  const weeklyDelta =
+    currentWeekly && previousWeekly
+      ? Math.round((currentWeekly.rating - previousWeekly.rating) * 100) / 100
+      : 0;
+  const weeklyEntries = entriesToUse;
+
   const getPersonaColor = (persona: string) => {
     switch (persona) {
       case 'Hero': return 'text-edit-hero';
