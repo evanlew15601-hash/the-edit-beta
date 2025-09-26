@@ -472,48 +472,99 @@ export const useGameState = () => {
       );
 
       // Update contestant relationships based on action
-      const updatedContestants = prev.contestants.map(contestant => {
-        if (contestant.name === target) {
-          console.log(`Updating relationship with ${target}`);
-          const trustDelta = getTrustDelta(tone || 'neutral', contestant.psychProfile.disposition);
-          const suspicionDelta = getSuspicionDelta(tone || 'neutral', content || '');
-          
-          const newTrustLevel = Math.max(-100, Math.min(100, 
-            contestant.psychProfile.trustLevel + trustDelta
-          ));
-          const newSuspicionLevel = Math.max(0, Math.min(100, 
-            contestant.psychProfile.suspicionLevel + suspicionDelta
-          ));
-          
-          console.log(`Trust: ${contestant.psychProfile.trustLevel} -> ${newTrustLevel}`);
-          console.log(`Suspicion: ${contestant.psychProfile.suspicionLevel} -> ${newSuspicionLevel}`);
-          
-          // Add memory of the interaction
-          const memoryType = actionType === 'dm' ? 'dm' : 
-                           actionType === 'scheme' ? 'scheme' :
-                           actionType === 'observe' ? 'observation' : 'conversation';
-          
+      let groupApplied: { name: string; trustDelta: number; suspDelta: number }[] = [];
+      let updatedContestants = prev.contestants as typeof prev.contestants;
+
+      if (target === 'Group') {
+        // Apply small, shared impact to 2-3 nearby/active NPCs
+        const pool = prev.contestants
+          .filter(c => !c.isEliminated && c.name !== prev.playerName)
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 3);
+
+        updatedContestants = prev.contestants.map(c => {
+          const isHit = pool.some(p => p.name === c.name);
+          if (!isHit) return c;
+
+          const baseTrust = getTrustDelta(tone || 'neutral', c.psychProfile.disposition);
+          const baseSusp = getSuspicionDelta(tone || 'neutral', content || '');
+
+          // Scale down for group effect
+          const trustDelta = Math.round(baseTrust * 0.5);
+          const suspicionDelta = Math.round(baseSusp * 0.5);
+
+          groupApplied.push({ name: c.name, trustDelta, suspDelta: suspicionDelta });
+
+          const newTrustLevel = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustDelta));
+          const newSuspicionLevel = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta));
+
+          const memoryType = actionType === 'dm' ? 'dm' :
+                             actionType === 'scheme' ? 'scheme' :
+                             actionType === 'observe' ? 'observation' : 'conversation';
+
           const newMemory = {
             day: prev.currentDay,
             type: memoryType as 'conversation' | 'scheme' | 'observation' | 'dm' | 'confessional_leak' | 'elimination' | 'event',
-            participants: [prev.playerName, target || ''],
-            content: content || `${actionType} interaction with ${prev.playerName}`,
+            participants: [prev.playerName, c.name],
+            content: (content || `${actionType} group interaction by ${prev.playerName}`).replace('[Basic]', '[Basic:Group]'),
             emotionalImpact: Math.floor(trustDelta / 10),
             timestamp: Date.now()
           };
 
           return {
-            ...contestant,
+            ...c,
             psychProfile: {
-              ...contestant.psychProfile,
+              ...c.psychProfile,
               trustLevel: newTrustLevel,
               suspicionLevel: newSuspicionLevel
             },
-            memory: [...contestant.memory, newMemory]
+            memory: [...c.memory, newMemory]
           };
-        }
-        return contestant;
-      });
+        });
+      } else {
+        updatedContestants = prev.contestants.map(contestant => {
+          if (contestant.name === target) {
+            console.log(`Updating relationship with ${target}`);
+            const trustDelta = getTrustDelta(tone || 'neutral', contestant.psychProfile.disposition);
+            const suspicionDelta = getSuspicionDelta(tone || 'neutral', content || '');
+            
+            const newTrustLevel = Math.max(-100, Math.min(100, 
+              contestant.psychProfile.trustLevel + trustDelta
+            ));
+            const newSuspicionLevel = Math.max(0, Math.min(100, 
+              contestant.psychProfile.suspicionLevel + suspicionDelta
+            ));
+            
+            console.log(`Trust: ${contestant.psychProfile.trustLevel} -> ${newTrustLevel}`);
+            console.log(`Suspicion: ${contestant.psychProfile.suspicionLevel} -> ${newSuspicionLevel}`);
+            
+            // Add memory of the interaction
+            const memoryType = actionType === 'dm' ? 'dm' : 
+                             actionType === 'scheme' ? 'scheme' :
+                             actionType === 'observe' ? 'observation' : 'conversation';
+            
+            const newMemory = {
+              day: prev.currentDay,
+              type: memoryType as 'conversation' | 'scheme' | 'observation' | 'dm' | 'confessional_leak' | 'elimination' | 'event',
+              participants: [prev.playerName, target || ''],
+              content: content || `${actionType} interaction with ${prev.playerName}`,
+              emotionalImpact: Math.floor(trustDelta / 10),
+              timestamp: Date.now()
+            };
+
+            return {
+              ...contestant,
+              psychProfile: {
+                ...contestant.psychProfile,
+                trustLevel: newTrustLevel,
+                suspicionLevel: newSuspicionLevel
+              },
+              memory: [...contestant.memory, newMemory]
+            };
+          }
+          return contestant;
+        });
+      }
 
       // CRITICAL FIX: Properly increment daily action count
       const newActionCount = prev.dailyActionCount + 1;
@@ -523,28 +574,50 @@ export const useGameState = () => {
       // Build minimal reaction summary for non-enhanced actions
       let reactionSummary: ReactionSummary | undefined = undefined;
       if (target) {
-        const npc = updatedContestants.find(c => c.name === target);
-        const trustDelta = npc ? (npc.psychProfile.trustLevel - (prev.contestants.find(c => c.name === target)?.psychProfile.trustLevel || 0)) : 0;
-        const suspDelta = npc ? (npc.psychProfile.suspicionLevel - (prev.contestants.find(c => c.name === target)?.psychProfile.suspicionLevel || 0)) : 0;
-        const context: ReactionSummary['context'] =
-          actionType === 'dm' ? 'private' :
-          actionType === 'scheme' ? 'scheme' :
-          actionType === 'activity' ? 'activity' : 'public';
-        const take: ReactionTake =
-          trustDelta > 0 && suspDelta <= 0 ? 'positive' :
-          trustDelta < 0 && suspDelta > 0 ? 'pushback' :
-          suspDelta > 0 ? 'suspicious' : 'neutral';
-        reactionSummary = {
-          take,
-          context,
-          notes: content || undefined,
-          deltas: {
-            trust: Math.round(trustDelta),
-            suspicion: Math.round(suspDelta),
-            influence: actionType === 'scheme' ? 2 : actionType === 'dm' ? 1 : 1,
-            entertainment: actionType === 'activity' ? 2 : 1,
-          }
-        };
+        if (target === 'Group' && groupApplied.length > 0) {
+          const avgTrust = groupApplied.reduce((s, g) => s + g.trustDelta, 0) / groupApplied.length;
+          const avgSusp = groupApplied.reduce((s, g) => s + g.suspDelta, 0) / groupApplied.length;
+          const context: ReactionSummary['context'] =
+            actionType === 'activity' ? 'activity' : 'public';
+          const take: ReactionTake =
+            avgTrust > 0 && avgSusp <= 0 ? 'positive' :
+            avgTrust < 0 && avgSusp > 0 ? 'pushback' :
+            avgSusp > 0 ? 'suspicious' : 'neutral';
+          reactionSummary = {
+            take,
+            context,
+            notes: content || undefined,
+            deltas: {
+              trust: Math.round(avgTrust),
+              suspicion: Math.round(avgSusp),
+              influence: 1,
+              entertainment: 1,
+            }
+          };
+        } else {
+          const npc = updatedContestants.find(c => c.name === target);
+          const trustDelta = npc ? (npc.psychProfile.trustLevel - (prev.contestants.find(c => c.name === target)?.psychProfile.trustLevel || 0)) : 0;
+          const suspDelta = npc ? (npc.psychProfile.suspicionLevel - (prev.contestants.find(c => c.name === target)?.psychProfile.suspicionLevel || 0)) : 0;
+          const context: ReactionSummary['context'] =
+            actionType === 'dm' ? 'private' :
+            actionType === 'scheme' ? 'scheme' :
+            actionType === 'activity' ? 'activity' : 'public';
+          const take: ReactionTake =
+            trustDelta > 0 && suspDelta <= 0 ? 'positive' :
+            trustDelta < 0 && suspDelta > 0 ? 'pushback' :
+            suspDelta > 0 ? 'suspicious' : 'neutral';
+          reactionSummary = {
+            take,
+            context,
+            notes: content || undefined,
+            deltas: {
+              trust: Math.round(trustDelta),
+              suspicion: Math.round(suspDelta),
+              influence: actionType === 'scheme' ? 2 : actionType === 'dm' ? 1 : 1,
+              entertainment: actionType === 'activity' ? 2 : 1,
+            }
+          };
+        }
       }
 
       // Ratings update based on reaction summary (if available)
@@ -560,7 +633,7 @@ export const useGameState = () => {
         playerActions: updatedActions,
         dailyActionCount: newActionCount, // This was the main issue!
         lastActionType: actionType as PlayerAction['type'],
-        lastActionTarget: target,
+        lastActionTarget: target === 'Group' ? 'Group' : target,
         lastAIReaction: reactionSummary,
         // Add to interaction log
         interactionLog: [
@@ -568,7 +641,7 @@ export const useGameState = () => {
           {
             day: prev.currentDay,
             type: actionType as PlayerAction['type'],
-            participants: target ? [prev.playerName, target] : [prev.playerName],
+            participants: target === 'Group' ? [prev.playerName, 'Group'] : (target ? [prev.playerName, target] : [prev.playerName]),
             content,
             tone,
             source: 'player' as const

@@ -20,6 +20,16 @@ export const getTrustDelta = (tone: string, disposition: string[]): number => {
     case 'suspicious':
       baseDelta = disposition.includes('paranoid') ? 5 : disposition.includes('loyal') ? -8 : -3;
       break;
+    case 'apologetic':
+      // Apology plays well with loyal/honest/diplomatic; less so with paranoid
+      if (disposition.includes('loyal') || disposition.includes('honest') || disposition.includes('diplomatic')) {
+        baseDelta = 7;
+      } else if (disposition.includes('paranoid')) {
+        baseDelta = 2;
+      } else {
+        baseDelta = 4;
+      }
+      break;
     default:
       baseDelta = 1;
   }
@@ -50,6 +60,10 @@ export const getSuspicionDelta = (tone: string, content: string): number => {
       break;
     case 'friendly':
       baseDelta = Math.max(0, suspiciousWordCount * 2 - 2);
+      break;
+    case 'apologetic':
+      // Apologies reduce suspicion; keywords still add small amounts
+      baseDelta = Math.max(0, suspiciousWordCount - 2);
       break;
     default:
       baseDelta = suspiciousWordCount;
