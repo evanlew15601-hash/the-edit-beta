@@ -15,6 +15,7 @@ import { PostSeasonRecapScreen } from '@/components/game/PostSeasonRecapScreen';
 import { VotingDebugPanel } from '@/components/game/VotingDebugPanel';
 import { DashboardHeader } from '@/components/game/DashboardHeader';
 import { ErrorBoundary } from '@/components/game/ErrorBoundary';
+import { MeetHouseguestsScreen } from '@/components/game/MeetHouseguestsScreen';
 
 const Index = () => {
   const {
@@ -34,6 +35,7 @@ const Index = () => {
     resetGame,
     handleEmergentEventChoice,
     completePremiere,
+    completeRoster,
     tagTalk,
     handleTieBreakResult,
     proceedToJuryVote,
@@ -47,7 +49,7 @@ const Index = () => {
     deleteSavedGame,
     hasSavedGame,
     goToTitle,
-  finalizeCharacterCreation,
+    finalizeCharacterCreation,
   } = useGameState();
 
   // Keyboard shortcut: Shift+D to toggle debug HUD
@@ -104,7 +106,13 @@ const Index = () => {
         );
       case 'premiere':
         return <PremiereCutscene onComplete={completePremiere} gameState={gameState} />;
-      
+      case 'houseguests_roster':
+        return (
+          <MeetHouseguestsScreen
+            gameState={gameState}
+            onContinue={completeRoster}
+          />
+        );
       case 'daily':
         return (
            <GameplayScreen

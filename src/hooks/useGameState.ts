@@ -971,6 +971,13 @@ export const useGameState = () => {
   const completePremiere = useCallback(() => {
     setGameState(prev => ({
       ...prev,
+      gamePhase: 'houseguests_roster' as const
+    }));
+  }, []);
+
+  const completeRoster = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
       gamePhase: 'daily' as const
     }));
   }, []);
@@ -1687,6 +1694,7 @@ export const useGameState = () => {
     respondToForcedConversation,
     submitAFPVote,
     completePremiere,
+    completeRoster,
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,

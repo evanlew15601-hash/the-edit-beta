@@ -19,6 +19,11 @@ export function applyDailySpecialBackgroundLogic(gs: GameState): GameState {
         c.psychProfile.editBias = Math.min(50, c.psychProfile.editBias + 2);
         // Strategic players may distrust a bit; empathetic may increase closeness.
         c.psychProfile.trustLevel = Math.max(-100, c.psychProfile.trustLevel - 1);
+        if (!c.special.revealDay) {
+          c.special.revealDay = gs.currentDay;
+          next.hostChildName = c.name;
+          next.hostChildRevealDay = gs.currentDay;
+        }
       }
     }
 
@@ -27,6 +32,7 @@ export function applyDailySpecialBackgroundLogic(gs: GameState): GameState {
       const overdue = c.special.tasks.filter(t => !t.completed && t.dayAssigned <= (gs.currentDay - 2));
       if (overdue.length >= 2 && !c.special.secretRevealed) {
         c.special.secretRevealed = true;
+        c.special.revealDay = gs.currentDay;
         // On reveal, suspicion spikes for some in the house
         c.psychProfile.suspicionLevel = Math.min(100, c.psychProfile.suspicionLevel + 15);
         // Centralize in production log for recaps
@@ -72,7 +78,9 @@ export function revealHostChild(gs: GameState, contestantName: string): GameStat
   const c = next.contestants.find(x => x.name === contestantName);
   if (c?.special && c.special.kind === 'hosts_estranged_child') {
     c.special.revealed = true;
+    c.special.revealDay = gs.currentDay;
     next.hostChildName = c.name;
+    next.hostChildRevealDay = gs.currentDay;
     // Mixed reaction buff/nerf
     c.psychProfile.trustLevel = Math.max(-100, c.psychProfile.trustLevel - 5);
     c.psychProfile.editBias = Math.min(50, c.psychProfile.editBias + 10);

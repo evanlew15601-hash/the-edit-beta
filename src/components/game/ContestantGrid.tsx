@@ -72,7 +72,10 @@ export const ContestantGrid = ({ contestants, playerName }: ContestantGridProps)
                   {/* Header with name and status indicators */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-medium text-sm">{contestant.name}</h4>
+                      <h4 className="font-medium text-sm">
+                        {contestant.name}
+                        {contestant.name === playerName ? ' (You)' : ''}
+                      </h4>
                       <p className="text-xs text-muted-foreground">{contestant.publicPersona}</p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -153,7 +156,10 @@ export const ContestantGrid = ({ contestants, playerName }: ContestantGridProps)
                     )}
                     {/* Special background badge */}
                     {contestant.special && contestant.special.kind !== 'none' && (
-                      <Badge variant="outline" className="text-[10px] ml-1">
+                      <Badge
+                        variant={contestant.name === playerName ? 'secondary' : 'outline'}
+                        className="text-[10px] ml-1"
+                      >
                         {contestant.special.kind === 'hosts_estranged_child' && 'Host’s Child'}
                         {contestant.special.kind === 'planted_houseguest' && 'Planted HG'}
                       </Badge>

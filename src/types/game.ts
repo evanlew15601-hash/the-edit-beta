@@ -34,12 +34,14 @@ export type SpecialBackground =
       kind: 'hosts_estranged_child';
       // Hidden until revealed. If revealed, affects audience/edit and NPC trust.
       revealed?: boolean;
+      revealDay?: number;
     }
   | {
       kind: 'planted_houseguest';
       // Production tasks to complete weekly. Failure risks secret reveal.
       tasks: { id: string; description: string; dayAssigned: number; completed?: boolean }[];
       secretRevealed?: boolean;
+      revealDay?: number;
     };
 
 export interface Contestant {
@@ -157,6 +159,7 @@ export interface GameState {
     | 'intro'
     | 'character_creation'
     | 'premiere'
+    | 'houseguests_roster'
     | 'daily'
     | 'player_vote'
     | 'elimination'
@@ -227,6 +230,13 @@ export interface GameState {
   // Viewer Ratings - light system based on house events and NPC behavior
   viewerRating?: number; // 0.0 - 10.0
   ratingsHistory?: { day: number; rating: number; reason?: string }[];
+
+  // Special reveal metadata
+  hostChildName?: string;
+  hostChildRevealDay?: number;
+  productionTaskLog?: {
+    [contestantName: string]: { id: string; description: string; dayAssigned: number; completed?: boolean }[];
+  };
 
   // Special twist state tracking
   // Only one 'hosts_estranged_child' per season recommended.
