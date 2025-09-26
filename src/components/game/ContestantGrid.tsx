@@ -2,8 +2,9 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Contestant } from '@/types/game';
-import { Heart, Shield, Eye, Zap, AlertTriangle } from 'lucide-react';
+import { Heart, Shield, Eye, Zap, AlertTriangle, Star } from 'lucide-react';
 import { memoryEngine } from '@/utils/memoryEngine';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface ContestantGridProps {
   contestants: Contestant[];
@@ -72,7 +73,10 @@ export const ContestantGrid = ({ contestants, playerName }: ContestantGridProps)
                   {/* Header with name and status indicators */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-medium text-sm">{contestant.name}</h4>
+                      <h4 className="font-medium text-sm">
+                        {contestant.name}
+                        {contestant.name === playerName ? ' (You)' : ''}
+                      </h4>
                       <p className="text-xs text-muted-foreground">{contestant.publicPersona}</p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -144,6 +148,39 @@ export const ContestantGrid = ({ contestants, playerName }: ContestantGridProps)
                         {trait}
                       </Badge>
                     ))}
+                    {/* Stat inclination badge (separate from weekly edit persona) */}
+                    {contestant.stats?.primary && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="secondary" className="text-[10px] ml-1 cursor-help">
+                            <Star className="w-3 h-3 mr-1" />
+                            {contestant.stats.primary}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Primary stat inclination — influences subtle gameplay outcomes
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {/* Special background badge with tooltips */}
+                    {contestant.special && contestant.special.kind !== 'none' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            variant={contestant.name === playerName ? 'secondary' : 'outline'}
+                            className="text-[10px] ml-1 cursor-help"
+                          >
+                            {contestant.special.kind === 'hosts_estranged_child' && 'Host’s Child'}
+                            {contestant.special.kind === 'planted_houseguest' && 'Planted HG'}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {contestant.special.kind === 'hosts_estranged_child'
+                            ? 'Secret relation to host. If revealed, trust shifts and edit bias rises.'
+                            : 'Receives production tasks. Failing tasks risks secret reveal.'}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 </div>
               </Card>

@@ -19,6 +19,7 @@ import { TAG_CHOICES } from '@/data/tagChoices';
 import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogueEngine';
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
+import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild } from '@/utils/specialBackgrounds';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -66,27 +67,12 @@ export const useGameState = () => {
   });
 
   const startGame = useCallback((playerName: string) => {
-    console.log('Starting game with player:', playerName);
-
-    // Generate cast and guarantee the player is in it
-    const baseContestants = generateContestants(16);
-    let contestants: Contestant[] = baseContestants;
-    if (!baseContestants.some(c => c.name === playerName)) {
-      const first = baseContestants[0];
-      contestants = [{ ...first, name: playerName }, ...baseContestants.slice(1)];
-    }
-
-    // Build initial persistent reaction profiles
-    const reactionProfiles: any = {};
-    contestants.forEach(c => {
-      reactionProfiles[c.id] = getReactionProfileForNPC(c);
-      reactionProfiles[c.name] = reactionProfiles[c.id];
-    });
+    console.log('Starting game, proceeding to character creation for:', playerName);
 
     const newState: GameState = {
       currentDay: 1,
       playerName,
-      contestants,
+      contestants: [],
       playerActions: [
         { type: 'talk', used: false, usageCount: 0 },
         { type: 'dm', used: false, usageCount: 0 },
@@ -104,7 +90,7 @@ export const useGameState = () => {
       },
       alliances: [],
       votingHistory: [],
-      gamePhase: 'premiere',
+      gamePhase: 'character_creation',
       twistsActivated: [],
       nextEliminationDay: 7,
       daysUntilJury: 28,
@@ -118,12 +104,10 @@ export const useGameState = () => {
       favoriteTally: {},
       interactionLog: [],
       tagChoiceCooldowns: {},
-      reactionProfiles,
+      reactionProfiles: {},
       debugMode: false,
     };
-    console.log('Game started, transitioning to premiere');
     setGameState(newState);
-    // No autosave; player must press Save
   }, []);
 
   const advanceDay = useCallback(() => {
@@ -166,6 +150,12 @@ export const useGameState = () => {
       
       // Generate contextual memories for NPCs
       const newContextualMemories = EnhancedNPCMemorySystem.generateContextualMemories(tempState);
+
+      // Apply special background daily logic (host child reveal effects, planted tasks, etc.)
+      const specialApplied = applyDailySpecialBackgroundLogic({
+        ...tempState,
+        contestants: cleanedContestants,
+      });
       
       // Emergent events are now handled by the EnhancedEmergentEvents component
       // No need for manual triggering here as the component manages its own generation
@@ -176,7 +166,7 @@ export const useGameState = () => {
       }
       
       // Check if jury phase should begin - FIXED: Count ALL active contestants including player
-      const remainingContestants = prev.contestants.filter(c => !c.isEliminated);
+      const remainingContestants = specialApplied.contestants.filter(c => !c.isEliminated);
       const remainingCount = remainingContestants.length;
       const playerStillActive = remainingContestants.some(c => c.name === prev.playerName);
       console.log('Remaining contestants:', remainingCount);
@@ -190,7 +180,7 @@ export const useGameState = () => {
       
       if (shouldStartJury) {
         // Start jury phase - take the 7 most recently eliminated contestants
-        juryMembers = prev.contestants
+        juryMembers = specialApplied.contestants
           .filter(c => c.isEliminated && c.eliminationDay)
           .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
           .slice(0, 7) // Exactly 7 jury members
@@ -244,7 +234,7 @@ export const useGameState = () => {
         const ratingRes = ratingsEngine.applyWeeklyBuzz({
           ...prev,
           currentDay: newDay,
-          contestants: cleanedContestants,
+          contestants: specialApplied.contestants,
           alliances: updatedAlliances,
           viewerRating: nextViewerRating,
         });
@@ -260,7 +250,7 @@ export const useGameState = () => {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
-        contestants: cleanedContestants,
+        contestants: specialApplied.contestants,
         alliances: updatedAlliances, // Keep using updatedAlliances for now
         juryMembers,
         daysUntilJury,
@@ -275,6 +265,9 @@ export const useGameState = () => {
         // Ratings
         viewerRating: nextViewerRating,
         ratingsHistory: nextRatingsHistory,
+        // Special logs if any
+        productionTaskLog: specialApplied.productionTaskLog || prev.productionTaskLog,
+        hostChildName: specialApplied.hostChildName || prev.hostChildName,
       };
     });
   }, []);
@@ -978,8 +971,46 @@ export const useGameState = () => {
   const completePremiere = useCallback(() => {
     setGameState(prev => ({
       ...prev,
+      gamePhase: 'houseguests_roster' as const
+    }));
+  }, []);
+
+  const completeRoster = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
       gamePhase: 'daily' as const
     }));
+  }, []);
+
+  const openRoster = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      gamePhase: 'houseguests_roster' as const
+    }));
+  }, []);
+
+  // Finalize character creation: build cast and proceed to premiere
+  const finalizeCharacterCreation = useCallback((player: Contestant) => {
+    setGameState(prev => {
+      const playerName = player.name || prev.playerName || 'You';
+      const npcs = generateStaticNPCs({ count: 15, excludeNames: [playerName], includeSpecials: true });
+      const contestants: Contestant[] = [{ ...player }, ...npcs];
+
+      // Build reaction profiles
+      const reactionProfiles: any = {};
+      contestants.forEach(c => {
+        reactionProfiles[c.id] = getReactionProfileForNPC(c);
+        reactionProfiles[c.name] = reactionProfiles[c.id];
+      });
+
+      return {
+        ...prev,
+        playerName,
+        contestants,
+        reactionProfiles,
+        gamePhase: 'premiere' as const,
+      };
+    });
   }, []);
 
   const endGame = useCallback((winner: string, votes: { [juryMember: string]: string }, rationales?: { [juryMember: string]: string }) => {
@@ -1611,6 +1642,16 @@ export const useGameState = () => {
     }
   }, []);
 
+  // Listen for planted task updates from UI
+  useEffect(() => {
+    const handler = (e: any) => {
+      const { contestantName, taskId, completed } = e.detail || {};
+      setGameState(prev => setProductionTaskStatus(prev, contestantName || prev.playerName, taskId, !!completed));
+    };
+    window.addEventListener('plantedTaskUpdate', handler);
+    return () => window.removeEventListener('plantedTaskUpdate', handler);
+  }, []);
+
   const hasSavedGame = useCallback(() => {
     try {
       return !!localStorage.getItem('rtv_game_state');
@@ -1660,6 +1701,8 @@ export const useGameState = () => {
     respondToForcedConversation,
     submitAFPVote,
     completePremiere,
+    completeRoster,
+    openRoster,
     endGame,
     continueFromElimination,
     continueFromWeeklyRecap,
@@ -1680,5 +1723,7 @@ export const useGameState = () => {
     hasSavedGame,
     goToTitle,
     toggleDebugMode,
+    // Character creation finalize
+    finalizeCharacterCreation,
   };
 };

@@ -50,12 +50,13 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
 
         {/* Tabbed Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="stats">Statistics</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="jury">Jury Votes</TabsTrigger>
             <TabsTrigger value="final3">Final 3 Tie-Break</TabsTrigger>
+            <TabsTrigger value="twists">Twists</TabsTrigger>
             <TabsTrigger value="awards">Awards</TabsTrigger>
           </TabsList>
 
@@ -310,7 +311,13 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                         <div className={`font-medium ${juror === gameState.playerName ? 'text-primary' : ''}`}>
                           {juror}{juror === gameState.playerName ? ' (You)' : ''}
                         </div>
-                        <div className="text-sm">voted for <span className="font-medium">{vote}</span></div>
+                        <div className="text-sm">
+                          {vote ? (
+                            <>voted for <span className="font-medium">{vote}</span></>
+                          ) : (
+                            <span className="text-muted-foreground">{juror === gameState.playerName ? 'did not vote' : 'vote pending'}</span>
+                          )}
+                        </div>
                       </div>
                       {gameState.juryRationales?.[juror] && (
                         <div className="text-xs text-muted-foreground mt-1">
@@ -430,6 +437,73 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                       </div>
                     </Card>
                   )}
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* Twists & Special Backgrounds */}
+          <TabsContent value="twists" className="space-y-6">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-primary" />
+                <h3 className="text-xl font-medium">Twists & Special Backgrounds</h3>
+              </div>
+
+              {/* Host's Estranged Child */}
+              {gameState.hostChildName ? (
+                <div className="p-4 border border-border rounded mb-4">
+                  <div className="font-medium">Host’s Estranged Child</div>
+                  <div className="text-sm text-muted-foreground">
+                    {gameState.hostChildName}{gameState.hostChildName === gameState.playerName ? ' (You)' : ''} had their secret revealed
+                    {typeof gameState.hostChildRevealDay === 'number' ? ` on Day ${gameState.hostChildRevealDay}` : ''}.
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 border border-border rounded mb-4 text-sm text-muted-foreground">
+                  No host-family twist revealed this season.
+                </div>
+              )}
+
+              {/* Planted Houseguest(s) */}
+              {gameState.contestants.some(c => c.special?.kind === 'planted_houseguest') ? (
+                <div className="space-y-3">
+                  {gameState.contestants
+                    .filter(c => c.special?.kind === 'planted_houseguest')
+                    .map(c => {
+                      const spec = c.special as any;
+                      return (
+                        <div key={c.id} className="p-4 border border-border rounded">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium">
+                              Planted Houseguest: {c.name}{c.name === gameState.playerName ? ' (You)' : ''}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {spec.secretRevealed
+                                ? `Secret revealed${spec.revealDay ? ` on Day ${spec.revealDay}` : ''}`
+                                : 'Secret remained hidden'}
+                            </div>
+                          </div>
+                          <div className="mt-2 space-y-1">
+                            {(spec.tasks || []).map((t: any) => (
+                              <div key={t.id} className="flex items-center justify-between text-sm">
+                                <div>
+                                  <span className="font-medium">{t.description}</span>
+                                  <span className="text-muted-foreground text-xs"> — Assigned Day {t.dayAssigned}</span>
+                                </div>
+                                <Badge variant={t.completed ? 'secondary' : 'outline'} className="text-[10px]">
+                                  {t.completed ? 'Completed' : 'Pending'}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : (
+                <div className="p-4 border border-border rounded text-sm text-muted-foreground">
+                  No planted houseguest twist this season.
                 </div>
               )}
             </Card>
