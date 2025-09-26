@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { BACKGROUND_META, PRESET_BACKGROUNDS } from '@/data/backgrounds';
 import { CharacterStats, Contestant, Background, SpecialBackground, StatInclination } from '@/types/game';
 
@@ -130,17 +131,18 @@ export function CharacterCreation({ onCreate }: CharacterCreationProps) {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Preset Background</label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {PRESET_BACKGROUNDS.map(bg => (
-                <Button
-                  key={bg}
-                  variant={bg === background ? 'action' : 'surveillance'}
-                  onClick={() => setBackground(bg as Background)}
-                >
-                  {bg}
-                </Button>
-              ))}
-            </div>
+            <Select value={background} onValueChange={(val) => setBackground(val as Background)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a background" />
+              </SelectTrigger>
+              <SelectContent>
+                {PRESET_BACKGROUNDS.map(bg => (
+                  <SelectItem key={bg} value={bg}>
+                    {bg}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="text-xs text-muted-foreground">Persona hint: {personaHint}</div>
             {background === 'Other' && (
               <div className="mt-2">

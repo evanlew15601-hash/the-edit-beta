@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/enhanced-button';
-import { Input } from '@/components/ui/input';
 import { Button as TopButton } from '@/components/ui/button';
 
 interface IntroScreenProps {
-  onStartGame: (playerName: string) => void;
+  onStartGame: (playerName?: string) => void;
   onContinue?: () => void;
   onDeleteSave?: () => void;
   debugMode?: boolean;
@@ -13,12 +11,8 @@ interface IntroScreenProps {
 }
 
 export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, onToggleDebug, hasSave }: IntroScreenProps) => {
-  const [playerName, setPlayerName] = useState('');
-
-  const handleSubmit = () => {
-    if (playerName.trim()) {
-      onStartGame(playerName.trim());
-    }
+  const handleStart = () => {
+    onStartGame();
   };
 
   return (
@@ -80,23 +74,15 @@ export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, 
 
             <div className="space-y-4 pt-6">
               <p className="text-foreground">
-                Please introduce yourself.
+                Begin your season with character creation. Your name will be set and validated there.
               </p>
-              <div className="flex gap-3">
-                <Input
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="flex-1 bg-input border-border text-foreground"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-                />
+              <div className="flex justify-center">
                 <Button 
-                  onClick={handleSubmit}
-                  disabled={!playerName.trim()}
+                  onClick={handleStart}
                   variant="surveillance"
-                  size="default"
+                  size="wide"
                 >
-                  Enter the House
+                  Begin Character Creation
                 </Button>
               </div>
             </div>
