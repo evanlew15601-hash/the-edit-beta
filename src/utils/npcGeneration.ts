@@ -39,16 +39,12 @@ function randomPersonaFromStats(stats: CharacterStats): string {
 export interface NPCGenOptions {
   count: number;
   excludeNames?: string[];
-  includeSpecials?: boolean;
 }
 
 export function generateStaticNPCs(opts: NPCGenOptions): Contestant[] {
   const taken = new Set(opts.excludeNames || []);
   const names = STATIC_NPC_NAMES.filter(n => !taken.has(n)).slice(0, opts.count);
   const result: Contestant[] = [];
-
-  let hostChildAssigned = false;
-  let plantedAssigned = false;
 
   names.forEach((name, idx) => {
     const id = `npc_${name.toLowerCase()}`;
@@ -57,26 +53,10 @@ export function generateStaticNPCs(opts: NPCGenOptions): Contestant[] {
     const primaryPool = ['social', 'strategy', 'physical', 'deception'] as const;
     const primary = primaryPool[idx % primaryPool.length];
 
-    let stats = biasFromBackground(bg, baseStats(primary));
+    const stats = biasFromBackground(bg, baseStats(primary));
     const publicPersona = randomPersonaFromStats(stats);
 
-    let special: SpecialBackground = { kind: 'none' };
-    if (opts.includeSpecials) {
-      if (!hostChildAssigned && Math.random() < 0.15) {
-        special = { kind: 'hosts_estranged_child', revealed: false };
-        hostChildAssigned = true;
-      } else if (!plantedAssigned && Math.random() < 0.2) {
-        special = {
-          kind: 'planted_houseguest',
-          tasks: [
-            { id: 't1', description: 'Start a rumor about the immunity twist', dayAssigned: 3 },
-            { id: 't2', description: 'Convince two players to target each other', dayAssigned: 6 },
-          ],
-          secretRevealed: false,
-        };
-        plantedAssigned = true;
-      }
-    }
+    const special: SpecialBackground = { kind: 'none' };
 
     result.push({
       id,
