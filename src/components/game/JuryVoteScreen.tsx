@@ -349,7 +349,11 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                             {jury.name}{jury.name === gameState.playerName ? ' (You)' : ''}
                           </span>
                           <span className={`font-medium ${revealed ? 'text-foreground' : 'text-muted-foreground'}`}>
-                            {revealed ? `voted for ${votes[jury.name]}` : 'vote sealed...'}
+                            {revealed
+                              ? (votes[jury.name]
+                                  ? `voted for ${votes[jury.name]}`
+                                  : (jury.name === gameState.playerName ? 'did not vote' : 'vote pending'))
+                              : 'vote sealed...'}
                           </span>
                         </div>
                         {revealed && rationales[jury.name] && (

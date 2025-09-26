@@ -310,7 +310,13 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                         <div className={`font-medium ${juror === gameState.playerName ? 'text-primary' : ''}`}>
                           {juror}{juror === gameState.playerName ? ' (You)' : ''}
                         </div>
-                        <div className="text-sm">voted for <span className="font-medium">{vote}</span></div>
+                        <div className="text-sm">
+                          {vote ? (
+                            <>voted for <span className="font-medium">{vote}</span></>
+                          ) : (
+                            <span className="text-muted-foreground">{juror === gameState.playerName ? 'did not vote' : 'vote pending'}</span>
+                          )}
+                        </div>
                       </div>
                       {gameState.juryRationales?.[juror] && (
                         <div className="text-xs text-muted-foreground mt-1">
