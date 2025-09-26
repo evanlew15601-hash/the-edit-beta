@@ -90,6 +90,13 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
           <Button variant="surveillance" onClick={() => onContinueFromElimination()} className="w-full">
             Continue From Elimination
           </Button>
+          <Button
+            variant="critical"
+            onClick={() => window.dispatchEvent(new Event('testForceElimination'))}
+            className="w-full"
+          >
+            Force Player Elimination (Test)
+          </Button>
         </div>
 
         <div className="mt-3 text-[11px] text-muted-foreground">
