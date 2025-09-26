@@ -18,6 +18,7 @@ import { getReactionProfileForNPC } from '@/utils/tagDialogueEngine';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogueEngine';
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
+import { ratingsEngine } from '@/utils/ratingsEngine';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -236,6 +237,19 @@ export const useGameState = () => {
         { ...prev, currentDay: newDay }
       );
 
+      // Apply daily background viewer ratings buzz
+      const ratingRes = ratingsEngine.applyDailyBuzz({
+        ...prev,
+        currentDay: newDay,
+        contestants: cleanedContestants,
+        alliances: updatedAlliances,
+        viewerRating: prev.viewerRating ?? ratingsEngine.getInitial(),
+      });
+      const nextHistory = [
+        ...(prev.ratingsHistory || []),
+        { day: newDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
+      ];
+
       return {
         ...prev,
         currentDay: newDay,
@@ -251,7 +265,10 @@ export const useGameState = () => {
         lastAIAdditions: undefined,
         lastAIReaction: undefined,
         lastActionTarget: undefined,
-        lastActionType: undefined
+        lastActionType: undefined,
+        // Ratings
+        viewerRating: ratingRes.rating,
+        ratingsHistory: nextHistory,
       };
     });
   }, []);
@@ -404,6 +421,13 @@ export const useGameState = () => {
           source: 'player' as const,
         };
 
+        // Ratings update based on confessional
+        const ratingRes = ratingsEngine.applyConfessional(prev, conf);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
+        ];
+
         return {
           ...prev,
           confessionals: [...prev.confessionals, conf],
@@ -420,6 +444,8 @@ export const useGameState = () => {
           },
           interactionLog: [...(prev.interactionLog || []), interactionEntry],
           contestants: updatedContestants,
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
         };
       });
       return;
@@ -522,6 +548,13 @@ export const useGameState = () => {
         };
       }
 
+      // Ratings update based on reaction summary (if available)
+      const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+      const nextHistory = [
+        ...(prev.ratingsHistory || []),
+        { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
+      ];
+
       const newState = {
         ...prev,
         contestants: updatedContestants,
@@ -541,7 +574,9 @@ export const useGameState = () => {
             tone,
             source: 'player' as const
           }
-        ]
+        ],
+        viewerRating: ratingRes.rating,
+        ratingsHistory: nextHistory,
       };
       
       console.log('=== NEW STATE CREATED ===');
@@ -1225,6 +1260,13 @@ export const useGameState = () => {
         lastEditShift: editImpact
       };
 
+      // Ratings update from emergent event impact
+      const ratingRes = ratingsEngine.applyEmergent(prev, editImpact, event?.title);
+      const nextHistory = [
+        ...(prev.ratingsHistory || []),
+        { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
+      ];
+
       // Clear the emergent event to prevent black screen
       return {
         ...prev,
@@ -1241,7 +1283,9 @@ export const useGameState = () => {
             content: `Emergent Event: ${event.title} - ${choice} approach`,
             source: 'emergent_event' as const
           }
-        ]
+        ],
+        viewerRating: ratingRes.rating,
+        ratingsHistory: nextHistory,
       };
     });
   }, []);
@@ -1390,6 +1434,13 @@ export const useGameState = () => {
           a.type === interaction ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
         );
 
+        // Ratings update for tag talk outcome
+        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
+        ];
+
         const newState: GameState = {
           ...prev,
           contestants: updatedContestants,
@@ -1403,6 +1454,8 @@ export const useGameState = () => {
           tagChoiceCooldowns: updatedCooldowns,
           editPerception: updatedEdit,
           reactionProfiles: updatedProfiles,
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
         };
 
         return newState;

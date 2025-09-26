@@ -10,6 +10,7 @@ import { EnhancedTagDialogueEngine } from './EnhancedTagDialogueEngine';
 import { EnhancedEmergentEvents } from './EnhancedEmergentEvents';
 import { AllianceIntelligencePanel } from './AllianceIntelligencePanel';
 import { AIOutcomeDebug } from './AIOutcomeDebug';
+import { RatingsPanel } from './RatingsPanel';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -54,6 +55,7 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           </div>
           
            <div className="lg:col-span-1 space-y-6">
+             <RatingsPanel gameState={gameState} />
              <MemoryPanel gameState={gameState} />
              <EnhancedInformationPanel gameState={gameState} />
              {gameState.alliances.length > 0 && (
