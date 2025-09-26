@@ -35,14 +35,15 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
   const eliminated = gameState.contestants.filter(c => c.isEliminated);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-sm">
-      <Card className="p-4 shadow-lg border-primary/30 bg-background/95 backdrop-blur">
-        <div className="flex items-center justify-between mb-3">
+    <div className="fixed bottom-4 right-4 z-50 w-[340px]">
+      <Card className="p-4 shadow-xl border border-border bg-card/95 backdrop-blur-md rounded-lg">
+        <div className="flex items-center justify-between mb-2">
           <div>
+            <div className="text-[11px] text-muted-foreground">Developer Tools</div>
             <div className="text-xs text-muted-foreground">Phase</div>
             <div className="text-sm font-medium">{gameState.gamePhase}</div>
           </div>
-          <Button variant="surveillance" size="sm" onClick={onToggleDebug}>
+          <Button variant="surveillance" size="sm" onClick={onToggleDebug} aria-label="Toggle Debug HUD">
             {gameState.debugMode ? 'Hide Debug' : 'Show Debug'}
           </Button>
         </div>

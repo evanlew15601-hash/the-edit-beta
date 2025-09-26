@@ -54,7 +54,7 @@ export const MemoryPanel = ({ gameState }: MemoryPanelProps) => {
   feed.sort((a, b) => a.day - b.day);
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 rounded-lg">
       <h3 className="text-lg font-light mb-3">Strategic Memory</h3>
       
       {/* Strategic Overview */}
@@ -100,7 +100,8 @@ export const MemoryPanel = ({ gameState }: MemoryPanelProps) => {
               .sort((a, b) => b.day - a.day) // Most recent first
               .slice(0, 20) // Show last 20 events
               .map((f, idx) => (
-                <div key={idx} className="text-sm border-l-2 border-muted pl-3 py-1">
+                <div key={idx} className="relative text-sm pl-4 py-2 border-l border-border">
+                  <span className="absolute -left-[4px] top-2 w-1.5 h-1.5 rounded-full bg-muted-foreground"></span>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-muted-foreground text-xs">Day {f.day}</span>
                     <Badge variant="outline" className="text-xs">{f.kind}</Badge>

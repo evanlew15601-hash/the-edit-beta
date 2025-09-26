@@ -45,7 +45,7 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: A
   }
 
   return (
-    <Card className="p-4 md:p-5 animate-fade-in border-l-4 border-l-primary/80 rounded-lg shadow-sm bg-gradient-to-r from-primary/5 to-transparent">
+    <Card className="p-4 md:p-5 animate-fade-in border-l-4 border-l-primary/80 rounded-lg shadow-sm bg-card/85 ring-1 ring-border">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

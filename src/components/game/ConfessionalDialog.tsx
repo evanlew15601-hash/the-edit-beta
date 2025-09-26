@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState } from '@/types/game';
 import { EnhancedConfessionalEngine, DynamicConfessionalPrompt } from '@/utils/enhancedConfessionalEngine';
 import { generateResponseOptions } from '@/utils/confessionalResponseGenerator';
-import { RefreshCw, Zap } from 'lucide-react';
+import { RefreshCw, Zap, Camera } from 'lucide-react';
 
 interface ConfessionalDialogProps {
   isOpen: boolean;
