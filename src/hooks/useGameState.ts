@@ -237,18 +237,24 @@ export const useGameState = () => {
         { ...prev, currentDay: newDay }
       );
 
-      // Apply daily background viewer ratings buzz
-      const ratingRes = ratingsEngine.applyDailyBuzz({
-        ...prev,
-        currentDay: newDay,
-        contestants: cleanedContestants,
-        alliances: updatedAlliances,
-        viewerRating: prev.viewerRating ?? ratingsEngine.getInitial(),
-      });
-      const nextHistory = [
-        ...(prev.ratingsHistory || []),
-        { day: newDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
-      ];
+      // Apply weekly viewer ratings buzz (only on weekly recap day)
+      let nextViewerRating = prev.viewerRating ?? ratingsEngine.getInitial();
+      let nextRatingsHistory = [...(prev.ratingsHistory || [])];
+      if (newDay % 7 === 0) {
+        const ratingRes = ratingsEngine.applyWeeklyBuzz({
+          ...prev,
+          currentDay: newDay,
+          contestants: cleanedContestants,
+          alliances: updatedAlliances,
+          viewerRating: nextViewerRating,
+        });
+        nextViewerRating = ratingRes.rating;
+        nextRatingsHistory.push({
+          day: newDay,
+          rating: Math.round(ratingRes.rating * 100) / 100,
+          reason: ratingRes.reason,
+        });
+      }
 
       return {
         ...prev,
@@ -267,8 +273,8 @@ export const useGameState = () => {
         lastActionTarget: undefined,
         lastActionType: undefined,
         // Ratings
-        viewerRating: ratingRes.rating,
-        ratingsHistory: nextHistory,
+        viewerRating: nextViewerRating,
+        ratingsHistory: nextRatingsHistory,
       };
     });
   }, []);

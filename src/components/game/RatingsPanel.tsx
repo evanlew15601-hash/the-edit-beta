@@ -12,8 +12,13 @@ export const RatingsPanel = ({ gameState }: RatingsPanelProps) => {
   const rating = typeof gameState.viewerRating === 'number' ? gameState.viewerRating : 3.8;
   const history = gameState.ratingsHistory || [];
 
-  const last = history[history.length - 1];
-  const prev = history[history.length - 2];
+  // Prefer weekly entries for display and delta calculations
+  const weeklyHistory = history.filter(h => typeof h.reason === 'string' && h.reason.toLowerCase().startsWith('weekly'));
+  const entries = weeklyHistory.length >= 2 ? weeklyHistory : history;
+
+  const last = entries[entries.length - 1];
+  const prev = entries[entries.length - 2];
+
   const delta = last && prev ? Math.round((last.rating - prev.rating) * 100) / 100 : 0;
 
   const trendIcon =
@@ -21,16 +26,21 @@ export const RatingsPanel = ({ gameState }: RatingsPanelProps) => {
     delta < -0.01 ? <TrendingDown className="w-4 h-4 text-destructive" /> :
     <Activity className="w-4 h-4 text-muted-foreground" />;
 
-  const percent = Math.round((rating / 10) * 100);
+  const displayRating = (last?.rating ?? rating);
+  const percent = Math.round((displayRating / 10) * 100);
 
-  const recentReasons = history.slice(-3).reverse().map(h => h.reason).filter(Boolean) as string[];
+  const recentReasons = (weeklyHistory.length ? weeklyHistory : history)
+    .slice(-3)
+    .reverse()
+    .map(h => h.reason)
+    .filter(Boolean) as string[];
 
   return (
     <Card className="p-4 rounded-lg">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Tv className="w-5 h-5 text-primary" />
-          <h3 className="text-sm font-medium">Viewer Ratings</h3>
+          <h3 className="text-sm font-medium">Weekly Ratings</h3>
         </div>
         <Badge variant="outline" className="text-xs">
           {trendIcon}
@@ -39,7 +49,7 @@ export const RatingsPanel = ({ gameState }: RatingsPanelProps) => {
       </div>
 
       <div className="flex items-baseline gap-3 mb-2">
-        <div className="text-2xl font-semibold">{rating.toFixed(1)}</div>
+        <div className="text-2xl font-semibold">{displayRating.toFixed(1)}</div>
         <span className="text-xs text-muted-foreground">/ 10</span>
       </div>
 
@@ -52,7 +62,7 @@ export const RatingsPanel = ({ gameState }: RatingsPanelProps) => {
           ))}
         </div>
       ) : (
-        <div className="text-xs text-muted-foreground">House buzz will appear here as the day progresses.</div>
+        <div className="text-xs text-muted-foreground">Weekly buzz will appear here as the season progresses.</div>
       )}
     </Card>
   );

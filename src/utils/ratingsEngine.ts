@@ -86,6 +86,35 @@ export const ratingsEngine = {
     return { rating: next, reason };
   },
 
+  applyWeeklyBuzz(prev: GameState): { rating: number; reason?: string } {
+    const base = prev.viewerRating ?? ratingsEngine.getInitial();
+
+    // Look back over the last 7 days
+    const mems = prev.contestants.flatMap(c => c.memory || []);
+    const recent = mems.filter(m => m.day >= prev.currentDay - 7);
+
+    const drama = recent.filter(m => (m.type === 'scheme' || m.type === 'event') && (m.emotionalImpact ?? 0) < 0).length;
+    const strategy = recent.filter(m => m.type === 'conversation' && (m.emotionalImpact ?? 0) > 3).length;
+    const eliminations = recent.filter(m => m.type === 'elimination').length;
+
+    const allianceActivityWeek = prev.alliances.filter(a => a.lastActivity && a.lastActivity >= prev.currentDay - 7 && a.lastActivity <= prev.currentDay).length;
+
+    let delta =
+      drama * 0.08 +
+      strategy * 0.05 +
+      eliminations * 0.35 +
+      allianceActivityWeek * 0.06;
+
+    // Mean reversion a touch stronger at weekly cadence
+    delta += (4.0 - base) * 0.02;
+
+    delta = clamp(delta, -0.5, 1.0);
+    const next = clamp(base + delta, 0, 10);
+
+    const reason = `weekly buzz: drama ${drama}, strategy ${strategy}, elim ${eliminations}`;
+    return { rating: next, reason };
+  },
+
   // Convenience for logging mini history entries
   appendHistory(prev: GameState, rating: number, reason?: string): GameState {
     const history = [...(prev.ratingsHistory ?? [])];
