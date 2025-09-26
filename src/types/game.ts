@@ -1,7 +1,56 @@
+export type StatInclination = 'social' | 'strategy' | 'physical' | 'deception';
+
+export interface CharacterStats {
+  // 0..100 scale. Use inclinations to bias NPC calculations and gameplay outcomes.
+  social: number;
+  strategy: number;
+  physical: number;
+  deception: number;
+  // primary inclination to surface in UI
+  primary?: StatInclination;
+}
+
+export type Background =
+  | 'College Athlete'
+  | 'Startup Founder'
+  | 'School Teacher'
+  | 'Bartender'
+  | 'ER Nurse'
+  | 'Law Student'
+  | 'Podcaster'
+  | 'Ex-Pro Gamer'
+  | 'Content Creator'
+  | 'Blue-Collar Worker'
+  | 'Fitness Trainer'
+  | 'Real Estate Agent'
+  | 'Data Analyst'
+  | 'Musician'
+  | 'Chef'
+  | 'Other'; // For custom background text
+
+export type SpecialBackground =
+  | { kind: 'none' }
+  | {
+      kind: 'hosts_estranged_child';
+      // Hidden until revealed. If revealed, affects audience/edit and NPC trust.
+      revealed?: boolean;
+    }
+  | {
+      kind: 'planted_houseguest';
+      // Production tasks to complete weekly. Failure risks secret reveal.
+      tasks: { id: string; description: string; dayAssigned: number; completed?: boolean }[];
+      secretRevealed?: boolean;
+    };
+
 export interface Contestant {
   id: string;
   name: string;
+  age?: number;
   publicPersona: string;
+  background?: Background;
+  customBackgroundText?: string;
+  stats?: CharacterStats;
+  special?: SpecialBackground;
   psychProfile: {
     disposition: string[];
     trustLevel: number; // -100 to 100
@@ -17,7 +66,14 @@ export interface Contestant {
 
 export interface GameMemory {
   day: number;
-  type: 'conversation' | 'scheme' | 'observation' | 'dm' | 'confessional_leak' | 'elimination' | 'event';
+  type:
+    | 'conversation'
+    | 'scheme'
+    | 'observation'
+    | 'dm'
+    | 'confessional_leak'
+    | 'elimination'
+    | 'event';
   participants: string[];
   content: string;
   emotionalImpact: number; // -10 to 10
@@ -37,7 +93,14 @@ export interface InteractionLogEntry {
 }
 
 export interface PlayerAction {
-  type: 'talk' | 'dm' | 'confessional' | 'observe' | 'scheme' | 'activity' | 'alliance_meeting';
+  type:
+    | 'talk'
+    | 'dm'
+    | 'confessional'
+    | 'observe'
+    | 'scheme'
+    | 'activity'
+    | 'alliance_meeting';
   target?: string;
   content?: string;
   tone?: string;
@@ -45,7 +108,13 @@ export interface PlayerAction {
   usageCount?: number;
 }
 
-export type ReactionTake = 'positive' | 'neutral' | 'deflect' | 'pushback' | 'suspicious' | 'curious';
+export type ReactionTake =
+  | 'positive'
+  | 'neutral'
+  | 'deflect'
+  | 'pushback'
+  | 'suspicious'
+  | 'curious';
 
 export interface ReactionSummary {
   take: ReactionTake;
@@ -84,7 +153,18 @@ export interface GameState {
   editPerception: EditPerception;
   alliances: Alliance[];
   votingHistory: VotingRecord[];
-  gamePhase: 'intro' | 'premiere' | 'daily' | 'player_vote' | 'elimination' | 'weekly_recap' | 'finale' | 'immunity_competition' | 'jury_vote' | 'final_3_vote' | 'post_season';
+  gamePhase:
+    | 'intro'
+    | 'premiere'
+    | 'daily'
+    | 'player_vote'
+    | 'elimination'
+    | 'weekly_recap'
+    | 'finale'
+    | 'immunity_competition'
+    | 'jury_vote'
+    | 'final_3_vote'
+    | 'post_season';
   twistsActivated: string[];
   nextEliminationDay: number;
   daysUntilJury?: number; // Days until jury phase starts
@@ -108,7 +188,12 @@ export interface GameState {
   finaleSpeech?: string; // Store player's finale speech for jury consideration
   aiSettings: AISettings; // Controls reply depth and additions
   // New: queue of NPC-initiated forced conversations (at least one per day)
-  forcedConversationsQueue?: { from: string; topic: string; urgency: 'casual' | 'important'; day: number }[];
+  forcedConversationsQueue?: {
+    from: string;
+    topic: string;
+    urgency: 'casual' | 'important';
+    day: number
+  }[];
   // New: running tally for America's Favorite Player signals (computed each week, surfaced at finale)
   favoriteTally?: { [name: string]: number };
   // New: local interaction log for viral moments and memory tab
@@ -116,7 +201,9 @@ export interface GameState {
   tagChoiceCooldowns?: { [key: string]: number };
   lastTagOutcome?: LastTagOutcome; // For debugging/verification of tag engine integration
   // Persistent Reaction Profiles (computed at start and updated incrementally)
-  reactionProfiles?: { [npcIdOrName: string]: import('./tagDialogue').ReactionProfile };
+  reactionProfiles?: {
+    [npcIdOrName: string]: import('./tagDialogue').ReactionProfile
+  };
   // Debug flag to surface dev-only UI
   debugMode?: boolean;
   // Post-game data
@@ -139,6 +226,14 @@ export interface GameState {
   // Viewer Ratings - light system based on house events and NPC behavior
   viewerRating?: number; // 0.0 - 10.0
   ratingsHistory?: { day: number; rating: number; reason?: string }[];
+
+  // Special twist state tracking
+  // Only one 'hosts_estranged_child' per season recommended.
+  hostChildName?: string;
+  productionTaskLog?: {
+    // For planted houseguest(s): centralized log for recap
+    [contestantName: string]: { id: string; description: string; dayAssigned: number; completed?: boolean }[];
+  };
 }
 
 export interface Confessional {
@@ -154,10 +249,29 @@ export interface Confessional {
 export interface EditPerception {
   screenTimeIndex: number; // 0 to 100
   audienceApproval: number; // -100 to 100
-  persona: 'Hero' | 'Villain' | 'Underedited' | 'Ghosted' | 'Comic Relief' | 'Dark Horse' | 
-           'Mastermind' | 'Puppet Master' | 'Strategic Player' | 'Antagonist' | 'Troublemaker' |
-           'Flirt' | 'Gossip' | 'Social Butterfly' | 'Floater' | 'Class Clown' | 'Seducer' |
-           'Romantic' | 'Fan Favorite' | 'Pariah' | 'Contender' | 'Controversial';
+  persona:
+    | 'Hero'
+    | 'Villain'
+    | 'Underedited'
+    | 'Ghosted'
+    | 'Comic Relief'
+    | 'Dark Horse'
+    | 'Mastermind'
+    | 'Puppet Master'
+    | 'Strategic Player'
+    | 'Antagonist'
+    | 'Troublemaker'
+    | 'Flirt'
+    | 'Gossip'
+    | 'Social Butterfly'
+    | 'Floater'
+    | 'Class Clown'
+    | 'Seducer'
+    | 'Romantic'
+    | 'Fan Favorite'
+    | 'Pariah'
+    | 'Contender'
+    | 'Controversial';
   lastEditShift: number;
   weeklyQuote?: string;
 }
