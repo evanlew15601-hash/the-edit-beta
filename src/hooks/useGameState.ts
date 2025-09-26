@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { npcResponseEngine } from '@/utils/npcResponseEngine';
 import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant } from '@/types/game';
 import { generateContestants } from '@/utils/contestantGenerator';
-import { generateStaticNPCs } from '@/utils/npcGeneration';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { AllianceManager } from '@/utils/allianceManager';
 import { InformationTradingEngine } from '@/utils/informationTradingEngine';
@@ -20,6 +19,7 @@ import { TAG_CHOICES } from '@/data/tagChoices';
 import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogueEngine';
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
+import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild } from '@/utils/specialBackgrounds';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -150,6 +150,12 @@ export const useGameState = () => {
       
       // Generate contextual memories for NPCs
       const newContextualMemories = EnhancedNPCMemorySystem.generateContextualMemories(tempState);
+
+      // Apply special background daily logic (host child reveal effects, planted tasks, etc.)
+      const specialApplied = applyDailySpecialBackgroundLogic({
+        ...tempState,
+        contestants: cleanedContestants,
+      });
       
       // Emergent events are now handled by the EnhancedEmergentEvents component
       // No need for manual triggering here as the component manages its own generation
@@ -160,7 +166,7 @@ export const useGameState = () => {
       }
       
       // Check if jury phase should begin - FIXED: Count ALL active contestants including player
-      const remainingContestants = prev.contestants.filter(c => !c.isEliminated);
+      const remainingContestants = specialApplied.contestants.filter(c => !c.isEliminated);
       const remainingCount = remainingContestants.length;
       const playerStillActive = remainingContestants.some(c => c.name === prev.playerName);
       console.log('Remaining contestants:', remainingCount);
@@ -174,7 +180,7 @@ export const useGameState = () => {
       
       if (shouldStartJury) {
         // Start jury phase - take the 7 most recently eliminated contestants
-        juryMembers = prev.contestants
+        juryMembers = specialApplied.contestants
           .filter(c => c.isEliminated && c.eliminationDay)
           .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
           .slice(0, 7) // Exactly 7 jury members
@@ -228,7 +234,7 @@ export const useGameState = () => {
         const ratingRes = ratingsEngine.applyWeeklyBuzz({
           ...prev,
           currentDay: newDay,
-          contestants: cleanedContestants,
+          contestants: specialApplied.contestants,
           alliances: updatedAlliances,
           viewerRating: nextViewerRating,
         });
@@ -244,7 +250,7 @@ export const useGameState = () => {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
-        contestants: cleanedContestants,
+        contestants: specialApplied.contestants,
         alliances: updatedAlliances, // Keep using updatedAlliances for now
         juryMembers,
         daysUntilJury,
@@ -259,6 +265,9 @@ export const useGameState = () => {
         // Ratings
         viewerRating: nextViewerRating,
         ratingsHistory: nextRatingsHistory,
+        // Special logs if any
+        productionTaskLog: specialApplied.productionTaskLog || prev.productionTaskLog,
+        hostChildName: specialApplied.hostChildName || prev.hostChildName,
       };
     });
   }, []);
@@ -1617,6 +1626,16 @@ export const useGameState = () => {
     } catch (e) {
       console.warn('Failed to delete saved game state', e);
     }
+  }, []);
+
+  // Listen for planted task updates from UI
+  useEffect(() => {
+    const handler = (e: any) => {
+      const { contestantName, taskId, completed } = e.detail || {};
+      setGameState(prev => setProductionTaskStatus(prev, contestantName || prev.playerName, taskId, !!completed));
+    };
+    window.addEventListener('plantedTaskUpdate', handler);
+    return () => window.removeEventListener('plantedTaskUpdate', handler);
   }, []);
 
   const hasSavedGame = useCallback(() => {
