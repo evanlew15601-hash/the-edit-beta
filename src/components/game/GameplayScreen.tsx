@@ -11,6 +11,7 @@ import { EnhancedEmergentEvents } from './EnhancedEmergentEvents';
 import { AllianceIntelligencePanel } from './AllianceIntelligencePanel';
 import { AIOutcomeDebug } from './AIOutcomeDebug';
 import { RatingsPanel } from './RatingsPanel';
+import { BasicConversationEngine } from './BasicConversationEngine';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -64,6 +65,11 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
                  selectedAlliance={gameState.alliances[0]?.id}
                />
              )}
+             {/* Basic RPG-style conversation (lightweight set options) */}
+             <BasicConversationEngine
+               gameState={gameState}
+               onUseAction={onUseAction}
+             />
              <EnhancedTagDialogueEngine
                gameState={gameState}
                onTagTalk={onTagTalk}

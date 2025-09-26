@@ -174,6 +174,9 @@ export interface GameState {
   daysUntilJury?: number; // Days until jury phase starts
   dailyActionCount: number; // actions used today
   dailyActionCap: number;   // max actions per day
+  // Anti group-spam: track how many group actions applied today
+  groupActionsUsedToday?: number;
+
   lastAIResponse?: string; // Store AI-generated response for UI
   lastAIAdditions?: {
     strategy?: string;
