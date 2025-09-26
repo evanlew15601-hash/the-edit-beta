@@ -12,7 +12,8 @@ interface Final3VoteScreenProps {
     winner1: string,
     winner2: string,
     method?: 'challenge' | 'fire_making' | 'random_draw',
-    results?: { name: string; time: number }[]
+    results?: { name: string; time: number }[],
+    selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual'
   ) => void;
 }
 

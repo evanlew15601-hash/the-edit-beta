@@ -116,8 +116,8 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     setVotes(juryVotes);
     setRationales(rationaleMap);
 
-    // If the player is not in the jury, all votes are in, mark stable.
-    if (!isPlayerInJury) {
+    // If all jurors except possibly the player have votes, and player isn't in jury, lock votes.
+    if (!isPlayerInJury && Object.keys(juryVotes).length === juryMembers.length) {
       setVoteStable(true);
     }
   }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier]);
@@ -147,6 +147,10 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   useEffect(() => {
     if (!voteStable || showResults) return;
 
+    // Guard: only proceed if every juror has a defined vote
+    const allJurorsVoted = juryMembers.every(j => Boolean(votes[j.name]));
+    if (!allJurorsVoted) return;
+
     const voteCounts: { [finalist: string]: number } = {};
     finalTwo.forEach(f => (voteCounts[f.name] = 0));
 
@@ -163,7 +167,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     // Show results after a brief delay for dramatic effect
     const timer = setTimeout(() => setShowResults(true), RESULT_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [voteStable, votes, finalTwo, showResults, RESULT_DELAY_MS]);
+  }, [voteStable, votes, finalTwo, showResults, RESULT_DELAY_MS, juryMembers]);
 
   // Start animated per-juror reveal once results are shown
   useEffect(() => {
