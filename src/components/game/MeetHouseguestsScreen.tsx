@@ -34,7 +34,7 @@ export const MeetHouseguestsScreen = ({ gameState, onContinue }: MeetHouseguests
                 {c.stats.primary}
               </Badge>
             )}
-            {c.special && c.special.kind !== 'none' && (
+            {isPlayer && c.special && c.special.kind !== 'none' && (
               <Badge variant={isPlayer ? 'secondary' : 'outline'} className="text-[10px]">
                 {c.special.kind === 'hosts_estranged_child' && 'Host’s Child'}
                 {c.special.kind === 'planted_houseguest' && 'Planted HG'}

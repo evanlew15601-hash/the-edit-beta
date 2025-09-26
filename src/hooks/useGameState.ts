@@ -1101,7 +1101,7 @@ export const useGameState = () => {
     setGameState(prev => {
       const playerName = player.name || prev.playerName || 'You';
       // Twists apply only to the player character. Do not assign special backgrounds to NPCs.
-      const npcs = generateStaticNPCs({ count: 15, excludeNames: [playerName], includeSpecials: false });
+      const npcs = generateStaticNPCs({ count: 15, excludeNames: [playerName] });
       // Extra safety: strip any specials from non-player contestants if present
       const sanitizedNPCs = npcs.map(c => ({ ...c, special: { kind: 'none' as const } }));
       const contestants: Contestant[] = [{ ...player }, ...sanitizedNPCs];
