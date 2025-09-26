@@ -161,7 +161,7 @@ export function CharacterCreation({
               {STAT_OPTIONS.map(opt => <Button key={opt.key} variant={inclination === opt.key ? 'action' : 'surveillance'} onClick={() => setInclination(opt.key)} className="h-auto py-3 min-h-[72px]">
                   <div>
                     <div className="font-medium">{opt.label}</div>
-                    <div className="text-xs text-muted-foreground mt-1 leading-snug">{opt.hint}</div>
+                    
                   </div>
                 </Button>)}
             </div>
