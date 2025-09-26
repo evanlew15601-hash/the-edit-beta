@@ -53,6 +53,7 @@ export const useGameState = () => {
       daysUntilJury: 28,
       dailyActionCount: 0,
       dailyActionCap: 10,
+      groupActionsUsedToday: 0,
       aiSettings: {
         depth: 'standard',
         additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
@@ -96,6 +97,7 @@ export const useGameState = () => {
       daysUntilJury: 28,
       dailyActionCount: 0,
       dailyActionCap: 10,
+      groupActionsUsedToday: 0,
       aiSettings: {
         depth: 'standard',
         additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
@@ -250,6 +252,7 @@ export const useGameState = () => {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
+        groupActionsUsedToday: 0,
         contestants: specialApplied.contestants,
         alliances: updatedAlliances, // Keep using updatedAlliances for now
         juryMembers,
@@ -476,11 +479,39 @@ export const useGameState = () => {
       let updatedContestants = prev.contestants as typeof prev.contestants;
 
       if (target === 'Group') {
-        // Apply small, shared impact to 2-3 nearby/active NPCs
-        const pool = prev.contestants
+        // Bias selection toward alliance members or recent interactions
+        const currentDay = prev.currentDay;
+        const alliancesWithPlayer = new Set(
+          prev.alliances
+            .filter(a => a.members.includes(prev.playerName))
+            .flatMap(a => a.members)
+        );
+
+        const candidates = prev.contestants
           .filter(c => !c.isEliminated && c.name !== prev.playerName)
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 3);
+          .map(c => {
+            // Alliance score: if shares any alliance with player
+            const inAlliance = alliancesWithPlayer.has(c.name);
+            const allianceScore = inAlliance ? 2 : 0;
+
+            // Recent interaction score: last 3 days interaction count
+            const recentCount = (prev.interactionLog || []).filter(
+              e => e.day >= currentDay - 2 && (e.participants || []).includes(c.name)
+            ).length;
+            const interactionScore = Math.min(3, recentCount); // cap
+
+            const noise = Math.random() * 0.5;
+            const score = allianceScore + interactionScore + noise;
+
+            return { c, score, allianceScore, interactionScore };
+          })
+          .sort((a, b) => b.score - a.score);
+
+        const used = prev.groupActionsUsedToday || 0;
+        const maxTargets = used === 0 ? 3 : 2;
+        const scaleFactor = used === 0 ? 0.5 : 0.2; // dampen subsequent group effects
+
+        const pool = candidates.slice(0, Math.max(0, maxTargets)).map(x => x.c);
 
         updatedContestants = prev.contestants.map(c => {
           const isHit = pool.some(p => p.name === c.name);
@@ -489,9 +520,9 @@ export const useGameState = () => {
           const baseTrust = getTrustDelta(tone || 'neutral', c.psychProfile.disposition);
           const baseSusp = getSuspicionDelta(tone || 'neutral', content || '');
 
-          // Scale down for group effect
-          const trustDelta = Math.round(baseTrust * 0.5);
-          const suspicionDelta = Math.round(baseSusp * 0.5);
+          // Scale down for group effect with anti-spam dampening
+          const trustDelta = Math.round(baseTrust * scaleFactor);
+          const suspicionDelta = Math.round(baseSusp * scaleFactor);
 
           groupApplied.push({ name: c.name, trustDelta, suspDelta: suspicionDelta });
 
@@ -635,6 +666,7 @@ export const useGameState = () => {
         lastActionType: actionType as PlayerAction['type'],
         lastActionTarget: target === 'Group' ? 'Group' : target,
         lastAIReaction: reactionSummary,
+        groupActionsUsedToday: target === 'Group' ? ((prev.groupActionsUsedToday || 0) + 1) : (prev.groupActionsUsedToday || 0),
         // Add to interaction log
         interactionLog: [
           ...(prev.interactionLog || []),
