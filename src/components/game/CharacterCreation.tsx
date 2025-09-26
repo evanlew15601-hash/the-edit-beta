@@ -11,11 +11,11 @@ interface CharacterCreationProps {
   onCreate: (player: Contestant) => void;
 }
 
-const STAT_OPTIONS: { key: StatInclination; label: string; hint: string }[] = [
-  { key: 'social', label: 'Social', hint: 'Excel in relationships and persuasion' },
-  { key: 'strategy', label: 'Strategy', hint: 'Excel in planning and reading the game' },
-  { key: 'physical', label: 'Physical', hint: 'Excel in competitions and endurance' },
-  { key: 'deception', label: 'Deception', hint: 'Excel in lies, misdirection, and bluffing' },
+const STAT_OPTIONS: { key: StatInclination; label: string }[] = [
+  { key: 'social', label: 'Social' },
+  { key: 'strategy', label: 'Strategy' },
+  { key: 'physical', label: 'Physical' },
+  { key: 'deception', label: 'Deception' },
 ];
 
 export function CharacterCreation({ onCreate }: CharacterCreationProps) {
