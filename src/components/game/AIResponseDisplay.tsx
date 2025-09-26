@@ -81,8 +81,8 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: A
         )}
         
         {reactionSummary.notes && (
-          <div className="text-sm text-muted-foreground bg-muted/50 rounded-md p-2.5 border border-border/60">
-            <span className="font-medium opacity-80">💭 </span>
+          <div className="text-sm text-foreground bg-muted/30 rounded-md p-2.5 border border-border/60">
+            <span className="font-medium opacity-90">💭 </span>
             <span className="leading-relaxed">{reactionSummary.notes}</span>
           </div>
         )}

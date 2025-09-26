@@ -74,7 +74,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
 
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-3xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Tag {interaction.charAt(0).toUpperCase() + interaction.slice(1)}</DialogTitle>
