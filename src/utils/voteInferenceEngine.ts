@@ -11,6 +11,10 @@ export interface VoteAskResult {
   likelyTarget?: string;         // our heuristic inference
 }
 
+interface AskOptions {
+  strict?: boolean; // If true, align declaration with persisted plan/inference; no made-up alt targets
+}
+
 /**
  * Infer who this NPC is likely to vote for using only in-world factors.
  * No omniscient knowledge; simple heuristics on relationships, alliances, and psych profile.
@@ -63,15 +67,57 @@ export function inferLikelyVoteTarget(npc: Contestant, gameState: GameState): st
 
 /**
  * Ask an NPC for their elimination vote plan and classify their declaration.
- * - Uses AIVotingStrategy to get what they would share when asked (their words).
+ * - Default: Uses AIVotingStrategy to get what they would share when asked (their words).
+ * - Strict: Aligns declaration with persisted weekly plan or inference; avoids made-up alt targets.
  * - Classifies honesty using only heuristics (trust/suspicion, alliance context, inferred likely target).
- * - Accepts optional persisted weekly plans to ensure consistency.
  */
 export function askForEliminationVote(
   npc: Contestant,
   gameState: GameState,
-  persistedPlans?: { [name: string]: { target: string; reasoning: string; confidence: number; willReveal: boolean; willLie: boolean; alternativeTargets: string[] } }
+  persistedPlans?: { [name: string]: { target: string; reasoning: string; confidence: number; willReveal: boolean; willLie: boolean; alternativeTargets: string[] } },
+  options?: AskOptions
 ): VoteAskResult {
+  const likelyTarget = inferLikelyVoteTarget(npc, gameState);
+  const plan = persistedPlans?.[npc.name];
+
+  if (options?.strict) {
+    // Prefer persisted plan when confident; otherwise use heuristic inference
+    let declaredTarget = 'undecided';
+    if (plan?.target) {
+      if (likelyTarget && likelyTarget !== plan.target) {
+        declaredTarget = (plan.confidence || 0) >= 60 ? plan.target : likelyTarget;
+      } else {
+        declaredTarget = plan.target;
+      }
+    } else if (likelyTarget) {
+      declaredTarget = likelyTarget;
+    }
+
+    const reasoning = plan?.reasoning || (declaredTarget !== 'undecided'
+      ? 'Based on current house dynamics and relationships'
+      : 'Still weighing options');
+
+    // Honesty classification: strict mode avoids lying; label truth when aligned with plan or inference
+    let honesty: VoteHonesty = 'maybe';
+    let explanation = 'Direct ask: declaration aligned with most likely vote based on plan/inference.';
+    if (declaredTarget === 'undecided') {
+      honesty = 'maybe';
+      explanation = 'They claim to be undecided; no strong signals suggest otherwise.';
+    } else if (likelyTarget && declaredTarget === likelyTarget) {
+      honesty = 'truth';
+      explanation = 'Declared target matches heuristic inference.';
+    } else if (plan?.target && declaredTarget === plan.target) {
+      honesty = 'truth';
+      explanation = 'Declared target matches persisted weekly plan.';
+    } else {
+      honesty = 'maybe';
+      explanation = 'Declaration uses best available signals but remains uncertain.';
+    }
+
+    return { declaredTarget, reasoning, honesty, explanation, likelyTarget };
+  }
+
+  // Default behavior: use shareable voting info (may include misdirection depending on persona)
   let plansMap: Map<string, any>;
   if (persistedPlans) {
     plansMap = new Map<string, any>(Object.entries(persistedPlans));
@@ -82,8 +128,6 @@ export function askForEliminationVote(
 
   const declaredTarget = shared.target || 'undecided';
   const reasoning = shared.reasoning || 'No reasoning given';
-
-  const likelyTarget = inferLikelyVoteTarget(npc, gameState);
 
   // Heuristic honesty classification
   let honesty: VoteHonesty = 'maybe';

@@ -8,6 +8,7 @@ export type IntentTag =
   | 'Insult'
   | 'MakeJoke'
   | 'RevealSecret'
+  | 'AskVote'
   | 'Deflect';
 
 export type ToneTag =

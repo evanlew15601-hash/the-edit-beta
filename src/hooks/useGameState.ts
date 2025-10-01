@@ -715,16 +715,16 @@ export const useGameState = () => {
         ratingsHistory: nextHistory,
       } as GameState;
 
-      // Hook: If DM asks about voting plans, surface vote declaration card
+      // Hook: Only DM with explicit ask triggers vote declaration (strict alignment)
       const dmAskTrigger = actionType === 'dm' 
         && !!target 
         && !!content 
-        && /\\b(vote|voting|who.*vot|target|plan)\\b/i.test(content);
+        && /\\b(who.*vot(ing)?|what'?s.*vote|ask\\s+vote|name.*target)\\b/i.test(content);
 
       if (dmAskTrigger) {
         const targetNPC = updatedContestants.find(c => c.name === target);
         if (targetNPC) {
-          const askRes = askForEliminationVote(targetNPC, prev, prev.weeklyVotingPlans);
+          const askRes = askForEliminationVote(targetNPC, prev, prev.weeklyVotingPlans, { strict: true });
           newState.lastVoteAsk = {
             voterName: targetNPC.name,
             declaredTarget: askRes.declaredTarget,
@@ -1695,22 +1695,14 @@ export const useGameState = () => {
           ratingsHistory: nextHistory,
         };
 
-        // Hook: If this tag choice asks about voting plans, surface vote declaration card
-        const intentTriggers = ['ProbeForInfo', 'StrategyTalk'];
-        const textTriggers = /\\b(vote|voting|who.*vot|target|plan)\\b/i;
-        const topicTrigger = Array.isArray(choice.topics) && choice.topics.some((t: string) => /vote|strategy|game/i.test(String(t)));
-
+        // Hook: Only explicit AskVote tag choice triggers vote declaration (strict alignment)
         const shouldAskVote = (interaction === 'dm' || interaction === 'talk')
-          && (
-            intentTriggers.includes(choice.intent)
-            || textTriggers.test(String((choice as any).text || ''))
-            || topicTrigger
-          );
+          && choice.intent === 'AskVote';
 
         if (shouldAskVote) {
           const targetNPC2 = updatedContestants.find(c => c.name === target);
           if (targetNPC2) {
-            const askRes = askForEliminationVote(targetNPC2, prev, prev.weeklyVotingPlans);
+            const askRes = askForEliminationVote(targetNPC2, prev, prev.weeklyVotingPlans, { strict: true });
             newState.lastVoteAsk = {
               voterName: targetNPC2.name,
               declaredTarget: askRes.declaredTarget,

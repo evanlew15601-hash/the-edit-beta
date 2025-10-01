@@ -40,6 +40,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
       case 'BuildAlliance':
       case 'ProbeForInfo':
       case 'RevealSecret':
+      case 'AskVote':
         return 'strategic';
       case 'BoostMorale':
       case 'Flirt':

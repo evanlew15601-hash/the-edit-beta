@@ -40,7 +40,8 @@ export const EliminationVoteAskPanel: React.FC<EliminationVoteAskPanelProps> = (
     const { declaredTarget, reasoning, honesty, explanation, likelyTarget } = askForEliminationVote(
       targetNPC,
       gameState,
-      gameState.weeklyVotingPlans
+      gameState.weeklyVotingPlans,
+      { strict: true }
     );
     setResult({
       name: targetNPC.name,

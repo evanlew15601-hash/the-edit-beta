@@ -1164,5 +1164,37 @@ export const TAG_CHOICES: Choice[] = [
     interactionTypes: ['talk'],
     cooldownDays: 3,
     weight: 1.0
+  },
+
+  // ================= EXPLICIT: Ask Vote (direct, minimal fluff) =================
+  {
+    choiceId: 'TALK_ASK_VOTE_DIRECT_NEUTRAL_1',
+    textVariants: [
+      'Who are you voting tonight?',
+      'Be straight—who’s your vote?',
+      'Name your target for me.'
+    ],
+    intent: 'AskVote',
+    tone: 'Neutral',
+    topics: ['Eviction', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['talk'],
+    cooldownDays: 1,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_ASK_VOTE_DIRECT_NEUTRAL_1',
+    textVariants: [
+      'Privately—who are you voting tonight?',
+      'No games: who’s your vote?',
+      'I need a clean answer. Name your target.'
+    ],
+    intent: 'AskVote',
+    tone: 'Neutral',
+    topics: ['Eviction', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 1,
+    weight: 1.0
   }
 ];

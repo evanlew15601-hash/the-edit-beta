@@ -17,6 +17,11 @@ const BASE_EFFECTS: Partial<Record<Choice['intent'], Partial<Record<TopicTag, Ba
     Sleep: { trust: 0.01, suspicion: 0.01, entertainment: 0.02, influence: 0.01 },
     Strategy: { trust: -0.01, suspicion: 0.04, entertainment: 0.01, influence: 0.03 },
   },
+  AskVote: {
+    Game: { trust: 0.01, suspicion: 0.02, entertainment: 0, influence: 0.03 },
+    Eviction: { trust: 0.01, suspicion: 0.03, entertainment: 0, influence: 0.03 },
+    Strategy: { trust: 0, suspicion: 0.03, entertainment: 0.01, influence: 0.04 },
+  },
   SowDoubt: {
     Rumor: { trust: -0.03, suspicion: 0.04, entertainment: 0.03, influence: 0.03 },
     Strategy: { trust: -0.04, suspicion: 0.05, entertainment: 0.02, influence: 0.04 },
@@ -232,6 +237,12 @@ export const reactionText = (
     if (cat === 'positive') return `${npcName}: I'm hearing a few names—come talk later.`;
     if (cat === 'neutral') return `${npcName}: Nothing solid yet.`;
     return `${npcName}: Why are you asking me?`;
+  }
+  if (intent === 'AskVote') {
+    if (topic === 'Eviction' && cat === 'positive') return `${npcName}: I might share privately.`;
+    if (cat === 'positive') return `${npcName}: Depends who asks.`;
+    if (cat === 'neutral') return `${npcName}: Not decided yet.`;
+    return `${npcName}: That's a direct question.`;
   }
   if (intent === 'SowDoubt') {
     if (cat === 'positive') return `${npcName}: Huh. Maybe we should keep an eye on that.`;
