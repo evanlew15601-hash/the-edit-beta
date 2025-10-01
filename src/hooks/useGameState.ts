@@ -376,6 +376,124 @@ export const useGameState = () => {
       return;
     }
 
+    // Simplified alliance meeting: optional pitched target sways weekly plans of alliance members
+    if (actionType === 'alliance_meeting') {
+      const allianceId = target || '';
+      const agenda = (content || '').trim();
+      const meetingTone = tone || 'strategic';
+
+      setGameState(prev => {
+        const alliance = prev.alliances.find(a => a.id === allianceId);
+        if (!alliance) {
+          console.warn('Alliance meeting: alliance not found', allianceId);
+          return {
+            ...prev,
+            dailyActionCount: prev.dailyActionCount + 1,
+            interactionLog: [
+              ...(prev.interactionLog || []),
+              { day: prev.currentDay, type: 'scheme', participants: [prev.playerName], content: `Alliance meeting (invalid): ${agenda}`, tone: meetingTone, source: 'player' as const }
+            ],
+          };
+        }
+
+        const pitchMatch = agenda.match(/\[PitchTarget:\s*([^\]]+)\]/i);
+        const pitchedName = pitchMatch?.[1]?.trim();
+        const pitchedContestant = pitchedName ? prev.contestants.find(c => c.name === pitchedName) : undefined;
+        const immune = pitchedContestant && prev.immunityWinner === pitchedContestant.name;
+
+        let nextPlans = { ...(prev.weeklyVotingPlans || {}) };
+        let updatedContestants = [...prev.contestants];
+
+        const membersToConsider = alliance.members.filter(n => n !== prev.playerName);
+
+        if (pitchedContestant && !immune && !pitchedContestant.isEliminated) {
+          membersToConsider.forEach(memberName => {
+            const member = updatedContestants.find(c => c.name === memberName);
+            if (!member) return;
+            const trust = Math.max(0, Math.min(100, member.psychProfile.trustLevel));
+            const suspicion = Math.max(0, Math.min(100, member.psychProfile.suspicionLevel));
+            const strength = Math.max(0, Math.min(100, alliance.strength || 60));
+            const sharedAllianceWithPitched = prev.alliances.some(a => a.members.includes(memberName) && a.members.includes(pitchedContestant.name));
+
+            // Simplified sway conditions
+            const canSway = trust >= 40 && strength >= 60 && suspicion <= 65 && !sharedAllianceWithPitched;
+
+            const existingPlan = nextPlans[memberName];
+            if (canSway) {
+              const newConfidence = Math.round(Math.max(60, Math.min(85, (existingPlan?.confidence || 60) + 8)));
+              nextPlans[memberName] = {
+                ...(existingPlan || {}),
+                target: pitchedContestant.name,
+                reasoning: `Alliance meeting pitch: ${pitchedContestant.name}`,
+                confidence: newConfidence,
+                willReveal: true,
+                willLie: false,
+                alternativeTargets: Array.from(new Set([...(existingPlan?.alternativeTargets || []), pitchedContestant.name])).slice(0, 3),
+              };
+
+              // Memory entry
+              const mem = {
+                day: prev.currentDay,
+                type: 'scheme' as const,
+                participants: [prev.playerName, memberName, pitchedContestant.name],
+                content: `Alliance meeting: committed to vote ${pitchedContestant.name}`,
+                emotionalImpact: 0,
+                timestamp: Date.now(),
+              };
+              updatedContestants = updatedContestants.map(c => c.name === memberName ? { ...c, memory: [...c.memory, mem] } : c);
+            } else if (existingPlan) {
+              nextPlans[memberName] = {
+                ...existingPlan,
+                alternativeTargets: Array.from(new Set([...(existingPlan.alternativeTargets || []), pitchedContestant.name])).slice(0, 3),
+              };
+
+              // Memory entry: consideration only
+              const mem = {
+                day: prev.currentDay,
+                type: 'scheme' as const,
+                participants: [prev.playerName, memberName, pitchedContestant.name],
+                content: `Alliance meeting: considering ${pitchedContestant.name} as alternative`,
+                emotionalImpact: 0,
+                timestamp: Date.now(),
+              };
+              updatedContestants = updatedContestants.map(c => c.name === memberName ? { ...c, memory: [...c.memory, mem] } : c);
+            }
+          });
+        }
+
+        const reactionSummary: ReactionSummary = {
+          take: 'positive',
+          context: 'scheme',
+          notes: pitchedContestant ? `Alliance meeting set pitch: ${pitchedContestant.name}` : `Alliance meeting held`,
+          deltas: { trust: 0, suspicion: 0, influence: 2, entertainment: 1 }
+        };
+
+        // Ratings update
+        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
+        ];
+
+        return {
+          ...prev,
+          weeklyVotingPlans: nextPlans,
+          contestants: updatedContestants,
+          dailyActionCount: prev.dailyActionCount + 1,
+          lastActionType: 'scheme',
+          lastActionTarget: allianceId,
+          lastAIReaction: reactionSummary,
+          interactionLog: [
+            ...(prev.interactionLog || []),
+            { day: prev.currentDay, type: 'scheme', participants: [prev.playerName, ...alliance.members], content: `Alliance meeting: ${agenda}`, tone: meetingTone, source: 'player' as const }
+          ],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
+        };
+      });
+      return;
+    }
+
     // Handle confessional explicitly: persist to confessionals and update edit perception
     if (actionType === 'confessional') {
       setGameState(prev => {

@@ -29,13 +29,16 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
   const [selectedAlliance, setSelectedAlliance] = useState<string>('');
   const [agenda, setAgenda] = useState('');
   const [tone, setTone] = useState<string>('');
+  const [pitchTarget, setPitchTarget] = useState<string>('');
 
   const handleSubmit = () => {
     if (selectedAlliance && agenda && tone) {
-      onSubmit(selectedAlliance, agenda, tone);
+      const finalAgenda = pitchTarget ? `${agenda} [PitchTarget: ${pitchTarget}]` : agenda;
+      onSubmit(selectedAlliance, finalAgenda, tone);
       setSelectedAlliance('');
       setAgenda('');
       setTone('');
+      setPitchTarget('');
     }
   };
 
@@ -190,6 +193,27 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* Simplified pitch: choose a single elimination target for the alliance */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Pitch Target (optional)</label>
+              <Select value={pitchTarget} onValueChange={setPitchTarget}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select someone to pitch as the vote target..." />
+                </SelectTrigger>
+                <SelectContent className="z-50 bg-popover text-popover-foreground">
+                  {contestants
+                    .filter(c => !c.isEliminated && c.name !== playerName)
+                    .filter(c => !selectedAllianceData || !selectedAllianceData.members.includes(c.name))
+                    .map(c => (
+                      <SelectItem key={c.id} value={c.name}>
+                        {c.name} - {c.publicPersona}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">If set, the agenda will include this pitched target and meeting will try to align alliance plans to it.</p>
             </div>
 
             {/* Quick Suggestions */}
