@@ -215,6 +215,7 @@ export interface GameState {
   groupActionsUsedToday?: number;
 
   lastAIResponse?: string; // Store AI-generated response for UI
+  lastAIResponseLoading?: boolean; // Whether a local LLM reply is being generated
   lastAIAdditions?: {
     strategy?: string;
     followUp?: string;

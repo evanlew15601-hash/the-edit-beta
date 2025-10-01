@@ -37,6 +37,8 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           lastTarget={gameState.lastActionTarget}
           actionType={gameState.lastActionType}
           reactionSummary={gameState.lastAIReaction}
+          aiLine={gameState.lastAIResponse}
+          isGenerating={gameState.lastAIResponseLoading}
         />
 
         {/* Debug surface for verifying Tag Dialogue integration (hidden unless debugMode) */}

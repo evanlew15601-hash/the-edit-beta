@@ -731,6 +731,9 @@ export const useGameState = () => {
         lastActionType: actionType as PlayerAction['type'],
         lastActionTarget: target === 'Group' ? 'Group' : target,
         lastAIReaction: reactionSummary,
+        // Clear any prior NPC line and reset loading until generation starts
+        lastAIResponse: undefined,
+        lastAIResponseLoading: false,
         groupActionsUsedToday: target === 'Group' ? ((prev.groupActionsUsedToday || 0) + 1) : (prev.groupActionsUsedToday || 0),
         // Add to interaction log
         interactionLog: [
@@ -765,6 +768,9 @@ export const useGameState = () => {
           content &&
           (gameState.aiSettings?.useLocalLLM === true)
         ) {
+          // Show typing indicator
+          setGameState(prev => ({ ...prev, lastAIResponseLoading: true, lastAIResponse: undefined }));
+
           const npc = (gameState.contestants || []).find(c => c.name === target);
           if (npc) {
             const parsed = speechActClassifier.classifyMessage(content, gameState.playerName || 'Player');
@@ -784,6 +790,7 @@ export const useGameState = () => {
             setGameState(prev => ({
               ...prev,
               lastAIResponse: reply,
+              lastAIResponseLoading: false,
               lastAIReaction: prev.lastAIReaction
                 ? { ...prev.lastAIReaction, notes: prev.lastAIReaction.notes || reply }
                 : prev.lastAIReaction,
@@ -798,10 +805,14 @@ export const useGameState = () => {
                 }
               ],
             }));
+          } else {
+            // No NPC found; stop indicator
+            setGameState(prev => ({ ...prev, lastAIResponseLoading: false }));
           }
         }
       } catch (e) {
         console.warn('Local LLM reply generation failed:', e);
+        setGameState(prev => ({ ...prev, lastAIResponseLoading: false }));
       }
     })();
 
