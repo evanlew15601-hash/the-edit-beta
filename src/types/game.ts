@@ -162,6 +162,26 @@ export interface TwistNarrative {
   confessionalThemes?: string[];
 }
 
+/**
+ * Lightweight cutscene slide for story beats.
+ */
+export interface CutsceneSlide {
+  title?: string;
+  speaker?: string;
+  text: string;
+  aside?: string;
+}
+
+/**
+ * Current cutscene payload for lite story mode around twists.
+ */
+export interface CurrentCutscene {
+  title: string;
+  slides: CutsceneSlide[];
+  ctaLabel?: string;
+  type: 'twist_intro' | 'mid_game' | 'twist_result_success' | 'twist_result_failure' | 'finale_twist';
+}
+
 export interface GameState {
   currentDay: number;
   playerName: string;
@@ -184,7 +204,8 @@ export interface GameState {
     | 'immunity_competition'
     | 'jury_vote'
     | 'final_3_vote'
-    | 'post_season';
+    | 'post_season'
+    | 'cutscene';
   twistsActivated: string[];
   nextEliminationDay: number;
   daysUntilJury?: number; // Days until jury phase starts
@@ -262,6 +283,9 @@ export interface GameState {
 
   // Narrative arc tracking for player twists
   twistNarrative?: TwistNarrative;
+
+  // Lite story mode current cutscene
+  currentCutscene?: CurrentCutscene;
 }
 
 export interface Confessional {

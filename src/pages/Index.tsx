@@ -6,6 +6,7 @@ import { WeeklyRecapScreen } from '@/components/game/WeeklyRecapScreen';
 import { ImmunityCompetitionScreen } from '@/components/game/ImmunityCompetitionScreen';
 import { JuryVoteScreen } from '@/components/game/JuryVoteScreen';
 import { PremiereCutscene } from '@/components/game/PremiereCutscene';
+import { Cutscene } from '@/components/game/cutscenes/Cutscene';
 import { CharacterCreation } from '@/components/game/CharacterCreation';
 import { EliminationEpisode } from '@/components/game/EliminationEpisode';
 import { FinaleEpisode } from '@/components/game/FinaleEpisode';
@@ -53,6 +54,7 @@ const Index = () => {
     finalizeCharacterCreation,
     handleHouseMeetingChoice,
     endHouseMeeting,
+    completeCutscene,
   } = useGameState();
 
   // Keyboard shortcut: Shift+D to toggle debug HUD
@@ -128,6 +130,16 @@ const Index = () => {
               onHouseMeetingChoice={handleHouseMeetingChoice}
               onEndHouseMeeting={endHouseMeeting}
             />
+        );
+
+      case 'cutscene':
+        return (
+          <Cutscene
+            title={gameState.currentCutscene?.title || 'Story'}
+            slides={gameState.currentCutscene?.slides || []}
+            onComplete={completeCutscene}
+            ctaLabel={gameState.currentCutscene?.ctaLabel || 'Continue'}
+          />
         );
       
       case 'elimination':

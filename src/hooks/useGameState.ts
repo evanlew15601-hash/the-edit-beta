@@ -23,6 +23,7 @@ import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
 import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
+import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -168,6 +169,17 @@ export const useGameState = () => {
         ...specialApplied,
         twistNarrative: specialApplied.twistNarrative || initializeTwistNarrative(specialApplied),
       });
+
+      // Detect newly activated narrative beat to trigger a lite mid-game cutscene
+      let nextCutscene: GameState['currentCutscene'] | undefined = undefined;
+      const prevBeatId = prev.twistNarrative?.currentBeatId;
+      const newBeatId = narrativeApplied.twistNarrative?.currentBeatId;
+      if (newBeatId && newBeatId !== prevBeatId) {
+        const beat = narrativeApplied.twistNarrative!.beats.find(b => b.id === newBeatId);
+        if (beat) {
+          nextCutscene = buildMidGameCutscene(narrativeApplied as GameState, beat);
+        }
+      }
       
       // Emergent events are now handled by the EnhancedEmergentEvents component
       // No need for manual triggering here as the component manages its own generation
@@ -275,7 +287,8 @@ export const useGameState = () => {
         alliances: updatedAlliances,
         juryMembers,
         daysUntilJury,
-        gamePhase,
+        gamePhase: nextCutscene ? 'cutscene' as const : gamePhase,
+        currentCutscene: nextCutscene || prev.currentCutscene,
         editPerception: updatedEditPerception,
         lastAIResponse: undefined,
         lastAIAdditions: undefined,
@@ -888,11 +901,8 @@ export const useGameState = () => {
         .slice(0, 7)
         .map(c => c.name);
 
-      return {
-        ...prev,
-        contestants: updatedContestants,
-        juryMembers: updatedJuryMembers,
-        isPlayerEliminated: true,
+      const finaleCutscene = buildFinaleCutscene({ ...prev, contestants: updatedContestants } as GameState);
+             isPlayerEliminated: true,
         gamePhase: 'finale' as const,
       };
     });
@@ -1078,12 +1088,16 @@ export const useGameState = () => {
       console.log('Final3Vote submitted - Remaining count:', remainingCount);
       console.log('Final3Vote submitted - Going to:', remainingCount === 2 ? 'finale' : 'elimination');
       
+      const goingFinale = remainingCount === 2;
+      const finaleCutscene = goingFinale ? buildFinaleCutscene({ ...prev, contestants: updatedContestants } as GameState) : undefined;
+
       return {
         ...prev,
         contestants: updatedContestants,
         juryMembers: updatedJuryMembers,
         votingHistory: [...prev.votingHistory, votingResult],
-        gamePhase: remainingCount === 2 ? 'finale' : 'elimination',
+        gamePhase: goingFinale ? 'cutscene' as const : 'elimination',
+        currentCutscene: finaleCutscene || prev.currentCutscene,
         isPlayerEliminated: votingResult.eliminated === prev.playerName || prev.isPlayerEliminated,
       };
     });
@@ -1126,10 +1140,21 @@ export const useGameState = () => {
   }, []);
 
   const completePremiere = useCallback(() => {
-    setGameState(prev => ({
-      ...prev,
-      gamePhase: 'houseguests_roster' as const
-    }));
+    setGameState(prev => {
+      const hasArc = prev.twistNarrative && prev.twistNarrative.arc && prev.twistNarrative.arc !== 'none';
+      if (hasArc) {
+        const cutscene = buildTwistIntroCutscene(prev);
+        return {
+          ...prev,
+          gamePhase: 'cutscene' as const,
+          currentCutscene: cutscene,
+        };
+      }
+      return {
+        ...prev,
+        gamePhase: 'houseguests_roster' as const
+      };
+    });
   }, []);
 
   const completeRoster = useCallback(() => {
@@ -1137,6 +1162,20 @@ export const useGameState = () => {
       ...prev,
       gamePhase: 'daily' as const
     }));
+  }, []);
+
+  const completeCutscene = useCallback(() => {
+    setGameState(prev => {
+      const type = prev.currentCutscene?.type;
+      let nextPhase: GameState['gamePhase'] = 'daily';
+      if (type === 'twist_intro') nextPhase = 'houseguests_roster';
+      else if (type === 'finale_twist') nextPhase = 'finale';
+      return {
+        ...prev,
+        currentCutscene: undefined,
+        gamePhase: nextPhase,
+      };
+    });
   }, []);
 
   const openRoster = useCallback(() => {
@@ -1280,11 +1319,13 @@ export const useGameState = () => {
         }
       }
       
-      // If we're down to final 2, go to finale
+      // If we're down to final 2, go to finale via arc cutscene
       if (remainingCount === 2) {
+        const finaleCutscene = buildFinaleCutscene(prev as GameState);
         return {
           ...prev,
-          gamePhase: 'finale' as const
+          currentCutscene: finaleCutscene,
+          gamePhase: 'cutscene' as const
         };
       }
       
@@ -1913,7 +1954,8 @@ export const useGameState = () => {
       };
       
       newState.votingHistory = [...prev.votingHistory.slice(0, -1), tieBreakRecord];
-      newState.gamePhase = 'finale' as const;
+      newState.currentCutscene = buildFinaleCutscene(newState as GameState);
+      newState.gamePhase = 'cutscene' as const;
       
       return newState;
     });
@@ -1955,7 +1997,15 @@ export const useGameState = () => {
   useEffect(() => {
     const handler = (e: any) => {
       const { contestantName, taskId, completed } = e.detail || {};
-      setGameState(prev => setProductionTaskStatus(prev, contestantName || prev.playerName, taskId, !!completed));
+      setGameState(prev => {
+        const updated = setProductionTaskStatus(prev, contestantName || prev.playerName, taskId, !!completed);
+        const nextCutscene = buildTwistResultCutscene(updated as GameState, completed ? 'success' : 'failure', { taskId });
+        return {
+          ...updated,
+          gamePhase: 'cutscene' as const,
+          currentCutscene: nextCutscene,
+        };
+      });
     };
     window.addEventListener('plantedTaskUpdate', handler);
     return () => window.removeEventListener('plantedTaskUpdate', handler);
@@ -2036,5 +2086,8 @@ export const useGameState = () => {
     toggleDebugMode,
     // Character creation finalize
     finalizeCharacterCreation,
-  };
+    // Cutscene
+    completeCutscene,
+_code  new}</;
+;
 };
