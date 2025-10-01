@@ -21,7 +21,7 @@ import { TAG_CHOICES } from '@/data/tagChoices';
 import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogueEngine';
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
-import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild } from '@/utils/specialBackgrounds';
+import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild, finalizePlantedContract } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 
@@ -2087,6 +2087,22 @@ export const useGameState = () => {
     };
     window.addEventListener('plantedTaskUpdate', handler);
     return () => window.removeEventListener('plantedTaskUpdate', handler);
+  }, []);
+
+  // Listen for planted contract decision (reveal or keep secret)
+  useEffect(() => {
+    const handler = (e: any) => {
+      const { reveal } = e.detail || {};
+      setGameState(prev => {
+        const next = finalizePlantedContract(prev, !!reveal);
+        return {
+          ...next,
+          gamePhase: 'daily' as const, // remain in daily; banner will disappear
+        };
+      });
+    };
+    window.addEventListener('plantedContractDecision', handler);
+    return () => window.removeEventListener('plantedContractDecision', handler);
   }, []);
 
   const hasSavedGame = useCallback(() => {
