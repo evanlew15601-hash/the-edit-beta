@@ -20,8 +20,10 @@ function buildHostChildBeats(startDay: number): NarrativeBeat[] {
   return [
     { id: 'hc_premiere_seeds', title: 'Premiere Seeds', dayPlanned: startDay, status: 'planned' },
     { id: 'hc_rumor_swirl', title: 'Rumor Swirl', dayPlanned: startDay + 3, status: 'planned' },
+    { id: 'hc_mars_private_meet', title: 'Private: Mars Vega', dayPlanned: startDay + 8, status: 'planned' },
     { id: 'hc_reveal', title: 'Reveal', dayPlanned: startDay + 10, status: 'planned' },
     { id: 'hc_consequence', title: 'Consequences', dayPlanned: startDay + 11, status: 'planned' },
+    { id: 'hc_mars_televised_checkin', title: 'Televised Check-In: Mars Vega', dayPlanned: startDay + 14, status: 'planned' },
     { id: 'hc_redemption_attempt', title: 'Redemption Attempt', dayPlanned: startDay + 21, status: 'planned' },
     { id: 'hc_final_reckoning', title: 'Final Reckoning', dayPlanned: startDay + 28, status: 'planned' },
   ];
@@ -30,9 +32,11 @@ function buildHostChildBeats(startDay: number): NarrativeBeat[] {
 function buildPlantedHGBeats(startDay: number): NarrativeBeat[] {
   return [
     { id: 'phg_mission_brief', title: 'Mission Brief', dayPlanned: startDay + 2, status: 'planned' },
+    { id: 'phg_producer_brief', title: 'Behind the Scenes: Producer Brief', dayPlanned: startDay + 3, status: 'planned' },
     { id: 'phg_cover_story', title: 'Cover Story Built', dayPlanned: startDay + 5, status: 'planned' },
     { id: 'phg_risky_plant', title: 'Risky Plant Executed', dayPlanned: startDay + 9, status: 'planned' },
     { id: 'phg_close_call', title: 'Close Call', dayPlanned: startDay + 13, status: 'planned' },
+    { id: 'phg_mars_televised_checkin', title: 'Televised Check-In: Mars Vega', dayPlanned: startDay + 15, status: 'planned' },
     { id: 'phg_double_down', title: 'Double-Down Mission', dayPlanned: startDay + 17, status: 'planned' },
     { id: 'phg_exposure_test', title: 'Exposure Test', dayPlanned: startDay + 21, status: 'planned' },
     { id: 'phg_endgame_leverage', title: 'Endgame Leverage', dayPlanned: startDay + 26, status: 'planned' },

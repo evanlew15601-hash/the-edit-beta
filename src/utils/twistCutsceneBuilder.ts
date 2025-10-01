@@ -158,10 +158,110 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
         },
       );
     } else {
-      slides.push(
-        { title: beat.title, text: 'A beat activates. It’s not the only story, but it shapes the next few scenes.' },
-        { title: 'Grounding', speaker: name, text: back.line || 'I anchor back to who I am so the house can predict me—until it can’t.' },
-      );
+      // Scripted beats for Host's Child arc (deterministic across playthroughs)
+      switch (beat.id) {
+        case 'hc_premiere_seeds':
+          slides.push(
+            {
+              title: 'Premiere Seeds',
+              speaker: 'Narrator',
+              text: 'Introductions skate across the surface. Yours leaves a wake. Someone will notice the current before they notice the cause.',
+            },
+            {
+              title: 'Opening Move',
+              speaker: name,
+              text: 'I set tempo: calm, useful, unemotional. If anyone clocks a story, they’ll have to dig through the gameplay to reach it.',
+              aside: 'Anchor to votes and numbers on Days 1–3.',
+            },
+          );
+          break;
+        case 'hc_mars_private_meet':
+          slides.push(
+            {
+              title: 'Behind the Scenes',
+              speaker: 'Narrator',
+              text: 'A quiet hall, a closed door. Mars Vega doesn’t need cameras to read the room.',
+            },
+            {
+              title: 'Private: Mars Vega',
+              speaker: name,
+              text: 'We keep it professional. I set boundaries: my story isn’t a prop; my game is the show.',
+              aside: 'This meeting is off-camera. Choose the tone and move on.',
+              choices: [
+                { id: 'hc_private_keep_game', text: 'Keep it strictly game. “No favors.”', televised: false },
+                { id: 'hc_private_seek_grace', text: 'Ask for off-camera grace to control timing.', televised: false },
+              ],
+              televised: false,
+            },
+          );
+          break;
+        case 'hc_consequence':
+          slides.push(
+            {
+              title: 'Consequences',
+              text: 'Reveals don’t end scenes; they start negotiations. Trust resets to pending. Your allies test the new math.',
+            },
+            {
+              title: 'Terms',
+              speaker: name,
+              text: 'No theatrics. I’ll make a clean week: direct talks, measurable follow-through. People remember consistency.',
+            },
+          );
+          break;
+        case 'hc_mars_televised_checkin':
+          slides.push(
+            {
+              title: 'Broadcast',
+              speaker: 'Narrator',
+              text: 'The red light blinks on. A check-in with Mars Vega turns a story into a segment.',
+            },
+            {
+              title: 'On-Camera: Mars Vega',
+              speaker: name,
+              text: 'I set the frame myself before anyone else does.',
+              aside: 'Televised choice — a light edit impact applies.',
+              choices: [
+                { id: 'hc_tv_own', text: 'Own it cleanly. Set terms and move forward.', televised: true, editDelta: 4 },
+                { id: 'hc_tv_deflect', text: 'Deflect to strategy. Minimize the headline.', televised: true, editDelta: -2 },
+              ],
+              televised: true,
+            },
+          );
+          break;
+        case 'hc_redemption_attempt':
+          slides.push(
+            {
+              title: 'Redemption Attempt',
+              speaker: 'Narrator',
+              text: 'A steady run of days can rewrite a headline. The audience loves competence more than confessions.',
+            },
+            {
+              title: 'Plan',
+              speaker: name,
+              text: 'Stack small wins: help a target feel safe, call the numbers early, deliver the vote. Repeat until the room relaxes.',
+            },
+          );
+          break;
+        case 'hc_final_reckoning':
+          slides.push(
+            {
+              title: 'Final Reckoning',
+              text: 'The season remembers the throughline you deliver now. You decide if the story lands on spectacle or substance.',
+            },
+            {
+              title: 'Closing Frame',
+              speaker: name,
+              text: 'Judge the moves. The connection is biography; the gameplay is the argument.',
+            },
+          );
+          break;
+        default:
+          // Fallback should rarely hit because all host-child beats are scripted above
+          slides.push(
+            { title: beat.title, text: 'Mid-arc scene. You choose the frame before others do.' },
+            { title: 'Grounding', speaker: name, text: back.line || 'I anchor back to who I am so the house can predict me—until it can’t.' },
+          );
+      }
     }
   } else if (arc === 'planted_houseguest') {
     if (beat.id === 'phg_risky_plant') {
@@ -199,10 +299,161 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
         },
       );
     } else {
-      slides.push(
-        { title: beat.title, text: 'Mid-game beat active. Stay ahead of the narrative curve.' },
-        { title: 'Grounding', speaker: name, text: back.line || 'If they recognize my rhythm, they won’t question my tempo.' },
-      );
+      // Scripted beats for Planted Houseguest arc (deterministic across playthroughs)
+      switch (beat.id) {
+        case 'phg_mission_brief':
+          slides.push(
+            {
+              title: 'Mission Brief',
+              speaker: 'Narrator',
+              text: 'The first assignment is the simplest: look ordinary while being specific. Specific reads as truth even when it’s performance.',
+            },
+            {
+              title: 'Protocol',
+              speaker: name,
+              text: 'I’ll define a routine and keep it so consistent that any move fits inside it.',
+              aside: 'Repeat your cover details out loud. Repetition is camouflage.',
+            },
+          );
+          break;
+        case 'phg_producer_brief':
+          slides.push(
+            {
+              title: 'Behind the Scenes',
+              speaker: 'Narrator',
+              text: 'A producer checks your cover integrity. Notes are given in whispers, not scripts.',
+            },
+            {
+              title: 'Producer Brief',
+              speaker: name,
+              text: 'Guardrails are fine; I need room to improvise without breaking character.',
+              aside: 'Off-camera. Choose how tightly you want to play it.',
+              choices: [
+                { id: 'phg_guardrails_tight', text: 'Accept tighter guardrails. Fewer flashy moves.', televised: false },
+                { id: 'phg_guardrails_loose', text: 'Ask for leeway to pivot mid-conversation.', televised: false },
+              ],
+              televised: false,
+            },
+          );
+          break;
+        case 'phg_cover_story':
+          slides.push(
+            {
+              title: 'Cover Story Built',
+              text: 'A believable story isn’t one sentence; it’s five habits. People trust habits.',
+            },
+            {
+              title: 'Mantra',
+              speaker: name,
+              text: back.line
+                ? `${back.line} That’s the spine. Every conversation bends to that shape.`
+                : 'I’ll pick a simple identity and never deviate on camera.',
+            },
+          );
+          break;
+        case 'phg_risky_plant':
+          slides.push(
+            {
+              title: 'The Plant',
+              speaker: 'Narrator',
+              text: 'Risk is the premium paid for influence. You place a seed and pretend you forgot you did. The house waters it for you.',
+            },
+            {
+              title: 'Execution',
+              speaker: name,
+              text: 'Casual tone. Specific detail. Someone repeats it. Now it lives. If it traces back, it still sounds like me.',
+            },
+            {
+              title: 'Cover Integrity',
+              text: back.line
+                ? `Your cover loops through your ${player?.background?.toLowerCase() || 'day-one'} habits. Repetition protects you.`
+                : 'Define a habit, a phrase, a daily rhythm—make it your alibi.',
+            },
+          );
+          break;
+        case 'phg_close_call':
+          slides.push(
+            {
+              title: 'Close Call',
+              text: 'Eyes linger too long. Your alibi needs a second draft. You slow your pulse and speed up your context.',
+              aside: 'Consistency beats brilliance. Repeat the cover.',
+            },
+            {
+              title: 'Reframe',
+              speaker: name,
+              text: back.line
+                ? `Lean into ${player?.background?.toLowerCase()}: give a reason only that persona would give.`
+                : 'Offer a reason only your established persona would offer.',
+            },
+          );
+          break;
+        case 'phg_mars_televised_checkin':
+          slides.push(
+            {
+              title: 'Broadcast',
+              speaker: 'Narrator',
+              text: 'Mars Vega leads a quick check-in. The camera looks for a wink; the audience looks for a tell.',
+            },
+            {
+              title: 'On-Camera: Mars Vega',
+              speaker: name,
+              text: 'I can be legible without being obvious.',
+              aside: 'Televised choice — a light edit impact applies.',
+              choices: [
+                { id: 'phg_tv_wink', text: 'Give a playful line that keeps the cover intact.', televised: true, editDelta: 3 },
+                { id: 'phg_tv_straight', text: 'Play it straight and low-key.', televised: true, editDelta: 1 },
+              ],
+              televised: true,
+            },
+          );
+          break;
+        case 'phg_double_down':
+          slides.push(
+            {
+              title: 'Double-Down Mission',
+              speaker: 'Narrator',
+              text: 'Success invites greed. The assignment scales. Precision matters more than speed.',
+            },
+            {
+              title: 'Execution',
+              speaker: name,
+              text: 'Two small pushes instead of one big shove. Let other people narrate my idea back to me.',
+            },
+          );
+          break;
+        case 'phg_exposure_test':
+          slides.push(
+            {
+              title: 'Exposure Test',
+              text: 'The room runs a silent audit. Your tells are in the edit. If they find one, you’ll need a reason they already believe.',
+            },
+            {
+              title: 'Countermeasure',
+              speaker: name,
+              text: 'I’ll answer suspicion with something boring and repeatable. Suspicion hates boredom.',
+            },
+          );
+          break;
+        case 'phg_endgame_leverage':
+          slides.push(
+            {
+              title: 'Endgame Leverage',
+              text: 'Influence compounds. Quiet credits become loud debts. Spend carefully.',
+            },
+            {
+              title: 'Ask',
+              speaker: name,
+              text: 'I’ll trade the smallest visible favor for the largest invisible vote.',
+            },
+          );
+          break;
+        default:
+          // Fallback should rarely hit because all planted-HG beats are scripted above
+          slides.push(
+            { title: beat.title, text: 'Mid-arc scene. Keep the cover consistent while steering outcomes.' },
+            { title: 'Grounding', speaker: name, text: back.line || 'If they recognize my rhythm, they won’t question my tempo.' },
+          );
+      }
     }
   } else {
     slides.push(

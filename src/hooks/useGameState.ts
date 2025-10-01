@@ -1248,10 +1248,22 @@ export const useGameState = () => {
       let nextPhase: GameState['gamePhase'] = 'daily';
       if (type === 'twist_intro') nextPhase = 'houseguests_roster';
       else if (type === 'finale_twist') nextPhase = 'finale';
+
+      // If we just showed a mid-game narrative beat, mark it completed to allow the next beat to activate later
+      let nextTwistNarrative = prev.twistNarrative;
+      if (type === 'mid_game' && prev.twistNarrative?.currentBeatId) {
+        const currentId = prev.twistNarrative.currentBeatId;
+        const updatedBeats = (prev.twistNarrative.beats || []).map(b =>
+          b.id === currentId ? { ...b, status: 'completed' as const } : b
+        );
+        nextTwistNarrative = { ...prev.twistNarrative, beats: updatedBeats, currentBeatId: undefined };
+      }
+
       return {
         ...prev,
         currentCutscene: undefined,
         gamePhase: nextPhase,
+        twistNarrative: nextTwistNarrative,
       };
     });
   }, []);
@@ -2103,6 +2115,48 @@ export const useGameState = () => {
     };
     window.addEventListener('plantedContractDecision', handler);
     return () => window.removeEventListener('plantedContractDecision', handler);
+  }, []);
+
+  // New: listen for cutscene choices (generic branching)
+  // If televised, apply a light edit impact and append to ratings history.
+  useEffect(() => {
+    const handler = (e: any) => {
+      const { choiceId, text, televised, editDelta } = e.detail || {};
+      setGameState(prev => {
+        const applyDelta = typeof editDelta === 'number' ? editDelta : (televised ? 3 : 0);
+        const nextEdit = televised
+          ? {
+              ...prev.editPerception,
+              screenTimeIndex: Math.max(0, Math.min(100, (prev.editPerception.screenTimeIndex || 0) + Math.max(1, Math.abs(applyDelta)))),
+              audienceApproval: Math.max(-100, Math.min(100, (prev.editPerception.audienceApproval || 0) + Math.round(applyDelta / 2))),
+              lastEditShift: applyDelta,
+            }
+          : prev.editPerception;
+
+        const ratingRes = televised ? ratingsEngine.applyEmergent(prev, applyDelta, 'Televised Branch') : { rating: prev.viewerRating ?? ratingsEngine.getInitial(), reason: 'off-camera branch' };
+        const nextHistory = televised
+          ? [ ...(prev.ratingsHistory || []), { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason } ]
+          : (prev.ratingsHistory || []);
+
+        const interactionEntry = {
+          day: prev.currentDay,
+          type: 'system' as const,
+          participants: [prev.playerName],
+          content: `Cutscene choice: ${text || choiceId}`,
+          source: 'system' as const,
+        };
+
+        return {
+          ...prev,
+          editPerception: nextEdit,
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
+          interactionLog: [ ...(prev.interactionLog || []), interactionEntry ],
+        };
+      });
+    };
+    window.addEventListener('cutsceneChoice', handler);
+    return () => window.removeEventListener('cutsceneChoice', handler);
   }, []);
 
   const hasSavedGame = useCallback(() => {
