@@ -78,6 +78,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
   const slides: CutsceneSlide[] = [];
 
   if (arc === 'hosts_child') {
+    const approval = Math.round(gs.editPerception?.audienceApproval || 0);
     if (beat.id === 'hc_rumor_swirl') {
       slides.push(
         {
@@ -89,20 +90,33 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
           title: 'Containment',
           speaker: name,
           text: 'I heard it. They heard it. We move anyway. Tighten alliances; limit oxygen.',
-          aside: 'Pick confessionals that steer the audience back to gameplay.',
+          aside: `Audience approval: ${approval}. Keep confessionals about votes, not gossip.`,
         },
       );
     } else if (beat.id === 'hc_reveal') {
+      const revealed = !!(player?.special && player.special.kind === 'hosts_estranged_child' && player.special.revealed);
       slides.push(
         {
           title: 'Moment of Truth',
-          text: 'Silence breaks. The connection leaves shadows and steps into light.',
+          text: revealed
+            ? 'Silence breaks. The connection steps into light—and the game adjusts.'
+            : 'The reveal beat activates. Whether you speak now or later will shape perception.',
         },
         {
           title: 'Frame It',
           speaker: name,
-          text: 'It’s part of my life, not my strategy. Judge me by my moves.',
+          text: revealed
+            ? 'It’s part of my life, not my strategy. Judge me by my moves.'
+            : 'If I reveal, I’ll own it—then get back to numbers.',
         },
+      );
+    } else if (beat.id === 'hc_consequence') {
+      slides.push(
+        {
+          title: 'Fallout Management',
+          text: 'Trust dips faster than it climbs. The next few conversations matter.',
+          aside: 'Keep tone steady. Anchor the edit in gameplay.',
+        }
       );
     } else {
       slides.push(
@@ -113,6 +127,8 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
       );
     }
   } else if (arc === 'planted_houseguest') {
+    const spec = player?.special && player.special.kind === 'planted_houseguest' ? player.special : undefined;
+    const pendingCount = spec ? (spec.tasks || []).filter(t => !t.completed).length : 0;
     if (beat.id === 'phg_risky_plant') {
       slides.push(
         {
@@ -124,6 +140,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
           title: 'Execution',
           speaker: name,
           text: 'Casual tone. Specific detail. Someone repeats it. Now it lives.',
+          aside: `Pending missions: ${pendingCount}`,
         },
       );
     } else if (beat.id === 'phg_close_call') {
@@ -132,6 +149,23 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
           title: 'Close Call',
           text: 'Eyes linger too long. Your alibi needs a second draft.',
           aside: 'Consistency beats brilliance. Repeat the cover.',
+        },
+      );
+    } else if (beat.id === 'phg_exposure_test') {
+      const exposed = !!(spec && spec.secretRevealed);
+      slides.push(
+        {
+          title: 'Exposure Test',
+          text: exposed
+            ? 'The secret slipped. Damage control becomes leverage—or a target.'
+            : 'Pressure rises around your cover. Keep storytelling tight.',
+        },
+        {
+          title: 'Pivot',
+          speaker: name,
+          text: exposed
+            ? 'I own it, reframe, and keep the house moving. Panic exposes you worse than truth.'
+            : 'Repeat the line. Anchor motives. Move the conversation elsewhere.',
         },
       );
     } else {
@@ -154,11 +188,18 @@ export function buildTwistResultCutscene(gs: GameState, result: 'success' | 'fai
 
   if (arc === 'planted_houseguest') {
     title = result === 'success' ? 'Mission: Clear' : 'Mission: Compromised';
+    const taskDesc = (() => {
+      const spec = player?.special && player.special.kind === 'planted_houseguest' ? player.special : undefined;
+      if (!spec || !ctx?.taskId) return undefined;
+      const t = (spec.tasks || []).find(x => x.id === ctx.taskId);
+      return t?.description;
+    })();
+
     if (result === 'success') {
       slides.push(
         {
           title: 'Clean Cut',
-          text: 'The move reads natural. No one sees the stitch.',
+          text: taskDesc ? `\"${taskDesc}\" reads natural. No one sees the stitch.` : 'The move reads natural. No one sees the stitch.',
         },
         {
           title: 'Leverage',
@@ -170,7 +211,7 @@ export function buildTwistResultCutscene(gs: GameState, result: 'success' | 'fai
       slides.push(
         {
           title: 'Noise',
-          text: 'Someone hears a seam. Suspicion rises faster than truth.',
+          text: taskDesc ? `\"${taskDesc}\" leaves a seam. Suspicion rises faster than truth.` : 'Someone hears a seam. Suspicion rises faster than truth.',
         },
         {
           title: 'Damage Control',
@@ -211,10 +252,13 @@ export function buildFinaleCutscene(gs: GameState) {
   const slides: CutsceneSlide[] = [];
 
   if (arc === 'hosts_child') {
+    const revealDay = player?.special && player.special.kind === 'hosts_estranged_child' ? (player.special.revealDay || undefined) : undefined;
     slides.push(
       {
         title: 'Throughline',
-        text: 'A rumor became a reveal became a resolved story.',
+        text: revealDay
+          ? `A rumor became a reveal (Day ${revealDay}) became a resolved story.`
+          : 'A rumor stayed rumor. The game stayed the story.',
       },
       {
         title: 'Closing Statement',
@@ -223,10 +267,14 @@ export function buildFinaleCutscene(gs: GameState) {
       },
     );
   } else if (arc === 'planted_houseguest') {
+    const tasks = player?.special && player.special.kind === 'planted_houseguest' ? (player.special.tasks || []) : [];
+    const completed = tasks.filter(t => t.completed).length;
+    const total = tasks.length;
+    const exposed = player?.special && player.special.kind === 'planted_houseguest' ? !!player.special.secretRevealed : false;
     slides.push(
       {
         title: 'Ledger',
-        text: 'Some missions succeeded. Some exposed. The pattern tells the truth.',
+        text: `${completed}/${total} missions completed.${exposed ? ' Secret exposed; damage control became part of the play.' : ' Cover held; subtlety did the heavy lifting.'}`,
       },
       {
         title: 'Closing Statement',

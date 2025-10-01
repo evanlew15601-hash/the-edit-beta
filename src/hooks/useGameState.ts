@@ -23,7 +23,7 @@ import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
 import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
-import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
+import { buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -1140,21 +1140,10 @@ export const useGameState = () => {
   }, []);
 
   const completePremiere = useCallback(() => {
-    setGameState(prev => {
-      const hasArc = prev.twistNarrative && prev.twistNarrative.arc && prev.twistNarrative.arc !== 'none';
-      if (hasArc) {
-        const cutscene = buildTwistIntroCutscene(prev);
-        return {
-          ...prev,
-          gamePhase: 'cutscene' as const,
-          currentCutscene: cutscene,
-        };
-      }
-      return {
-        ...prev,
-        gamePhase: 'houseguests_roster' as const
-      };
-    });
+    setGameState(prev => ({
+      ...prev,
+      gamePhase: 'houseguests_roster' as const
+    }));
   }, []);
 
   const completeRoster = useCallback(() => {
