@@ -754,6 +754,57 @@ export const useGameState = () => {
       
       return newState;
     });
+
+    // Fire-and-forget: generate a short in-character reply with the free local LLM
+    // Append to lastAIResponse and, if empty, surface as the reaction note.
+    (async () => {
+      try {
+        if (
+          target &&
+          target !== 'Group' &&
+          content &&
+          (gameState.aiSettings?.useLocalLLM === true)
+        ) {
+          const npc = (gameState.contestants || []).find(c => c.name === target);
+          if (npc) {
+            const parsed = speechActClassifier.classifyMessage(content, gameState.playerName || 'Player');
+            const socialContext = {
+              day: gameState.currentDay,
+              lastInteractions: (gameState.interactionLog || []).slice(-6),
+            };
+            const reply = await generateLocalAIReply({
+              playerMessage: content,
+              parsedInput: parsed,
+              npc,
+              tone: tone || 'neutral',
+              socialContext,
+              conversationType: actionType === 'dm' ? 'private' : 'public',
+            }, { maxSentences: gameState.aiSettings?.depth === 'deep' ? 3 : gameState.aiSettings?.depth === 'brief' ? 1 : 2 });
+
+            setGameState(prev => ({
+              ...prev,
+              lastAIResponse: reply,
+              lastAIReaction: prev.lastAIReaction
+                ? { ...prev.lastAIReaction, notes: prev.lastAIReaction.notes || reply }
+                : prev.lastAIReaction,
+              interactionLog: [
+                ...(prev.interactionLog || []),
+                {
+                  day: prev.currentDay,
+                  type: 'npc',
+                  participants: [target],
+                  ai_response: reply,
+                  source: 'npc' as const,
+                }
+              ],
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn('Local LLM reply generation failed:', e);
+      }
+    })();
+
   }, []);
 
   const submitConfessional = useCallback(() => {
@@ -1124,6 +1175,16 @@ export const useGameState = () => {
         afpVote: choice,
         afpRanking: afpRanking
       };
+    });
+  }, []);
+
+  // Initialize missing AI settings with sensible defaults (e.g., enable local LLM)
+  useEffect(() => {
+    setGameState(prev => {
+      if (prev.aiSettings && typeof prev.aiSettings.useLocalLLM === 'undefined') {
+        return { ...prev, aiSettings: { ...prev.aiSettings, useLocalLLM: true } };
+      }
+      return prev;
     });
   }, []);
 

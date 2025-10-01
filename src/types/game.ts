@@ -383,6 +383,8 @@ export interface AISettings {
     riskEstimate: boolean;
     memoryImpact: boolean;
   };
+  // Enable/disable free local LLM replies in addition to rule-based reactions
+  useLocalLLM?: boolean;
   // New: deterministic persona variant selection in Enhanced Tag Dialogue
   deterministicPersonaVariants?: boolean;
   // New: outcome scaling controls to tune applied deltas

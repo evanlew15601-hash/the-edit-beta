@@ -8,15 +8,18 @@ interface AISettingsPanelProps {
   additions: { strategyHint: boolean; followUp: boolean; riskEstimate: boolean; memoryImpact: boolean };
   deterministicPersonaVariants?: boolean;
   outcomeScaling?: { trustSuspicionScale: number; influenceScale: number; entertainmentScale: number };
+  // New: toggle to use free local LLM
+  useLocalLLM?: boolean;
   onChange: (next: Partial<{ 
     depth: 'brief' | 'standard' | 'deep'; 
     additions: AISettingsPanelProps['additions'];
     deterministicPersonaVariants?: boolean;
     outcomeScaling?: { trustSuspicionScale: number; influenceScale: number; entertainmentScale: number };
+    useLocalLLM?: boolean;
   }>) => void;
 }
 
-export function AISettingsPanel({ depth, additions, deterministicPersonaVariants = false, outcomeScaling = { trustSuspicionScale: 40, influenceScale: 20, entertainmentScale: 20 }, onChange }: AISettingsPanelProps) {
+export function AISettingsPanel({ depth, additions, deterministicPersonaVariants = false, outcomeScaling = { trustSuspicionScale: 40, influenceScale: 20, entertainmentScale: 20 }, useLocalLLM = false, onChange }: AISettingsPanelProps) {
   return (
     <Card className="p-4 space-y-4">
       <div>
@@ -58,6 +61,14 @@ export function AISettingsPanel({ depth, additions, deterministicPersonaVariants
         <div className="flex items-center justify-between">
           <Label>Memory impact</Label>
           <Switch checked={additions.memoryImpact} onCheckedChange={(v) => onChange({ additions: { ...additions, memoryImpact: v } })} />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="font-medium">Free Local LLM</h4>
+        <div className="flex items-center justify-between">
+          <Label>Use in-browser LLM for replies (no tokens)</Label>
+          <Switch checked={useLocalLLM} onCheckedChange={(v) => onChange({ useLocalLLM: v })} />
         </div>
       </div>
 
