@@ -33,29 +33,32 @@ export function deriveArchetype(npc: Contestant): Archetype {
   return 'Floater';
 }
 
-// Remove slang/jargon and enforce formal, neutral wording
+// Natural voice sanitizer: keep contractions, remove therapy-speak/jargon, tidy punctuation
 export function sanitizeAndFormalize(text: string): string {
   let t = text;
+
+  // De-jargonize odd phrases
+  t = t.replace(/\b(i['’]?m|i am)\s+practic(?:e|ing)\s+boundaries\s+(about|around|on|with)\s+(this|that|the)\s+topic\b/gi, "I don't want to talk about that right now");
+  t = t.replace(/\b(i['’]?m|i am)\s+practic(?:e|ing)\s+boundaries\b/gi, "I'm keeping this private for now");
+  t = t.replace(/\b(this|that|the)\s+topic\b/gi, 'that'); // avoid robotic "topic"
+  t = t.replace(/\bkitchen behavior\b/gi, 'how they act in the kitchen');
+  t = t.replace(/\bfood behavior\b/gi, 'how they act around meals');
+  t = t.replace(/\bfootprint small and accurate\b/gi, 'game quiet and clean');
+
+  // Show jargon cleanups (light)
   const replacements: Array<[RegExp, string]> = [
-    [/\bI'm\b/g, 'I am'], [/\byou're\b/gi, 'you are'], [/\bit's\b/gi, 'it is'], [/\blet's\b/gi, 'let us'],
-    [/\bthat's\b/gi, 'that is'], [/\bthere's\b/gi, 'there is'], [/\bwe're\b/gi, 'we are'], [/\bthey're\b/gi, 'they are'],
-    [/\bdon't\b/gi, 'do not'], [/\bdoesn't\b/gi, 'does not'], [/\bisn't\b/gi, 'is not'], [/\baren't\b/gi, 'are not'],
-    [/\bcan't\b/gi, 'cannot'], [/n't\b/gi, ' not'], [/\bwon't\b/gi, 'will not'], [/\bI'll\b/gi, 'I will'],
-
-    // General slang/colloquialisms
-    [/\bwanna\b/gi, 'want to'], [/\bgonna\b/gi, 'going to'], [/\bkinda\b/gi, 'somewhat'], [/\bsorta\b/gi, 'somewhat'],
-    [/\bbruh\b|\bbro\b|\bfam\b|\bdude\b|\byo\b/gi, ''], [/\bnah\b/gi, 'no'], [/\byep\b/gi, 'yes'], [/\byeah\b/gi, 'yes'],
-    [/\bain'?t\b/gi, 'is not'], [/\bcap\b/gi, ''], [/\bsus\b/gi, 'questionable'], [/\blow-?key\b/gi, ''], [/\bhigh-?key\b/gi, ''],
-
-    // Show-jargon to neutral
-    [/\bplay tight\b/gi, 'be careful'], [/\bavoid noise\b/gi, 'avoid attention'], [/\blive wire\b/gi, 'a volatile situation'],
-    [/\bclocked\b/gi, ''], [/\bNoted\.?\b/g, '']
+    [/\bplay tight\b/gi, 'be careful'],
+    [/\bavoid noise\b/gi, 'avoid attention'],
+    [/\blive wire\b/gi, 'a volatile situation'],
+    [/\bclocked\b/gi, ''],
+    [/\bNoted\.?\b/g, ''],
   ];
   for (const [re, val] of replacements) t = t.replace(re, val);
-  // Collapse extra spaces
+
+  // Tidy punctuation/spacing and quotes
+  t = t.replace(/“|”/g, '"').replace(/''/g, '"');
   t = t.replace(/\s{2,}/g, ' ').trim();
-  // Keep quotes symmetrical
-  t = t.replace(/“/g, '"').replace(/”/g, '"').replace(/''/g, '"');
+
   return t;
 }
 
@@ -385,15 +388,15 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
 
         if (personalBackground) {
           if (npc.psychProfile.suspicionLevel > 60) {
-            responses.push(`${npc.name} keeps details tight. "I keep personal history off the table in here."`);
+            responses.push(`${npc.name} keeps details tight. "I don't share personal history in here."`);
           } else {
-            responses.push(`${npc.name} refocuses. "I would rather keep personal details private; the game is what matters."`);
+            responses.push(`${npc.name} refocuses. "I'd rather keep personal details private; the game is what matters."`);
           }
         } else if (parsedInput.primary === 'neutral_conversation' && checkIn) {
           if (npc.psychProfile.suspicionLevel > 60) {
-            responses.push(`${npc.name} glances around. "It's tense—people are sniffing for cracks. I am staying quiet."`);
+            responses.push(`${npc.name} glances around. "It's tense—people are sniffing for cracks. I'm staying quiet."`);
           } else if (npc.psychProfile.trustLevel > 50) {
-            responses.push(`${npc.name} softens. "Busy. A couple sparks in the kitchen, but I am keeping us out of it."`);
+            responses.push(`${npc.name} softens. "Busy. A couple sparks in the common area, but I'm staying out of it."`);
           } else {
             responses.push(`${npc.name} keeps it brief. "Fine. Reading the room and not overplaying anything."`);
           }
@@ -402,11 +405,11 @@ export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, cont
           responses.push(`${npc.name} probes. "${phrase ? `What exactly about ${phrase}?` : 'Be specific—alliances, votes, or trust?'}"`);
         } else {
           if (npc.psychProfile.suspicionLevel > 60) {
-            responses.push(`${npc.name} stays guarded. "I am keeping distance until the dust settles."`);
+            responses.push(`${npc.name} stays guarded. "I'm keeping my distance until the dust settles."`);
           } else if (npc.psychProfile.trustLevel > 50) {
-            responses.push(`${npc.name} is candid. "I am steady—let us keep our footprint small and accurate."`);
+            responses.push(`${npc.name} is candid. "I'm steady—let's keep our game quiet and clean."`);
           } else {
-            responses.push(`${npc.name} keeps it brief. "Let us be careful and avoid attention."`);
+            responses.push(`${npc.name} keeps it brief. "Let's be careful and avoid attention."`);
           }
         }
       }

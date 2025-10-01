@@ -26,8 +26,8 @@ interface BasicOption {
 const BASIC_OPTIONS: BasicOption[] = [
   // Neutral idle chatter (steady state, minimal impact)
   {
-    id: 'idle_chatter_kitchen',
-    label: 'Idle chatter (kitchen)',
+    id: 'idle_chatter_common',
+    label: 'Idle chatter (common area)',
     tone: 'neutral',
     text: (name) => `Talk with ${name} about cooking plans and snacks—keep it light.`,
     description: 'Steady vibe; tiny trust gains, low suspicion',
@@ -180,7 +180,7 @@ const BASIC_OPTIONS: BasicOption[] = [
     label: 'Group banter (food)',
     tone: 'neutral',
     targetType: 'group',
-    text: (_name) => `Crack a light group joke in the kitchen and keep things friendly.`,
+    text: (_name) => `Make a light group joke in the common area and keep things friendly.`,
     description: 'Public, harmless; entertainment bump, low suspicion',
     previewTrustScale: 0.9,
     previewSuspicionScale: 0.6,

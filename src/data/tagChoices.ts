@@ -68,7 +68,7 @@ export const TAG_CHOICES: Choice[] = [
     choiceId: 'TALK_BUILD_ALLY_FOOD_NEUTRAL_1',
     textVariants: [
       'Want to cook together more often? We make a good team.',
-      'I enjoy our kitchen talks. Good way to bond.',
+      'I enjoy cooking together. Good way to bond.',
       'Maybe we should plan meals together.'
     ],
     intent: 'BuildAlliance',
@@ -262,7 +262,7 @@ export const TAG_CHOICES: Choice[] = [
   {
     choiceId: 'TALK_JOKE_FOOD_PLAYFUL_1',
     textVariants: [
-      'If this kitchen had a Michelin star, it fell off the plate.',
+      'If this place had a Michelin star, it fell off the plate.',
       'This stew is plotting against us.',
       'I think the food is trying to eliminate us first.'
     ],
@@ -1003,9 +1003,8 @@ export const TAG_CHOICES: Choice[] = [
     choiceId: 'SCHEME_SOW_DOUBT_FOOD_DISMISSIVE_1',
     textVariants: [
       'Notice how {{target}} always eats alone?',
-      'Weird how {{target}} hoards food but acts generous.',
-      'Food behavior reveals true character.',
-      '{{target}}\'s kitchen behavior is telling.'
+      'Weird how {{target}} keeps food to themselves but acts generous.',
+      'People notice how {{target}} acts around meals.'
     ],
     intent: 'SowDoubt',
     tone: 'Dismissive',

@@ -45,7 +45,7 @@ export const AmbientNPCActivity = ({ contestants, currentDay, playerName }: Ambi
         type: 'conversation' as const,
         actions: [
           'are having a quiet conversation by the pool',
-          'are discussing camp life in the kitchen',
+          'are chatting in the common area',
           'are sharing stories on the couch',
           'are talking about today\'s events'
         ],
