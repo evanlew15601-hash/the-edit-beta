@@ -191,11 +191,22 @@ export interface TwistNarrative {
 /**
  * Lightweight cutscene slide for story beats.
  */
+export interface CutsceneChoice {
+  id: string;
+  text: string;
+  televised?: boolean; // If true, choosing this affects edit perception lightly
+  editDelta?: number;  // Small +/- effect on edit (screenTime/approval) when televised
+}
+
 export interface CutsceneSlide {
   title?: string;
   speaker?: string;
   text: string;
   aside?: string;
+  // Optional simple branching for cutscenes
+  choices?: CutsceneChoice[];
+  // Slide context: if set, applies to all choices unless a choice overrides
+  televised?: boolean;
 }
 
 /**

@@ -175,6 +175,26 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             },
           );
           break;
+        case 'hc_mars_private_meet':
+          slides.push(
+            {
+              title: 'Behind the Scenes',
+              speaker: 'Narrator',
+              text: 'A quiet hall, a closed door. Mars Vega doesn’t need cameras to read the room.',
+            },
+            {
+              title: 'Private: Mars Vega',
+              speaker: name,
+              text: 'We keep it professional. I set boundaries: my story isn’t a prop; my game is the show.',
+              aside: 'This meeting is off-camera. Choose the tone and move on.',
+              choices: [
+                { id: 'hc_private_keep_game', text: 'Keep it strictly game. “No favors.”', televised: false },
+                { id: 'hc_private_seek_grace', text: 'Ask for off-camera grace to control timing.', televised: false },
+              ],
+              televised: false,
+            },
+          );
+          break;
         case 'hc_consequence':
           slides.push(
             {
@@ -185,6 +205,26 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
               title: 'Terms',
               speaker: name,
               text: 'No theatrics. I’ll make a clean week: direct talks, measurable follow-through. People remember consistency.',
+            },
+          );
+          break;
+        case 'hc_mars_televised_checkin':
+          slides.push(
+            {
+              title: 'Broadcast',
+              speaker: 'Narrator',
+              text: 'The red light blinks on. A check-in with Mars Vega turns a story into a segment.',
+            },
+            {
+              title: 'On-Camera: Mars Vega',
+              speaker: name,
+              text: 'I set the frame myself before anyone else does.',
+              aside: 'Televised choice — a light edit impact applies.',
+              choices: [
+                { id: 'hc_tv_own', text: 'Own it cleanly. Set terms and move forward.', televised: true, editDelta: 4 },
+                { id: 'hc_tv_deflect', text: 'Deflect to strategy. Minimize the headline.', televised: true, editDelta: -2 },
+              ],
+              televised: true,
             },
           );
           break;
@@ -276,6 +316,26 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             },
           );
           break;
+        case 'phg_producer_brief':
+          slides.push(
+            {
+              title: 'Behind the Scenes',
+              speaker: 'Narrator',
+              text: 'A producer checks your cover integrity. Notes are given in whispers, not scripts.',
+            },
+            {
+              title: 'Producer Brief',
+              speaker: name,
+              text: 'Guardrails are fine; I need room to improvise without breaking character.',
+              aside: 'Off-camera. Choose how tightly you want to play it.',
+              choices: [
+                { id: 'phg_guardrails_tight', text: 'Accept tighter guardrails. Fewer flashy moves.', televised: false },
+                { id: 'phg_guardrails_loose', text: 'Ask for leeway to pivot mid-conversation.', televised: false },
+              ],
+              televised: false,
+            },
+          );
+          break;
         case 'phg_cover_story':
           slides.push(
             {
@@ -288,6 +348,62 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
               text: back.line
                 ? `${back.line} That’s the spine. Every conversation bends to that shape.`
                 : 'I’ll pick a simple identity and never deviate on camera.',
+            },
+          );
+          break;
+        case 'phg_risky_plant':
+          slides.push(
+            {
+              title: 'The Plant',
+              speaker: 'Narrator',
+              text: 'Risk is the premium paid for influence. You place a seed and pretend you forgot you did. The house waters it for you.',
+            },
+            {
+              title: 'Execution',
+              speaker: name,
+              text: 'Casual tone. Specific detail. Someone repeats it. Now it lives. If it traces back, it still sounds like me.',
+            },
+            {
+              title: 'Cover Integrity',
+              text: back.line
+                ? `Your cover loops through your ${player?.background?.toLowerCase() || 'day-one'} habits. Repetition protects you.`
+                : 'Define a habit, a phrase, a daily rhythm—make it your alibi.',
+            },
+          );
+          break;
+        case 'phg_close_call':
+          slides.push(
+            {
+              title: 'Close Call',
+              text: 'Eyes linger too long. Your alibi needs a second draft. You slow your pulse and speed up your context.',
+              aside: 'Consistency beats brilliance. Repeat the cover.',
+            },
+            {
+              title: 'Reframe',
+              speaker: name,
+              text: back.line
+                ? `Lean into ${player?.background?.toLowerCase()}: give a reason only that persona would give.`
+                : 'Offer a reason only your established persona would offer.',
+            },
+          );
+          break;
+        case 'phg_mars_televised_checkin':
+          slides.push(
+            {
+              title: 'Broadcast',
+              speaker: 'Narrator',
+              text: 'Mars Vega leads a quick check-in. The camera looks for a wink; the audience looks for a tell.',
+            },
+            {
+              title: 'On-Camera: Mars Vega',
+              speaker: name,
+              text: 'I can be legible without being obvious.',
+              aside: 'Televised choice — a light edit impact applies.',
+              choices: [
+                { id: 'phg_tv_wink', text: 'Give a playful line that keeps the cover intact.', televised: true, editDelta: 3 },
+                { id: 'phg_tv_straight', text: 'Play it straight and low-key.', televised: true, editDelta: 1 },
+              ],
+              televised: true,
             },
           );
           break;

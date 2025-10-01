@@ -2,17 +2,11 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-export type CutsceneSlide = {
-  title?: string;
-  speaker?: string;
-  text: string;
-  aside?: string;
-};
+import type { CutsceneSlide as GameCutsceneSlide } from '@/types/game';
 
 interface CutsceneProps {
   title: string;
-  slides: CutsceneSlide[];
+  slides: GameCutsceneSlide[];
   onComplete: () => void;
   ctaLabel?: string;
 }
@@ -77,6 +71,34 @@ export const Cutscene = ({ title, slides, onComplete, ctaLabel = 'Continue' }: C
               )}
             </div>
           </ScrollArea>
+
+          {current?.choices && current.choices.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <div className="text-xs text-muted-foreground">
+                {(current.televised || current.choices.some(c => c.televised)) ? 'Televised choice (light edit impact)' : 'Off-camera choice'}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                {current.choices.map((ch, idx) => (
+                  <Button
+                    key={ch.id || idx}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      try {
+                        const televised = typeof ch.televised === 'boolean' ? ch.televised : !!current.televised;
+                        const editDelta = typeof ch.editDelta === 'number' ? ch.editDelta : (televised ? 3 : 0);
+                        window.dispatchEvent(new CustomEvent('cutsceneChoice', { detail: { choiceId: ch.id, text: ch.text, televised, editDelta } }));
+                      } catch {}
+                      const isLast = index === slides.length - 1;
+                      if (isLast) onComplete(); else setIndex(i => Math.min(i + 1, slides.length - 1));
+                    }}
+                  >
+                    {ch.text}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between mt-6">
             <div className="text-xs text-muted-foreground">
