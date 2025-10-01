@@ -200,7 +200,12 @@ export function buildTwistResultCutscene(gs: GameState, result: 'success' | 'fai
     slides.push({ text: result === 'success' ? 'Positive momentum.' : 'A setback—recover on the next choice.' });
   }
 
-  return { title, slides, ctaLabel: 'Return to Game', type: (result === 'success' ? 'twist_result_success' : 'twist_result_failure') as const };
+  return { 
+    title, 
+    slides, 
+    ctaLabel: 'Return to Game', 
+    type: result === 'success' ? 'twist_result_success' as const : 'twist_result_failure' as const 
+  };
 }
 
 export function buildFinaleCutscene(gs: GameState) {

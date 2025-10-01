@@ -902,7 +902,13 @@ export const useGameState = () => {
         .map(c => c.name);
 
       const finaleCutscene = buildFinaleCutscene({ ...prev, contestants: updatedContestants } as GameState);
-             isPlayerEliminated: true,
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        juryMembers: updatedJuryMembers,
+        currentCutscene: finaleCutscene,
+        isPlayerEliminated: true,
         gamePhase: 'finale' as const,
       };
     });
@@ -2088,6 +2094,5 @@ export const useGameState = () => {
     finalizeCharacterCreation,
     // Cutscene
     completeCutscene,
-_code  new}</;
-;
+  };
 };

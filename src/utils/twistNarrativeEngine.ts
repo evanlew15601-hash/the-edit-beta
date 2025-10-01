@@ -69,7 +69,7 @@ export function applyDailyNarrative(gs: GameState): GameState {
   const beats = arc.beats.map(b => {
     if (b.status === 'completed') return b;
     if (gs.currentDay >= b.dayPlanned && b.status === 'planned') {
-      return { ...b, status: 'active' };
+      return { ...b, status: 'active' as const };
     }
     return b;
   });
@@ -81,10 +81,10 @@ export function applyDailyNarrative(gs: GameState): GameState {
     if (revealBeatIdx >= 0) {
       const revealBeat = beats[revealBeatIdx];
       if (revealed && revealBeat.status !== 'completed') {
-        beats[revealBeatIdx] = { ...revealBeat, status: 'completed', summary: `Revealed on Day ${gs.currentDay}` };
+        beats[revealBeatIdx] = { ...revealBeat, status: 'completed' as const, summary: `Revealed on Day ${gs.currentDay}` };
         const consequenceIdx = beats.findIndex(b => b.id === 'hc_consequence');
         if (consequenceIdx >= 0 && beats[consequenceIdx].status === 'planned') {
-          beats[consequenceIdx] = { ...beats[consequenceIdx], status: 'active' };
+          beats[consequenceIdx] = { ...beats[consequenceIdx], status: 'active' as const };
         }
       }
     }
@@ -97,7 +97,7 @@ export function applyDailyNarrative(gs: GameState): GameState {
     if (spec.secretRevealed) {
       const exposureIdx = beats.findIndex(b => b.id === 'phg_exposure_test');
       if (exposureIdx >= 0) {
-        beats[exposureIdx] = { ...beats[exposureIdx], status: 'active', summary: `Secret flagged Day ${spec.revealDay || gs.currentDay}` };
+        beats[exposureIdx] = { ...beats[exposureIdx], status: 'active' as const, summary: `Secret flagged Day ${spec.revealDay || gs.currentDay}` };
       }
     }
     // ensure at least one task per week assigned by appending if needed
@@ -143,7 +143,7 @@ export function getSpecialConfessionalPrompts(gs: GameState): ConfPrompt[] {
   const isHostChild = player.special.kind === 'hosts_estranged_child';
   const isPlanted = player.special.kind === 'planted_houseguest';
 
-  if (isHostChild) {
+  if (isHostChild && player.special.kind === 'hosts_estranged_child') {
     const revealed = !!player.special.revealed;
     if (!revealed) {
       prompts.push({
@@ -176,7 +176,7 @@ export function getSpecialConfessionalPrompts(gs: GameState): ConfPrompt[] {
     }
   }
 
-  if (isPlanted) {
+  if (isPlanted && player.special.kind === 'planted_houseguest') {
     const spec = player.special;
     const pending = (spec.tasks || []).filter(t => !t.completed).slice(0, 2);
     if (pending.length > 0) {
@@ -189,7 +189,7 @@ export function getSpecialConfessionalPrompts(gs: GameState): ConfPrompt[] {
         editPotential: 8,
       });
     }
-    if (spec.secretRevealed) {
+    if (player.special.kind === 'planted_houseguest' && spec.secretRevealed) {
       prompts.push({
         id: 'phg_damage_control',
         category: 'social',
