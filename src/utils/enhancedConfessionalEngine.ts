@@ -87,7 +87,8 @@ export class EnhancedConfessionalEngine {
         prompt: `Talk about your alliance with ${otherMembers.join(' and ')}. How much do you trust them?`,
         followUp: "Are you worried about any cracks forming?",
         suggestedTones: ['strategic', 'vulnerable'],
-        editPotential: 7
+        editPotential: 7,
+        context: { members: otherMembers }
       });
     }
 
@@ -115,7 +116,8 @@ export class EnhancedConfessionalEngine {
         prompt: `You seem to have a good relationship with ${player.name}. How real is that connection?`,
         followUp: "Is it strategy or genuine friendship?",
         suggestedTones: ['vulnerable', 'strategic', 'humorous'],
-        editPotential: 6
+        editPotential: 6,
+        context: { targetName: player.name }
       });
     }
 
@@ -143,7 +145,8 @@ export class EnhancedConfessionalEngine {
           ? "How does their immunity change your plans this week?"
           : "When would be the right time to make a move against them?",
         suggestedTones: ['strategic', 'aggressive', 'dramatic'],
-        editPotential: 8
+        editPotential: 8,
+        context: { targetName: threat.name }
       });
     }
 
@@ -393,7 +396,8 @@ export class EnhancedConfessionalEngine {
               prompt: `You recently had some strategic conversations about ${schemeTarget}. How did that go?`,
               followUp: "Are you confident in the move you're planning?",
               suggestedTones: ['strategic', 'dramatic'],
-              editPotential: 8
+              editPotential: 8,
+              context: { targetName: schemeTarget }
             });
           }
           break;
@@ -407,7 +411,8 @@ export class EnhancedConfessionalEngine {
               prompt: `You had a private conversation with ${dmPartner} recently. What was that about?`,
               followUp: "Did you learn anything useful?",
               suggestedTones: ['strategic', 'vulnerable'],
-              editPotential: 6
+              editPotential: 6,
+              context: { targetName: dmPartner }
             });
           }
           break;
@@ -419,7 +424,8 @@ export class EnhancedConfessionalEngine {
             prompt: "There's been some activity with your alliance lately. How solid do you feel about your position?",
             followUp: "Is everyone still on the same page?",
             suggestedTones: ['strategic', 'vulnerable'],
-            editPotential: 7
+            editPotential: 7,
+            context: { members: event.participants }
           });
           break;
         }
