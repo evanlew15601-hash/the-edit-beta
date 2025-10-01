@@ -89,6 +89,9 @@ const RESPONSE_TEMPLATES: ResponseTemplate[] = [
 ];
 
 export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
+  // Prefer direct, context-aware answers
+  const directResponses = generateDirectAnswers(prompt, gameState);
+
   // Base responses for the prompt category
   const categoryResponses = RESPONSE_TEMPLATES.find(t => t.category === prompt.category)?.responses || [];
 
@@ -97,8 +100,8 @@ export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameS
   const producerResponses = generateProducerResponsesIfAny(prompt, gameState);
   const specificResponses = generatePromptSpecificResponses(prompt, gameState);
 
-  // Combine
-  const allResponses = [...categoryResponses, ...contextualResponses, ...producerResponses, ...specificResponses];
+  // Combine - direct first
+  const allResponses = [...directResponses, ...categoryResponses, ...contextualResponses, ...producerResponses, ...specificResponses];
 
   // Integrity guard: remove lines that reference events that haven't happened
   const eventValid = allResponses.filter(r => responseIsValid(r, gameState));
@@ -108,14 +111,15 @@ export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameS
   const keywords = keywordsForPrompt(prompt);
   let aligned = eventValid.filter(r => responseMatchesPrompt(r, keywords, entities, prompt.category));
 
+  // Remove deflective/avoidance phrasing
+  aligned = aligned.filter(r => !looksDeflective(r));
+
   // Fallback if too few aligned responses
   if (aligned.length < 4) {
-    // Prefer contextual + specific first
-    const base = [...contextualResponses, ...specificResponses].filter(r => responseIsValid(r, gameState));
+    const base = [...directResponses, ...contextualResponses, ...specificResponses].filter(r => responseIsValid(r, gameState));
     aligned = [...new Set([...aligned, ...base])];
   }
   if (aligned.length < 4) {
-    // Last fallback: include category responses that at least match category semantics
     const semanticallyOk = categoryResponses.filter(r => responseMatchesPrompt(r, keywords, entities, prompt.category));
     aligned = [...new Set([...aligned, ...semanticallyOk])];
   }
@@ -184,14 +188,175 @@ function ensureSentence(text: string): string {
   if (t.endsWith('.') || t.endsWith('!') || t.endsWith('?')) return t;
   return t + '.';
 }
-  if (aligned.length < 4) {
-    // Last fallback: include category responses that at least match category semantics
-    const semanticallyOk = categoryResponses.filter(r => responseMatchesPrompt(r, keywords, entities, prompt.category));
-    aligned = [...new Set([...aligned, ...semanticallyOk])];
+  /**
+ * Avoid deflective/avoidance phrasing in confessionals
+ */
+function looksDeflective(text: string): boolean {
+  const t = text.toLowerCase();
+  return /\b(i (do not|don't) want to talk|i (do not|don't) want to discuss|change the subject|rather not|not ready to talk|keep(ing)? this private|boundaries|let'?s not|doesn'?t matter|forget about it)\b/.test(t);
+}
+
+// Direct, context-aware answers (avoid dodging)
+function generateDirectAnswers(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
+  const lines: string[] = [];
+  const entities = extractEntitiesFromPrompt(prompt, gameState);
+  const target = entities[0];
+  const majority = computeMajorityThreshold(gameState);
+  const allies = getPlayerAllianceMembers(gameState);
+  const allyText = allies.length ? listNames(allies) : '';
+  const active = gameState.contestants.filter(c => !c.isEliminated);
+
+  const likelyTarget = pickLikelyTargetFromGameState(gameState, [gameState.playerName, gameState.immunityWinner].filter(Boolean) as string[]);
+
+  switch (prompt.id) {
+    case 'elimination-pressure':
+    case 'voting-strategy': {
+      const name = target || likelyTarget;
+      if (name) {
+        const immune = gameState.immunityWinner;
+        if (immune && immune === name) {
+          const alt = pickAlternativeTarget(gameState, name, [gameState.playerName]);
+          if (alt) {
+            lines.push(`The name was ${name}, but immunity changed the plan—backup is ${alt}. Majority is ${majority}.`);
+          } else {
+            lines.push(`Immunity is on ${name}. We're reassessing; majority is ${majority}.`);
+          }
+        } else {
+          lines.push(`Right now, ${name} is the vote. ${allyText ? `${allyText} are with me` : 'I’m lining up support'}—majority is ${majority}.`);
+        }
+      } else {
+        lines.push(`Names are moving, but majority is ${majority}. I’m aligning something clean.`);
+      }
+      break;
+    }
+    case 'alliance-trust': {
+      if (allies.length) {
+        const allyObjs = allies
+          .map(n => active.find(c => c.name === n))
+          .filter(Boolean) as typeof active;
+        const steady = allyObjs.sort((a, b) => (b.psychProfile.trustLevel || 0) - (a.psychProfile.trustLevel || 0))[0];
+        const wobble = allyObjs.sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0))[0];
+        if (steady && wobble && steady.name !== wobble.name) {
+          lines.push(`I’m with ${listNames(allies)}. ${steady.name} is steady; ${wobble.name} wobbles if the room shifts.`);
+        } else {
+          lines.push(`I’m with ${listNames(allies)}. Trust is good, but I’m keeping receipts.`);
+        }
+      } else {
+        lines.push('No solid alliance yet. I’m testing trust and keeping options open.');
+      }
+      break;
+    }
+    case 'competition-threat': {
+      const name = target || likelyTarget;
+      if (name) {
+        const immune = gameState.immunityWinner;
+        if (immune && immune === name) {
+          const alt = pickAlternativeTarget(gameState, name, [gameState.playerName]);
+          lines.push(alt
+            ? `${name} grabbed immunity. The plan shifts to ${alt}.`
+            : `${name} grabbed immunity. We reset the week and regroup.`);
+        } else {
+          lines.push(`${name} can save themself; the timing to move on them is now or never.`);
+        }
+      }
+      break;
+    }
+    case 'social-connection': {
+      if (target) {
+        lines.push(`With ${target}, it’s real—useful socially and steady for numbers. I keep it genuine and strategic.`);
+      }
+      break;
+    }
+    case 'recent-conflict': {
+      if (target) {
+        lines.push(`It was about game lines with ${target}: they pushed, I stood my ground. I’m managing fallout and keeping the vote clean.`);
+      }
+      break;
+    }
+    case 'power-dynamics': {
+      const leaders = active
+        .filter(c => c.name !== gameState.playerName)
+        .sort((a, b) => (b.psychProfile.editBias || 0) - (a.psychProfile.editBias || 0));
+      const lead = leaders[0];
+      if (lead) {
+        lines.push(`${lead.name} is steering right now. I stay close enough to read it, far enough not to be blamed.`);
+      }
+      break;
+    }
+    case 'jury-approaching': {
+      lines.push('I’m shaping moves jurors respect—visible control without cheap chaos.');
+      break;
+    }
+    case 'finale-positioning': {
+      const name = likelyTarget;
+      if (name) {
+        lines.push(`I need one clean move—set ${name} as the vote, absorb no blowback, and lock numbers to the end.`);
+      } else {
+        lines.push('I need one clean move—set a vote, absorb no blowback, and lock numbers to the end.');
+      }
+      break;
+    }
+    case 'edit-shaping': {
+      lines.push('I’ll give a sharp line, then make the board reflect it. No empty talk.');
+      break;
+    }
+    case 'prod-bait-rival': {
+      const name = target || likelyTarget;
+      if (name) lines.push(`${name} charms in public and cuts in private. I’ll name it and set the vote when it lands.`);
+      break;
+    }
+    case 'prod-retell-conflict': {
+      const name = target;
+      if (name) lines.push(`Calm → push → line crossed. That’s the beat with ${name}. I pivoted and protected my game.`);
+      break;
+    }
+    case 'prod-damage-control': {
+      lines.push('I own it: here’s the message, then the fix. No excuses—just the next move.');
+      break;
+    }
+    case 'prod-reframe-persona': {
+      lines.push('I did what I had to because the board demanded it, not because I like mess.');
+      break;
+    }
   }
 
-  const shuffled = shuffleArray(aligned);
-  return shuffled.slice(0, Math.min(8, shuffled.length));
+  return lines;
+}
+
+function computeMajorityThreshold(gameState: GameState): number {
+  const activeCount = gameState.contestants.filter(c => !c.isEliminated).length;
+  return Math.floor(activeCount / 2) + 1;
+}
+
+function getPlayerAllianceMembers(gameState: GameState): string[] {
+  const alliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName) && !a.dissolved);
+  const best = alliances.sort((a, b) => (b.strength || 0) - (a.strength || 0))[0];
+  if (!best) return [];
+  return best.members.filter(m => m !== gameState.playerName);
+}
+
+function pickLikelyTargetFromGameState(gameState: GameState, exclude: string[] = []): string | undefined {
+  const active = gameState.contestants.filter(c => !c.isEliminated && !exclude.includes(c.name));
+  const sorted = active.sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0));
+  const candidate = sorted[0]?.name;
+  const immune = gameState.immunityWinner;
+  if (candidate && immune && candidate === immune) {
+    return sorted[1]?.name || undefined;
+  }
+  return candidate;
+}
+
+function pickAlternativeTarget(gameState: GameState, skip: string, exclude: string[] = []): string | undefined {
+  const active = gameState.contestants.filter(c => !c.isEliminated && c.name !== skip && !exclude.includes(c.name));
+  const sorted = active.sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0));
+  return sorted[0]?.name || undefined;
+}
+
+function listNames(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 function generateContextualResponses(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
