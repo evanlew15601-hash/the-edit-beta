@@ -10,6 +10,8 @@ export type NPCResponseContext = {
   motives: any[];
   socialContext: SocialContext;
   playerProfile: PlayerLinguisticProfile;
+  gameState: GameState;
+  playerMessage: string;
 };
 
 export type SocialContext = {
@@ -65,7 +67,7 @@ class NPCResponseEngine {
     const npc = gameState.contestants.find(c => c.name === targetNPC);
     if (!npc) throw new Error(`NPC ${targetNPC} not found`);
     
-    const context = this.buildResponseContext(npc, gameState, speechAct);
+    const context = this.buildResponseContext(npc, gameState, speechAct, playerMessage);
     
     // Update NPC perception of player
     this.updateNPCPerception(targetNPC, speechAct, playerMessage, context);
@@ -82,7 +84,7 @@ class NPCResponseEngine {
     return response;
   }
 
-  private buildResponseContext(npc: Contestant, gameState: GameState, speechAct: SpeechAct): NPCResponseContext {
+  private buildResponseContext(npc: Contestant, gameState: GameState, speechAct: SpeechAct, playerMessage: string): NPCResponseContext {
     const relationship = relationshipGraphEngine.getRelationship(npc.name, 'Player');
     const recentMemories = npc.memory
       .filter(m => m.participants.includes('Player'))
@@ -118,7 +120,9 @@ class NPCResponseEngine {
       recentMemories,
       motives,
       socialContext,
-      playerProfile
+      playerProfile,
+      gameState,
+      playerMessage
     };
   }
 
@@ -291,7 +295,7 @@ class NPCResponseEngine {
     const template = this.selectBestTemplate(responseTemplates, context);
     
     // Fill in template with context-specific information
-    return this.customizeTemplate(template, context, perception);
+    return this.customizeTemplate(template, context, perception, speechAct);
   }
 
   private getResponseTemplates(
@@ -395,9 +399,18 @@ class NPCResponseEngine {
   private customizeTemplate(
     template: ResponseTemplate,
     context: NPCResponseContext,
-    perception: NPCPlayerPerception
+    perception: NPCPlayerPerception,
+    speechAct: SpeechAct
   ): string {
     let content = template.content;
+
+    // If the player asked a direct question, provide a direct answer with game context
+    if (speechAct.informationSeeking || /\?/.test(context.playerMessage)) {
+      const direct = this.buildDirectAnswerForQuestion(context.playerMessage, context);
+      if (direct) {
+        content = direct;
+      }
+    }
     
     // Add personal touches based on relationship history
     if (context.recentMemories.length > 0) {
@@ -430,6 +443,144 @@ class NPCResponseEngine {
     }
     
     return content;
+  }
+
+  // Build a direct, context-aware answer to the player's question
+  private buildDirectAnswerForQuestion(message: string, context: NPCResponseContext): string | null {
+    const lower = message.toLowerCase();
+    const names = this.extractMentionedNames(message, context.gameState);
+
+    const isVote = /\\b(vote|votes|voting|majority|target|whose name|name is)\\b/.test(lower);
+    const isAlliance = /\\b(alliance|team up|work with|who (are|you're|you are) with|numbers)\\b/.test(lower);
+    const isRumor = /\\b(rumor|whispers?|gossip|leak|who's talking)\\b/.test(lower);
+    const isComp = /\\b(immunity|challenge|competition|who won|win)\\b/.test(lower);
+    const isTrust = /\\b(trust|loyal|reliable|flip|faith|on your side)\\b/.test(lower);
+
+    if (isVote) {
+      const target = names[0] || this.pickLikelyTargetFromContext(context);
+      const allies = this.getAllianceMembersForNPC(context);
+      const majority = this.computeMajorityThreshold(context.gameState);
+
+      if (!target) {
+        return `Right now the names are moving, but the room is settling soon. Majority is ${majority}.`;
+      }
+
+      const pushers = allies.length ? `${this.listNames(allies)} are pushing it with me` : `that's where the room is leaning`;
+      let answer = `Right now, ${target} is the name—${pushers}. Majority is ${majority}.`;
+
+      // Backup if target is immune
+      const immune = context.gameState.immunityWinner;
+      if (immune && immune === target) {
+        const alt = this.pickAlternativeTarget(context, target);
+        if (alt) {
+          answer = `Immunity is on ${target}, so the backup is ${alt}. Majority is ${majority}.`;
+        }
+      }
+      return answer;
+    }
+
+    if (isAlliance) {
+      const allies = this.getAllianceMembersForNPC(context);
+      if (allies.length) {
+        const wobble = context.socialContext.opportunities[0];
+        return wobble
+          ? `I'm working with ${this.listNames(allies)}. ${wobble} is wobbly; we keep it tight.`
+          : `I'm working with ${this.listNames(allies)}. We keep it quiet and clean.`;
+      }
+      const near = context.socialContext.opportunities.slice(0, 2);
+      return near.length
+        ? `Not locked in. I talk to ${this.listNames(near)} and keep options open.`
+        : `I'm keeping options open and testing conversations.`;
+    }
+
+    if (isRumor) {
+      const subject = names[0] || this.pickLikelyTargetFromContext(context);
+      const pushers = context.socialContext.threats.slice(0, 2);
+      return subject
+        ? pushers.length
+          ? `The whispers are about ${subject}. ${this.listNames(pushers)} keep spreading it.`
+          : `The whispers are about ${subject}. It's coming from a few rooms.`
+        : `The whispers are moving fast. People are testing names without committing.`;
+    }
+
+    if (isComp) {
+      const immune = context.gameState.immunityWinner;
+      if (immune) {
+        const alt = this.pickAlternativeTarget(context, immune);
+        return alt
+          ? `Immunity went to ${immune}. The plan shifts to ${alt}.`
+          : `Immunity went to ${immune}. We're reassessing the plan.`;
+      }
+      const fallback = this.pickLikelyTargetFromContext(context);
+      return fallback
+        ? `No immunity yet. If ${fallback} wins, the vote flips and we regroup.`
+        : `No immunity yet. The plan depends on who can save themselves.`;
+    }
+
+    if (isTrust) {
+      const target = names[0];
+      if (target) {
+        const rel = relationshipGraphEngine.getRelationship(context.contestant.name, target);
+        if (rel) {
+          if (rel.trust >= 60) {
+            return `I trust ${target}. They've been steady with me and haven't leaked.`;
+          }
+          if (rel.suspicion >= 60) {
+            return `I don't trust ${target}. They push names and leak softly. I'm watching them.`;
+          }
+          return `I'm neutral on ${target}. They talk to everyone, so I keep guard up.`;
+        }
+      }
+      return `Trust shifts daily. I keep receipts and adjust as the room changes.`;
+    }
+
+    return null;
+  }
+
+  private extractMentionedNames(message: string, gameState: GameState): string[] {
+    const lower = message.toLowerCase();
+    const names = gameState.contestants
+      .filter(c => !c.isEliminated)
+      .map(c => c.name)
+      .filter(n => lower.includes(n.toLowerCase()));
+    return Array.from(new Set(names));
+  }
+
+  private pickLikelyTargetFromContext(context: NPCResponseContext): string | undefined {
+    const active = context.gameState.contestants.filter(c => !c.isEliminated && c.name !== context.contestant.name && c.name !== context.gameState.playerName);
+    const sorted = active.sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0));
+    const candidate = sorted[0]?.name;
+    const immune = context.gameState.immunityWinner;
+    if (candidate && immune && candidate === immune) {
+      return sorted[1]?.name || undefined;
+    }
+    return candidate;
+  }
+
+  private pickAlternativeTarget(context: NPCResponseContext, skip: string): string | undefined {
+    const active = context.gameState.contestants.filter(c => !c.isEliminated && c.name !== context.contestant.name && c.name !== context.gameState.playerName && c.name !== skip);
+    const sorted = active.sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0));
+    return sorted[0]?.name || undefined;
+  }
+
+  private getAllianceMembersForNPC(context: NPCResponseContext): string[] {
+    const alliances = context.gameState.alliances.filter(a => a.members.includes(context.contestant.name));
+    // Return 2-3 other names in the closest alliance (highest strength)
+    const best = alliances.sort((a, b) => (b.strength || 0) - (a.strength || 0))[0];
+    if (!best) return [];
+    return best.members.filter(m => m !== context.contestant.name && m !== context.gameState.playerName).slice(0, 3);
+  }
+
+  private computeMajorityThreshold(gameState: GameState): number {
+    const activeCount = gameState.contestants.filter(c => !c.isEliminated).length;
+    return Math.floor(activeCount / 2) + 1;
+  }
+
+  private listNames(names: string[]): string {
+    if (names.length === 0) return '';
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
   }
 
   private determineTone(
