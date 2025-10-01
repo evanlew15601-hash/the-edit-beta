@@ -1,5 +1,6 @@
 
 import { GameState, Contestant, Alliance } from '@/types/game';
+import { getSpecialConfessionalPrompts } from '@/utils/twistNarrativeEngine';
 
 export interface DynamicConfessionalPrompt {
   id: string;
@@ -28,6 +29,14 @@ export class EnhancedConfessionalEngine {
     // Generate contextual prompts based on recent events
     const recentEvents = this.analyzeRecentEvents(gameState);
     prompts.push(...this.generateEventBasedPrompts(recentEvents, gameState));
+
+    // Special background aware prompts (host child / planted HG arc)
+    const specialPrompts = getSpecialConfessionalPrompts(gameState) as unknown as DynamicConfessionalPrompt[];
+    if (specialPrompts.length > 0) {
+      // Merge while avoiding duplicate IDs
+      const existingIds = new Set(prompts.map(p => p.id));
+      specialPrompts.forEach(p => { if (!existingIds.has(p.id)) prompts.push(p); });
+    }
 
     // Strategy prompts - context-aware based on game stage
     if (activeContestants.length <= 8 && activeContestants.length > 5) {

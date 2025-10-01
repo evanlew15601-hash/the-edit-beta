@@ -514,6 +514,31 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                   No planted houseguest twist this season.
                 </div>
               )}
+
+              {/* Twist Narrative Recap */}
+              {gameState.twistNarrative && gameState.twistNarrative.arc !== 'none' && (
+                <div className="mt-6 p-4 border border-primary/20 bg-primary/10 rounded">
+                  <div className="font-medium mb-2">Narrative Arc</div>
+                  <div className="text-sm text-muted-foreground mb-2">
+                    Arc: {gameState.twistNarrative.arc === 'hosts_child' ? 'Host’s Child' : 'Planted Houseguest'}
+                  </div>
+                  <div className="space-y-1">
+                    {gameState.twistNarrative.beats.map((b) => (
+                      <div key={b.id} className="flex items-center justify-between text-sm">
+                        <span>{b.title}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={b.status === 'completed' ? 'secondary' : 'outline'} className="text-[10px]">
+                            {b.status}
+                          </Badge>
+                          {b.summary && (
+                            <span className="text-[10px] text-muted-foreground">{b.summary}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Card>
           </TabsContent>
 
