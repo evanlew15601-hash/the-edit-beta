@@ -91,10 +91,20 @@ export function applyDailyNarrative(gs: GameState): GameState {
     }
   }
 
-  // Planted HG task sync and exposure
+  // Planted HG task sync, exposure, and contract end handling
   let working = { ...gs };
   if (player.special && player.special.kind === 'planted_houseguest') {
     const spec = player.special;
+
+    // Contract window calculations
+    const week = Math.floor((gs.currentDay - 1) / 7) + 1;
+    const contractWeeks = spec.contractWeeks ?? 6;
+    const contractEndWeek = spec.contractEndWeek ?? contractWeeks;
+    const contractEnded = week > contractEndWeek;
+
+    // Update spec with contract meta
+    let specUpdated = { ...spec, contractWeeks, contractEndWeek, contractEnded } as typeof spec;
+
     // escalate beat when secret revealed
     if (spec.secretRevealed) {
       const exposureIdx = beats.findIndex(b => b.id === 'phg_exposure_test');
@@ -102,23 +112,35 @@ export function applyDailyNarrative(gs: GameState): GameState {
         beats[exposureIdx] = { ...beats[exposureIdx], status: 'active' as const, summary: `Secret flagged Day ${spec.revealDay || gs.currentDay}` };
       }
     }
-    // ensure at least one task per week assigned by appending if needed
-    const week = Math.floor((gs.currentDay - 1) / 7) + 1;
+
+    // ensure at least one task per week assigned by appending if needed, only within contract window
     const tasks = (spec.tasks || []).slice();
     const weekTaskId = `w${week}_mission`;
     const hasWeekTask = tasks.some(t => t.id === weekTaskId);
-    if (!hasWeekTask) {
+    if (!hasWeekTask && !contractEnded) {
       const newTask = createWeeklyTask(gs, week);
       tasks.push(newTask);
-      // reflect tasks back into player.special
-      const updatedContestants = working.contestants.map(c => {
+    }
+
+    // Reflect tasks and contract meta back into player.special
+    let updatedContestants = working.contestants.map(c => {
+      if (c.name !== working.playerName) return c;
+      return {
+        ...c,
+        special: { ...specUpdated, tasks },
+      } as Contestant;
+    });
+    working = { ...working, contestants: updatedContestants };
+
+    // If contract ended and twist still secret, raise a UI notification once
+    if (contractEnded && !spec.secretRevealed && !spec.contractEndNotified) {
+      const notifiedSpec = { ...specUpdated, contractEndNotified: true };
+      updatedContestants = working.contestants.map(c => {
         if (c.name !== working.playerName) return c;
-        return {
-          ...c,
-          special: { ...spec, tasks },
-        } as Contestant;
+        return { ...c, special: notifiedSpec } as Contestant;
       });
-      working = { ...working, contestants: updatedContestants };
+      const twists = Array.from(new Set([...(working.twistsActivated || []), 'planted_contract_end']));
+      working = { ...working, contestants: updatedContestants, twistsActivated: twists };
     }
 
     // Verify and update task progress/completion and apply rewards

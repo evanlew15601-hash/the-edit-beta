@@ -61,6 +61,11 @@ export type SpecialBackground =
         reward?: number; // default 1000
         rewarded?: boolean; // whether funds were granted
       }[];
+      // Contract window: tasks only run for a limited number of weeks, then player chooses reveal or keep secret
+      contractWeeks?: number; // default 6
+      contractEndWeek?: number; // computed when contract starts
+      contractEnded?: boolean; // true once current week > contractWeeks
+      contractEndNotified?: boolean; // UI notification raised
       secretRevealed?: boolean;
       revealDay?: number;
     };

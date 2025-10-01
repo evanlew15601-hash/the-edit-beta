@@ -95,6 +95,57 @@ export function setProductionTaskStatus(gs: GameState, contestantName: string, t
   return next;
 }
 
+// Finalize planted HG contract (after contractWeeks)
+// If reveal=true: set secretRevealed and apply consequences/benefits.
+// If reveal=false: mark contract ended, keep secret, slight suspicion relief.
+export function finalizePlantedContract(gs: GameState, reveal: boolean): GameState {
+  let next = sanitizeNPCSpecials(gs);
+  const c = next.contestants.find(x => x.name === next.playerName);
+  if (!c?.special || c.special.kind !== 'planted_houseguest') return next;
+
+  const spec = c.special;
+  const week = Math.floor((next.currentDay - 1) / 7) + 1;
+  const contractWeeks = spec.contractWeeks ?? 6;
+
+  const updatedSpec = {
+    ...spec,
+    contractWeeks,
+    contractEndWeek: spec.contractEndWeek ?? contractWeeks,
+    contractEnded: true,
+    contractEndNotified: true,
+    secretRevealed: reveal ? true : spec.secretRevealed,
+    revealDay: reveal ? next.currentDay : spec.revealDay,
+  } as typeof spec;
+
+  c.special = updatedSpec;
+
+  if (reveal) {
+    // Consequences: spike suspicion among strategic players; benefits: edit bias boost and audience approval
+    c.psychProfile.suspicionLevel = Math.min(100, c.psychProfile.suspicionLevel + 10);
+    c.psychProfile.trustLevel = Math.max(-100, c.psychProfile.trustLevel - 5);
+    c.psychProfile.editBias = Math.min(50, c.psychProfile.editBias + 10);
+
+    next.editPerception = {
+      ...next.editPerception,
+      screenTimeIndex: Math.min(100, (next.editPerception.screenTimeIndex || 0) + 6),
+      audienceApproval: Math.max(-100, (next.editPerception.audienceApproval || 0) + 5),
+      lastEditShift: 6,
+    };
+
+    next.twistsActivated = Array.from(new Set([...(next.twistsActivated || []), 'planted_reveal']));
+  } else {
+    // Keep secret: small suspicion relief and stability
+    c.psychProfile.suspicionLevel = Math.max(0, c.psychProfile.suspicionLevel - 5);
+    next.editPerception = {
+      ...next.editPerception,
+      lastEditShift: Math.max(-50, Math.min(50, (next.editPerception.lastEditShift || 0) - 1)),
+    };
+    next.twistsActivated = Array.from(new Set([...(next.twistsActivated || []), 'planted_contract_closed']));
+  }
+
+  return next;
+}
+
 // Helper to reveal host child twist intentionally (e.g., via event)
 export function revealHostChild(gs: GameState, contestantName: string): GameState {
   let next = sanitizeNPCSpecials(gs);
