@@ -12,6 +12,7 @@ import { AllianceIntelligencePanel } from './AllianceIntelligencePanel';
 import { AIOutcomeDebug } from './AIOutcomeDebug';
 import { RatingsPanel } from './RatingsPanel';
 import { BasicConversationEngine } from './BasicConversationEngine';
+import { TruthVoteRequestPanel } from './TruthVoteRequestPanel';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -65,6 +66,8 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
                  selectedAlliance={gameState.alliances[0]?.id}
                />
              )}
+             {/* Ask for Truth Vote (per-person) */}
+             <TruthVoteRequestPanel gameState={gameState} />
              {/* Basic RPG-style conversation (lightweight set options) */}
              <BasicConversationEngine
                gameState={gameState}
