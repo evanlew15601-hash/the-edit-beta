@@ -88,6 +88,73 @@ const RESPONSE_TEMPLATES: ResponseTemplate[] = [
   }
 ];
 
+/**
+ * Tailored responses for twist-related prompts (host child / planted HG).
+ * These are designed to map directly to the selected prompt ID so the answer feels connected.
+ */
+function generateTwistResponsesForPrompt(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
+  const id = prompt.id || '';
+  const player = gameState.contestants.find(c => c.name === gameState.playerName);
+  const isHostChild = player?.special && player.special.kind === 'hosts_estranged_child';
+  const isPlanted = player?.special && player.special.kind === 'planted_houseguest';
+  const res: string[] = [];
+
+  if (id.startsWith('hc_') && isHostChild) {
+    if (id === 'hc_keep_secret') {
+      res.push(
+        'I keep the focus on votes and numbers—my personal life stays outside the game.',
+        'Rumors are oxygen; I starve them by playing cleaner than they expect.',
+        'If people want a headline, I give them gameplay instead.',
+      );
+    } else if (id === 'hc_reveal_fallout') {
+      res.push(
+        'Trust is built in small scenes now—consistent actions, no theatrics.',
+        'I’m rebuilding with honesty first, strategy second. In that order.',
+        'I talk to the people I hurt first, then I let the rest watch me play.',
+      );
+    } else if (id === 'hc_edit_bias') {
+      res.push(
+        'The edit will tilt either way—I make sure the footage shows choices, not gossip.',
+        'If the storyline drifts, I anchor it with confessionals about the game.',
+        'I don’t control the narrative, but I control the next decision.',
+      );
+    }
+  }
+
+  if (id.startsWith('phg_') && isPlanted) {
+    const firstTask = (player?.special && player.special.kind === 'planted_houseguest') ? (player.special.tasks || [])[0] : undefined;
+    if (id === 'phg_mission_update') {
+      res.push(
+        firstTask ? `I make "${firstTask.description}" feel like everyone’s idea—never mine.` : 'I keep the mission invisible by aligning it with the house mood.',
+        'I plant once, repeat lightly, and let someone else water it.',
+        'The cover is consistency—one believable explanation, every time.',
+      );
+    } else if (id === 'phg_damage_control') {
+      res.push(
+        'If it slipped, I turn exposure into leverage: “I did it to help the game along.”',
+        'I keep tone calm and detail specific—panic exposes you more than truth.',
+        'I reframe the secret: it’s pressure I managed, not power I abused.',
+      );
+    } else if (id === 'phg_cover_story') {
+      res.push(
+        'My cover story is simple enough to repeat but broad enough to flex.',
+        'I pick one line and say it the same way to everyone—it becomes true.',
+        'I describe motives, not mechanics. People trust motives.',
+      );
+    }
+  }
+
+  if (id === 'arc_closer') {
+    res.push(
+      'What defined my season was how I turned moments into moves.',
+      'The truth behind my edit is in the quiet decisions you didn’t notice.',
+      'I played a story I could stand behind after the credits.',
+    );
+  }
+
+  return res;
+}
+
 export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
   // Get base responses for the prompt category
   const categoryResponses = RESPONSE_TEMPLATES.find(t => t.category === prompt.category)?.responses || [];
@@ -95,11 +162,15 @@ export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameS
   // Generate contextual responses based on current game state
   const contextualResponses = generateContextualResponses(prompt, gameState);
 
+  // Twist-aware answers mapped directly to the selected prompt
+  const twistResponses = generateTwistResponsesForPrompt(prompt, gameState);
+
   // Producer tactic targeted responses (if any)
   const producerResponses = generateProducerResponsesIfAny(prompt, gameState);
   
-  // Combine all responses
-  const allResponses = [...categoryResponses, ...contextualResponses, ...producerResponses];
+  // Combine all responses and lightly weight prompt text to the front by echoing a concise framing
+  const promptEcho = prompt.prompt ? [`${prompt.prompt.split('.')[0]}.`] : [];
+  const allResponses = [...promptEcho, ...twistResponses, ...producerResponses, ...contextualResponses, ...categoryResponses];
 
   // Integrity guard: remove lines that reference events that haven't happened
   const validResponses = allResponses.filter(r => responseIsValid(r, gameState));
