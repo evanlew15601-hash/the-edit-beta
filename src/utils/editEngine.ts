@@ -433,7 +433,7 @@ export const calculateLegacyEditPerception = (
     lastEditShift: Math.round(screenTimeChange),
     weeklyQuote: (recentConfessionals
       .slice()
-      .sort((a, b) => (b.editImpact ?? 0) - (a.editImpact ?? 0) || (b.content?.length ?? 0) - (a.content?.length ?? 0) || b.day - a.day)[0]?.content || '')
+      .sort((a, b) => ((b.editImpact ?? 0) + (b.selected ? 1 : 0)) - ((a.editImpact ?? 0) + (a.selected ? 1 : 0)) || (b.content?.length ?? 0) - (a.content?.length ?? 0) || b.day - a.day)[0]?.content || '')
       .slice(0, 160)
   };
 };

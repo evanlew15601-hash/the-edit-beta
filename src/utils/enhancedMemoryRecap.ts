@@ -76,9 +76,9 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
       selected: e.strategicImportance > 6
     }));
 
-  // Get the best confessional quote
+  // Get the best confessional quote (slightly favor aired/selected)
   const featuredConfessional = allConfessionals
-    .sort((a, b) => (b.audienceScore || 0) - (a.audienceScore || 0) || (b.editImpact || 0) - (a.editImpact || 0))[0];
+    .sort((a, b) => ((b.audienceScore || 0) + (b.selected ? 0.5 : 0)) - ((a.audienceScore || 0) + (a.selected ? 0.5 : 0)) || (b.editImpact || 0) - (a.editImpact || 0))[0];
   
   const finalQuote = featuredConfessional?.content?.slice(0, 160) || 
     generateDynamicQuote(gameState, week, playerEvents) || finalSelectedQuote;
