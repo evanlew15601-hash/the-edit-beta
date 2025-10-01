@@ -401,6 +401,9 @@ export const useGameState = () => {
         const pitchedContestant = pitchedName ? prev.contestants.find(c => c.name === pitchedName) : undefined;
         const immune = pitchedContestant && prev.immunityWinner === pitchedContestant.name;
 
+        // Sanitize agenda for display/logging (hide internal bracket syntax)
+        const sanitizedAgenda = agenda.replace(/\[PitchTarget:\s*[^\]]+\]/i, '').trim();
+
         let nextPlans = { ...(prev.weeklyVotingPlans || {}) };
         let updatedContestants = [...prev.contestants];
 
@@ -485,7 +488,7 @@ export const useGameState = () => {
           lastAIReaction: reactionSummary,
           interactionLog: [
             ...(prev.interactionLog || []),
-            { day: prev.currentDay, type: 'scheme', participants: [prev.playerName, ...alliance.members], content: `Alliance meeting: ${agenda}`, tone: meetingTone, source: 'player' as const }
+            { day: prev.currentDay, type: 'scheme', participants: [prev.playerName, ...alliance.members], content: `Alliance meeting: ${sanitizedAgenda}`, tone: meetingTone, source: 'player' as const }
           ],
           viewerRating: ratingRes.rating,
           ratingsHistory: nextHistory,
