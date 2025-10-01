@@ -89,261 +89,41 @@ const RESPONSE_TEMPLATES: ResponseTemplate[] = [
 ];
 
 export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
-  // Prefer direct, context-aware answers
-  const directResponses = generateDirectAnswers(prompt, gameState);
+  // Strictly anchored to prompt
+  const anchored = generatePromptAnchoredResponses(prompt, gameState);
 
-  // Base responses for the prompt category
-  const categoryResponses = RESPONSE_TEMPLATES.find(t => t.category === prompt.category)?.responses || [];
+  // Twist-aware answers mapped directly to the selected prompt
+  const twistResponses = generateTwistResponsesForPrompt(prompt, gameState);
 
   // Contextual + producer + prompt-specific variants
   const contextualResponses = generateContextualResponses(prompt, gameState);
   const producerResponses = generateProducerResponsesIfAny(prompt, gameState);
-  const specificResponses = generatePromptSpecificResponses(prompt, gameState);
 
-  // Combine - direct first
-  const allResponses = [...directResponses, ...categoryResponses, ...contextualResponses, ...producerResponses, ...specificResponses];
+  // Contextual lines (kept minimal and prompt-aware)
+  const contextualResponses = generateContextualResponses(prompt, gameState);
+
+  // Combine anchored first, then twist/producer/context
+  const combined = [...anchored, ...twistResponses, ...producerResponses, ...contextualResponses];
 
   // Integrity guard: remove lines that reference events that haven't happened
-  const eventValid = allResponses.filter(r => responseIsValid(r, gameState));
+  const valid = combined.filter(r => responseIsValid(r, gameState));
 
-  // Alignment guard: keep only responses that match prompt keywords or entities
-  const entities = extractEntitiesFromPrompt(prompt, gameState);
-  const keywords = keywordsForPrompt(prompt);
-  let aligned = eventValid.filter(r => responseMatchesPrompt(r, keywords, entities, prompt.category));
-
-  // Remove deflective/avoidance phrasing
-  aligned = aligned.filter(r => !looksDeflective(r));
-
-  // Fallback if too few aligned responses
-  if (aligned.length < 4) {
-    const base = [...directResponses, ...contextualResponses, ...specificResponses].filter(r => responseIsValid(r, gameState));
-    aligned = [...new Set([...aligned, ...base])];
-  }
-  if (aligned.length < 4) {
-    const semanticallyOk = categoryResponses.filter(r => responseMatchesPrompt(r, keywords, entities, prompt.category));
-    aligned = [...new Set([...aligned, ...semanticallyOk])];
+  // If very short, add a couple of category-coherent fallbacks strictly tied to the topic
+  let pool = valid;
+  if (pool.length < 3) {
+    const catFallbacks = generatePromptAnchoredResponses(
+      { ...prompt, id: `fallback-${prompt.category}` } as DynamicConfessionalPrompt,
+      gameState
+    );
+    pool = [...pool, ...catFallbacks].filter((r, i, arr) => arr.indexOf(r) === i);
   }
 
-  // Coherence and grammar polish: add tone/category/context prefixes and normalize punctuation
-  const polished = applyCoherenceAndGrammar(aligned, prompt, gameState);
+  // Expand with variations (the UI will page these so they don't all show at once)
+  const withVariations = generateVariationsForResponses(pool, prompt.suggestedTones?.[0]);
 
-  // Shuffle and return a selection
-  const shuffled = shuffleArray(polished);
-  return shuffled.slice(0, Math.min(8, shuffled.length));
-}
-
-// Grammar + coherence polish helpers
-function applyCoherenceAndGrammar(texts: string[], prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
-  const entities = extractEntitiesFromPrompt(prompt, gameState);
-  const prefix = categoryPrefix(prompt.category);
-  const contextPrefix = buildContextPrefix(prompt, entities, gameState);
-
-  return texts.map(t => ensureSentence(`${prefix}${contextPrefix}${normalizeText(t)}`));
-}
-
-function categoryPrefix(category: string): string {
-  switch (category) {
-    case 'strategy': return 'Strategically, ';
-    case 'alliance': return 'As for my alliance, ';
-    case 'voting': return 'Right now, on the vote, ';
-    case 'social': return 'Honestly, ';
-    case 'reflection': return 'Looking back, ';
-    case 'general': return 'Truth is, ';
-    default: return '';
-  }
-}
-
-function buildContextPrefix(prompt: DynamicConfessionalPrompt, entities: string[], gameState: GameState): string {
-  const target = entities[0];
-  if (prompt.id.includes('recent-conflict') && target) return `about ${target}, `;
-  if (prompt.id.includes('social-connection') && target) return `regarding ${target}, `;
-  if (prompt.id.includes('competition-threat') && target) return `on ${target}, `;
-  if (prompt.category === 'alliance' && prompt.context?.members?.length) {
-    return `with ${prompt.context.members.join(' and ')}, `;
-  }
-  if (prompt.id.includes('elimination-pressure') || prompt.category === 'voting') {
-    return 'with elimination approaching, ';
-  }
-  return '';
-}
-
-function normalizeText(text: string): string {
-  let t = text.trim();
-
-  // Replace curly punctuation with ASCII equivalents
-  t = t.replace(/\u2019/g, "'"); // ’
-  t = t.replace(/\u2018/g, "'"); // ‘
-  t = t.replace(/\u201C/g, '"'); // “
-  t = t.replace(/\u201D/g, '"'); // ”
-  t = t.replace(/\u2026/g, '...'); // …
-  t = t.replace(/\s+/g, ' ');
-
-  // Capitalize first letter
-  if (t.length > 0) t = t[0].toUpperCase() + t.slice(1);
-  return t;
-}
-
-function ensureSentence(text: string): string {
-  const t = text.trim();
-  if (t.endsWith('.') || t.endsWith('!') || t.endsWith('?')) return t;
-  return t + '.';
-}
-  /**
- * Avoid deflective/avoidance phrasing in confessionals
- */
-function looksDeflective(text: string): boolean {
-  const t = text.toLowerCase();
-  return /\b(i (do not|don't) want to talk|i (do not|don't) want to discuss|change the subject|rather not|not ready to talk|keep(ing)? this private|boundaries|let'?s not|doesn'?t matter|forget about it)\b/.test(t);
-}
-
-// Direct, context-aware answers (avoid dodging)
-function generateDirectAnswers(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
-  const lines: string[] = [];
-  const entities = extractEntitiesFromPrompt(prompt, gameState);
-  const target = entities[0];
-  const majority = computeMajorityThreshold(gameState);
-  const allies = getPlayerAllianceMembers(gameState);
-  const allyText = allies.length ? listNames(allies) : '';
-  const active = gameState.contestants.filter(c => !c.isEliminated);
-
-  const likelyTarget = pickLikelyTargetFromGameState(gameState, [gameState.playerName, gameState.immunityWinner].filter(Boolean) as string[]);
-
-  switch (prompt.id) {
-    case 'elimination-pressure':
-    case 'voting-strategy': {
-      const name = target || likelyTarget;
-      if (name) {
-        const immune = gameState.immunityWinner;
-        if (immune && immune === name) {
-          const alt = pickAlternativeTarget(gameState, name, [gameState.playerName]);
-          if (alt) {
-            lines.push(`The name was ${name}, but immunity changed the plan—backup is ${alt}. Majority is ${majority}.`);
-          } else {
-            lines.push(`Immunity is on ${name}. We're reassessing; majority is ${majority}.`);
-          }
-        } else {
-          lines.push(`Right now, ${name} is the vote. ${allyText ? `${allyText} are with me` : 'I’m lining up support'}—majority is ${majority}.`);
-        }
-      } else {
-        lines.push(`Names are moving, but majority is ${majority}. I’m aligning something clean.`);
-      }
-      break;
-    }
-    case 'alliance-trust': {
-      if (allies.length) {
-        const allyObjs = allies
-          .map(n => active.find(c => c.name === n))
-          .filter(Boolean) as typeof active;
-        const steady = allyObjs.sort((a, b) => (b.psychProfile.trustLevel || 0) - (a.psychProfile.trustLevel || 0))[0];
-        const wobble = allyObjs.sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0))[0];
-        if (steady && wobble && steady.name !== wobble.name) {
-          lines.push(`I’m with ${listNames(allies)}. ${steady.name} is steady; ${wobble.name} wobbles if the room shifts.`);
-        } else {
-          lines.push(`I’m with ${listNames(allies)}. Trust is good, but I’m keeping receipts.`);
-        }
-      } else {
-        lines.push('No solid alliance yet. I’m testing trust and keeping options open.');
-      }
-      break;
-    }
-    case 'competition-threat': {
-      const name = target || likelyTarget;
-      if (name) {
-        const immune = gameState.immunityWinner;
-        if (immune && immune === name) {
-          const alt = pickAlternativeTarget(gameState, name, [gameState.playerName]);
-          lines.push(alt
-            ? `${name} grabbed immunity. The plan shifts to ${alt}.`
-            : `${name} grabbed immunity. We reset the week and regroup.`);
-        } else {
-          lines.push(`${name} can save themself; the timing to move on them is now or never.`);
-        }
-      }
-      break;
-    }
-    case 'social-connection': {
-      if (target) {
-        lines.push(`With ${target}, it’s real—useful socially and steady for numbers. I keep it genuine and strategic.`);
-      }
-      break;
-    }
-    case 'recent-conflict': {
-      if (target) {
-        lines.push(`It was about game lines with ${target}: they pushed, I stood my ground. I’m managing fallout and keeping the vote clean.`);
-      }
-      break;
-    }
-    case 'power-dynamics': {
-      const leaders = active
-        .filter(c => c.name !== gameState.playerName)
-        .sort((a, b) => (b.psychProfile.editBias || 0) - (a.psychProfile.editBias || 0));
-      const lead = leaders[0];
-      if (lead) {
-        lines.push(`${lead.name} is steering right now. I stay close enough to read it, far enough not to be blamed.`);
-      }
-      break;
-    }
-    case 'jury-approaching': {
-      lines.push('I’m shaping moves jurors respect—visible control without cheap chaos.');
-      break;
-    }
-    case 'finale-positioning': {
-      const name = likelyTarget;
-      if (name) {
-        lines.push(`I need one clean move—set ${name} as the vote, absorb no blowback, and lock numbers to the end.`);
-      } else {
-        lines.push('I need one clean move—set a vote, absorb no blowback, and lock numbers to the end.');
-      }
-      break;
-    }
-    case 'edit-shaping': {
-      lines.push('I’ll give a sharp line, then make the board reflect it. No empty talk.');
-      break;
-    }
-    case 'prod-bait-rival': {
-      const name = target || likelyTarget;
-      if (name) lines.push(`${name} charms in public and cuts in private. I’ll name it and set the vote when it lands.`);
-      break;
-    }
-    case 'prod-retell-conflict': {
-      const name = target;
-      if (name) lines.push(`Calm → push → line crossed. That’s the beat with ${name}. I pivoted and protected my game.`);
-      break;
-    }
-    case 'prod-damage-control': {
-      lines.push('I own it: here’s the message, then the fix. No excuses—just the next move.');
-      break;
-    }
-    case 'prod-reframe-persona': {
-      lines.push('I did what I had to because the board demanded it, not because I like mess.');
-      break;
-    }
-  }
-
-  return lines;
-}
-
-function computeMajorityThreshold(gameState: GameState): number {
-  const activeCount = gameState.contestants.filter(c => !c.isEliminated).length;
-  return Math.floor(activeCount / 2) + 1;
-}
-
-function getPlayerAllianceMembers(gameState: GameState): string[] {
-  const alliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName) && !a.dissolved);
-  const best = alliances.sort((a, b) => (b.strength || 0) - (a.strength || 0))[0];
-  if (!best) return [];
-  return best.members.filter(m => m !== gameState.playerName);
-}
-
-function pickLikelyTargetFromGameState(gameState: GameState, exclude: string[] = []): string | undefined {
-  const active = gameState.contestants.filter(c => !c.isEliminated && !exclude.includes(c.name));
-  const sorted = active.sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0));
-  const candidate = sorted[0]?.name;
-  const immune = gameState.immunityWinner;
-  if (candidate && immune && candidate === immune) {
-    return sorted[1]?.name || undefined;
-  }
-  return candidate;
+  // Shuffle and return a larger pool for paging; UI will slice to show only a few
+  const shuffled = shuffleArray(withVariations);
+  return shuffled.slice(0, Math.min(24, shuffled.length));
 }
 
 function pickAlternativeTarget(gameState: GameState, skip: string, exclude: string[] = []): string | undefined {
@@ -367,165 +147,34 @@ function generateContextualResponses(prompt: DynamicConfessionalPrompt, gameStat
   const entities = extractEntitiesFromPrompt(prompt, gameState);
   const target = entities[0];
 
-  // Global stage
-  if (activeCount <= 6) {
+  // Keep contextual responses relevant to the prompt category
+  if (prompt.category === 'strategy' && activeCount <= 6) {
     responses.push(
       "We're in the endgame now - every move has to be calculated perfectly.",
       "I need to start thinking about who I can actually beat in a final two."
     );
   }
-  if (daysToElimination <= 2) {
+
+  if (prompt.category === 'voting' && daysToElimination <= 2) {
     responses.push(
       "With elimination so close, I can't afford to make any mistakes.",
       "The pressure is intense right now - everyone is scrambling."
     );
   }
-  if (playerAlliances.length === 0) {
+
+  if (prompt.id === 'alliance-trust' && playerAlliances.length > 1) {
     responses.push(
       "Playing solo is scary, but it also means I don't owe anyone anything.",
       "I need to find some allies fast or I'm going to be the next target."
     );
   }
-  if (playerAlliances.length > 1) {
+
+  if (prompt.id === 'competition-threat') {
     responses.push(
       "I'm juggling multiple alliances right now, which is getting dangerous.",
       "Eventually these alliances are going to clash and I'll have to pick a side."
     );
-  }
 
-  // Prompt-specific
-  switch (prompt.id) {
-    case 'elimination-pressure':
-      responses.push(
-        "I think I'm safe this week, but you never know in this game.",
-        "I'm worried there might be something brewing that I don't know about."
-      );
-      break;
-    case 'alliance-trust':
-      responses.push(
-        "Trust is such a fluid thing in this game - it changes day by day.",
-        "I want to believe in my alliance, but I've seen too many betrayals."
-      );
-      if (prompt.context?.members?.length) {
-        responses.push(
-          `If we crack, ${prompt.context.members[0]} will be the first to flip.`,
-          `I need ${prompt.context.members.join(' and ')} to feel like I’m loyal—without boxing myself in.`
-        );
-      }
-      break;
-    case 'competition-threat':
-      responses.push(
-        "Competition beasts are dangerous because they can save themselves.",
-        "Sometimes you have to strike first before they get too powerful."
-      );
-      if (target) {
-        responses.push(
-          `${target} makes everyone nervous—they can win when it matters.`,
-          `If I don’t act soon on ${target}, the endgame gets a lot harder.`
-        );
-      }
-      break;
-    case 'social-connection':
-      if (target) {
-        responses.push(
-          `With ${target}, it’s a real bond—but strategy is part of it.`,
-          `${target} reads me well. That’s great socially, risky strategically.`
-        );
-      }
-      break;
-    case 'recent-conflict':
-      if (target) {
-        responses.push(
-          `That blow-up with ${target} started small, then got personal.`,
-          `I stayed calm until ${target} pushed a boundary—then I pushed back.`
-        );
-      }
-      break;
-    case 'voting-strategy': {
-      const possible = gameState.contestants
-        .filter(c => !c.isEliminated && c.name !== gameState.playerName && c.name !== gameState.immunityWinner);
-      const likely = possible.sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0))[0];
-      if (likely) {
-        responses.push(
-          `Right now, I’d vote ${likely.name}—they’re positioned too well.`,
-          `${likely.name} has the relationships and cover to go deep; that’s a problem.`
-        );
-      }
-      break;
-    }
-    case 'power-dynamics': {
-      const leaders = gameState.contestants
-        .filter(c => !c.isEliminated && c.name !== gameState.playerName)
-        .sort((a, b) => (b.psychProfile.editBias || 0) - (a.psychProfile.editBias || 0));
-      const lead = leaders[0];
-      if (lead) {
-        responses.push(
-          `${lead.name} is quietly steering things. People listen to them.`,
-          `If ${lead.name} keeps this up, the house will move where they want.`
-        );
-      }
-      break;
-    }
-    case 'early-game-positioning':
-      responses.push(
-        'Early on, it’s all about not being the wrong name at the wrong time.',
-        'I’m building light trust, nothing too binding yet.'
-      );
-      break;
-    case 'mid-game-strategy':
-      responses.push(
-        'Middle game is about pruning threats without exposing myself.',
-        'I’m tightening my circle and setting up a move for next week.'
-      );
-      break;
-    case 'endgame-strategy':
-      responses.push(
-        'Endgame is about who I beat at the end, not just who I like.',
-        'I’m cutting paths that don’t end in my win.'
-      );
-      break;
-    case 'jury-approaching':
-      responses.push(
-        'I’m managing my threat level so jurors respect the game, not resent it.',
-        'Every move now needs a story I can sell to a jury.'
-      );
-      break;
-    case 'finale-positioning':
-      responses.push(
-        'To lock a finale spot, I need one big move and no blowback.',
-        'I’m aligning votes so my path is clean even if chaos hits.'
-      );
-      break;
-    case 'game-reflection':
-      responses.push(
-        'I’m playing better than people think—quiet control looks like luck.',
-        'If I could restart, I’d burn one bridge earlier to open the board.'
-      );
-      break;
-    case 'underestimated':
-      responses.push(
-        'They underestimate me because I don’t shout my wins.',
-        'I’m fine being the ghost—until I’m the reason someone goes home.'
-      );
-      break;
-    case 'biggest-mistake':
-      responses.push(
-        'My biggest mistake was trusting vibes over patterns.',
-        'I ignored one red flag early; it cost me leverage.'
-      );
-      break;
-    case 'edit-shaping':
-      responses.push(
-        'I’ll give a clean soundbite, then back it with a smart move.',
-        'I won’t blow up my game just for airtime—I’ll earn it.'
-      );
-      break;
-    case 'balance-comedy-strategy':
-      responses.push(
-        'I laugh because tension breaks; I win because I plan.',
-        'My jokes open doors—then my strategy chooses which ones to walk through.'
-      );
-      break;
   }
 
   return responses;
