@@ -2019,6 +2019,8 @@ export const useGameState = () => {
     resetGame,
     handleEmergentEventChoice,
     tagTalk,
+    handleHouseMeetingChoice,
+    endHouseMeeting,
     handleTieBreakResult,
     proceedToJuryVote,
     // New debug/test helpers

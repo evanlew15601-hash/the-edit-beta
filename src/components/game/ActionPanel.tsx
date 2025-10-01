@@ -30,7 +30,7 @@ interface ActionPanelProps {
   onEndHouseMeeting: () => void;
 }
 
-export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk, onAllianceMeeting }: ActionPanelProps) => {
+export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk, onAllianceMeeting, onHouseMeetingChoice, onEndHouseMeeting }: ActionPanelProps) => {
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
   const [forcedOpen, setForcedOpen] = useState(false);
