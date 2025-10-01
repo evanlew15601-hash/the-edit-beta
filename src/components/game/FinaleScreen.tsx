@@ -19,14 +19,36 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
   const [speechSubmitted, setSpeechSubmitted] = useState(false);
   const [npcSpeeches, setNpcSpeeches] = useState<{ name: string; speech: string }[]>([]);
 
-  // FIXED: Check if player is eliminated by looking at contestant data
+  // FIXED: Validate finale state
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
   const playerContestant = gameState.contestants.find(c => c.name === gameState.playerName);
-  const isPlayerEliminated = playerContestant?.isEliminated || false;
+  const isPlayerEliminated = playerContestant?.isEliminated || gameState.isPlayerEliminated || false;
   const isPlayerInFinale = finalTwo.some(c => c.name === gameState.playerName) && !isPlayerEliminated;
   
-  console.log('FinaleScreen - Final two contestants:', finalTwo.map(c => c.name));
-  console.log('FinaleScreen - Player in finale?', isPlayerInFinale);
+  console.log('[FinaleScreen] Final two:', finalTwo.map(c => c.name));
+  console.log('[FinaleScreen] Player eliminated?', isPlayerEliminated);
+  console.log('[FinaleScreen] Player in finale?', isPlayerInFinale);
+
+  // Guard: Must have exactly 2 finalists
+  if (finalTwo.length !== 2) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Card className="p-6 text-center">
+            <h1 className="text-3xl font-light mb-4">Finale Night</h1>
+            <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
+              <p className="text-destructive">
+                Error: Expected exactly 2 finalists, found {finalTwo.length}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Active: {finalTwo.map(c => c.name).join(', ')}
+              </p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
   
   const juryMembers = gameState.contestants.filter(c => 
     c.isEliminated && 

@@ -31,7 +31,10 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   // Animated reveal of jury votes
   const [revealedCount, setRevealedCount] = useState(0);
 
+  // FIXED: Validate jury vote state
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
+  
+  // CRITICAL: Filter jury members properly - must be eliminated AND in jury list
   const juryMembers = gameState.contestants.filter(c => 
     c.isEliminated && 
     gameState.juryMembers?.includes(c.name)
@@ -42,14 +45,32 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   const playerEliminated = gameState.isPlayerEliminated || playerContestant?.isEliminated || false;
   const isPlayerInJury = playerEliminated && gameState.juryMembers?.includes(gameState.playerName);
   
-  console.log('JuryVoteScreen - Final two:', finalTwo.map(c => c.name));
-  console.log('JuryVoteScreen - All contestants:', gameState.contestants.map(c => ({ name: c.name, eliminated: c.isEliminated, day: c.eliminationDay })));
-  console.log('JuryVoteScreen - Jury members from gameState:', gameState.juryMembers);
-  console.log('JuryVoteScreen - Filtered jury members:', juryMembers.map(j => j.name));
-  console.log('JuryVoteScreen - Total jury members:', juryMembers.length);
-  console.log('JuryVoteScreen - Player eliminated?', playerEliminated);
-  console.log('JuryVoteScreen - isPlayerEliminated flag?', gameState.isPlayerEliminated);
-  console.log('JuryVoteScreen - Player in jury?', isPlayerInJury);
+  console.log('[JuryVoteScreen] Final two:', finalTwo.map(c => c.name));
+  console.log('[JuryVoteScreen] Jury list:', gameState.juryMembers);
+  console.log('[JuryVoteScreen] Jury members:', juryMembers.map(j => j.name));
+  console.log('[JuryVoteScreen] Player eliminated?', playerEliminated);
+  console.log('[JuryVoteScreen] Player in jury?', isPlayerInJury);
+  
+  // Guard: Need at least 1 jury member
+  if (juryMembers.length === 0) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Card className="p-6 text-center">
+            <h1 className="text-3xl font-light mb-4">Jury Vote</h1>
+            <div className="bg-warning/10 border border-warning/20 rounded p-4">
+              <p className="text-destructive">
+                Error: No jury members found
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Jury list: {gameState.juryMembers?.join(', ') || 'empty'}
+              </p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
   
   useEffect(() => {
     // Only simulate votes once, and do not include player's vote if they're in the jury.
@@ -158,9 +179,21 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       if (voteCounts[vote] !== undefined) voteCounts[vote]++;
     });
 
-    const winnerName = Object.entries(voteCounts).reduce((prev, current) =>
-      current[1] > prev[1] ? current : prev
-    )[0];
+    console.log('[JuryVoteScreen] Final vote counts:', voteCounts);
+
+    // FIXED: Handle tie scenario
+    const sortedByVotes = Object.entries(voteCounts).sort((a, b) => b[1] - a[1]);
+    const topVotes = sortedByVotes[0][1];
+    const tiedFinalists = sortedByVotes.filter(([_, count]) => count === topVotes);
+    
+    let winnerName: string;
+    if (tiedFinalists.length > 1) {
+      // Tie-break: use random selection (in a real game this would be a special tie-break)
+      console.warn('[JuryVoteScreen] Jury vote tie detected, using random selection');
+      winnerName = tiedFinalists[Math.floor(Math.random() * tiedFinalists.length)][0];
+    } else {
+      winnerName = sortedByVotes[0][0];
+    }
 
     setWinner(winnerName);
 

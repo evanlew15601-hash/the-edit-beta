@@ -19,6 +19,14 @@ interface PostSeasonRecapScreenProps {
 export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart }: PostSeasonRecapScreenProps) => {
   const [activeTab, setActiveTab] = useState('overview');
 
+  console.log('[PostSeasonRecap] Winner:', winner);
+  console.log('[PostSeasonRecap] Final votes:', finalVotes);
+
+  // Guard: Validate winner exists
+  if (!winner || !gameState.contestants.find(c => c.name === winner)) {
+    console.error('[PostSeasonRecap] Invalid winner:', winner);
+  }
+
   const allContestants = gameState.contestants.sort((a, b) => {
     if (a.isEliminated !== b.isEliminated) {
       return a.isEliminated ? 1 : -1;

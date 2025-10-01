@@ -13,6 +13,10 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
   const eliminatedContestant = gameState.contestants.find(c => c.name === latestElimination?.eliminated);
   const remainingCount = gameState.contestants.filter(c => !c.isEliminated).length;
 
+  console.log('[EliminationScreen] Latest elimination:', latestElimination?.eliminated);
+  console.log('[EliminationScreen] Remaining count:', remainingCount);
+
+  // Guard: Must have valid elimination data
   if (!latestElimination) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
