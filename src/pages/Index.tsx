@@ -51,6 +51,8 @@ const Index = () => {
     hasSavedGame,
     goToTitle,
     finalizeCharacterCreation,
+    handleHouseMeetingChoice,
+    endHouseMeeting,
   } = useGameState();
 
   // Keyboard shortcut: Shift+D to toggle debug HUD
@@ -123,6 +125,8 @@ const Index = () => {
               onEmergentEventChoice={handleEmergentEventChoice}
               onForcedConversationReply={respondToForcedConversation}
               onTagTalk={tagTalk}
+              onHouseMeetingChoice={handleHouseMeetingChoice}
+              onEndHouseMeeting={endHouseMeeting}
             />
         );
       

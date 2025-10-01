@@ -102,7 +102,8 @@ export interface PlayerAction {
     | 'observe'
     | 'scheme'
     | 'activity'
-    | 'alliance_meeting';
+    | 'alliance_meeting'
+    | 'house_meeting';
   target?: string;
   content?: string;
   tone?: string;
@@ -202,6 +203,9 @@ export interface GameState {
   lastAIReaction?: ReactionSummary; // Minimal, credit-free reaction summary
   lastParsedInput?: any; // Store parsed input for debugging
   lastEmergentEvent?: any; // Store emergent event for UI display
+  // Active House Meeting popup with multi-round flow
+  ongoingHouseMeeting?: HouseMeetingState;
+  lastHouseMeetingReaction?: ReactionSummary;
   lastActionTarget?: string; // Most recent action target for UI context
   lastActionType?: PlayerAction['type']; // Most recent action type for UI context
   immunityWinner?: string; // Who won immunity this week
@@ -363,4 +367,48 @@ export interface AISettings {
     influenceScale: number;      // default 20
     entertainmentScale: number;  // default 20
   };
+}
+
+/**
+ * House Meeting types
+ */
+export type HouseMeetingTopic =
+  | 'nominate_target'
+  | 'defend_self'
+  | 'shift_blame'
+  | 'expose_alliance';
+
+export type HouseMeetingToneChoice =
+  | 'persuasive'
+  | 'defensive'
+  | 'aggressive'
+  | 'manipulative'
+  | 'silent';
+
+export interface HouseMeetingOption {
+  id: string;
+  text: string;
+  tone: HouseMeetingToneChoice;
+}
+
+export interface HouseMeetingRound {
+  index: number;
+  aiStatement?: string;
+  options: HouseMeetingOption[];
+  participants: string[];
+}
+
+export interface HouseMeetingState {
+  id: string;
+  initiator: string;
+  topic: HouseMeetingTopic;
+  target?: string;
+  isAIInitiated: boolean;
+  participants: string[];
+  currentRound: number;
+  maxRounds: number;
+  mood: 'calm' | 'tense' | 'heated';
+  conversationLog: { speaker: string; text: string }[];
+  currentOptions: HouseMeetingOption[];
+  forcedOpen?: boolean;
 }

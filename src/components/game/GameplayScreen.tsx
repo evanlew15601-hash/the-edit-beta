@@ -21,6 +21,8 @@ interface GameplayScreenProps {
   onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
   onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
+  onHouseMeetingChoice: (choice: 'persuasive' | 'defensive' | 'aggressive' | 'manipulative' | 'silent') => void;
+  onEndHouseMeeting: () => void;
 }
 
 export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk }: GameplayScreenProps) => {
@@ -53,6 +55,8 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
               onAllianceMeeting={(allianceId: string, agenda: string, tone: string) => {
                 onUseAction('alliance_meeting', allianceId, agenda, tone);
               }}
+              onHouseMeetingChoice={onHouseMeetingChoice}
+              onEndHouseMeeting={onEndHouseMeeting}
             />
           </div>
           
