@@ -21,6 +21,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
   const [selectedPrompt, setSelectedPrompt] = useState<DynamicConfessionalPrompt | null>(null);
   const [availablePrompts, setAvailablePrompts] = useState<DynamicConfessionalPrompt[]>([]);
   const [responseOptions, setResponseOptions] = useState<string[]>([]);
+  const [responseDisplayCount, setResponseDisplayCount] = useState<number>(3);
 
   // Initialize prompts when dialog opens
   useEffect(() => {
@@ -38,6 +39,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
         const responses = generateResponseOptions(firstPrompt, gameState);
         console.log('Generated response options:', responses);
         setResponseOptions(responses);
+        setResponseDisplayCount(Math.min(3, responses.length));
       }
       
       // Reset selections
@@ -51,6 +53,8 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
     if (selectedPrompt && gameState) {
       const responses = generateResponseOptions(selectedPrompt, gameState);
       setResponseOptions(responses);
+      setResponseDisplayCount(Math.min(3, responses.length));
+      setContent('');
     }
   }, [selectedPrompt, gameState]);
 
@@ -68,6 +72,23 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
     // Clear selections when new prompt is generated
     setContent('');
     setTone('');
+  };
+
+  const handleShuffleVariations = () => {
+    if (!selectedPrompt) return;
+    const responses = generateResponseOptions(selectedPrompt, gameState);
+    setResponseOptions(responses);
+    setResponseDisplayCount(Math.min(3, responses.length));
+    setContent('');
+  };
+
+  const handleShowMore = () => {
+    if (responseDisplayCount < responseOptions.length) {
+      setResponseDisplayCount(Math.min(responseDisplayCount + 3, responseOptions.length));
+    } else {
+      // If we've shown all, reshuffle new variations
+      handleShuffleVariations();
+    }
   };
 
   const handleSubmit = () => {
@@ -181,10 +202,21 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
 
             {/* Response Options */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Choose Your Response</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Choose Your Response</label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShuffleVariations}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  New Variations
+                </Button>
+              </div>
               {responseOptions.length > 0 ? (
                 <div className="space-y-2">
-                  {responseOptions.map((option: string, index: number) => (
+                  {responseOptions.slice(0, responseDisplayCount).map((option: string, index: number) => (
                     <button
                       key={`${selectedPrompt?.id || 'default'}-${index}`}
                       onClick={() => setContent(option)}
@@ -197,6 +229,16 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
                       <div className="text-sm">{option}</div>
                     </button>
                   ))}
+                  <div className="pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleShowMore}
+                      className="w-full"
+                    >
+                      {responseDisplayCount < responseOptions.length ? 'Show more variations' : 'Load new variations'}
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="p-4 text-center text-muted-foreground border border-border rounded">

@@ -2,91 +2,257 @@
 import { GameState } from '@/types/game';
 import { DynamicConfessionalPrompt } from './enhancedConfessionalEngine';
 
-interface ResponseTemplate {
-  category: string;
-  responses: string[];
-}
+/**
+ * Strictly prompt-anchored confessional responses, with lightweight variation generation.
+ * Goal: Only surface answers that directly address the selected prompt, and provide
+ * multiple variations without dumping everything at once (UI controls paging).
+ */
 
-const RESPONSE_TEMPLATES: ResponseTemplate[] = [
-  {
-    category: 'strategy',
-    responses: [
-      "I'm playing a careful game - making moves when I need to but not drawing attention.",
-      "My strategy is to build trust with everyone and let them eliminate each other.",
-      "I need to start making bigger moves or people will see me as just a follower.",
-      "I'm positioning myself as someone everyone wants to work with until the very end.",
-      "The key is knowing when to strike - too early and you're a target, too late and you're powerless.",
-      "I'm playing multiple sides right now, which is risky but necessary.",
-      "My plan is to eliminate the biggest threats before they realize I'm coming for them.",
-      "I think I have what it takes to win, but I need to prove it in these next few weeks."
-    ]
-  },
-  {
-    category: 'alliance',
-    responses: [
-      "My alliance is solid right now, but I know that could change at any moment.",
-      "I trust my alliance members, but I'm not naive - everyone is here to win.",
-      "There are definitely some cracks forming, and I need to decide which side I'm on.",
-      "I'm worried that some people in my alliance are getting too comfortable.",
-      "We've been loyal to each other so far, but the game is about to get more cutthroat.",
-      "I think we need to bring in one more person to secure our numbers.",
-      "My alliance wants to target someone I'd rather keep around, which puts me in a tough spot.",
-      "I'm playing without a solid alliance right now, which is terrifying but also liberating."
-    ]
-  },
-  {
-    category: 'voting',
-    responses: [
-      "If I had to vote right now, I'd probably go after the biggest overall threat.",
-      "This vote is crucial - it could completely shift the power dynamics in the house.",
-      "I'm torn between making a big move and playing it safe for another week.",
-      "The house seems to be leaning one way, but I'm not sure that's the right move.",
-      "I want to vote with the majority, but sometimes the majority is wrong.",
-      "Someone needs to go who's been flying under the radar for too long.",
-      "I'm nervous about this vote because it might expose where my true loyalties lie.",
-      "This could be my chance to make a game-changing move if I have the courage."
-    ]
-  },
-  {
-    category: 'social',
-    responses: [
-      "I genuinely like them as a person, but this is still a game and I can't forget that.",
-      "Something feels off about them lately - I'm keeping my guard up.",
-      "They're playing both sides and I can see right through it.",
-      "We have great chemistry, but I know they'd cut me if they had to.",
-      "I think they see me as a bigger threat than I actually am.",
-      "They've been giving me information, but I'm not sure how reliable it is.",
-      "Our relationship started as strategy but it's becoming something more genuine.",
-      "I trust them completely - we've had each other's backs since day one."
-    ]
-  },
-  {
-    category: 'reflection',
-    responses: [
-      "Looking back, I think I made some early mistakes that I'm still dealing with.",
-      "I never expected to make it this far, but here I am and I'm not going down without a fight.",
-      "This experience has taught me so much about myself and how I handle pressure.",
-      "I came in with one strategy but I've had to completely adapt my approach.",
-      "My biggest regret is probably trusting the wrong person too early in the game.",
-      "I'm proud of how I've stayed true to myself while still playing strategically.",
-      "The hardest part has been balancing being genuine with being competitive.",
-      "I think I've grown as a person through this whole experience."
-    ]
-  },
-  {
-    category: 'general',
-    responses: [
-      "This game is so much more mental than I thought it would be.",
-      "Every conversation could be the one that saves or destroys my game.",
-      "I'm trying to stay positive but the pressure is really getting to everyone.",
-      "People think they know who I am, but I have so much more to show them.",
-      "The paranoia in this house is real - you can't trust anyone completely.",
-      "I came here to win, and I'm not leaving until they force me out.",
-      "This is the opportunity of a lifetime and I'm not wasting it.",
-      "The social game is just as important as winning competitions."
-    ]
+// Prompt-specific anchored responses (dynamic based on game state)
+function generatePromptAnchoredResponses(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
+  const res: string[] = [];
+  const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
+  const activeCount = activeContestants.length;
+  const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName) && !a.dissolved);
+  const otherMembers = playerAlliances[0]?.members.filter(m => m !== gameState.playerName) || [];
+  const daysToElim = gameState.nextEliminationDay - gameState.currentDay;
+
+  const topSuspicious = [...activeContestants]
+    .filter(c => c.name !== gameState.playerName)
+    .sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0))[0];
+
+  const highTrust = [...activeContestants]
+    .filter(c => c.name !== gameState.playerName && c.psychProfile.trustLevel > 60)
+    .sort((a, b) => (b.psychProfile.trustLevel || 0) - (a.psychProfile.trustLevel || 0))[0];
+
+  // Recent conflict partner (last 2 days, aggressive tone)
+  const recentConflict = gameState.interactionLog
+    ?.filter(l => l.day >= gameState.currentDay - 2 && l.tone === 'aggressive')
+    .slice(-1)[0];
+  const conflictOther = recentConflict?.participants.find(p => p !== gameState.playerName);
+
+  switch (prompt.id) {
+    case 'mid-game-strategy':
+      res.push(
+        `With ${activeCount} left, my plan is to lower my threat and manage numbers.`,
+        `I'm sitting between power groups and letting them clash while I collect votes.`,
+        `I need to pick endgame matchups at ${activeCount} and start quietly closing doors.`
+      );
+      break;
+    case 'endgame-strategy':
+      res.push(
+        `At ${activeCount}, it's all jury optics and matchups.`,
+        `I'm shaping a path where I sit next to people I actually beat at the end.`,
+        `Every relationship is now either a shield or a liability—I'm pruning accordingly.`
+      );
+      break;
+    case 'elimination-pressure':
+      res.push(
+        daysToElim <= 2 ? `Elimination is close; I'm calibrating votes hour by hour.` : `I'm already planning this week's votes before it gets chaotic.`,
+        `I think I'm safe, but I'm not complacent—one flip changes everything.`,
+        `If my name starts floating, I have a contingency ready.`
+      );
+      break;
+    case 'alliance-trust':
+      if (otherMembers.length > 0) {
+        const [m1, m2] = otherMembers;
+        res.push(
+          `With ${otherMembers.join(' and ')}, trust is conditional and earned daily.`,
+          m2 ? `I trust ${m1} more than ${m2}—that's my current read.` : `I trust ${m1}, but I verify every promise.`,
+          `I'm testing loyalty before the vote, not after.`
+        );
+      } else {
+        res.push(
+          `If I commit to an alliance, I need proof they'll carry votes, not just words.`,
+          `Trust is a currency—I'm spending it carefully this week.`,
+          `I keep receipts; loyalty gets measured in actions.`
+        );
+      }
+      break;
+    case 'solo-game':
+      res.push(
+        `Without a solid alliance, I insulate my game with relationships and information.`,
+        `I trade intel for goodwill and keep options open on both sides of the house.`,
+        `I move in pairs, not packs—less exposure, more leverage.`
+      );
+      break;
+    case 'social-connection':
+      if (highTrust) {
+        res.push(
+          `With ${highTrust.name}, the connection is real—but game first, always.`,
+          `${highTrust.name} and I click, but I'd still cut them if the math demands it.`,
+          `It's genuine rapport with ${highTrust.name}, and I'm steering it toward votes.`
+        );
+      } else {
+        res.push(
+          `Real connection matters, but I anchor it to decisions, not vibes.`,
+          `I keep bonds warm and promises conditional.`,
+          `I make friendship useful without letting it blind me.`
+        );
+      }
+      break;
+    case 'competition-threat':
+      if (topSuspicious) {
+        const competitiveName = gameState.immunityWinner || topSuspicious.name;
+        res.push(
+          `${competitiveName} is dangerous because they can save themselves when it matters.`,
+          `You either clip ${competitiveName} early or you watch them stack wins.`,
+          `I'm scouting the week I make the move on ${competitiveName}—with numbers ready.`
+        );
+      } else {
+        res.push(
+          `Competition beasts force you to plan two weeks ahead.`,
+          `If someone keeps saving themselves, you adjust the plan to remove their votes.`,
+          `Threats grow if ignored; I trim them before endgame.`
+        );
+      }
+      break;
+    case 'game-reflection':
+      res.push(
+        `It's day ${gameState.currentDay}; I can name my wins and own my mistakes.`,
+        `I adapted when plans broke—that's why I'm still here.`,
+        `If I could restart, I'd pace trust slower and moves faster.`
+      );
+      break;
+    case 'recent-conflict':
+      if (conflictOther) {
+        res.push(
+          `Things got heated with ${conflictOther}; my side is simple: I matched energy, not malice.`,
+          `I won't relitigate it, but ${conflictOther} pushed—I'm focused on consequences now.`,
+          `I made my line clear with ${conflictOther}; next beat is managing fallout.`
+        );
+      } else {
+        res.push(
+          `When conflict hits, I keep it clean: one point, one boundary, then back to votes.`,
+          `I de-escalate unless someone makes it personal—then I frame it and move.`,
+          `Drama's a tool; I use it to set up the next decision.`
+        );
+      }
+      break;
+    case 'voting-strategy':
+      if (topSuspicious) {
+        res.push(
+          `If I voted now, I'd target ${topSuspicious.name} and build the numbers before they notice.`,
+          `The right vote is the one that weakens ${topSuspicious.name}'s web and strengthens mine.`,
+          `I don't need unanimous—I need enough, and the story to justify it.`
+        );
+      } else {
+        res.push(
+          `I vote to shape the board, not to settle grudges.`,
+          `I pick targets that collapse rival numbers and open lanes for me.`,
+          `Votes are currency; I invest where returns compound.`
+        );
+      }
+      break;
+    case 'personal-growth':
+      res.push(
+        `This game forced me to make decisions I used to avoid—I'm sharper for it.`,
+        `I learned how to stay calm while everything around me spun.`,
+        `I grew by owning outcomes, not excuses.`
+      );
+      break;
+    case 'early-game-positioning':
+      res.push(
+        `Early game is about insulation—make yourself useful, not loud.`,
+        `I keep targets bigger than me and promises smaller than I can't keep.`,
+        `I gather information and spend it sparingly for safety.`
+      );
+      break;
+    case 'power-dynamics':
+      res.push(
+        `Power's shifting; I sit close enough to influence, far enough to dodge heat.`,
+        `I map who actually moves votes and I attach myself to that engine.`,
+        `I ride the wave now and plan to redirect it later.`
+      );
+      break;
+    case 'jury-approaching':
+      res.push(
+        `With jury near, I'm tracking reputation as hard as numbers.`,
+        `You build your final pitch now—every move needs a clean story.`,
+        `Threat management matters, but so does looking like a closer.`
+      );
+      break;
+    case 'finale-positioning':
+      res.push(
+        `Finale talk means pruning relationships into shields and goats.`,
+        `I need a lane where my resume reads decisions, not accidents.`,
+        `I pick endgame partners I beat on perception and performance.`
+      );
+      break;
+    case 'edit-shaping':
+      res.push(
+        `To get screen time without blowing my game, I give clean confessionals with quotable lines.`,
+        `I anchor the narrative in choices, not noise—producers cut clarity.`,
+        `Bold line, simple story, visible move—that's how I get noticed.`
+      );
+      break;
+    case 'balance-comedy-strategy':
+      res.push(
+        `My humor disarms; the strategy lands in the silence after.`,
+        `I let jokes carry the social game and decisions carry the resume.`,
+        `Funny keeps doors open; strategy decides who walks through.`
+      );
+      break;
+    case 'underestimated':
+      res.push(
+        `People underestimate me because I'm measured—then I take the shot.`,
+        `Being underestimated is leverage; I spend it when it hurts most.`,
+        `I want them sleeping on me until the move wakes them up.`
+      );
+      break;
+    case 'biggest-mistake':
+      res.push(
+        `My biggest mistake was trusting pace over proof—I've corrected that.`,
+        `I misread an alliance early; now I test loyalty with actions first.`,
+        `I learned the hard way to separate friendship from votes.`
+      );
+      break;
+    case 'prod-soundbite-truth':
+    case 'prod-bait-rival':
+    case 'prod-retell-conflict':
+    case 'prod-damage-control':
+    case 'prod-reframe-persona':
+      // Producer-tactic prompts get handled via generateProducerResponsesIfAny
+      break;
+    default: {
+      // Fallback: keep strictly tied to prompt category
+      const cat = prompt.category;
+      if (cat === 'strategy') {
+        res.push(
+          `Strategy-wise, I balance threat and numbers for this exact situation.`,
+          `I answer this by picking timing—early strike or late shield.`,
+          `The plan responds to this prompt with calm moves and sharp outcomes.`
+        );
+      } else if (cat === 'alliance') {
+        res.push(
+          `On alliances, this question maps to trust I can verify.`,
+          `I treat this as a loyalty test I run before the vote.`,
+          `I keep commitments narrow and measurable around this topic.`
+        );
+      } else if (cat === 'voting') {
+        res.push(
+          `For this vote, I shape outcomes—not headlines.`,
+          `The numbers for this exact scenario are already penciled in.`,
+          `I pick the target that changes the board the most.`
+        );
+      } else if (cat === 'social') {
+        res.push(
+          `Socially, I keep this focused on bonding that converts to votes.`,
+          `I manage warmth and boundaries around this situation.`,
+          `I read intent first, then respond in kind.`
+        );
+      } else if (cat === 'reflection' || cat === 'general') {
+        res.push(
+          `I answer this honestly and tie it back to a decision I own.`,
+          `The lesson here is pacing—on trust, on moves, on fallout.`,
+          `I keep the takeaway simple so the next choice is clear.`
+        );
+      }
+    }
   }
-];
+
+  return res;
+}
 
 /**
  * Tailored responses for twist-related prompts (host child / planted HG).
@@ -155,29 +321,106 @@ function generateTwistResponsesForPrompt(prompt: DynamicConfessionalPrompt, game
   return res;
 }
 
+// Lightweight synonym-based paraphrasing for variations
+const SYNONYMS: Record<string, string[]> = {
+  strategy: ['approach', 'plan'],
+  numbers: ['votes', 'counts'],
+  trust: ['confidence', 'faith'],
+  eliminate: ['clip', 'remove'],
+  threat: ['danger', 'problem'],
+  alliance: ['group', 'team'],
+  connect: ['bond', 'rapport'],
+  votes: ['numbers', 'support'],
+  calm: ['steady', 'composed'],
+  move: ['play', 'decision'],
+  finale: ['endgame', 'final stretch'],
+};
+
+function applySynonyms(text: string): string {
+  let out = text;
+  Object.keys(SYNONYMS).forEach((key) => {
+    const variants = SYNONYMS[key];
+    const regex = new RegExp(`\\b${key}\\b`, 'gi');
+    if (regex.test(out)) {
+      const replacement = variants[Math.floor(Math.random() * variants.length)];
+      out = out.replace(regex, replacement);
+    }
+  });
+  return out;
+}
+
+function withPrefix(text: string): string {
+  const prefixes = ['Honestly, ', 'If I’m being real, ', 'Bottom line: '];
+  const pick = prefixes[Math.floor(Math.random() * prefixes.length)];
+  return pick + text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+function withToneSuffix(text: string, toneHint?: string): string {
+  switch (toneHint) {
+    case 'aggressive':
+      return `${text} And I won't apologize for it.`;
+    case 'vulnerable':
+      return `${text} And, yeah, that scares me a little.`;
+    case 'humorous':
+      return `${text} Which is kind of hilarious if you think about it.`;
+    case 'dramatic':
+      return `${text} The stakes couldn't be higher now.`;
+    case 'strategic':
+      return `${text} That's the calculus I'm making.`;
+    case 'evasive':
+      return `${text} I'll just say that.`;
+    default:
+      return text;
+  }
+}
+
+function generateVariationsForResponses(baseResponses: string[], toneHint?: string): string[] {
+  const out: string[] = [];
+  baseResponses.forEach((line) => {
+    const v1 = applySynonyms(line);
+    const v2 = withPrefix(line);
+    const v3 = withToneSuffix(line, toneHint);
+    out.push(line, v1, v2, v3);
+  });
+  // Deduplicate after variations
+  return Array.from(new Set(out));
+}
+
 export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
-  // Get base responses for the prompt category
-  const categoryResponses = RESPONSE_TEMPLATES.find(t => t.category === prompt.category)?.responses || [];
-  
-  // Generate contextual responses based on current game state
-  const contextualResponses = generateContextualResponses(prompt, gameState);
+  // Strictly anchored to prompt
+  const anchored = generatePromptAnchoredResponses(prompt, gameState);
 
   // Twist-aware answers mapped directly to the selected prompt
   const twistResponses = generateTwistResponsesForPrompt(prompt, gameState);
 
   // Producer tactic targeted responses (if any)
   const producerResponses = generateProducerResponsesIfAny(prompt, gameState);
-  
-  // Combine all responses and lightly weight prompt text to the front by echoing a concise framing
-  const promptEcho = prompt.prompt ? [`${prompt.prompt.split('.')[0]}.`] : [];
-  const allResponses = [...promptEcho, ...twistResponses, ...producerResponses, ...contextualResponses, ...categoryResponses];
+
+  // Contextual lines (kept minimal and prompt-aware)
+  const contextualResponses = generateContextualResponses(prompt, gameState);
+
+  // Combine anchored first, then twist/producer/context
+  const combined = [...anchored, ...twistResponses, ...producerResponses, ...contextualResponses];
 
   // Integrity guard: remove lines that reference events that haven't happened
-  const validResponses = allResponses.filter(r => responseIsValid(r, gameState));
-  
-  // Shuffle and return a selection
-  const shuffled = shuffleArray(validResponses);
-  return shuffled.slice(0, Math.min(8, shuffled.length));
+  const valid = combined.filter(r => responseIsValid(r, gameState));
+
+  // If very short, add a couple of category-coherent fallbacks strictly tied to the topic
+  let pool = valid;
+  if (pool.length < 3) {
+    const catFallbacks = generatePromptAnchoredResponses(
+      { ...prompt, id: `fallback-${prompt.category}` } as DynamicConfessionalPrompt,
+      gameState
+    );
+    pool = [...pool, ...catFallbacks].filter((r, i, arr) => arr.indexOf(r) === i);
+  }
+
+  // Expand with variations (the UI will page these so they don't all show at once)
+  const withVariations = generateVariationsForResponses(pool, prompt.suggestedTones?.[0]);
+
+  // Shuffle and return a larger pool for paging; UI will slice to show only a few
+  const shuffled = shuffleArray(withVariations);
+  return shuffled.slice(0, Math.min(24, shuffled.length));
 }
 
 function generateContextualResponses(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
@@ -186,55 +429,33 @@ function generateContextualResponses(prompt: DynamicConfessionalPrompt, gameStat
   const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName));
   const daysToElimination = gameState.nextEliminationDay - gameState.currentDay;
 
-  // Context-specific responses based on game state
-  if (activeCount <= 6) {
+  // Keep contextual responses relevant to the prompt category
+  if (prompt.category === 'strategy' && activeCount <= 6) {
     responses.push(
-      "We're in the endgame now - every move has to be calculated perfectly.",
-      "I need to start thinking about who I can actually beat in a final two."
+      `Endgame at ${activeCount} means timing over theatrics.`,
+      `From here, every move needs a clean jury story.`
     );
   }
 
-  if (daysToElimination <= 2) {
+  if (prompt.category === 'voting' && daysToElimination <= 2) {
     responses.push(
-      "With elimination so close, I can't afford to make any mistakes.",
-      "The pressure is intense right now - everyone is scrambling."
+      `With the vote near, I'm triple-counting numbers.`,
+      `Safe isn't real unless the math holds.`
     );
   }
 
-  if (playerAlliances.length === 0) {
+  if (prompt.id === 'alliance-trust' && playerAlliances.length > 1) {
     responses.push(
-      "Playing solo is scary, but it also means I don't owe anyone anything.",
-      "I need to find some allies fast or I'm going to be the next target."
+      `Juggling alliances is risk; I keep one truth per person and never improvise.`,
+      `Eventually these groups collide—I want to be the one directing traffic.`
     );
   }
 
-  if (playerAlliances.length > 1) {
+  if (prompt.id === 'competition-threat') {
     responses.push(
-      "I'm juggling multiple alliances right now, which is getting dangerous.",
-      "Eventually these alliances are going to clash and I'll have to pick a side."
+      `Competition beasts force the plan into earlier weeks.`,
+      `I build a trap with numbers, then I spring it.`
     );
-  }
-
-  // Add prompt-specific contextual responses
-  switch (prompt.id) {
-    case 'elimination-pressure':
-      responses.push(
-        "I think I'm safe this week, but you never know in this game.",
-        "I'm worried there might be something brewing that I don't know about."
-      );
-      break;
-    case 'alliance-trust':
-      responses.push(
-        "Trust is such a fluid thing in this game - it changes day by day.",
-        "I want to believe in my alliance, but I've seen too many betrayals."
-      );
-      break;
-    case 'competition-threat':
-      responses.push(
-        "Competition beasts are dangerous because they can save themselves.",
-        "Sometimes you have to strike first before they get too powerful."
-      );
-      break;
   }
 
   return responses;
