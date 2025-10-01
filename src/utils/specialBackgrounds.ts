@@ -1,4 +1,5 @@
 import { GameState, Contestant } from '@/types/game';
+import { verifyAndUpdateTasks } from './taskEngine';
 
 // Lightweight helpers to handle special backgrounds effects.
 // These functions are deterministic per call and should be invoked by the game loop once per day or at key events.
@@ -56,6 +57,9 @@ export function applyDailySpecialBackgroundLogic(gs: GameState): GameState {
     }
   });
 
+  // Verify and award production task progress (safe to call daily; rewards gated by 'rewarded' flag)
+  next = verifyAndUpdateTasks(next);
+
   return next;
 }
 
@@ -73,6 +77,10 @@ export function setProductionTaskStatus(gs: GameState, contestantName: string, t
   if (completed) {
     c.psychProfile.editBias = Math.min(50, c.psychProfile.editBias + 3);
     c.psychProfile.trustLevel = Math.min(100, c.psychProfile.trustLevel + 2);
+    if (!task?.rewarded) {
+      next.playerFunds = (next.playerFunds ?? 0) + (task?.reward ?? 1000);
+      if (task) task.rewarded = true;
+    }
   } else {
     c.psychProfile.suspicionLevel = Math.min(100, c.psychProfile.suspicionLevel + 4);
   }

@@ -28,18 +28,39 @@ export type Background =
   | 'Chef'
   | 'Other'; // For custom background text
 
+export type ProductionTaskObjective =
+  | { kind: 'talk_count'; count: number; distinct?: boolean }
+  | { kind: 'dm_count'; count: number }
+  | { kind: 'scheme_pitch'; count: number }
+  | { kind: 'alliance_meeting'; count: number }
+  | { kind: 'confessional_count'; count: number }
+  | { kind: 'observation_count'; count: number }
+  | { kind: 'house_meeting'; count: number }
+  | { kind: 'immunity_win'; count: number };
+
 export type SpecialBackground =
   | { kind: 'none' }
   | {
       kind: 'hosts_estranged_child';
-      // Hidden until revealed. If revealed, affects audience/edit and NPC trust.
       revealed?: boolean;
       revealDay?: number;
     }
   | {
       kind: 'planted_houseguest';
-      // Production tasks to complete weekly. Failure risks secret reveal.
-      tasks: { id: string; description: string; dayAssigned: number; completed?: boolean }[];
+      // Weekly production tasks with verifiable objectives. Failure risks secret reveal.
+      tasks: {
+        id: string;
+        description: string;
+        dayAssigned: number;
+        week?: number;
+        difficulty: 'easy' | 'medium' | 'hard';
+        objective: ProductionTaskObjective;
+        target?: number; // mirror of objective count to display
+        progress?: number; // computed via task engine
+        completed?: boolean;
+        reward?: number; // default 1000
+        rewarded?: boolean; // whether funds were granted
+      }[];
       secretRevealed?: boolean;
       revealDay?: number;
     };
@@ -270,6 +291,9 @@ export interface GameState {
     winners: string[];
     selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual';
   };
+
+  // Player funds (rewarded for verified production task completion, 1000 per task)
+  playerFunds?: number;
 
   // Viewer Ratings - light system based on house events and NPC behavior
   viewerRating?: number; // 0.0 - 10.0

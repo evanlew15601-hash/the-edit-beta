@@ -13,6 +13,7 @@ import { AIOutcomeDebug } from './AIOutcomeDebug';
 import { RatingsPanel } from './RatingsPanel';
 import { BasicConversationEngine } from './BasicConversationEngine';
 import { TruthVoteRequestPanel } from './TruthVoteRequestPanel';
+import { ProductionTasksPanel } from './ProductionTasksPanel';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -66,6 +67,7 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
              <RatingsPanel gameState={gameState} />
              <MemoryPanel gameState={gameState} />
              <EnhancedInformationPanel gameState={gameState} />
+             <ProductionTasksPanel gameState={gameState} />
              {gameState.alliances.length > 0 && (
                <AllianceIntelligencePanel 
                  gameState={gameState}

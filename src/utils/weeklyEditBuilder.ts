@@ -1,5 +1,6 @@
 import { GameState, WeeklyEdit } from '@/types/game';
 import { memoryEngine } from './memoryEngine';
+import { BACKGROUND_META } from '@/data/backgrounds';
 
 function withinWeek(day: number, week: number) {
   return day > (week - 1) * 7 && day <= week * 7;
@@ -8,6 +9,17 @@ function withinWeek(day: number, week: number) {
 function truncate(text: string, max = 140) {
   if (!text) return '';
   return text.length > max ? text.slice(0, max - 1) + '…' : text;
+}
+
+function getBackstoryLine(gameState: GameState): string | undefined {
+  const player = gameState.contestants.find(c => c.name === gameState.playerName);
+  if (!player) return undefined;
+  if (player.customBackgroundText) return `Background: ${player.customBackgroundText}.`;
+  if (player.background) {
+    const meta = BACKGROUND_META.find(m => m.name === player.background);
+    return `Background: ${player.background}${meta?.personaHint ? ` — ${meta.personaHint}` : ''}.`;
+  }
+  return undefined;
 }
 
 export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
@@ -123,7 +135,7 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   const narrativeElements = detectNarrativeElements(gameState, week, recentActions, editPerception);
   
   // Build contextual montage based on player's edit trajectory
-  const personalizedMontage = buildPersonalizedMontage(dominantTone, alliancesFormed, alliancesActive, elimLine, notableMoments, recentActions, editPerception);
+  const personalizedMontage = buildPersonalizedMontage(dominantTone, alliancesFormed, alliancesActive, elimLine, notableMoments, recentActions, editPerception, gameState);
 
   const eventMontageRaw = personalizedMontage.filter(Boolean) as string[];
 
@@ -135,6 +147,8 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   const eventMontage = [...eventMontageRaw, microSummary].filter(Boolean) as string[];
 
   const whatHappenedBits: string[] = [];
+  const backstoryLine = getBackstoryLine(gameState);
+  if (backstoryLine) whatHappenedBits.push(backstoryLine);
   if (allConfessionals.length) whatHappenedBits.push(`${allConfessionals.length} confessionals with ${dominantTone || 'mixed'} tone.`);
   if (alliancesFormed.length) whatHappenedBits.push(`New alliance${alliancesFormed.length > 1 ? 's' : ''} formed.`);
   if (elim) whatHappenedBits.push(`${elim.eliminated} eliminated.`);
@@ -143,7 +157,7 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   // Enhanced reality vs edit narrative
   const enhancedEditNarrative = buildEditNarrative(editPerception, dominantTone, narrativeElements, elim);
   
-  const whatWasShown = enhancedEditNarrative;
+  const whatWasShown = backstoryLine ? `${backstoryLine} ${enhancedEditNarrative}` : enhancedEditNarrative;
 
   const whatHappened = whatHappenedBits.length
     ? whatHappenedBits.join(' ') + ` ${narrativeElements.behindScenesContext}`
@@ -203,9 +217,10 @@ function getBehindScenesContext(arcType: string, strategicMoves: number, socialM
   }
 }
 
-function buildPersonalizedMontage(dominantTone: string, alliancesFormed: any[], alliancesActive: any[], elimLine: string | undefined, notableMoments: string[], recentActions: any[], editPerception: any): (string | undefined)[] {
+function buildPersonalizedMontage(dominantTone: string, alliancesFormed: any[], alliancesActive: any[], elimLine: string | undefined, notableMoments: string[], recentActions: any[], editPerception: any, gameState: GameState): (string | undefined)[] {
   const base = [
     dominantTone ? `Diary room tone: ${dominantTone} (${getPersonaContext(editPerception.persona, dominantTone)}).` : undefined,
+    getBackstoryLine(gameState),
     alliancesFormed.length
       ? `New alliance formed: ${alliancesFormed.map(a => a.name || a.members.join(' & ')).join(' | ')}`
       : undefined,

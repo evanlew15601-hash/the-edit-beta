@@ -1,4 +1,5 @@
 import { GameState, Contestant, TwistNarrative, NarrativeBeat } from '@/types/game';
+import { createWeeklyTask, verifyAndUpdateTasks } from './taskEngine';
 
 // Minimal prompt shape compatible with EnhancedConfessionalEngine
 export type ConfPrompt = {
@@ -91,6 +92,7 @@ export function applyDailyNarrative(gs: GameState): GameState {
   }
 
   // Planted HG task sync and exposure
+  let working = { ...gs };
   if (player.special && player.special.kind === 'planted_houseguest') {
     const spec = player.special;
     // escalate beat when secret revealed
@@ -105,31 +107,26 @@ export function applyDailyNarrative(gs: GameState): GameState {
     const tasks = (spec.tasks || []).slice();
     const weekTaskId = `w${week}_mission`;
     const hasWeekTask = tasks.some(t => t.id === weekTaskId);
-    if (!hasWeekTask && week <= 6) {
-      tasks.push({
-        id: weekTaskId,
-        description: week % 2 === 0 ? 'Steer the house away from a strong player' : 'Seed a plausible fake target',
-        dayAssigned: gs.currentDay,
-        completed: false,
-      });
-      // reflect tasks back into player.special without mutating original gs
-      const updatedContestants = gs.contestants.map(c => {
-        if (c.name !== gs.playerName) return c;
+    if (!hasWeekTask) {
+      const newTask = createWeeklyTask(gs, week);
+      tasks.push(newTask);
+      // reflect tasks back into player.special
+      const updatedContestants = working.contestants.map(c => {
+        if (c.name !== working.playerName) return c;
         return {
           ...c,
           special: { ...spec, tasks },
         } as Contestant;
       });
-      return {
-        ...gs,
-        contestants: updatedContestants,
-        twistNarrative: { ...arc, beats, currentBeatId: beats.find(b => b.status === 'active')?.id },
-      };
+      working = { ...working, contestants: updatedContestants };
     }
+
+    // Verify and update task progress/completion and apply rewards
+    working = verifyAndUpdateTasks(working);
   }
 
   return {
-    ...gs,
+    ...working,
     twistNarrative: { ...arc, beats, currentBeatId: beats.find(b => b.status === 'active')?.id },
   };
 }
