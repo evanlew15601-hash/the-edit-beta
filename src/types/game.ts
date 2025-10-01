@@ -286,6 +286,9 @@ export interface GameState {
 
   // Lite story mode current cutscene
   currentCutscene?: CurrentCutscene;
+
+  // Guard: mid-game beat cutscene display flags per beat to avoid firing too early or repeatedly
+  shownMidBeatCutscene?: { [beatId: string]: boolean };
 }
 
 export interface Confessional {

@@ -170,14 +170,17 @@ export const useGameState = () => {
         twistNarrative: specialApplied.twistNarrative || initializeTwistNarrative(specialApplied),
       });
 
-      // Detect newly activated narrative beat to trigger a lite mid-game cutscene
+      // Detect active narrative beat and trigger mid-game cutscene only after a delay
       let nextCutscene: GameState['currentCutscene'] | undefined = undefined;
-      const prevBeatId = prev.twistNarrative?.currentBeatId;
-      const newBeatId = narrativeApplied.twistNarrative?.currentBeatId;
-      if (newBeatId && newBeatId !== prevBeatId) {
-        const beat = narrativeApplied.twistNarrative!.beats.find(b => b.id === newBeatId);
-        if (beat) {
-          nextCutscene = buildMidGameCutscene(narrativeApplied as GameState, beat);
+      let triggeredBeatId: string | undefined;
+      const MID_GAME_BEAT_DELAY_DAYS = 2;
+      const activeBeat = narrativeApplied.twistNarrative?.beats.find(b => b.status === 'active');
+      if (activeBeat) {
+        const ready = newDay - activeBeat.dayPlanned >= MID_GAME_BEAT_DELAY_DAYS;
+        const seen = !!(prev.shownMidBeatCutscene && prev.shownMidBeatCutscene[activeBeat.id]);
+        if (ready && !seen && gamePhase === 'daily') {
+          nextCutscene = buildMidGameCutscene(narrativeApplied as GameState, activeBeat);
+          triggeredBeatId = activeBeat.id;
         }
       }
       
@@ -301,7 +304,9 @@ export const useGameState = () => {
         hostChildName: specialApplied.hostChildName || prev.hostChildName,
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
-        ongoingHouseMeeting: maybeHM || prev.ongoingHouseMeeting,
+        shownMidBeatCutscene: triggeredBeatId
+          ? { ...(prev.shownMidBeatCutscene || {}), [triggeredBeatId]: true }
+         ,
       };
     });
   }, []);
@@ -943,12 +948,15 @@ export const useGameState = () => {
         .slice(0, 7)
         .map(c => c.name);
 
+      const finaleCutscene = buildFinaleCutscene({ ...prev, contestants: updatedContestants } as GameState);
+
       return {
         ...prev,
         contestants: updatedContestants,
         juryMembers: updatedJuryMembers,
         isPlayerEliminated: true,
-        gamePhase: 'jury_vote' as const,
+        currentCutscene: finaleCutscene,
+        gamePhase: 'cutscene' as const,
       };
     });
   }, []);
@@ -2077,6 +2085,5 @@ export const useGameState = () => {
     finalizeCharacterCreation,
     // Cutscene
     completeCutscene,
-_code  new}</;
-;
+  };
 };
