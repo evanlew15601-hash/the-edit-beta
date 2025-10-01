@@ -22,6 +22,8 @@ import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
 import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
+import { askForEliminationVote } from '@/utils/voteInferenceEngine';
+import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -175,6 +177,25 @@ export const useGameState = () => {
       if (newDay % 3 === 0) { // Only every 3 days
         InformationTradingEngine.autoGenerateIntelligence(tempState);
       }
+
+      // Persist weekly AI voting plans (regenerate at week start)
+      const weekNumber = Math.ceil(newDay / 7);
+      let nextWeeklyPlans = prev.weeklyVotingPlans;
+      let nextWeeklyPlanWeek = prev.weeklyPlanWeek;
+      if (prev.weeklyPlanWeek !== weekNumber || !prev.weeklyVotingPlans) {
+        const planSourceState: GameState = {
+          ...narrativeApplied,
+          currentDay: newDay,
+          alliances: updatedAlliances,
+        } as GameState;
+        const plansMap = AIVotingStrategy.generateWeeklyVotingPlans(planSourceState);
+        const plansObj: GameState['weeklyVotingPlans'] = {};
+        plansMap.forEach((plan, name) => {
+          plansObj![name] = plan;
+        });
+        nextWeeklyPlans = plansObj;
+        nextWeeklyPlanWeek = weekNumber;
+      }
       
       // Check if jury phase should begin - FIXED: Count ALL active contestants including player
       const remainingContestants = specialApplied.contestants.filter(c => !c.isEliminated);
@@ -271,6 +292,7 @@ export const useGameState = () => {
         lastAIResponse: undefined,
         lastAIAdditions: undefined,
         lastAIReaction: undefined,
+        lastVoteAsk: undefined,
         lastActionTarget: undefined,
         lastActionType: undefined,
         viewerRating: nextViewerRating,
@@ -279,6 +301,8 @@ export const useGameState = () => {
         hostChildName: specialApplied.hostChildName || prev.hostChildName,
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
+        weeklyVotingPlans: nextWeeklyPlans,
+        weeklyPlanWeek: nextWeeklyPlanWeek,
       };
     });
   }, []);
@@ -689,7 +713,28 @@ export const useGameState = () => {
         ],
         viewerRating: ratingRes.rating,
         ratingsHistory: nextHistory,
-      };
+      } as GameState;
+
+      // Hook: If DM asks about voting plans, surface vote declaration card
+      const dmAskTrigger = actionType === 'dm' 
+        && !!target 
+        && !!content 
+        && /\\b(vote|voting|who.*vot|target|plan)\\b/i.test(content);
+
+      if (dmAskTrigger) {
+        const targetNPC = updatedContestants.find(c => c.name === target);
+        if (targetNPC) {
+          const askRes = askForEliminationVote(targetNPC, prev, prev.weeklyVotingPlans);
+          newState.lastVoteAsk = {
+            voterName: targetNPC.name,
+            declaredTarget: askRes.declaredTarget,
+            reasoning: askRes.reasoning,
+            honesty: askRes.honesty,
+            explanation: askRes.explanation,
+            likelyTarget: askRes.likelyTarget,
+          };
+        }
+      }
       
       console.log('=== NEW STATE CREATED ===');
       console.log('New dailyActionCount:', newState.dailyActionCount);
@@ -1124,9 +1169,19 @@ export const useGameState = () => {
         gamePhase: 'premiere' as const,
       } as GameState;
 
+      // Initialize weekly voting plans for consistency from Week 1
+      const initialWeek = Math.ceil((baseState.currentDay || 1) / 7);
+      const plansMap = AIVotingStrategy.generateWeeklyVotingPlans(baseState);
+      const plansObj: GameState['weeklyVotingPlans'] = {};
+      plansMap.forEach((plan, name) => {
+        plansObj![name] = plan;
+      });
+
       return {
         ...baseState,
         twistNarrative: initializeTwistNarrative(baseState),
+        weeklyVotingPlans: plansObj,
+        weeklyPlanWeek: initialWeek,
       };
     });
   }, []);
@@ -1639,6 +1694,33 @@ export const useGameState = () => {
           viewerRating: ratingRes.rating,
           ratingsHistory: nextHistory,
         };
+
+        // Hook: If this tag choice asks about voting plans, surface vote declaration card
+        const intentTriggers = ['ProbeForInfo', 'StrategyTalk'];
+        const textTriggers = /\\b(vote|voting|who.*vot|target|plan)\\b/i;
+        const topicTrigger = Array.isArray(choice.topics) && choice.topics.some((t: string) => /vote|strategy|game/i.test(String(t)));
+
+        const shouldAskVote = (interaction === 'dm' || interaction === 'talk')
+          && (
+            intentTriggers.includes(choice.intent)
+            || textTriggers.test(String((choice as any).text || ''))
+            || topicTrigger
+          );
+
+        if (shouldAskVote) {
+          const targetNPC2 = updatedContestants.find(c => c.name === target);
+          if (targetNPC2) {
+            const askRes = askForEliminationVote(targetNPC2, prev, prev.weeklyVotingPlans);
+            newState.lastVoteAsk = {
+              voterName: targetNPC2.name,
+              declaredTarget: askRes.declaredTarget,
+              reasoning: askRes.reasoning,
+              honesty: askRes.honesty,
+              explanation: askRes.explanation,
+              likelyTarget: askRes.likelyTarget,
+            };
+          }
+        }
 
         return newState;
       } catch (e) {

@@ -13,6 +13,7 @@ import { AIOutcomeDebug } from './AIOutcomeDebug';
 import { RatingsPanel } from './RatingsPanel';
 import { BasicConversationEngine } from './BasicConversationEngine';
 import { EliminationVoteAskPanel } from './EliminationVoteAskPanel';
+import { VoteDeclarationCard } from './VoteDeclarationCard';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -36,6 +37,18 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
           actionType={gameState.lastActionType}
           reactionSummary={gameState.lastAIReaction}
         />
+        {gameState.lastVoteAsk && (
+          <div className="max-w-3xl">
+            <VoteDeclarationCard
+              voterName={gameState.lastVoteAsk.voterName}
+              declaredTarget={gameState.lastVoteAsk.declaredTarget}
+              reasoning={gameState.lastVoteAsk.reasoning}
+              honesty={gameState.lastVoteAsk.honesty}
+              explanation={gameState.lastVoteAsk.explanation}
+              likelyTarget={gameState.lastVoteAsk.likelyTarget}
+            />
+          </div>
+        )}
 
         {/* Debug surface for verifying Tag Dialogue integration (hidden unless debugMode) */}
         {gameState.debugMode && <AIOutcomeDebug gameState={gameState} />}
