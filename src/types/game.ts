@@ -146,6 +146,21 @@ export interface LastTagOutcome {
   };
 }
 
+export interface NarrativeBeat {
+  id: string;
+  title: string;
+  dayPlanned: number;
+  status: 'planned' | 'active' | 'completed';
+  summary?: string;
+}
+
+export interface TwistNarrative {
+  arc: 'none' | 'hosts_child' | 'planted_houseguest';
+  beats: NarrativeBeat[];
+  currentBeatId?: string;
+  confessionalThemes?: string[];
+}
+
 export interface GameState {
   currentDay: number;
   playerName: string;
@@ -240,6 +255,9 @@ export interface GameState {
   productionTaskLog?: {
     [contestantName: string]: { id: string; description: string; dayAssigned: number; completed?: boolean }[];
   };
+
+  // Narrative arc tracking for player twists
+  twistNarrative?: TwistNarrative;
 }
 
 export interface Confessional {

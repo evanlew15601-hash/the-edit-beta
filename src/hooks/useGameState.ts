@@ -21,6 +21,7 @@ import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogu
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
 import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild } from '@/utils/specialBackgrounds';
+import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -160,6 +161,12 @@ export const useGameState = () => {
         ...tempState,
         contestants: cleanedContestants,
       });
+
+      // Apply narrative arc tracking for player twists
+      const narrativeApplied = applyDailyNarrative({
+        ...specialApplied,
+        twistNarrative: specialApplied.twistNarrative || initializeTwistNarrative(specialApplied),
+      });
       
       // Emergent events are now handled by the EnhancedEmergentEvents component
       // No need for manual triggering here as the component manages its own generation
@@ -255,24 +262,23 @@ export const useGameState = () => {
         currentDay: newDay,
         dailyActionCount: 0,
         groupActionsUsedToday: 0,
-        contestants: specialApplied.contestants,
-        alliances: updatedAlliances, // Keep using updatedAlliances for now
+        contestants: narrativeApplied.contestants || specialApplied.contestants,
+        alliances: updatedAlliances,
         juryMembers,
         daysUntilJury,
         gamePhase,
         editPerception: updatedEditPerception,
-        // Reset daily variables
         lastAIResponse: undefined,
         lastAIAdditions: undefined,
         lastAIReaction: undefined,
         lastActionTarget: undefined,
         lastActionType: undefined,
-        // Ratings
         viewerRating: nextViewerRating,
         ratingsHistory: nextRatingsHistory,
-        // Special logs if any
         productionTaskLog: specialApplied.productionTaskLog || prev.productionTaskLog,
         hostChildName: specialApplied.hostChildName || prev.hostChildName,
+        hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
+        twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
       };
     });
   }, []);
@@ -1100,25 +1106,27 @@ export const useGameState = () => {
   const finalizeCharacterCreation = useCallback((player: Contestant) => {
     setGameState(prev => {
       const playerName = player.name || prev.playerName || 'You';
-      // Twists apply only to the player character. Do not assign special backgrounds to NPCs.
       const npcs = generateStaticNPCs({ count: 15, excludeNames: [playerName] });
-      // Extra safety: strip any specials from non-player contestants if present
       const sanitizedNPCs = npcs.map(c => ({ ...c, special: { kind: 'none' as const } }));
       const contestants: Contestant[] = [{ ...player }, ...sanitizedNPCs];
 
-      // Build reaction profiles
       const reactionProfiles: any = {};
       contestants.forEach(c => {
         reactionProfiles[c.id] = getReactionProfileForNPC(c);
         reactionProfiles[c.name] = reactionProfiles[c.id];
       });
 
-      return {
+      const baseState = {
         ...prev,
         playerName,
         contestants,
         reactionProfiles,
         gamePhase: 'premiere' as const,
+      } as GameState;
+
+      return {
+        ...baseState,
+        twistNarrative: initializeTwistNarrative(baseState),
       };
     });
   }, []);

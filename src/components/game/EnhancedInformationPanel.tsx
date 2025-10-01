@@ -196,6 +196,43 @@ export const EnhancedInformationPanel = ({ gameState }: EnhancedInformationPanel
             </div>
           )}
 
+          {/* Twist Narrative Arc Tracker */}
+          {gameState.twistNarrative && gameState.twistNarrative.arc !== 'none' && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Star className="w-3 h-3 text-primary" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Twist Narrative
+                </span>
+              </div>
+              <div className="text-xs text-foreground border-l-2 border-primary pl-2">
+                <div className="flex items-center justify-between">
+                  <span>
+                    Arc: {gameState.twistNarrative.arc === 'hosts_child' ? 'Host’s Child' : 'Planted Houseguest'}
+                  </span>
+                  {gameState.twistNarrative.currentBeatId && (
+                    <Badge variant="outline" className="text-[10px]">
+                      Active: {gameState.twistNarrative.beats.find(b => b.id === gameState.twistNarrative!.currentBeatId)?.title}
+                    </Badge>
+                  )}
+                </div>
+                <div className="mt-2 space-y-1">
+                  {gameState.twistNarrative.beats
+                    .filter(b => b.status !== 'completed')
+                    .slice(0, 3)
+                    .map(b => (
+                      <div key={b.id} className="flex items-center justify-between">
+                        <span>{b.title}</span>
+                        <Badge variant={b.status === 'active' ? 'secondary' : 'outline'} className="text-[10px]">
+                          {b.status}
+                        </Badge>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Recent Activity */}
           {recentInteractions.length > 0 && (
             <div className="space-y-2">
