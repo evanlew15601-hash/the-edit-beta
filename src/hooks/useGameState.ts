@@ -22,8 +22,7 @@ import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
 import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
-import { askForEliminationVote } from '@/utils/voteInferenceEngine';
-import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
+import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 

@@ -51,7 +51,9 @@ const Index = () => {
     hasSavedGame,
     goToTitle,
     finalizeCharacterCreation,
-  } = useGameState();
+    handleHouseMeetingChoice,
+    endHouseMeeting,
+    completeCutscene,
 
   // Keyboard shortcut: Shift+D to toggle debug HUD
   React.useEffect(() => {
