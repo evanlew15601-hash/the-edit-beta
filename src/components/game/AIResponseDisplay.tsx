@@ -7,9 +7,12 @@ interface AIResponseDisplayProps {
   lastTarget?: string;
   actionType?: string;
   reactionSummary?: ReactionSummary;
+  // Optional: show the short NPC reply (local LLM)
+  aiLine?: string;
+  isGenerating?: boolean;
 }
 
-export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: AIResponseDisplayProps) => {
+export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary, aiLine, isGenerating }: AIResponseDisplayProps) => {
   const getReactionIcon = () => {
     switch (reactionSummary?.take) {
       case 'positive': return <MessageCircle className="w-4 h-4 text-green-500" />;
@@ -66,6 +69,15 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary }: A
             </Badge>
           </div>
         </div>
+
+        {/* Optional: show the short in-character NPC line (local LLM) */}
+        {(isGenerating || aiLine) && (
+          <div className="text-sm text-foreground bg-muted/30 rounded-md p-2.5 border border-border/60">
+            <span className="font-medium opacity-90">NPC</span>
+            <span className="mx-2">—</span>
+            <span className="leading-relaxed">{isGenerating ? '...' : aiLine}</span>
+          </div>
+        )}
 
         {/* Surface actual outcome deltas after execution */}
         {reactionSummary.deltas && (

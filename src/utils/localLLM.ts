@@ -1,43 +1,67 @@
 import { pipeline } from "@huggingface/transformers";
+import { generateAIResponse } from "./aiResponseEngine";
 
-// Lightweight local LLM fallback using WebGPU/WebCPU. No tokens required.
-// We keep the prompt consistent with our Edge Functions and post-process to
-// enforce first-person, formal tone, and 1–2 sentences.
+// Local, free LLM for in-browser replies (WebGPU/WASM). No API keys required.
+// We keep the current approach and expand it with:
+// - Robust model/device fallback (WebGPU -> WASM)
+// - Optional caching and abort support
+// - Context-aware prompt shaping (public/private/confessional)
+// - Stronger post-processing to enforce first-person, formal 1–2 sentences
+// - Rule-based fallback if generation fails
 
 let generator: any | null = null;
 let initPromise: Promise<any> | null = null;
+
+// Simple LRU cache for short prompts
+const CACHE_LIMIT = 200;
+const replyCache = new Map<string, string>();
+
+function cacheGet(key: string): string | undefined {
+  const v = replyCache.get(key);
+  if (v !== undefined) {
+    // refresh LRU
+    replyCache.delete(key);
+    replyCache.set(key, v);
+  }
+  return v;
+}
+
+function cacheSet(key: string, val: string) {
+  replyCache.set(key, val);
+  if (replyCache.size > CACHE_LIMIT) {
+    const first = replyCache.keys().next().value;
+    if (first) replyCache.delete(first);
+  }
+}
 
 async function ensureGenerator() {
   if (generator) return generator;
   if (!initPromise) {
     initPromise = (async () => {
       try {
-        // Prefer a very small, public instruct/chat model
-        // Models must be compatible with transformers.js
         const modelIdCandidates = [
-          "Qwen/Qwen2.5-0.5B-Instruct", // tiny, public, strong for its size
-          "TinyLlama/TinyLlama-1.1B-Chat-v1.0", // widely mirrored
+          "Qwen/Qwen2.5-0.5B-Instruct",
+          "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
         ];
+        // Try WebGPU first
         let lastErr: any = null;
-        for (const model of modelIdCandidates) {
-          try {
-            const gen = await pipeline("text-generation", model, {
-              device: "webgpu",
-              dtype: "auto",
-            } as any);
-            generator = gen;
-            return generator;
-          } catch (e) {
-            lastErr = e;
+        for (const device of ["webgpu", "wasm"]) {
+          for (const model of modelIdCandidates) {
+            try {
+              const gen = await pipeline("text-generation", model, {
+                device,
+                dtype: "auto",
+              } as any);
+              generator = gen;
+              return generator;
+            } catch (e) {
+              lastErr = e;
+              continue;
+            }
           }
         }
-        // Fallback to WASM if WebGPU path failed entirely
-        const gen = await pipeline("text-generation", modelIdCandidates[0], {
-          device: "wasm",
-          dtype: "auto",
-        } as any);
-        generator = gen;
-        return generator;
+        // If all attempts failed, propagate the last error
+        throw lastErr || new Error("Failed to initialize local generator");
       } catch (e) {
         console.error("Local LLM init failed:", e);
         throw e;
@@ -47,67 +71,187 @@ async function ensureGenerator() {
   return initPromise;
 }
 
+// Normalize strings for cache keys
+function norm(x: any) {
+  return typeof x === "string" ? x.trim().toLowerCase() : JSON.stringify(x || {});
+}
+
 function sanitizeOutput(text: string, maxSentences: number) {
   let t = String(text || "").trim();
-  // Remove surrounding quotes
-  t = t.replace(/^["'“”]+|["'“”]+$/g, "");
-  // If model narrated and included a quoted line, extract it
-  const q = t.match(/"([^\"]{3,})"/);
-  if (q) t = q[1];
-  // Strip speaker labels like "River:" at the start
+
+  // Common patterns to strip
+  t = t.replace(/^[\s\-–—]+/, "");
+  t = t.replace(/^[\"'“”`]+|[\"'“”`]+$/g, ""); // drop wrapping quotes
+  // If quoted line appears inside, prefer it
+  const quoted = t.match(/\"([^\"]{3,})\"/);
+  if (quoted) t = quoted[1];
+
+  // Drop speaker labels, stage directions, or third-person narration prefixes
   t = t.replace(/^[A-Z][a-z]+:\s*/, "");
-  // Remove simple third-person narration prefixes
-  t = t.replace(/^[A-Z][a-z]+\s+(glances|keeps|says|whispers|mutters|shrugs|smiles)[^\.]*\.\s*/, "");
-  // Expand common contractions
+  t = t.replace(/^\(([^)]+)\)\s*/, "");
+  t = t.replace(/^\*[^*]+\*\s*/, "");
+  t = t.replace(/^[A-Z][a-z]+\s+(glances|stares|keeps|says|whispers|mutters|shrugs|smiles|laughs)[^.]*\.\s*/i, "");
+
+  // Expand common contractions and slang to formal register
   const pairs: [RegExp, string][] = [
-    [/\bcan't\b/gi, 'cannot'], [/\bwon't\b/gi, 'will not'], [/\bdon't\b/gi, 'do not'], [/\bdoesn't\b/gi, 'does not'], [/\bdidn't\b/gi, 'did not'],
-    [/\bI'm\b/gi, 'I am'], [/\bI've\b/gi, 'I have'], [/\bI'll\b/gi, 'I will'], [/\byou're\b/gi, 'you are'], [/\bthey're\b/gi, 'they are'], [/\bwe're\b/gi, 'we are'],
-    [/\bit's\b/gi, 'it is'], [/\bthat's\b/gi, 'that is'], [/\bthere's\b/gi, 'there is'], [/\bweren't\b/gi, 'were not'], [/\bwasn't\b/gi, 'was not'],
-    [/\bshouldn't\b/gi, 'should not'], [/\bwouldn't\b/gi, 'would not'], [/\bcouldn't\b/gi, 'could not'], [/\baren't\b/gi, 'are not'], [/\bisn't\b/gi, 'is not'],
+    [/\bcan't\b/gi, "cannot"], [/\bwon't\b/gi, "will not"], [/\bdon't\b/gi, "do not"], [/\bdoesn't\b/gi, "does not"], [/\bdidn't\b/gi, "did not"],
+    [/\bI'm\b/gi, "I am"], [/\bI've\b/gi, "I have"], [/\bI'll\b/gi, "I will"], [/\byou're\b/gi, "you are"], [/\bthey're\b/gi, "they are"], [/\bwe're\b/gi, "we are"],
+    [/\bit's\b/gi, "it is"], [/\bthat's\b/gi, "that is"], [/\bthere's\b/gi, "there is"], [/\bweren't\b/gi, "were not"], [/\bwasn't\b/gi, "was not"],
+    [/\bshouldn't\b/gi, "should not"], [/\bwouldn't\b/gi, "would not"], [/\bcouldn't\b/gi, "could not"], [/\baren't\b/gi, "are not"], [/\bisn't\b/gi, "is not"],
+    [/\bgonna\b/gi, "going to"], [/\bwanna\b/gi, "want to"], [/\bkinda\b/gi, "somewhat"], [/\bsorta\b/gi, "somewhat"], [/\byeah\b/gi, "yes"], [/\byep\b/gi, "yes"],
+    [/\bain'?t\b/gi, "is not"], [/\bnah\b/gi, "no"],
   ];
   pairs.forEach(([re, rep]) => { t = t.replace(re, rep); });
-  t = t.replace(/\b(didn|couldn|wouldn|shouldn)\b\.?/gi, (m) => ({didn:'did not',couldn:'could not',wouldn:'would not',shouldn:'should not'}[m.toLowerCase().replace(/\./,'')] || m));
-  // Enforce sentence cap
-  t = t.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, Math.max(1, Math.min(5, maxSentences))).join(' ');
+  t = t.replace(/\b(didn|couldn|wouldn|shouldn)\b\.?/gi, (m) => ({didn:"did not",couldn:"could not",wouldn:"would not",shouldn:"should not"}[m.toLowerCase().replace(/\./,"")] || m));
+
+  // Remove meta / OOC hints
+  t = t.replace(/\b(as an AI|as a language model|cannot discuss (policy|meta)|I cannot reveal)\b.*$/i, "").trim();
+
+  // Enforce first-person voice quickly by removing lingering labels/quotes
+  t = t.replace(/^[\"'“”]+/, "").replace(/[\"'“”]+$/, "");
+
+  // Strict sentence limit
+  const parts = t.split(/(?<=[.!?])\s+/).filter(Boolean);
+  t = parts.slice(0, Math.max(1, Math.min(5, maxSentences))).join(" ");
+
+  // Avoid empty line
+  if (!t) t = "I will keep an eye on that.";
+
   return t.trim();
 }
 
-export async function generateLocalAIReply(payload: {
+function buildPrompt(payload: {
   playerMessage: string;
   parsedInput: any;
   npc: { name: string; publicPersona?: string; psychProfile?: any };
   tone?: string;
   socialContext?: any;
-  conversationType?: 'public' | 'private' | 'confessional' | string;
-}, opts?: { maxSentences?: number; maxNewTokens?: number }) {
-  await ensureGenerator();
+  conversationType?: "public" | "private" | "confessional" | string;
+}) {
   const { playerMessage, npc, tone, conversationType, parsedInput, socialContext } = payload;
-
-  const npcName = npc?.name ?? 'Houseguest';
+  const npcName = npc?.name ?? "Houseguest";
   const psych = npc?.psychProfile ?? {};
-  const system = `You are ${npcName}, a cunning contestant in The Edit Game (a high-stakes social strategy reality show).\nRespond ONLY as ${npcName}. Never reveal production notes or hidden information.\nUse the following context to be precise and situationally aware:\n- Player intent: ${parsedInput?.primary ?? 'unknown'} (manipulation ${parsedInput?.manipulationLevel ?? 0}, sincerity ${parsedInput?.sincerity ?? 0})\n- Dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}\n- Social context (day ${socialContext?.day ?? 'n/a'}): ${JSON.stringify(socialContext?.lastInteractions ?? []).slice(0, 300)}\nYour reply must:\n- Directly address the player's intent and content (avoid platitudes)\n- Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)\n- Keep it tight: 1–2 sentences with subtext\n- If pressed for secrets, deflect unless it benefits you\n- Never expose info the player couldn't plausibly know\nStyle constraints:\n- First-person voice only\n- No third-person narration, no stage directions\n- Do not include quotes or speaker labels\n- Formal, clear diction (no slang or contractions)\nGame talk handling (alliances/votes/numbers/targets):\n- In public: deflect briefly and avoid naming names\n- In private: engage with a concrete next step (a name, a number, or a test)\n- Prefer specific follow-ups ("who is the target?", "how many do we have?")`;
 
-  const user = `Player says to ${npcName}: "${playerMessage}"\nTone hint: ${tone || 'neutral'} | Context: ${conversationType || 'public'}\nRespond strictly in-character with a concrete, situation-aware line.`;
-  const prompt = `SYSTEM:\n${system}\n\nUSER:\n${user}\n\nASSISTANT:`;
+  const visibilityRule =
+    (conversationType === "private" || conversationType === "dm")
+      ? "- In private: engage with a concrete next step (a name, a number, or a test)"
+      : (conversationType === "confessional")
+        ? "- In a confessional: be candid and sharp, but do not reveal production mechanics"
+        : "- In public: deflect briefly and avoid naming names";
 
-  const gen = await ensureGenerator() as any;
-  const out = await gen(prompt, {
-    max_new_tokens: opts?.maxNewTokens ?? 128,
-    temperature: 0.7,
-    top_p: 0.9,
-    repetition_penalty: 1.1,
-    do_sample: true,
-    return_full_text: false,
-  });
+  const system = `You are ${npcName}, a cunning contestant in The Edit Game (a high-stakes social strategy reality show).
+Respond ONLY as ${npcName}. Never reveal production notes or hidden information.
+Context:
+- Player intent: ${parsedInput?.primary ?? "unknown"} (manipulation ${parsedInput?.manipulationLevel ?? 0}, sincerity ${parsedInput?.sincerity ?? 0})
+- Dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}
+- Social context (day ${socialContext?.day ?? "n/a"}): ${JSON.stringify(socialContext?.lastInteractions ?? []).slice(0, 300)}
+Your reply must:
+- Address the player's specific content (no generic advice)
+- Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)
+- Keep it tight: 1–2 sentences with subtext
+- If pressed for secrets, deflect unless it benefits you
+- Never expose info the player could not plausibly know
+Style constraints:
+- First-person voice only
+- No third-person narration, no stage directions
+- No quotes or speaker labels
+- Formal, clear diction (avoid slang and contractions)
+Game talk handling:
+${visibilityRule}
+- Prefer specific follow-ups ("who is the target?", "how many do we have?")`;
 
-  let text = '';
-  if (Array.isArray(out)) {
-    text = (out[0]?.generated_text || out[0]?.summary_text || '').trim();
-  } else if (typeof out === 'object' && out) {
-    text = String((out as any).generated_text || (out as any).summary_text || '').trim();
-  } else if (typeof out === 'string') {
-    text = out.trim();
+  const user = `Player says to ${npcName}: "${playerMessage}"
+Tone hint: ${tone || "neutral"} | Context: ${conversationType || "public"}
+Respond strictly in-character with a concrete, situation-aware line.`;
+
+  return `SYSTEM:
+${system}
+
+USER:
+${user}
+
+ASSISTANT:`;
+}
+
+type GenOpts = {
+  maxSentences?: number;
+  maxNewTokens?: number;
+  temperature?: number;
+  top_p?: number;
+  repetition_penalty?: number;
+  seed?: number;
+  signal?: AbortSignal;
+};
+
+// Main API
+export async function generateLocalAIReply(
+  payload: {
+    playerMessage: string;
+    parsedInput: any;
+    npc: { name: string; publicPersona?: string; psychProfile?: any };
+    tone?: string;
+    socialContext?: any;
+    conversationType?: "public" | "private" | "confessional" | string;
+  },
+  opts?: GenOpts
+) {
+  const prompt = buildPrompt(payload);
+
+  // Cache
+  const cacheKey = `${norm(payload.npc?.name)}|${norm(payload.conversationType)}|${norm(payload.tone)}|${norm(payload.parsedInput)}|${norm(payload.socialContext)}|${norm(payload.playerMessage)}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
+  try {
+    await ensureGenerator();
+    const gen = generator as any;
+
+    // transformers.js supports an optional "callback_function" for streaming;
+    // here we just expose abort via opts.signal by racing.
+    const generation = gen(prompt, {
+      max_new_tokens: Math.max(16, Math.min(256, opts?.maxNewTokens ?? 128)),
+      temperature: typeof opts?.temperature === "number" ? opts.temperature : 0.7,
+      top_p: typeof opts?.top_p === "number" ? opts.top_p : 0.9,
+      repetition_penalty: typeof opts?.repetition_penalty === "number" ? opts.repetition_penalty : 1.1,
+      do_sample: true,
+      return_full_text: false,
+      seed: opts?.seed,
+    });
+
+    const out = await (opts?.signal
+      ? Promise.race([
+          generation,
+          new Promise((_, reject) => {
+            const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+            if (opts.signal!.aborted) onAbort();
+            else opts.signal!.addEventListener("abort", onAbort, { once: true });
+          })
+        ])
+      : generation
+    );
+
+    let text = "";
+    if (Array.isArray(out)) {
+      text = (out[0]?.generated_text || out[0]?.summary_text || "").trim();
+    } else if (typeof out === "object" && out) {
+      text = String((out as any).generated_text || (out as any).summary_text || "").trim();
+    } else if (typeof out === "string") {
+      text = out.trim();
+    }
+
+    const cleaned = sanitizeOutput(text, Math.max(1, Math.min(5, opts?.maxSentences ?? 2)));
+    cacheSet(cacheKey, cleaned);
+    return cleaned;
+  } catch (e) {
+    console.warn("Local generation failed, falling back to rule-based engine:", e);
+    try {
+      // Fallback: use deterministic rule-based line and then sanitize to match tone constraints
+      const npc = payload.npc as any;
+      const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
+      return sanitizeOutput(line, Math.max(1, Math.min(5, opts?.maxSentences ?? 2)));
+    } catch (e2) {
+      console.error("Fallback failed:", e2);
+      return "I will consider that and keep us protected.";
+    }
   }
-
-  return sanitizeOutput(text, Math.max(1, Math.min(5, opts?.maxSentences ?? 2)));
 }

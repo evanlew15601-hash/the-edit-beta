@@ -166,6 +166,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
             additions={gameState.aiSettings.additions}
             deterministicPersonaVariants={gameState.aiSettings.deterministicPersonaVariants}
             outcomeScaling={gameState.aiSettings.outcomeScaling}
+            useLocalLLM={gameState.aiSettings.useLocalLLM}
             onChange={(next) => {
               // Merge into aiSettings within gameState
               const merged = {
@@ -174,6 +175,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
                 ...('additions' in next ? { additions: next.additions! } : {}),
                 ...('deterministicPersonaVariants' in next ? { deterministicPersonaVariants: next.deterministicPersonaVariants } : {}),
                 ...('outcomeScaling' in next ? { outcomeScaling: next.outcomeScaling } : {}),
+                ...('useLocalLLM' in next ? { useLocalLLM: next.useLocalLLM } : {}),
               };
               // Local update only – ActionPanel isn't the state owner; dispatch via custom event
               window.dispatchEvent(new CustomEvent('updateAISettings', { detail: merged }));
