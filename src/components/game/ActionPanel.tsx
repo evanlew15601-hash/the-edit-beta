@@ -16,6 +16,7 @@ import { CreateAllianceDialog } from './CreateAllianceDialog';
 import { AddAllianceMemberDialog } from './AddAllianceMemberDialog';
 import { AISettingsPanel } from './AISettingsPanel';
 import { Plus, UserPlus } from 'lucide-react';
+import { HouseMeetingDialog } from './HouseMeetingDialog';
 
 interface ActionPanelProps {
   gameState: GameState;
@@ -25,6 +26,8 @@ interface ActionPanelProps {
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
   onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
   onAllianceMeeting: (allianceId: string, agenda: string, tone: string) => void;
+  onHouseMeetingChoice: (choice: 'persuasive' | 'defensive' | 'aggressive' | 'manipulative' | 'silent') => void;
+  onEndHouseMeeting: () => void;
 }
 
 export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk, onAllianceMeeting }: ActionPanelProps) => {
@@ -62,6 +65,8 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         return 'Start a light house activity to build rapport and stir subtle dynamics.';
       case 'alliance_meeting':
         return 'Call a private meeting with your alliance members to strategize.';
+      case 'house_meeting':
+        return 'Call a public House Meeting that affects the whole house.';
       default:
         return '';
     }
@@ -131,6 +136,26 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
               </p>
             </div>
           ))}
+        </div>
+
+        {/* Public House Meeting */}
+        <div className="mt-4 ring-1 ring-border rounded-lg p-4 hover:bg-muted/40 transition-colors">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium">House Meeting</h3>
+            <div className="flex gap-2">
+              <Button
+                variant="action"
+                size="sm"
+                onClick={() => setActiveDialog('house_meeting')}
+                disabled={allActionsUsed}
+              >
+                Call House Meeting
+              </Button>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Call a public meeting to address the house. Multi-round choices with ripple effects on trust, alliances, and votes.
+          </p>
         </div>
 
         {/* Settings panel for deterministic variants and outcome scaling */}
@@ -319,6 +344,24 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onSubmit={(allianceId, agenda, tone) => {
           onAllianceMeeting(allianceId, agenda, tone);
           setAllianceMeetingOpen(false);
+        }}
+      />
+
+      {/* House Meeting - public, multi-round */}
+      <HouseMeetingDialog
+        isOpen={activeDialog === 'house_meeting' || !!gameState.ongoingHouseMeeting}
+        onClose={() => setActiveDialog(null)}
+        gameState={gameState}
+        onStart={(topic, target) => {
+          onUseAction('house_meeting', target, topic, 'neutral');
+          // Keep dialog open to proceed through rounds
+        }}
+        onChoice={(choice) => {
+          onHouseMeetingChoice(choice);
+        }}
+        onEnd={() => {
+          onEndHouseMeeting();
+          setActiveDialog(null);
         }}
       />
 

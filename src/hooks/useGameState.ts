@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { npcResponseEngine } from '@/utils/npcResponseEngine';
-import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant } from '@/types/game';
+import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic } from '@/types/game';
+import { houseMeetingEngine } from '@/utils/houseMeetingEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { generateStaticNPCs } from '@/utils/npcGeneration';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
@@ -257,6 +258,14 @@ export const useGameState = () => {
         });
       }
 
+      // Possible AI-initiated House Meeting
+      const maybeHM = houseMeetingEngine.detectAIInitiation({
+        ...prev,
+        currentDay: newDay,
+        contestants: specialApplied.contestants,
+        alliances: updatedAlliances,
+      } as GameState);
+
       return {
         ...prev,
         currentDay: newDay,
@@ -279,6 +288,7 @@ export const useGameState = () => {
         hostChildName: specialApplied.hostChildName || prev.hostChildName,
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
+        ongoingHouseMeeting: maybeHM || prev.ongoingHouseMeeting,
       };
     });
   }, []);
@@ -347,6 +357,40 @@ export const useGameState = () => {
           ...prev,
           alliances: updatedAlliances,
           dailyActionCount: prev.dailyActionCount + 1
+        };
+      });
+      return;
+    }
+
+    // Handle House Meeting initialization
+    if (actionType === 'house_meeting') {
+      setGameState(prev => {
+        const topic = (content as HouseMeetingTopic) || 'nominate_target';
+        const participants = prev.contestants.filter(c => !c.isEliminated).map(c => c.name);
+        const state = {
+          id: `hm_${Date.now()}`,
+          initiator: prev.playerName || 'Player',
+          topic,
+          target,
+          isAIInitiated: false,
+          participants,
+          currentRound: 0,
+          maxRounds: 3,
+          mood: houseMeetingEngine.getMood(prev),
+          conversationLog: [{ speaker: prev.playerName || 'Player', text: `Call House Meeting: ${topic.replace('_', ' ')}` }],
+          currentOptions: houseMeetingEngine.buildOptions(topic),
+          forcedOpen: true,
+        };
+        const updatedActions = prev.playerActions.map(a =>
+          a.type === 'house_meeting' ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
+        );
+        return {
+          ...prev,
+          ongoingHouseMeeting: state,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'house_meeting',
+          lastActionTarget: 'Group',
         };
       });
       return;
@@ -1648,6 +1692,126 @@ export const useGameState = () => {
       }
     });
   }, [useAction]);
+
+  // House Meeting round progress
+  const handleHouseMeetingChoice = useCallback((choice: HouseMeetingToneChoice) => {
+    setGameState(prev => {
+      const hm = prev.ongoingHouseMeeting;
+      if (!hm) return prev;
+
+      const { updatedState, deltas, reaction, allianceExposureBoost } = houseMeetingEngine.applyChoice(hm, choice, prev);
+
+      // Apply deltas across participants
+      const updatedContestants = prev.contestants.map(c => {
+        if (c.isEliminated) return c;
+        const d = deltas[c.name];
+        if (!d) return c;
+        const newTrust = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + (d.trust || 0)));
+        const newSusp = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + (d.suspicion || 0)));
+        const newClose = Math.max(0, Math.min(100, c.psychProfile.emotionalCloseness + (d.closeness || 0)));
+
+        const newMemory = {
+          day: prev.currentDay,
+          type: 'event' as const,
+          participants: updatedState.participants,
+          content: `House Meeting (${updatedState.topic}): ${prev.playerName} responded with ${choice}`,
+          emotionalImpact: Math.max(-10, Math.min(10, Math.floor(((d.trust || 0) - (d.suspicion || 0)) / 5))),
+          timestamp: Date.now(),
+          tags: ['meeting'],
+        };
+
+        return {
+          ...c,
+          psychProfile: {
+            ...c.psychProfile,
+            trustLevel: newTrust,
+            suspicionLevel: newSusp,
+            emotionalCloseness: newClose,
+          },
+          memory: [...c.memory, newMemory],
+        };
+      });
+
+      // Alliance exposure shifts
+      let updatedAlliances = prev.alliances.map(a => ({ ...a }));
+      if (allianceExposureBoost && allianceExposureBoost.length > 0) {
+        updatedAlliances = updatedAlliances.map(a => {
+          const boost = allianceExposureBoost.find(b => b.allianceId === a.id);
+          if (!boost) return a;
+          return { ...a, exposureRisk: Math.max(0, Math.min(100, (a.exposureRisk || 20) + boost.delta)) };
+        });
+      }
+
+      // Nudge edit perception and ratings based on reaction
+      const ent = reaction?.deltas?.entertainment || 0;
+      const infl = reaction?.deltas?.influence || 0;
+      const updatedEditPerception = {
+        ...prev.editPerception,
+        screenTimeIndex: Math.max(0, Math.min(100, (prev.editPerception.screenTimeIndex || 0) + ent)),
+        lastEditShift: ent,
+        audienceApproval: Math.max(-100, Math.min(100, (prev.editPerception.audienceApproval || 0) + Math.round(infl / 2))),
+      };
+
+      const ratingRes = ratingsEngine.applyReaction(prev, reaction);
+      const nextHistory = [
+        ...(prev.ratingsHistory || []),
+        { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: reaction?.notes || 'House Meeting choice' },
+      ];
+
+      const newState: GameState = {
+        ...prev,
+        contestants: updatedContestants,
+        alliances: updatedAlliances,
+        ongoingHouseMeeting: updatedState,
+        lastAIReaction: reaction,
+        editPerception: updatedEditPerception,
+        interactionLog: [
+          ...(prev.interactionLog || []),
+          {
+            day: prev.currentDay,
+            type: 'activity',
+            participants: [prev.playerName, 'Group'],
+            content: `House Meeting: ${updatedState.topic} - choice=${choice}`,
+            source: 'player' as const,
+          },
+        ],
+        viewerRating: ratingRes.rating,
+        ratingsHistory: nextHistory,
+      };
+
+      return newState;
+    });
+  }, []);
+
+  const endHouseMeeting = useCallback(() => {
+    setGameState(prev => {
+      const hm = prev.ongoingHouseMeeting;
+      if (!hm) return prev;
+
+      // Summary memory
+      const summaryText = `House Meeting concluded (${hm.topic}). Rounds: ${hm.currentRound}/${hm.maxRounds}.`;
+      const updatedContestants = prev.contestants.map(c => {
+        if (c.isEliminated) return c;
+        const mem = {
+          day: prev.currentDay,
+          type: 'event' as const,
+          participants: hm.participants,
+          content: summaryText,
+          emotionalImpact: 1,
+          timestamp: Date.now(),
+          tags: ['meeting'],
+        };
+        return { ...c, memory: [...c.memory, mem] };
+      });
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        ongoingHouseMeeting: undefined,
+        lastHouseMeetingReaction: prev.lastAIReaction,
+      };
+    });
+  }, []);
 
   // Add skip to jury handler
   const skipToJury = useCallback(() => {
