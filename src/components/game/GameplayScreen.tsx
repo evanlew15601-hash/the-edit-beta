@@ -12,7 +12,7 @@ import { AllianceIntelligencePanel } from './AllianceIntelligencePanel';
 import { AIOutcomeDebug } from './AIOutcomeDebug';
 import { RatingsPanel } from './RatingsPanel';
 import { BasicConversationEngine } from './BasicConversationEngine';
-import { TruthVoteRequestPanel } from './TruthVoteRequestPanel';
+import { EliminationVoteAskPanel } from './EliminationVoteAskPanel';
 
 interface GameplayScreenProps {
   gameState: GameState;
@@ -66,8 +66,8 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
                  selectedAlliance={gameState.alliances[0]?.id}
                />
              )}
-             {/* Ask for Truth Vote (per-person) */}
-             <TruthVoteRequestPanel gameState={gameState} />
+             {/* Ask how they’re voting (elimination plans) */}
+             <EliminationVoteAskPanel gameState={gameState} />
              {/* Basic RPG-style conversation (lightweight set options) */}
              <BasicConversationEngine
                gameState={gameState}
