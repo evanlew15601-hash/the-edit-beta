@@ -58,7 +58,9 @@ export function CharacterCreation({
     if (meta?.statBias) {
       Object.entries(meta.statBias).forEach(([key, boost]) => {
         const k = key as keyof CharacterStats;
-        next[k] = Math.max(20, Math.min(95, (next[k] || 50) + (boost || 0)));
+        if (k !== 'primary' && typeof boost === 'number') {
+          next[k] = Math.max(20, Math.min(95, ((next[k] as number) || 50) + boost));
+        }
       });
     }
     return next;

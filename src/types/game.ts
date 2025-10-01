@@ -240,14 +240,6 @@ export interface GameState {
   productionTaskLog?: {
     [contestantName: string]: { id: string; description: string; dayAssigned: number; completed?: boolean }[];
   };
-
-  // Special twist state tracking
-  // Only one 'hosts_estranged_child' per season recommended.
-  hostChildName?: string;
-  productionTaskLog?: {
-    // For planted houseguest(s): centralized log for recap
-    [contestantName: string]: { id: string; description: string; dayAssigned: number; completed?: boolean }[];
-  };
 }
 
 export interface Confessional {

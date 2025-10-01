@@ -9,9 +9,10 @@ const STATIC_NPC_NAMES = [
 function baseStats(primary: keyof CharacterStats): CharacterStats {
   const baseline = { social: 50, strategy: 50, physical: 50, deception: 50, primary };
   const boost = 20;
+  const statKey = primary as keyof Omit<CharacterStats, 'primary'>;
   return {
     ...baseline,
-    [primary]: baseline[primary] + boost,
+    [statKey]: (baseline[statKey] as number) + boost,
   } as CharacterStats;
 }
 
@@ -21,7 +22,9 @@ function biasFromBackground(bg: Background, stats: CharacterStats): CharacterSta
   const next = { ...stats };
   Object.entries(meta.statBias).forEach(([k, v]) => {
     const key = k as keyof CharacterStats;
-    next[key] = Math.max(20, Math.min(95, (next[key] || 50) + (v || 0)));
+    if (key !== 'primary' && typeof v === 'number') {
+      next[key] = Math.max(20, Math.min(95, ((next[key] as number) || 50) + v));
+    }
   });
   return next;
 }

@@ -510,20 +510,3 @@ export class EnhancedEmergentEvents {
     };
   }
 }
-
-  static executeEventChoice(choice: EmergentChoice, gameState: GameState): {
-    outcome: string;
-    relationshipChanges: { [name: string]: number };
-    trustChanges: { [name: string]: number };
-    allianceChanges: string[];
-    editChange: number;
-  } {
-    return {
-      outcome: choice.consequences.immediate,
-      relationshipChanges: choice.relationshipEffects,
-      trustChanges: choice.trustEffects,
-      allianceChanges: choice.allianceEffects || [],
-      editChange: choice.editEffect
-    };
-  }
-}
