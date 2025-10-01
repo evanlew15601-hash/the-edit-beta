@@ -89,14 +89,18 @@ const RESPONSE_TEMPLATES: ResponseTemplate[] = [
 ];
 
 export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
+  // Base responses for the prompt category
   const categoryResponses = RESPONSE_TEMPLATES.find(t => t.category === prompt.category)?.responses || [];
+
+  // Contextual + producer + prompt-specific variants
   const contextualResponses = generateContextualResponses(prompt, gameState);
   const producerResponses = generateProducerResponsesIfAny(prompt, gameState);
   const specificResponses = generatePromptSpecificResponses(prompt, gameState);
 
+  // Combine
   const allResponses = [...categoryResponses, ...contextualResponses, ...producerResponses, ...specificResponses];
 
-  // Integrity guard first
+  // Integrity guard: remove lines that reference events that haven't happened
   const eventValid = allResponses.filter(r => responseIsValid(r, gameState));
 
   // Alignment guard: keep only responses that match prompt keywords or entities
@@ -110,6 +114,76 @@ export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameS
     const base = [...contextualResponses, ...specificResponses].filter(r => responseIsValid(r, gameState));
     aligned = [...new Set([...aligned, ...base])];
   }
+  if (aligned.length < 4) {
+    // Last fallback: include category responses that at least match category semantics
+    const semanticallyOk = categoryResponses.filter(r => responseMatchesPrompt(r, keywords, entities, prompt.category));
+    aligned = [...new Set([...aligned, ...semanticallyOk])];
+  }
+
+  // Coherence and grammar polish: add tone/category/context prefixes and normalize punctuation
+  const polished = applyCoherenceAndGrammar(aligned, prompt, gameState);
+
+  // Shuffle and return a selection
+  const shuffled = shuffleArray(polished);
+  return shuffled.slice(0, Math.min(8, shuffled.length));
+}
+
+// Grammar + coherence polish helpers
+function applyCoherenceAndGrammar(texts: string[], prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
+  const entities = extractEntitiesFromPrompt(prompt, gameState);
+  const prefix = categoryPrefix(prompt.category);
+  const contextPrefix = buildContextPrefix(prompt, entities, gameState);
+
+  return texts.map(t => ensureSentence(`${prefix}${contextPrefix}${normalizeText(t)}`));
+}
+
+function categoryPrefix(category: string): string {
+  switch (category) {
+    case 'strategy': return 'Strategically, ';
+    case 'alliance': return 'As for my alliance, ';
+    case 'voting': return 'Right now, on the vote, ';
+    case 'social': return 'Honestly, ';
+    case 'reflection': return 'Looking back, ';
+    case 'general': return 'Truth is, ';
+    default: return '';
+  }
+}
+
+function buildContextPrefix(prompt: DynamicConfessionalPrompt, entities: string[], gameState: GameState): string {
+  const target = entities[0];
+  if (prompt.id.includes('recent-conflict') && target) return `about ${target}, `;
+  if (prompt.id.includes('social-connection') && target) return `regarding ${target}, `;
+  if (prompt.id.includes('competition-threat') && target) return `on ${target}, `;
+  if (prompt.category === 'alliance' && prompt.context?.members?.length) {
+    return `with ${prompt.context.members.join(' and ')}, `;
+  }
+  if (prompt.id.includes('elimination-pressure') || prompt.category === 'voting') {
+    return 'with elimination approaching, ';
+  }
+  return '';
+}
+
+function normalizeText(text: string): string {
+  let t = text.trim();
+
+  // Replace curly punctuation with ASCII equivalents
+  t = t.replace(/\u2019/g, "'"); // ’
+  t = t.replace(/\u2018/g, "'"); // ‘
+  t = t.replace(/\u201C/g, '"'); // “
+  t = t.replace(/\u201D/g, '"'); // ”
+  t = t.replace(/\u2026/g, '...'); // …
+  t = t.replace(/\s+/g, ' ');
+
+  // Capitalize first letter
+  if (t.length > 0) t = t[0].toUpperCase() + t.slice(1);
+  return t;
+}
+
+function ensureSentence(text: string): string {
+  const t = text.trim();
+  if (t.endsWith('.') || t.endsWith('!') || t.endsWith('?')) return t;
+  return t + '.';
+}
   if (aligned.length < 4) {
     // Last fallback: include category responses that at least match category semantics
     const semanticallyOk = categoryResponses.filter(r => responseMatchesPrompt(r, keywords, entities, prompt.category));
