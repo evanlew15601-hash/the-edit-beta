@@ -94,12 +94,18 @@ export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameS
   
   // Generate contextual responses based on current game state
   const contextualResponses = generateContextualResponses(prompt, gameState);
+
+  // Producer tactic targeted responses (if any)
+  const producerResponses = generateProducerResponsesIfAny(prompt, gameState);
   
   // Combine all responses
-  const allResponses = [...categoryResponses, ...contextualResponses];
+  const allResponses = [...categoryResponses, ...contextualResponses, ...producerResponses];
+
+  // Integrity guard: remove lines that reference events that haven't happened
+  const validResponses = allResponses.filter(r => responseIsValid(r, gameState));
   
   // Shuffle and return a selection
-  const shuffled = shuffleArray(allResponses);
+  const shuffled = shuffleArray(validResponses);
   return shuffled.slice(0, Math.min(8, shuffled.length));
 }
 
@@ -161,6 +167,102 @@ function generateContextualResponses(prompt: DynamicConfessionalPrompt, gameStat
   }
 
   return responses;
+}
+
+// Producer tactic aware responses
+function generateProducerResponsesIfAny(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
+  const res: string[] = [];
+  const t = prompt.producerTactic?.kind;
+  if (!t) return res;
+
+  const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
+  const pickTarget = (): string | undefined => {
+    const sorted = activeContestants
+      .filter(c => c.name !== gameState.playerName)
+      .sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0));
+    return sorted[0]?.name;
+  };
+
+  switch (t) {
+    case 'soundbite':
+      res.push(
+        'The truth is… I make moves no one sees coming.',
+        'The truth is… I’m playing my own game, not theirs.',
+        'The truth is… trust is a currency and I’m rich.'
+      );
+      break;
+    case 'bait': {
+      const target = prompt.context?.targetName || pickTarget();
+      if (target) {
+        res.push(
+          `${target} is a snake because they smile while they set traps.`,
+          `${target} plays nice, then twists every conversation.`,
+          `If ${target} wins, it’ll be because we ignored all the red flags.`
+        );
+      } else {
+        res.push(
+          'Some people smile with their mouth and lie with their eyes.',
+          'The real threat is the one pretending to be harmless.'
+        );
+      }
+      break;
+    }
+    case 'structured_retell': {
+      const other = prompt.context?.targetName;
+      res.push(
+        `I was calm until ${other || 'they'} took it personal. That’s when it blew up.`,
+        `First they pushed, then they denied it, and that’s when I drew a line.`,
+        `I tried to de-escalate, but ${other || 'they'} wanted a scene—so I gave them one.`
+      );
+      break;
+    }
+    case 'damage_control':
+      res.push(
+        'I own my choices. If I hurt someone, I’ll fix it with gameplay, not excuses.',
+        'It looked messy, but it was calculated—there’s a bigger plan behind it.',
+        'That moment doesn’t define me; my next move will.'
+      );
+      break;
+    case 'reframe':
+      res.push(
+        'I did what I had to because survival beats comfort.',
+        'I did what I had to because loyalty without strategy is a liability.',
+        'I did what I had to because this game rewards decisive people.'
+      );
+      break;
+    case 'escalate':
+      res.push(
+        'Put me on the block, I’ll talk my way off.',
+        'They keep underestimating me—until it’s too late.',
+        'Everyone thinks they’re running the house. I actually am.'
+      );
+      break;
+  }
+
+  return res;
+}
+
+// Prevent responses that imply events that haven't occurred
+function responseIsValid(text: string, gameState: GameState): boolean {
+  const t = text.toLowerCase();
+  const activeCount = gameState.contestants.filter(c => !c.isEliminated).length;
+
+  const allowImmunity = !!gameState.immunityWinner;
+  const allowJury = typeof gameState.daysUntilJury === 'number'
+    ? gameState.daysUntilJury <= 0 || (gameState.juryMembers && gameState.juryMembers.length > 0)
+    : false;
+  const allowFinaleTalk = activeCount <= 5 || ['finale', 'post_season', 'final_3_vote'].includes(gameState.gamePhase);
+  const allowEliminationTalk = (gameState.nextEliminationDay - gameState.currentDay) <= 2 || (gameState.votingHistory && gameState.votingHistory.length > 0);
+
+  if (t.includes('immunity') && !allowImmunity) return false;
+  if (t.includes('jury') && !allowJury) return false;
+  if (t.includes('finale') && !allowFinaleTalk) return false;
+  if (t.includes('elimination') && !allowEliminationTalk) return false;
+
+  // Avoid lines that assert a win unless we have immunity winner (minimal check)
+  if ((t.includes('won') || t.includes('win ')) && !allowImmunity) return false;
+
+  return true;
 }
 
 function shuffleArray<T>(array: T[]): T[] {
