@@ -10,6 +10,13 @@ export interface DynamicConfessionalPrompt {
   suggestedTones: string[];
   editPotential: number;
   context?: any;
+  // Optional producer direction to increase realism/complexity
+  producerTactic?: {
+    kind: 'soundbite' | 'bait' | 'structured_retell' | 'reframe' | 'damage_control' | 'escalate';
+    note: string;
+    escalationLevel?: 1 | 2 | 3;
+    requiresEvent?: 'conflict' | 'immunity' | 'elimination' | 'jury' | 'secret_reveal' | 'mission';
+  };
 }
 
 export class EnhancedConfessionalEngine {
@@ -214,14 +221,16 @@ export class EnhancedConfessionalEngine {
         editPotential: 7
       });
     } else if (activeContestants.length > 5) {
-      // Pre-jury prompts
-      additionalPrompts.push({
-        id: 'jury-approaching',
-        category: 'strategy' as const,
-        prompt: "We're getting close to jury phase. How are you managing your threat level?",
-        suggestedTones: ['strategic', 'vulnerable'],
-        editPotential: 8
-      });
+      // Pre-jury prompts (gate if jury is actually near)
+      if (typeof gameState.daysUntilJury === 'number' ? gameState.daysUntilJury <= 3 : true) {
+        additionalPrompts.push({
+          id: 'jury-approaching',
+          category: 'strategy' as const,
+          prompt: "We're getting close to jury phase. How are you managing your threat level?",
+          suggestedTones: ['strategic', 'vulnerable'],
+          editPotential: 8
+        });
+      }
     } else {
       // Late game prompts
       additionalPrompts.push({
@@ -245,7 +254,12 @@ export class EnhancedConfessionalEngine {
         prompt: "You haven't been shown much yet. How will you get more screen time without blowing up your game?",
         followUp: "What kind of confessional will make producers take notice while staying authentic?",
         suggestedTones: ['dramatic', 'humorous', 'strategic'],
-        editPotential: 7
+        editPotential: 7,
+        producerTactic: {
+          kind: 'escalate',
+          note: 'Give a bold, quotable line we can cut to.',
+          escalationLevel: 2,
+        }
       });
     } else if (isComicOrSocial) {
       additionalPrompts.push({
@@ -254,7 +268,11 @@ export class EnhancedConfessionalEngine {
         prompt: "Viewers see your humorous side. How do you balance that with real strategic gameplay?",
         followUp: "What's one move you made that people might not have noticed?",
         suggestedTones: ['humorous', 'strategic', 'vulnerable'],
-        editPotential: 6
+        editPotential: 6,
+        producerTactic: {
+          kind: 'reframe',
+          note: 'Connect your humor to strategy with a clear cause→effect line.',
+        }
       });
     }
 
@@ -265,7 +283,11 @@ export class EnhancedConfessionalEngine {
         category: 'strategy' as const,
         prompt: "Do you think people are underestimating you? Why or why not?",
         suggestedTones: ['strategic', 'dramatic', 'aggressive'],
-        editPotential: 7
+        editPotential: 7,
+        producerTactic: {
+          kind: 'soundbite',
+          note: 'Start with “The truth is…” then your thesis in one sentence.',
+        }
       },
       {
         id: 'biggest-mistake',
@@ -276,10 +298,17 @@ export class EnhancedConfessionalEngine {
       }
     );
 
+    // Add producer tactic prompts (gated by events so we don't reference non-events)
+    prompts.push(...this.generateProducerTacticsPrompts(gameState));
+
+    // Merge contextual prompts
     prompts.push(...additionalPrompts);
 
+    // Integrity guard to prevent references to events that haven't occurred
+    const integrityChecked = this.applyEventIntegrityGuard(prompts, gameState);
+
     // Filter based on narrative consistency and recent usage
-    const filteredPrompts = this.filterPromptsForConsistency(prompts, currentPersona, narrativeContext);
+    const filteredPrompts = this.filterPromptsForConsistency(integrityChecked, currentPersona, narrativeContext);
     
     // Update recent prompts tracking
     const selectedPrompts = filteredPrompts.slice(0, 6);
@@ -318,7 +347,7 @@ export class EnhancedConfessionalEngine {
     day: number;
   }> {
     const recentDays = 3;
-    const events = [];
+    const events: Array<{ type: string; participants: string[]; impact: number; day: number }> = [];
     
     // Check recent interactions
     const recentInteractions = gameState.interactionLog?.filter(log => 
@@ -355,8 +384,8 @@ export class EnhancedConfessionalEngine {
     
     highImpactEvents.forEach((event, index) => {
       switch (event.type) {
-        case 'scheme':
-          const schemeTarget = event.participants.find(p => p !== gameState.playerName);
+        case 'scheme': {
+          const schemeTarget = event.participants.find((p: string) => p !== gameState.playerName);
           if (schemeTarget) {
             prompts.push({
               id: `recent-scheme-${index}`,
@@ -368,9 +397,9 @@ export class EnhancedConfessionalEngine {
             });
           }
           break;
-          
-        case 'dm':
-          const dmPartner = event.participants.find(p => p !== gameState.playerName);
+        }
+        case 'dm': {
+          const dmPartner = event.participants.find((p: string) => p !== gameState.playerName);
           if (dmPartner) {
             prompts.push({
               id: `recent-dm-${index}`,
@@ -382,8 +411,8 @@ export class EnhancedConfessionalEngine {
             });
           }
           break;
-          
-        case 'alliance_activity':
+        }
+        case 'alliance_activity': {
           prompts.push({
             id: `alliance-update-${index}`,
             category: 'alliance',
@@ -393,10 +422,175 @@ export class EnhancedConfessionalEngine {
             editPotential: 7
           });
           break;
+        }
       }
     });
     
     return prompts;
+  }
+
+  // Producer tactic prompts: realistic diary room direction
+  private static generateProducerTacticsPrompts(gameState: GameState): DynamicConfessionalPrompt[] {
+    const prompts: DynamicConfessionalPrompt[] = [];
+    const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
+
+    // Soundbite request (always safe)
+    prompts.push({
+      id: 'prod-soundbite-truth',
+      category: 'general',
+      prompt: 'Give us a clean soundbite. Start with “The truth is…” and say the one thing you’re not saying in the house.',
+      followUp: 'Keep it tight—one sentence.',
+      suggestedTones: ['dramatic', 'strategic', 'humorous'],
+      editPotential: 9,
+      producerTactic: {
+        kind: 'soundbite',
+        note: 'Short, quotable line for the edit.',
+      }
+    });
+
+    // Rivalry bait only if there is someone suspicious or competitive
+    const baitTarget = activeContestants
+      .filter(c => c.name !== gameState.playerName)
+      .sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0))[0];
+
+    if (baitTarget) {
+      prompts.push({
+        id: 'prod-bait-rival',
+        category: 'social',
+        prompt: `Who is the biggest snake in the house and why? (${baitTarget.name} comes to mind.)`,
+        followUp: 'Name one specific behavior we can cut to.',
+        suggestedTones: ['aggressive', 'dramatic'],
+        editPotential: 9,
+        producerTactic: {
+          kind: 'bait',
+          note: 'Push a rivalry narrative.',
+        }
+      });
+    }
+
+    // Structured retell only if there was a recent conflict
+    const recentConflict = gameState.interactionLog?.filter(l => l.day >= gameState.currentDay - 2 && l.tone === 'aggressive').slice(-1)[0];
+    const otherConflictParty = recentConflict?.participants.find(p => p !== gameState.playerName);
+    if (recentConflict && otherConflictParty) {
+      prompts.push({
+        id: 'prod-retell-conflict',
+        category: 'social',
+        prompt: `Walk us through the blow-up with ${otherConflictParty}, beat by beat.`,
+        followUp: 'Start with “I was calm until…”',
+        suggestedTones: ['aggressive', 'strategic', 'vulnerable'],
+        editPotential: 9,
+        context: { targetName: otherConflictParty },
+        producerTactic: {
+          kind: 'structured_retell',
+          note: 'Chronological retell for clean editing.',
+          requiresEvent: 'conflict'
+        }
+      });
+    }
+
+    // Damage control if secret exposed or surprising vote
+    const player = gameState.contestants.find(c => c.name === gameState.playerName);
+    const secretRevealed = player?.special && player.special.kind === 'hosts_estranged_child' && player.special.revealed;
+    const lastVote = gameState.votingHistory?.slice(-1)[0];
+    const offBeatVote = lastVote && lastVote.playerVote && lastVote.playerVote !== lastVote.eliminated;
+
+    if (secretRevealed || offBeatVote) {
+      prompts.push({
+        id: 'prod-damage-control',
+        category: 'general',
+        prompt: secretRevealed
+          ? 'America saw your connection come out. What’s your damage control message?'
+          : 'Your vote surprised people. What’s your damage control message?',
+        followUp: 'Give one clear line we can cut to.',
+        suggestedTones: ['strategic', 'vulnerable'],
+        editPotential: 8,
+        producerTactic: {
+          kind: 'damage_control',
+          note: 'Own it, reframe, and set next beat.',
+          requiresEvent: secretRevealed ? 'secret_reveal' : 'elimination'
+        }
+      });
+    }
+
+    // Reframe prompt for current persona
+    prompts.push({
+      id: 'prod-reframe-persona',
+      category: 'reflection',
+      prompt: `Your edit leans ${gameState.editPerception.persona}. Finish the line: “I did what I had to because…”`,
+      followUp: 'Tie your choice to your identity.',
+      suggestedTones: ['strategic', 'vulnerable'],
+      editPotential: 7,
+      producerTactic: {
+        kind: 'reframe',
+        note: 'Connect motives to persona for narrative clarity.',
+      }
+    });
+
+    return prompts;
+  }
+
+  // Prevent references to events that haven't occurred
+  private static applyEventIntegrityGuard(
+    prompts: DynamicConfessionalPrompt[],
+    gameState: GameState
+  ): DynamicConfessionalPrompt[] {
+    const activeCount = gameState.contestants.filter(c => !c.isEliminated).length;
+
+    const allowImmunity = !!gameState.immunityWinner;
+    const allowJury = typeof gameState.daysUntilJury === 'number'
+      ? gameState.daysUntilJury <= 0 || (gameState.juryMembers && gameState.juryMembers.length > 0)
+      : false;
+    const allowFinaleTalk = activeCount <= 5 || ['finale', 'post_season', 'final_3_vote'].includes(gameState.gamePhase);
+    const allowEliminationTalk = (gameState.nextEliminationDay - gameState.currentDay) <= 2 || (gameState.votingHistory && gameState.votingHistory.length > 0);
+
+    const keywordIncludes = (s: string, kw: string) => s.toLowerCase().includes(kw);
+
+    return prompts.filter(p => {
+      const text = `${p.prompt} ${p.followUp || ''}`.toLowerCase();
+
+      // Keyword-based guards
+      if (keywordIncludes(text, 'immunity') && !allowImmunity) return false;
+      if (keywordIncludes(text, 'jury') && !allowJury) return false;
+      if (keywordIncludes(text, 'finale') && !allowFinaleTalk) return false;
+      if (keywordIncludes(text, 'elimination') && !allowEliminationTalk) return false;
+
+      // Tactic-specific event requirements
+      if (p.producerTactic?.requiresEvent) {
+        switch (p.producerTactic.requiresEvent) {
+          case 'conflict': {
+            const conflict = gameState.interactionLog?.some(l => l.day >= gameState.currentDay - 2 && l.tone === 'aggressive');
+            if (!conflict) return false;
+            break;
+          }
+          case 'immunity': {
+            if (!allowImmunity) return false;
+            break;
+          }
+          case 'elimination': {
+            if (!gameState.votingHistory || gameState.votingHistory.length === 0) return false;
+            break;
+          }
+          case 'jury': {
+            if (!allowJury) return false;
+            break;
+          }
+          case 'secret_reveal': {
+            const player = gameState.contestants.find(c => c.name === gameState.playerName);
+            const revealed = player?.special && player.special.kind === 'hosts_estranged_child' && player.special.revealed;
+            if (!revealed) return false;
+            break;
+          }
+          case 'mission': {
+            const player = gameState.contestants.find(c => c.name === gameState.playerName);
+            const hasMission = player?.special && player.special.kind === 'planted_houseguest' && (player.special.tasks || []).some(t => !t.completed);
+            if (!hasMission) return false;
+            break;
+          }
+        }
+      }
+
+      return true;
+    });
   }
 
   private static filterPromptsForConsistency(

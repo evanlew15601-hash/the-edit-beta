@@ -152,6 +152,15 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
                       {prompt.followUp && (
                         <div className="text-xs text-muted-foreground">{prompt.followUp}</div>
                       )}
+                      {prompt.producerTactic && (
+                        <div className="flex items-center gap-1 mt-2 text-xs text-primary">
+                          <Camera className="w-3 h-3" />
+                          <span>Producer Direction: {prompt.producerTactic.kind.replace('_', ' ')}</span>
+                          {prompt.producerTactic.note && (
+                            <span className="text-muted-foreground ml-1">— {prompt.producerTactic.note}</span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-xs text-surveillance-confessional">
                           Edit Potential: {prompt.editPotential}/10
