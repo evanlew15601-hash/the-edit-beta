@@ -303,8 +303,8 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onClose={() => setTagTalkOpen(false)}
         gameState={gameState}
         contestants={gameState.contestants.filter(c => !c.isEliminated)}
-        onSubmit={(target, choiceId, interaction) => { 
-          onTagTalk(target, choiceId, tagTalkType); 
+        onSubmit={(target, choiceId, interaction, pitchTarget) => { 
+          onTagTalk(target, choiceId, tagTalkType, pitchTarget); 
           setTagTalkOpen(false); 
         }}
         interactionType={tagTalkType}

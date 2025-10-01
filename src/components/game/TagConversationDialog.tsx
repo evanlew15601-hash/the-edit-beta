@@ -14,7 +14,7 @@ interface TagConversationDialogProps {
   onClose: () => void;
   gameState: GameState;
   contestants: Contestant[];
-  onSubmit: (target: string, choiceId: string, interaction: InteractionType) => void;
+  onSubmit: (target: string, choiceId: string, interaction: InteractionType, pitchTarget?: string) => void;
   interactionType?: InteractionType; // New prop to set the interaction type
 }
 
@@ -26,6 +26,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
   const [topic, setTopic] = useState<TopicTag | ''>('');
   const [targetType, setTargetType] = useState<TargetType>('Person');
   const [interaction, setInteraction] = useState<InteractionType>('talk');
+  const [selectedPitchTarget, setSelectedPitchTarget] = useState<string>('');
 
   // Auto-set interaction type when component opens based on dialog type
   useEffect(() => {
@@ -37,6 +38,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
       setTone('');
       setTopic('');
       setTargetType('Person');
+      setSelectedPitchTarget('');
       // Set interaction type from prop if provided
       if (interactionType) {
         setInteraction(interactionType);
@@ -66,7 +68,7 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
     }
   };
 
-  const intents: IntentTag[] = ['BuildAlliance','ProbeForInfo','Divert','SowDoubt','BoostMorale','Flirt','Insult','MakeJoke','RevealSecret','Deflect'];
+  const intents: IntentTag[] = ['BuildAlliance','ProbeForInfo','AskVote','Divert','SowDoubt','BoostMorale','Flirt','Insult','MakeJoke','RevealSecret','Deflect'];
   const tones: ToneTag[] = ['Sincere','Sarcastic','Flirty','Aggressive','Playful','Dismissive','Apologetic','Neutral'];
   const topics: TopicTag[] = ['Game','Strategy','Romance','Food','Sleep','Challenge','Eviction','Rumor','PersonalHistory','Production'];
   const targetTypes: TargetType[] = ['Person','Group','Self','Object','Audience'];
@@ -148,7 +150,9 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
             <div className="grid grid-cols-1 gap-3">
               {filtered.map((ch) => {
                 const seed = `${gameState.currentDay}|${gameState.playerName}|${selectedTarget}|${ch.choiceId}`;
-                const preview = pickVariant(ch, seed);
+                const preview = pickVariant(ch, seed)
+                  .replace(/\{\{\s*pitch\s*\}\}/gi, selectedPitchTarget || 'someone')
+                  .replace(/\{\{\s*target\s*\}\}/gi, selectedTarget || 'someone');
                 const active = selectedChoiceId === ch.choiceId;
                 return (
                   <button
@@ -170,6 +174,28 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
               })}
             </div>
           </ScrollArea>
+
+          {/* Pressure variant supports pitching a target */}
+          {selectedChoiceId.includes('ASK_VOTE_PRESSURE') && (interaction === 'talk' || interaction === 'dm') && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Pitch Target</label>
+                <Select value={selectedPitchTarget} onValueChange={setSelectedPitchTarget}>
+                  <SelectTrigger><SelectValue placeholder="Choose who to pitch..." /></SelectTrigger>
+                  <SelectContent className="z-50 bg-popover text-popover-foreground">
+                    {contestants
+                      .filter(c => !c.isEliminated && c.name !== gameState.playerName && c.name !== selectedTarget && c.name !== gameState.immunityWinner)
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.name}>
+                          {c.name} - {c.publicPersona}
+                        </SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3">
             <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>

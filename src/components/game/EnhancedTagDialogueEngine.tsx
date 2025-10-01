@@ -18,7 +18,7 @@ interface TagChoice {
 
 interface EnhancedTagDialogueEngineProps {
   gameState: GameState;
-  onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
+  onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity', pitchTarget?: string) => void;
 }
 
 export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagDialogueEngineProps) => {
@@ -26,6 +26,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
   const [interactionType, setInteractionType] = useState<'talk' | 'dm' | 'scheme' | 'activity'>('talk');
   const [availableChoices, setAvailableChoices] = useState<TagChoice[]>([]);
   const [selectedChoice, setSelectedChoice] = useState<string>('');
+  const [selectedPitchTarget, setSelectedPitchTarget] = useState<string>('');
 
   const { contestants, playerName, currentDay, tagChoiceCooldowns = {} } = gameState;
 
@@ -56,9 +57,10 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
     }
   };
 
-  const personalizeText = (text: string, targetName: string, playerPersona: string) => {
-    // Replace hard-coded names like "Alex" or placeholder with the chosen target's name
-    const base = text.replace(/Alex/gi, targetName).replace(/\{\{\s*target\s*\}\}/gi, targetName);
+  const personalizeText = (text: string, targetName: string, playerPersona: string, pitchName?: string) => {
+    // Replace placeholders: target and pitch
+    let base = text.replace(/Alex/gi, targetName).replace(/\{\{\s*target\s*\}\}/gi, targetName);
+    base = base.replace(/\{\{\s*pitch\s*\}\}/gi, pitchName || 'someone');
 
     // Persona-driven voice tweaks for the player
     switch (playerPersona) {
@@ -116,7 +118,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
   const toTagChoice = (choice: Choice, targetName: string): TagChoice => {
     const seedKey = `${gameState.playerName}:${targetName}:${gameState.currentDay}`;
     const raw = pickVariant(choice, gameState.editPerception.persona, seedKey);
-    const text = personalizeText(raw, targetName, gameState.editPerception.persona);
+    const text = personalizeText(raw, targetName, gameState.editPerception.persona, selectedPitchTarget || undefined);
     const type = mapIntentToType(choice.intent);
     const cooldown = choice.cooldownDays || 0;
     // Lightweight consequence hints based on intent
@@ -126,6 +128,8 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           return ['May strengthen trust', 'Could create visible ties'];
         case 'ProbeForInfo':
           return ['Gain intel', 'May raise suspicion'];
+        case 'AskVote':
+          return ['Get a direct commitment', 'May raise suspicion if public'];
         case 'SowDoubt':
           return ['Undermine opponent', 'Risk blowback'];
         case 'BoostMorale':
@@ -540,6 +544,27 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
             </div>
           </ScrollArea>
 
+          {selectedChoice.includes('ASK_VOTE_PRESSURE') && (interactionType === 'talk' || interactionType === 'dm') && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Pitch Target</label>
+                <select
+                  value={selectedPitchTarget}
+                  onChange={(e) => setSelectedPitchTarget(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-md text-sm bg-input focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="">Choose who to pitch...</option>
+                  {contestants
+                    .filter(c => !c.isEliminated && c.name !== playerName && c.name !== selectedTarget && c.name !== gameState.immunityWinner)
+                    .map(c => (
+                      <option key={c.name} value={c.name}>{c.name}</option>
+                    ))
+                  }
+                </select>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3">
             <Button 
               variant="outline" 
@@ -554,12 +579,13 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
             <Button 
               variant="action" 
               className="flex-1"
-              disabled={!selectedChoice}
+              disabled={!selectedChoice || (selectedChoice.includes('ASK_VOTE_PRESSURE') && !selectedPitchTarget)}
               onClick={() => {
                 if (selectedChoice && selectedTarget) {
-                  onTagTalk(selectedTarget, selectedChoice, interactionType);
+                  onTagTalk(selectedTarget, selectedChoice, interactionType, selectedPitchTarget || undefined);
                   setSelectedChoice('');
                   setSelectedTarget('');
+                  setSelectedPitchTarget('');
                 }
               }}
             >

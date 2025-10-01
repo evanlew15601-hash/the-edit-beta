@@ -1196,5 +1196,37 @@ export const TAG_CHOICES: Choice[] = [
     interactionTypes: ['dm'],
     cooldownDays: 1,
     weight: 1.0
+  },
+
+  // ================= PRESSURE VARIANTS: Ask Vote with a pitch =================
+  {
+    choiceId: 'TALK_ASK_VOTE_PRESSURE_STRATEGY_NEUTRAL_1',
+    textVariants: [
+      'I need you on {{pitch}} tonight. Can you commit?',
+      'Numbers line up if we take out {{pitch}}. Be straight—are you in?',
+      'This week should be {{pitch}}. Name it with me.'
+    ],
+    intent: 'AskVote',
+    tone: 'Neutral',
+    topics: ['Eviction', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['talk'],
+    cooldownDays: 2,
+    weight: 1.0
+  },
+  {
+    choiceId: 'DM_ASK_VOTE_PRESSURE_STRATEGY_NEUTRAL_1',
+    textVariants: [
+      'Quietly: lock {{pitch}} with me.',
+      'We move clean if you vote {{pitch}}. Can I count on you?',
+      'No leaks—commit to {{pitch}} tonight and I’ll protect you.'
+    ],
+    intent: 'AskVote',
+    tone: 'Neutral',
+    topics: ['Eviction', 'Strategy'],
+    targetType: 'Person',
+    interactionTypes: ['dm'],
+    cooldownDays: 2,
+    weight: 1.0
   }
 ];

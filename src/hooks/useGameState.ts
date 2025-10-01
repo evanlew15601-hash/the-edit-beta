@@ -1500,7 +1500,7 @@ export const useGameState = () => {
     });
   }, []);
 
-  const tagTalk = useCallback((target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => {
+  const tagTalk = useCallback((target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity', pitchTarget?: string) => {
     console.log('=== TAG TALK TRIGGERED ===');
     console.log('Target:', target, 'Choice:', choiceId, 'Interaction:', interaction);
 
@@ -1695,14 +1695,95 @@ export const useGameState = () => {
           ratingsHistory: nextHistory,
         };
 
-        // Hook: Only explicit AskVote tag choice triggers vote declaration (strict alignment)
-        const shouldAskVote = (interaction === 'dm' || interaction === 'talk')
-          && choice.intent === 'AskVote';
+        // Hook: Only explicit AskVote tag choice triggers vote declaration.
+        // Pressure variant can sway weekly plan to a pitched target if conditions support it.
+        const shouldAskVote = (interaction === 'dm' || interaction === 'talk') && choice.intent === 'AskVote';
+        const isPressure = shouldAskVote && choice.choiceId.includes('ASK_VOTE_PRESSURE');
 
         if (shouldAskVote) {
           const targetNPC2 = updatedContestants.find(c => c.name === target);
           if (targetNPC2) {
-            const askRes = askForEliminationVote(targetNPC2, prev, prev.weeklyVotingPlans, { strict: true });
+            let persistedPlans = prev.weeklyVotingPlans;
+
+            if (isPressure && pitchTarget) {
+              const pitched = updatedContestants.find(c => c.name === pitchTarget);
+              const immune = prev.immunityWinner && pitchTarget === prev.immunityWinner;
+              if (pitched && !immune && pitched.name !== targetNPC2.name && !pitched.isEliminated) {
+                // Compute sway likelihood based on trust/suspicion and alliance context
+                const trust = Math.max(0, Math.min(100, targetNPC2.psychProfile.trustLevel));
+                const suspicion = Math.max(0, Math.min(100, targetNPC2.psychProfile.suspicionLevel));
+                const trustFactor = trust / 100;
+                const suspicionPenalty = suspicion / 200;
+
+                const inAllianceWithPlayer = prev.alliances.some(a => a.members.includes(targetNPC2.name) && a.members.includes(prev.playerName));
+                const allianceBoost = inAllianceWithPlayer ? 0.2 : 0;
+
+                const sharedAllianceWithPitched = prev.alliances.some(a => a.members.includes(targetNPC2.name) && a.members.includes(pitched.name));
+                const allyPenalty = sharedAllianceWithPitched ? 0.3 : 0;
+
+                // Prior negative interactions with pitched increase sway
+                const negMemoryImpact = targetNPC2.memory
+                  .filter(m => m.participants.includes(pitched.name) && m.type === 'conversation')
+                  .reduce((sum, m) => sum + (m.emotionalImpact < 0 ? Math.abs(m.emotionalImpact) : 0), 0);
+                const negMemoryFactor = Math.min(0.3, negMemoryImpact / 20);
+
+                // Global suspicion toward pitched also helps sway
+                const pitchedSusp = Math.max(0, Math.min(100, pitched.psychProfile.suspicionLevel));
+                const targetSuspFactor = (pitchedSusp / 100) * 0.25;
+
+                // Final sway score
+                const swayScore = Math.max(0, Math.min(1, trustFactor + allianceBoost + negMemoryFactor + targetSuspFactor - allyPenalty - suspicionPenalty));
+
+                // Clone persisted plans and apply sway if strong enough
+                const nextPlans = { ...(prev.weeklyVotingPlans || {}) };
+                const existingPlan = nextPlans[targetNPC2.name];
+
+                if (swayScore >= 0.55) {
+                  const newConfidence = Math.round(Math.max(50, Math.min(88, (existingPlan?.confidence || 55) + swayScore * 20)));
+                  nextPlans[targetNPC2.name] = {
+                    ...(existingPlan || {}),
+                    target: pitched.name,
+                    reasoning: `Aligning with your pitch to target ${pitched.name}`,
+                    confidence: newConfidence,
+                    willReveal: true,
+                    willLie: false,
+                    alternativeTargets: Array.from(new Set([...(existingPlan?.alternativeTargets || []), pitched.name])).slice(0, 3),
+                  };
+                  persistedPlans = nextPlans;
+
+                  // Memory: record pressure commitment
+                  const memType = interaction === 'dm' ? 'dm' : 'conversation';
+                  const pressureMemory = {
+                    day: prev.currentDay,
+                    type: memType as any,
+                    participants: [prev.playerName, targetNPC2.name, pitched.name],
+                    content: `[Pressure] Committed to vote ${pitched.name} after player pitch`,
+                    emotionalImpact: 0,
+                    timestamp: Date.now(),
+                  };
+                  const updateIndex = updatedContestants.findIndex(c => c.name === targetNPC2.name);
+                  if (updateIndex >= 0) {
+                    updatedContestants[updateIndex] = {
+                      ...updatedContestants[updateIndex],
+                      memory: [...updatedContestants[updateIndex].memory, pressureMemory],
+                    };
+                  }
+
+                  // Apply the plan update to newState for persistence
+                  newState.weeklyVotingPlans = nextPlans;
+                } else if (existingPlan) {
+                  // If not swayed, register the pitch as an alternative consideration
+                  nextPlans[targetNPC2.name] = {
+                    ...existingPlan,
+                    alternativeTargets: Array.from(new Set([...(existingPlan.alternativeTargets || []), pitched.name])).slice(0, 3),
+                  };
+                  persistedPlans = nextPlans;
+                  newState.weeklyVotingPlans = nextPlans;
+                }
+              }
+            }
+
+            const askRes = askForEliminationVote(targetNPC2, prev, persistedPlans, { strict: true });
             newState.lastVoteAsk = {
               voterName: targetNPC2.name,
               declaredTarget: askRes.declaredTarget,
