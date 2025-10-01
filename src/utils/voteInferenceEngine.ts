@@ -65,10 +65,20 @@ export function inferLikelyVoteTarget(npc: Contestant, gameState: GameState): st
  * Ask an NPC for their elimination vote plan and classify their declaration.
  * - Uses AIVotingStrategy to get what they would share when asked (their words).
  * - Classifies honesty using only heuristics (trust/suspicion, alliance context, inferred likely target).
+ * - Accepts optional persisted weekly plans to ensure consistency.
  */
-export function askForEliminationVote(npc: Contestant, gameState: GameState): VoteAskResult {
-  const plans = AIVotingStrategy.generateWeeklyVotingPlans(gameState); // local, ephemeral
-  const shared = AIVotingStrategy.getShareableVotingInfo(npc, gameState, plans);
+export function askForEliminationVote(
+  npc: Contestant,
+  gameState: GameState,
+  persistedPlans?: { [name: string]: { target: string; reasoning: string; confidence: number; willReveal: boolean; willLie: boolean; alternativeTargets: string[] } }
+): VoteAskResult {
+  let plansMap: Map<string, any>;
+  if (persistedPlans) {
+    plansMap = new Map<string, any>(Object.entries(persistedPlans));
+  } else {
+    plansMap = AIVotingStrategy.generateWeeklyVotingPlans(gameState); // fallback ephemeral
+  }
+  const shared = AIVotingStrategy.getShareableVotingInfo(npc, gameState, plansMap);
 
   const declaredTarget = shared.target || 'undecided';
   const reasoning = shared.reasoning || 'No reasoning given';

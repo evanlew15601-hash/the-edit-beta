@@ -200,6 +200,15 @@ export interface GameState {
     memory?: string;
   };
   lastAIReaction?: ReactionSummary; // Minimal, credit-free reaction summary
+  // When the player asks an NPC to declare their elimination vote, store the last displayed card info
+  lastVoteAsk?: {
+    voterName: string;
+    declaredTarget: string;
+    reasoning: string;
+    honesty: 'truth' | 'lie' | 'maybe';
+    explanation?: string;
+    likelyTarget?: string;
+  };
   lastParsedInput?: any; // Store parsed input for debugging
   lastEmergentEvent?: any; // Store emergent event for UI display
   lastActionTarget?: string; // Most recent action target for UI context
@@ -222,6 +231,20 @@ export interface GameState {
   interactionLog?: InteractionLogEntry[];
   tagChoiceCooldowns?: { [key: string]: number };
   lastTagOutcome?: LastTagOutcome; // For debugging/verification of tag engine integration
+
+  // Weekly AI voting plans persisted for consistency (regenerated at week start)
+  weeklyVotingPlans?: {
+    [npcName: string]: {
+      target: string;
+      reasoning: string;
+      confidence: number; // 0-100
+      willReveal: boolean;
+      willLie: boolean;
+      alternativeTargets: string[];
+    }
+  };
+  weeklyPlanWeek?: number; // Math.ceil(currentDay / 7) when plans were generated
+
   // Persistent Reaction Profiles (computed at start and updated incrementally)
   reactionProfiles?: {
     [npcIdOrName: string]: import('./tagDialogue').ReactionProfile
