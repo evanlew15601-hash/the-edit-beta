@@ -178,7 +178,7 @@ export const useGameState = () => {
       if (activeBeat) {
         const ready = newDay - activeBeat.dayPlanned >= MID_GAME_BEAT_DELAY_DAYS;
         const seen = !!(prev.shownMidBeatCutscene && prev.shownMidBeatCutscene[activeBeat.id]);
-        if (ready && !seen && gamePhase === 'daily') {
+        if (ready && !seen && prev.gamePhase === 'daily') {
           nextCutscene = buildMidGameCutscene(narrativeApplied as GameState, activeBeat);
           triggeredBeatId = activeBeat.id;
         }
@@ -306,7 +306,8 @@ export const useGameState = () => {
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
         shownMidBeatCutscene: triggeredBeatId
           ? { ...(prev.shownMidBeatCutscene || {}), [triggeredBeatId]: true }
-         ,
+          : prev.shownMidBeatCutscene,
+        ongoingHouseMeeting: maybeHM || prev.ongoingHouseMeeting,
       };
     });
   }, []);
