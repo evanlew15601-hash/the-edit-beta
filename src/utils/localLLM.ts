@@ -6,7 +6,7 @@ import { generateAIResponse } from "./aiResponseEngine";
 // - Robust model/device fallback (WebGPU -> WASM)
 // - Optional caching and abort support
 // - Context-aware prompt shaping (public/private/confessional)
-// - Stronger post-processing to enforce first-person, formal 1–2 sentences
+// - Stronger post-processing to enforce first-person, concise 1–2 sentences
 // - Rule-based fallback if generation fails
 
 let generator: any | null = null;
@@ -83,7 +83,7 @@ function sanitizeOutput(text: string, maxSentences: number) {
   t = t.replace(/^[\s\-–—]+/, "");
   t = t.replace(/^[\"'“”`]+|[\"'“”`]+$/g, ""); // drop wrapping quotes
   // If quoted line appears inside, prefer it
-  const quoted = t.match(/\"([^\"]{3,})\"/);
+  const quoted = t.match(/\\"([^\"]{3,})\\"/);
   if (quoted) t = quoted[1];
 
   // Drop speaker labels, stage directions, or third-person narration prefixes
@@ -91,18 +91,6 @@ function sanitizeOutput(text: string, maxSentences: number) {
   t = t.replace(/^\(([^)]+)\)\s*/, "");
   t = t.replace(/^\*[^*]+\*\s*/, "");
   t = t.replace(/^[A-Z][a-z]+\s+(glances|stares|keeps|says|whispers|mutters|shrugs|smiles|laughs)[^.]*\.\s*/i, "");
-
-  // Expand common contractions and slang to formal register
-  const pairs: [RegExp, string][] = [
-    [/\bcan't\b/gi, "cannot"], [/\bwon't\b/gi, "will not"], [/\bdon't\b/gi, "do not"], [/\bdoesn't\b/gi, "does not"], [/\bdidn't\b/gi, "did not"],
-    [/\bI'm\b/gi, "I am"], [/\bI've\b/gi, "I have"], [/\bI'll\b/gi, "I will"], [/\byou're\b/gi, "you are"], [/\bthey're\b/gi, "they are"], [/\bwe're\b/gi, "we are"],
-    [/\bit's\b/gi, "it is"], [/\bthat's\b/gi, "that is"], [/\bthere's\b/gi, "there is"], [/\bweren't\b/gi, "were not"], [/\bwasn't\b/gi, "was not"],
-    [/\bshouldn't\b/gi, "should not"], [/\bwouldn't\b/gi, "would not"], [/\bcouldn't\b/gi, "could not"], [/\baren't\b/gi, "are not"], [/\bisn't\b/gi, "is not"],
-    [/\bgonna\b/gi, "going to"], [/\bwanna\b/gi, "want to"], [/\bkinda\b/gi, "somewhat"], [/\bsorta\b/gi, "somewhat"], [/\byeah\b/gi, "yes"], [/\byep\b/gi, "yes"],
-    [/\bain'?t\b/gi, "is not"], [/\bnah\b/gi, "no"],
-  ];
-  pairs.forEach(([re, rep]) => { t = t.replace(re, rep); });
-  t = t.replace(/\b(didn|couldn|wouldn|shouldn)\b\.?/gi, (m) => ({didn:"did not",couldn:"could not",wouldn:"would not",shouldn:"should not"}[m.toLowerCase().replace(/\./,"")] || m));
 
   // Remove meta / OOC hints
   t = t.replace(/\b(as an AI|as a language model|cannot discuss (policy|meta)|I cannot reveal)\b.*$/i, "").trim();
@@ -139,12 +127,23 @@ function buildPrompt(payload: {
         ? "- In a confessional: be candid and sharp, but do not reveal production mechanics"
         : "- In public: deflect briefly and avoid naming names";
 
+  const mentions = Array.isArray(parsedInput?.namedMentions) && parsedInput.namedMentions.length
+    ? parsedInput.namedMentions.join(", ")
+    : "none";
+
+  const alliances = Array.isArray(socialContext?.alliances) ? socialContext.alliances.join(", ") : "none";
+  const threats = Array.isArray(socialContext?.threats) ? socialContext.threats.join(", ") : "none";
+  const recent = Array.isArray(socialContext?.recentEvents) ? socialContext.recentEvents.slice(-2).join(" | ") : "";
+
   const system = `You are ${npcName}, a cunning contestant in The Edit Game (a high-stakes social strategy reality show).
 Respond ONLY as ${npcName}. Never reveal production notes or hidden information.
 Context:
-- Player intent: ${parsedInput?.primary ?? "unknown"} (manipulation ${parsedInput?.manipulationLevel ?? 0}, sincerity ${parsedInput?.sincerity ?? 0})
+- Player intent: ${parsedInput?.primary ?? "unknown"} (manipulation ${parsedInput?.manipulationLevel ?? 0})
 - Dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}
-- Social context (day ${socialContext?.day ?? "n/a"}): ${JSON.stringify(socialContext?.lastInteractions ?? []).slice(0, 300)}
+- Mentions in player line: ${mentions}
+- Alliances: ${alliances}
+- Threats: ${threats}
+- Recent: ${recent}
 Your reply must:
 - Address the player's specific content (no generic advice)
 - Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)
@@ -155,7 +154,7 @@ Style constraints:
 - First-person voice only
 - No third-person narration, no stage directions
 - No quotes or speaker labels
-- Formal, clear diction (avoid slang and contractions)
+- Clear diction; mild contractions allowed (keep it human, not slang-heavy)
 Game talk handling:
 ${visibilityRule}
 - Prefer specific follow-ups ("who is the target?", "how many do we have?")`;

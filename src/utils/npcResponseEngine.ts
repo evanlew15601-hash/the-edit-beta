@@ -53,32 +53,28 @@ class NPCResponseEngine {
     gameState: GameState,
     conversationType: 'public' | 'private' | 'confessional'
   ): NPCResponse {
-    // Classify the player's speech act
-    const speechAct = speechActClassifier.classifyMessage(playerMessage, 'Player');
-    
-    // Check for meta-text
+    const speechAct = speechActClassifier.classifyMessage(playerMessage, 'Player', {
+      allContestantNames: gameState.contestants.map(c => c.name)
+    });
+
     if (speechActClassifier.isMetaText(playerMessage)) {
       return this.generateMetaResponse(targetNPC, playerMessage, speechAct);
     }
-    
-    // Get NPC context
+
     const npc = gameState.contestants.find(c => c.name === targetNPC);
     if (!npc) throw new Error(`NPC ${targetNPC} not found`);
-    
+
     const context = this.buildResponseContext(npc, gameState, speechAct);
-    
-    // Update NPC perception of player
+
     this.updateNPCPerception(targetNPC, speechAct, playerMessage, context);
-    
-    // Generate contextual response
-    const response = this.constructResponse(speechAct, context, conversationType);
-    
-    // Process response consequences
+
+    // Generate contextual response with access to the player's message
+    const response = this.constructResponse(speechAct, context, conversationType, playerMessage);
+
     this.processResponseConsequences(response, npc, gameState);
-    
-    // Store conversation history
+
     this.updateConversationHistory(targetNPC, playerMessage, response.content);
-    
+
     return response;
   }
 
@@ -173,30 +169,28 @@ class NPCResponseEngine {
   private constructResponse(
     speechAct: SpeechAct, 
     context: NPCResponseContext, 
-    conversationType: 'public' | 'private' | 'confessional'
+    conversationType: 'public' | 'private' | 'confessional',
+    playerMessage?: string
   ): NPCResponse {
     const npc = context.contestant;
     const personality = npcAutonomyEngine.getNPCPersonality(npc.name);
     const perception = this.npcPerceptions.get(npc.name) || this.initializeNPCPerception();
-    
-    // Determine response strategy based on motive and perception
+
     const responseStrategy = this.determineResponseStrategy(speechAct, context, perception, personality);
-    
-    // Generate response content
-    const content = this.generateResponseContent(speechAct, context, responseStrategy);
-    
-    // Determine tone based on personality and relationship
-    const tone = this.determineTone(speechAct, context, personality, perception);
-    
-    // Calculate emotional subtext
+
+    // Generate response content with access to the player's message for richer context
+    const content = this.generateResponseContent(speechAct, context, responseStrategy, playerMessage);
+
+    let tone = this.determineTone(speechAct, context, personality, perception);
+    // Drama tension influences tone slightly
+    if (context.socialContext.currentDramaTension > 70 && tone === 'neutral') {
+      tone = 'suspicious';
+    }
+
     const emotionalSubtext = this.calculateEmotionalSubtext(speechAct, context, personality);
-    
-    // Determine consequences
     const consequences = this.calculateConsequences(speechAct, context, responseStrategy);
-    
-    // Check for follow-up actions
     const followUpAction = this.determineFollowUpAction(speechAct, context, responseStrategy);
-    
+
     return {
       content,
       tone,
@@ -276,22 +270,123 @@ class NPCResponseEngine {
     };
   }
 
-  private generateResponseContent(
+  private composeContextTail(
+    context: NPCResponseContext,
+    speechAct?: SpeechAct,
+    playerMessage?: string
+  ): string | null {
+    const names = Array.from(new Set<string>([
+      ...context.socialContext.alliances,
+      ...context.socialContext.threats,
+      ...context.socialContext.opportunities,
+      'Player',
+    ])).filter(Boolean);
+
+    let mention: string | undefined;
+    if (playerMessage) {
+      const lower = playerMessage.toLowerCase();
+      const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\private composeContextTail(
+    context: NPCResponseContext,
+    speechAct?: SpeechAct,
+    playerMessage?: string
+  ): string | null {
+    // Try to extract a mentioned name from player's message among known contacts
+    const knownNames = new Set<string>([
+      'Player',
+      ...context.socialContext.alliances,
+      ...context.socialContext.threats,
+      ...context.socialContext.opportunities,
+    ].filter(Boolean));
+
+    let mention: string | null = null;
+    if (playerMessage) {
+      const lower = playerMessage.toLowerCase();
+      for (const name of knownNames) {
+        const n = String(name || '').trim();
+        if (!n) continue;
+        const re = new RegExp(`\\b${n.toLowerCase().replace(/[-/\\\\^$*+?.()|[\\]{}]/g, '\\private generateResponseContent(
     speechAct: SpeechAct,
     context: NPCResponseContext,
-    strategy: ResponseStrategy
+    strategy: ResponseStrategy,
+    playerMessage?: string
   ): string {
     const npc = context.contestant;
     const perception = this.npcPerceptions.get(npc.name) || this.initializeNPCPerception();
-    
-    // Response templates based on strategy and speech act
+
     const responseTemplates = this.getResponseTemplates(strategy, speechAct, perception);
-    
-    // Select appropriate template and customize
+
     const template = this.selectBestTemplate(responseTemplates, context);
-    
-    // Fill in template with context-specific information
-    return this.customizeTemplate(template, context, perception);
+
+    return this.customizeTemplate(template, context, perception, speechAct, playerMessage);
+  }')}\\b`, 'i');
+        if (re.test(lower)) { mention = n; break; }
+      }
+    }
+
+    const recent = context.socialContext.recentEvents?.slice(-1)[0];
+    const ally1 = context.socialContext.alliances[0];
+    const threat1 = context.socialContext.threats[0];
+
+    // Information seeking → ask for specificity using the mention if present
+    if (speechAct?.informationSeeking) {
+      if (mention) return `Be specific—what exactly about ${mention}?`;
+      return `Be specific—alliances, votes, or trust?`;
+    }
+
+    // High tension → surface one name or recent event
+    if (context.socialContext.currentDramaTension > 65) {
+      if (threat1) return `People are already wary of ${threat1}.`;
+      if (recent) return `Earlier today: ${recent}.`;
+    }
+
+    // Alliance hint when relevant
+    if (ally1 && (speechAct?.trustBuilding || (context.relationship && context.relationship.isInAlliance))) {
+      return `Keep our lane with ${ally1} in mind.`;
+    }
+
+    return null;
+  }');
+      for (const n of names) {
+        const key = esc(n.toLowerCase());
+        const re = new RegExp(`\\b${key}\\b`, 'i');
+        if (re.test(lower)) { mention = n; break; }
+      }
+    }
+
+    const recent = context.socialContext.recentEvents?.slice(-1)[0];
+    const ally1 = context.socialContext.alliances[0];
+    const threat1 = context.socialContext.threats[0];
+
+    if (speechAct?.informationSeeking) {
+      if (mention) return `Be specific—what exactly about ${mention}?`;
+      return `Be specific—alliances, votes, or trust?`;
+    }
+
+    if (context.socialContext.currentDramaTension > 65) {
+      if (threat1) return `People are already wary of ${threat1}.`;
+      if (recent) return `Earlier today: ${recent}.`;
+    }
+
+    if (ally1 && (speechAct?.trustBuilding || (context.relationship && context.relationship.isInAlliance))) {
+      return `Keep our lane with ${ally1} in mind.`;
+    }
+
+    return null;
+  }
+
+  private generateResponseContent(
+    speechAct: SpeechAct,
+    context: NPCResponseContext,
+    strategy: ResponseStrategy,
+    playerMessage?: string
+  ): string {
+    const npc = context.contestant;
+    const perception = this.npcPerceptions.get(npc.name) || this.initializeNPCPerception();
+
+    const responseTemplates = this.getResponseTemplates(strategy, speechAct, perception);
+    const template = this.selectBestTemplate(responseTemplates, context);
+
+    return this.customizeTemplate(template, context, perception, speechAct, playerMessage);
   }
 
   private getResponseTemplates(
@@ -300,74 +395,138 @@ class NPCResponseEngine {
     perception: NPCPlayerPerception
   ): ResponseTemplate[] {
     const templates: ResponseTemplate[] = [];
-    
-    // Add templates based on strategy
+
+    // Provide multiple context-capable variants per approach
     switch (strategy.approach) {
       case 'defensive':
-        templates.push({
-          content: "I'm not sure what you're getting at, but I've been nothing but honest.",
-          tags: ['defensive', 'denial'],
-          trustRequirement: 0,
-          manipulationLevel: 10
-        });
+        templates.push(
+          {
+            content: "Not sure what you're getting at about {MENTION}. I've been honest.",
+            tags: ['defensive', 'denial'],
+            trustRequirement: 0,
+            manipulationLevel: 10
+          },
+          {
+            content: "If this is about {MENTION}, I kept it clean. Do not twist it.",
+            tags: ['defensive', 'denial'],
+            trustRequirement: 0,
+            manipulationLevel: 10
+          }
+        );
         break;
       case 'strategic_alliance':
-        templates.push({
-          content: "You know what? I think we understand each other. We should stick together.",
-          tags: ['alliance', 'strategic'],
-          trustRequirement: 40,
-          manipulationLevel: 30
-        });
+        templates.push(
+          {
+            content: "We should stick together. Keep it narrow—{ALLY} or {MENTION}, but no leaks.",
+            tags: ['alliance', 'strategic'],
+            trustRequirement: 40,
+            manipulationLevel: 30
+          },
+          {
+            content: "If we line up with {ALLY}, we can pull numbers without noise.",
+            tags: ['alliance', 'strategic'],
+            trustRequirement: 40,
+            manipulationLevel: 30
+          }
+        );
         break;
       case 'hostile':
-        templates.push({
-          content: "You've got some nerve talking to me like that. Watch yourself.",
-          tags: ['hostile', 'threatening'],
-          trustRequirement: 0,
-          manipulationLevel: 0
-        });
+        templates.push(
+          {
+            content: "You've got some nerve. If this is about {MENTION}, pick your lane.",
+            tags: ['hostile', 'threatening'],
+            trustRequirement: 0,
+            manipulationLevel: 0
+          },
+          {
+            content: "Watch yourself. I do not play messy over {MENTION}.",
+            tags: ['hostile', 'threatening'],
+            trustRequirement: 0,
+            manipulationLevel: 0
+          }
+        );
         break;
       case 'information_extraction':
-        templates.push({
-          content: "That's interesting... tell me more about what you've been hearing around here.",
-          tags: ['fishing', 'manipulation'],
-          trustRequirement: 30,
-          manipulationLevel: 60
-        });
+        templates.push(
+          {
+            content: "What exactly about {MENTION}? Alliances, votes, or trust?",
+            tags: ['fishing', 'manipulation'],
+            trustRequirement: 30,
+            manipulationLevel: 60
+          },
+          {
+            content: "Give me specifics—names and numbers. If it's {MENTION}, say what you heard.",
+            tags: ['fishing', 'manipulation'],
+            trustRequirement: 30,
+            manipulationLevel: 60
+          }
+        );
         break;
       case 'reciprocal_flirting':
-        templates.push({
-          content: "You're pretty charming yourself. I've been hoping we'd get some time to talk.",
-          tags: ['flirting', 'romance'],
-          trustRequirement: 50,
-          manipulationLevel: 20
-        });
+        templates.push(
+          {
+            content: "You're pretty charming yourself. I want to keep this quiet and real.",
+            tags: ['flirting', 'romance'],
+            trustRequirement: 50,
+            manipulationLevel: 20
+          },
+          {
+            content: "I like this. Just keep it subtle—no showy scenes.",
+            tags: ['flirting', 'romance'],
+            trustRequirement: 50,
+            manipulationLevel: 20
+          }
+        );
         break;
       case 'suspicious':
-        templates.push({
-          content: "Why are you asking me this? What's your angle here?",
-          tags: ['suspicious', 'questioning'],
-          trustRequirement: 20,
-          manipulationLevel: 10
-        });
+        templates.push(
+          {
+            content: "Why ask me this about {MENTION}? What's your angle?",
+            tags: ['suspicious', 'questioning'],
+            trustRequirement: 20,
+            manipulationLevel: 10
+          },
+          {
+            content: "If you're probing {MENTION}, say why. I notice patterns.",
+            tags: ['suspicious', 'questioning'],
+            trustRequirement: 20,
+            manipulationLevel: 10
+          }
+        );
         break;
       case 'confrontational':
-        templates.push({
-          content: "Are you threatening me? Because if you are, you picked the wrong person.",
-          tags: ['confrontational', 'aggressive'],
-          trustRequirement: 0,
-          manipulationLevel: 0
-        });
+        templates.push(
+          {
+            content: "Are you threatening me? If this is about {MENTION}, you picked the wrong person.",
+            tags: ['confrontational', 'aggressive'],
+            trustRequirement: 0,
+            manipulationLevel: 0
+          },
+          {
+            content: "Say it clean. If you're pushing on {MENTION}, we can settle it directly.",
+            tags: ['confrontational', 'aggressive'],
+            trustRequirement: 0,
+            manipulationLevel: 0
+          }
+        );
         break;
       default:
-        templates.push({
-          content: "I hear what you're saying. Let me think about that.",
-          tags: ['neutral', 'thoughtful'],
-          trustRequirement: 30,
-          manipulationLevel: 5
-        });
+        templates.push(
+          {
+            content: "I hear you. Earlier today: {RECENT_EVENT}.",
+            tags: ['neutral', 'thoughtful'],
+            trustRequirement: 30,
+            manipulationLevel: 5
+          },
+          {
+            content: "Let me think about that. Keep {ALLY} in mind.",
+            tags: ['neutral', 'thoughtful'],
+            trustRequirement: 30,
+            manipulationLevel: 5
+          }
+        );
     }
-    
+
     return templates;
   }
 
@@ -395,41 +554,138 @@ class NPCResponseEngine {
   private customizeTemplate(
     template: ResponseTemplate,
     context: NPCResponseContext,
-    perception: NPCPlayerPerception
+    perception: NPCPlayerPerception,
+    speechAct?: SpeechAct,
+    playerMessage?: string
   ): string {
-    let content = template.content;
-    
-    // Add personal touches based on relationship history
+    // Fill placeholders first for natural integration
+    let content = this.fillTemplatePlaceholders(template.content, context, speechAct, playerMessage);
+
+    // Relationship memory hint
     if (context.recentMemories.length > 0) {
       const lastMemory = context.recentMemories[context.recentMemories.length - 1];
       if (lastMemory.emotionalImpact < -3) {
-        content += " After what happened before, I'm not sure I trust this.";
+        content += " After what happened before, I am cautious.";
       } else if (lastMemory.emotionalImpact > 3) {
-        content += " I'm glad we can talk like this.";
+        content += " I appreciate that we can talk like this.";
       }
     }
-    
-    // Add personality-specific language patterns
+
+    // Personality modifiers
     const personality = npcAutonomyEngine.getNPCPersonality(context.contestant.name);
     if (personality) {
       if (personality.paranoia > 70 && template.tags.includes('suspicious')) {
-        content += " Everyone's got an agenda here.";
+        content += " Everyone has an angle.";
       }
-      
       if (personality.charisma > 70 && template.tags.includes('alliance')) {
-        content = content.replace("stick together", "be a great team");
+        content = content.replace("stick together", "be an effective team");
       }
     }
-    
-    // Reference player's linguistic patterns if NPC has noticed them
+
+    // Linguistic note
     if (perception.linguisticNotes.length > 3) {
       const playerPattern = perception.linguisticNotes[perception.linguisticNotes.length - 1];
       if (playerPattern.includes('formal') && Math.random() < 0.3) {
-        content += " You always speak so... carefully.";
+        content += " You choose your words carefully.";
       }
     }
-    
+
+    // Context-aware tail: mention names/events without fabricating details
+    const tail = this.composeContextTail(context, speechAct, playerMessage);
+    if (tail) {
+      content = /[.!?]$/.test(content) ? `${content} ${tail}` : `${content}. ${tail}`;
+    }
+
     return content;
+  }
+
+  private fillTemplatePlaceholders(
+    content: string,
+    context: NPCResponseContext,
+    speechAct?: SpeechAct,
+    playerMessage?: string
+  ): string {
+    const ally = context.socialContext.alliances[0];
+    const threat = context.socialContext.threats[0];
+    const recent = context.socialContext.recentEvents?.slice(-1)[0];
+    let mention = speechAct?.namedMentions?.[0];
+
+    // Fallback mention from player's message across social context names
+    if (!mention && playerMessage) {
+      const names = Array.from(new Set<string>([
+        ...context.socialContext.alliances,
+        ...context.socialContext.threats,
+        ...context.socialContext.opportunities,
+        'Player',
+      ])).filter(Boolean);
+      const lower = playerMessage.toLowerCase();
+      const esc = (s: string) => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\private customizeTemplate(
+    template: ResponseTemplate,
+    context: NPCResponseContext,
+    perception: NPCPlayerPerception,
+    speechAct?: SpeechAct,
+    playerMessage?: string
+  ): string {
+    let content = template.content;
+
+    // Relationship memory hint
+    if (context.recentMemories.length > 0) {
+      const lastMemory = context.recentMemories[context.recentMemories.length - 1];
+      if (lastMemory.emotionalImpact < -3) {
+        content += " After what happened before, I am cautious.";
+      } else if (lastMemory.emotionalImpact > 3) {
+        content += " I appreciate that we can talk like this.";
+      }
+    }
+
+    // Personality modifiers
+    const personality = npcAutonomyEngine.getNPCPersonality(context.contestant.name);
+    if (personality) {
+      if (personality.paranoia > 70 && template.tags.includes('suspicious')) {
+        content += " Everyone has an angle.";
+      }
+      if (personality.charisma > 70 && template.tags.includes('alliance')) {
+        content = content.replace("stick together", "be an effective team");
+      }
+    }
+
+    // Linguistic note
+    if (perception.linguisticNotes.length > 3) {
+      const playerPattern = perception.linguisticNotes[perception.linguisticNotes.length - 1];
+      if (playerPattern.includes('formal') && Math.random() < 0.3) {
+        content += " You choose your words carefully.";
+      }
+    }
+
+    // Context-aware tail: mention names/events without fabricating details
+    const tail = this.composeContextTail(context, speechAct, playerMessage);
+    if (tail) {
+      content = /[.!?]$/.test(content) ? `${content} ${tail}` : `${content}. ${tail}`;
+    }
+
+    return content;
+  }');
+      for (const n of names) {
+        const key = esc(n.toLowerCase());
+        const re = new RegExp(`\\\\b${key}\\\\b`, 'i');
+        if (re.test(lower)) { mention = n; break; }
+      }
+    }
+
+    const replacements: Record<string, string> = {
+      '{ALLY}': ally || 'our lane',
+      '{THREAT}': threat || 'people',
+      '{RECENT_EVENT}': recent || 'something earlier',
+      '{MENTION}': mention || 'that',
+    };
+
+    let out = content;
+    Object.entries(replacements).forEach(([k, v]) => {
+      out = out.replace(new RegExp(k, 'g'), v);
+    });
+
+    // Clean up double spaces if placeholders were adjacent
+    return out.replace(/\\s{2,}/g, ' ').trim();
   }
 
   private determineTone(
@@ -439,10 +695,9 @@ class NPCResponseEngine {
     perception?: NPCPlayerPerception
   ): NPCResponse['tone'] {
     if (!personality || !perception) return 'neutral';
-    
-    // Base tone on speech act and relationship
+
     let tone: NPCResponse['tone'] = 'neutral';
-    
+
     if (speechAct.primary === 'flirting' && perception.playerRole === 'romantic_interest') {
       tone = 'flirty';
     } else if (speechAct.threatLevel > 50 || perception.playerRole === 'threat') {
@@ -454,7 +709,14 @@ class NPCResponseEngine {
     } else if (personality.intelligence > 70 && speechAct.informationSeeking) {
       tone = 'strategic';
     }
-    
+
+    // Drama tension nudges tone
+    if (context.socialContext.currentDramaTension > 60 && tone === 'neutral') {
+      tone = 'suspicious';
+    } else if (context.socialContext.currentDramaTension < 30 && tone === 'suspicious') {
+      tone = 'neutral';
+    }
+
     return tone;
   }
 
