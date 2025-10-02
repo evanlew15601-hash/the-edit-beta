@@ -1,5 +1,5 @@
-import { Cutscene, CutsceneSlide } from './cutscenes/Cutscene';
-import { GameState } from '@/types/game';
+import { Cutscene } from './cutscenes/Cutscene';
+import { GameState, CutsceneSlide } from '@/types/game';
 
 interface PremiereCutsceneProps {
   onComplete: () => void;

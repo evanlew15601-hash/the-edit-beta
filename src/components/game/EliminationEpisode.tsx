@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { Cutscene, CutsceneSlide } from './cutscenes/Cutscene';
+import { Cutscene } from './cutscenes/Cutscene';
 import { EliminationScreen } from './EliminationScreen';
-import { GameState } from '@/types/game';
+import { GameState, CutsceneSlide } from '@/types/game';
 
 interface EliminationEpisodeProps {
   gameState: GameState;

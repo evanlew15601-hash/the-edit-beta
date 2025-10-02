@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Cutscene, CutsceneSlide } from './cutscenes/Cutscene';
+import { Cutscene } from './cutscenes/Cutscene';
 import { FinaleScreen } from './FinaleScreen';
-import { GameState } from '@/types/game';
+import { GameState, CutsceneSlide } from '@/types/game';
 
 interface FinaleEpisodeProps {
   gameState: GameState;
