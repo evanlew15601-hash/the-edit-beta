@@ -55,7 +55,7 @@ export function sanitizeAndFormalize(text: string): string {
   // Collapse extra spaces
   t = t.replace(/\s{2,}/g, ' ').trim();
   // Keep quotes symmetrical
-  t = t.replace(/“/g, '"').replace(/”/g, '"').replace(/''/g, '"');
+  t = t.replace(/“/g, '\"').replace(/”/g, '\"').replace(/''/g, '\"');
   return t;
 }
 
@@ -294,145 +294,128 @@ export function calculateAILeakChance(parsedInput: SpeechAct, psychProfile: any)
   return Math.min(0.8, baseChance); // Cap at 80%
 }
 
-// Generate AI-driven NPC response based on parsed input
+// Generate AI-driven NPC response based on parsed input (pre-written, in-character templates)
 export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, content: string): string {
   const bias = getNPCPersonalityBias(npc);
-  const responses: string[] = [];
-  
-  // Generate response based on detected speech act
+  const mention = parsedInput.namedMentions?.[0];
+
+  let line = '';
+
   switch (parsedInput.primary) {
     case 'alliance_proposal':
       if (bias.trustfulness > 60) {
-        responses.push(`${npc.name} nods thoughtfully. "I've been thinking the same thing. We could really help each other."`);
+        line = 'I have been thinking the same—we could help each other.';
       } else if (bias.suspiciousness > 70) {
-        responses.push(`${npc.name} narrows their eyes. "Why now? What aren't you telling me?"`);
+        line = 'Why now? What are you not saying?';
       } else {
-        responses.push(`${npc.name} considers your words carefully. "I need to think about this..."`);
+        line = 'I need to think about this before I commit.';
       }
       break;
-      
+
     case 'flirting':
       if (bias.emotionalVolatility > 60) {
-        responses.push(`${npc.name} blushes and looks away. "You're pretty charming yourself..."`);
+        line = 'You are charming. Let us keep this quiet and real.';
       } else {
-        responses.push(`${npc.name} smiles politely but seems focused on the game. "Thanks, but we should stay strategic."`);
+        line = 'Thanks. I prefer to stay strategic right now.';
       }
       break;
-      
+
     case 'threatening':
       if (bias.revengefulness > 70) {
-        responses.push(`${npc.name}'s face hardens. "Is that a threat? You just made a big mistake."`);
+        line = 'Is that a threat? You just picked the wrong person.';
       } else {
-        responses.push(`${npc.name} looks shocked and hurt. "I... I can't believe you'd say that."`);
+        line = 'I do not accept threats; try another approach.';
       }
       break;
-      
+
     case 'gaslighting':
       if (bias.manipulationDetection > 60) {
-        responses.push(`${npc.name} looks at you incredulously. "Don't try to manipulate me. I know exactly what happened."`);
+        line = 'Do not try to manipulate me—I know exactly what happened.';
       } else {
-        responses.push(`${npc.name} looks confused and starts to doubt themselves. "Maybe... maybe you're right?"`);
+        line = 'I hear you, but I remember it differently.';
       }
       break;
-      
+
     case 'information_fishing':
       if (bias.suspiciousness > 70) {
-        responses.push(`${npc.name} gives you a knowing look. "Interesting that you're asking about that. Why do you want to know?"`);
+        line = mention ? `Interesting that you are asking about ${mention}. Why do you want to know?` : 'Interesting that you are asking. Why do you want to know?';
       } else {
-        responses.push(`${npc.name} leans in conspiratorially. "Well, since you asked..."`);
+        line = mention ? `If this is about ${mention}, give me specifics—names or numbers.` : 'If you want details, give me specifics—names or numbers.';
       }
       break;
-      
-    default:
-      {
-        const text = content.toLowerCase();
-        const personalBackground = /(where\s+are\s+you\s+from|where\s+do\s+you\s+live|what\s+(city|state|country)\s+are\s+you\s+from)/i.test(content);
-        const checkIn = /\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(text)
-          || /\bhow (are you)\b/.test(text)
-          || /\bhow (are you|you'?re)\s+(feeling|doing)\b/.test(text)
-          || /\bhow do you feel\b/.test(text)
-          || /\bhow is it going\b/.test(text);
 
-        // Helper to extract a coherent topic/phrase from the player's message
-        const extractTopicPhrase = (original: string): string | null => {
-          const patterns = [
-            /think\s+about\s+([^.!?"']+)/i,
-            /think\s+of\s+([^.!?"']+)/i,
-            /about\s+([^.!?"']+)/i,
-          ];
-          for (const re of patterns) {
-            const m = original.match(re);
-            if (m && m[1]) {
-              let phrase = m[1].trim();
-              phrase = phrase.replace(/^\s*"|"\s*$/g, '');
-              const words = phrase.split(/\s+/).slice(0, 6);
-              phrase = words.join(' ').replace(/[\s,;.]+$/, '');
-              if (phrase.length >= 3) return phrase;
-            }
-          }
-          const stop = new Set([
-            'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','thinking','wonder','wondering','wondered','know','feel','feeling','doing','say','saying','ask','asking','talk','talking','chat','chatting','discuss','discussing','discussion','question','topic','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing','so','far',
-            // Common prepositions and function words we should never surface as topics
-            'from','into','onto','over','under','after','before','around','through','against','between','within','without','upon','inside','outside','across','toward','towards','behind','beside','besides','above','below','near','off','out','in','on','at','for','to','of','as','by','up','down','via','per',
-            // Pronouns and auxiliaries
-            'you','your','yours','me','my','mine','we','our','ours','he','she','it','its','they','them','their','theirs','am','is','are','was','were','be','been','being',
-            // Sentiment adjectives we should not echo as topics
-            'excited','happy','glad','nervous','thrilled','pumped','here'
-          ]);
-          const candidates = (original.toLowerCase().match(/\b[a-z]{3,}\b/g) || []).filter(w => !stop.has(w));
-          return candidates[0] ? candidates[0] : null;
-        };
+    default: {
+      const text = content.toLowerCase();
+      const personalBackground = /(where\s+are\s+you\s+from|where\s+do\s+you\s+live|what\s+(city|state|country)\s+are\s+you\s+from)/i.test(content);
+      const checkIn = /\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(text)
+        || /\bhow (are you)\b/.test(text)
+        || /\bhow (are you|you'?re)\s+(feeling|doing)\b/.test(text)
+        || /\bhow do you feel\b/.test(text)
+        || /\bhow is it going\b/.test(text);
 
-        if (personalBackground) {
-          if (npc.psychProfile.suspicionLevel > 60) {
-            responses.push(`${npc.name} keeps details tight. "I keep personal history off the table in here."`);
-          } else {
-            responses.push(`${npc.name} refocuses. "I would rather keep personal details private; the game is what matters."`);
+      const extractTopicPhrase = (original: string): string | null => {
+        const patterns = [
+          /think\s+about\s+([^.!?"']+)/i,
+          /think\s+of\s+([^.!?"']+)/i,
+          /about\s+([^.!?"']+)/i,
+        ];
+        for (const re of patterns) {
+          const m = original.match(re);
+          if (m && m[1]) {
+            let phrase = m[1].trim();
+            phrase = phrase.replace(/^\s*"|"\\s*$/g, '');
+            const words = phrase.split(/\s+/).slice(0, 6);
+            phrase = words.join(' ').replace(/[\s,;.]+$/, '');
+            if (phrase.length >= 3) return phrase;
           }
-        } else if (parsedInput.primary === 'neutral_conversation' && checkIn) {
-          if (npc.psychProfile.suspicionLevel > 60) {
-            responses.push(`${npc.name} glances around. "It's tense—people are sniffing for cracks. I am staying quiet."`);
-          } else if (npc.psychProfile.trustLevel > 50) {
-            responses.push(`${npc.name} softens. "Busy. A couple sparks in the kitchen, but I am keeping us out of it."`);
-          } else {
-            responses.push(`${npc.name} keeps it brief. "Fine. Reading the room and not overplaying anything."`);
-          }
-        } else if (parsedInput.informationSeeking) {
-          const phrase = extractTopicPhrase(content);
-          responses.push(`${npc.name} probes. "${phrase ? `What exactly about ${phrase}?` : 'Be specific—alliances, votes, or trust?'}"`);
+        }
+        const stop = new Set([
+          'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','thinking','wonder','wondering','wondered','know','feel','feeling','doing','say','saying','ask','asking','talk','talking','chat','chatting','discuss','discussing','discussion','question','topic','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing','so','far',
+          'from','into','onto','over','under','after','before','around','through','against','between','within','without','upon','inside','outside','across','toward','towards','behind','beside','besides','above','below','near','off','out','in','on','at','for','to','of','as','by','up','down','via','per',
+          'you','your','yours','me','my','mine','we','our','ours','he','she','it','its','they','them','their','theirs','am','is','are','was','were','be','been','being',
+          'excited','happy','glad','nervous','thrilled','pumped','here'
+        ]);
+        const candidates = (original.toLowerCase().match(/\b[a-z]{3,}\b/g) || []).filter(w => !stop.has(w));
+        return candidates[0] ? candidates[0] : null;
+      };
+
+      if (personalBackground) {
+        line = 'I keep personal history off the table; the game is what matters.';
+      } else if (parsedInput.primary === 'neutral_conversation' && checkIn) {
+        if (npc.psychProfile.suspicionLevel > 60) {
+          line = 'It is tense—people are sniffing for cracks. I am staying quiet.';
+        } else if (npc.psychProfile.trustLevel > 50) {
+          line = 'Busy. A couple sparks in the kitchen, but I am keeping us out of it.';
         } else {
-          if (npc.psychProfile.suspicionLevel > 60) {
-            responses.push(`${npc.name} stays guarded. "I am keeping distance until the dust settles."`);
-          } else if (npc.psychProfile.trustLevel > 50) {
-            responses.push(`${npc.name} is candid. "I am steady—let us keep our footprint small and accurate."`);
-          } else {
-            responses.push(`${npc.name} keeps it brief. "Let us be careful and avoid attention."`);
-          }
+          line = 'Fine. Reading the room and not overplaying anything.';
+        }
+      } else if (parsedInput.informationSeeking) {
+        const phrase = extractTopicPhrase(content);
+        line = phrase ? `What exactly about ${phrase}?` : (mention ? `What exactly about ${mention}?` : 'Be specific—alliances, votes, or trust?');
+      } else {
+        if (npc.psychProfile.suspicionLevel > 60) {
+          line = 'I am keeping distance until the dust settles.';
+        } else if (npc.psychProfile.trustLevel > 50) {
+          line = 'Steady—let us keep our footprint small and accurate.';
+        } else {
+          line = 'Let us be careful and avoid attention.';
         }
       }
       break;
     }
-    
-    // Add emotional reactions based on subtext
-  if (parsedInput.emotionalSubtext.anger > 60 && bias.emotionalVolatility > 50) {
-    responses.push(`${npc.name} notices your angry tone and becomes defensive.`);
   }
-  
-  if (parsedInput.manipulationLevel > 70 && bias.manipulationDetection > 60) {
-    responses.push(`${npc.name} sees right through your manipulation attempt.`);
-  }
-  
-  const archetype = deriveArchetype(npc);
-  const first = responses[0] || `${npc.name} keeps it brief. "I am considering that."`;
-  const toned = applyArchetypeTone(first, archetype, parsedInput, content).trim();
 
-  // Extract direct speech (first-person) and remove narration/prefixes
-  let out = toned;
-  const q = out.match(/"([^\"]{3,})"/);
-  if (q) out = q[1];
-  out = out.replace(/^[A-Z][a-z]+:\s*/, ''); // speaker label
-  out = out.replace(/^About\s+([a-z\-']{1,10})\s*,\s*/i, ''); // stale topic prefix safety
+  // Emotional reactions based on subtext (brief add-on)
+  if (parsedInput.emotionalSubtext.anger > 60 && bias.emotionalVolatility > 50) {
+    line = `${line} Keep your tone steady with me.`;
+  }
+  if (parsedInput.manipulationLevel > 70 && bias.manipulationDetection > 60) {
+    line = `${line} I see through tricks.`;
+  }
+
+  const archetype = deriveArchetype(npc);
+  const toned = applyArchetypeTone(line, archetype, parsedInput, content).trim();
+
   // Enforce 1–2 sentences
-  out = out.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
-  return sanitizeAndFormalize(out);
+  return toned.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
 }
