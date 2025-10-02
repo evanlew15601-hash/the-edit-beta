@@ -288,6 +288,16 @@ export class MemoryEngine {
     }
   }
 
+  getVotingPlan(contestantId: string): { target: string; reasoning: string } | null {
+    const journal = this.memory.privateJournals[contestantId];
+    if (!journal || !journal.votingPlan) return null;
+    // Find the most recent vote-related memory for reasoning
+    const last = [...journal.memoryEvents]
+      .filter(e => e.type === 'vote')
+      .sort((a, b) => b.day - a.day)[0];
+    return { target: journal.votingPlan, reasoning: last?.content || '' };
+  }
+
   private getCurrentDay(): number {
     // This would be provided by the game state
     return Math.max(...this.memory.sharedMemory.map(e => e.day), 1);

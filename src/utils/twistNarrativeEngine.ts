@@ -17,6 +17,44 @@ function getPlayer(gs: GameState): Contestant | undefined {
   return gs.contestants.find(c => c.name === gs.playerName);
 }
 
+// Merge newly generated beats with existing ones, preserving scheduled days and progress
+function mergeBeats(existing: NarrativeBeat[] = [], generated: NarrativeBeat[], currentDay: number): NarrativeBeat[] {
+  const map = new Map<string, NarrativeBeat>();
+  existing.forEach(b => map.set(b.id, b));
+
+  const result: NarrativeBeat[] = [];
+
+  generated.forEach(g => {
+    const prev = map.get(g.id);
+    if (!prev) {
+      // New beat - keep its planned day relative to when it is first seen
+      result.push({ ...g });
+    } else {
+      // Preserve prior scheduling/progress; only refresh title/summary if provided
+      result.push({
+        ...prev,
+        title: g.title || prev.title,
+        summary: g.summary ?? prev.summary,
+      });
+      map.delete(g.id);
+    }
+  });
+
+  // Carry over any extra beats that no longer generate but were already in progress
+  map.forEach(rem => {
+    result.push(rem);
+  });
+
+  // Activate any planned beats whose day has arrived
+  return result.map(b => {
+    if (b.status === 'completed') return b;
+    if (b.status === 'planned' && currentDay >= b.dayPlanned) {
+      return { ...b, status: 'active' as const };
+    }
+    return b;
+  });
+}
+
 // Note: Beats are now generated dynamically in gameplayDrivenNarrative.ts based on actual gameplay
 
 export function initializeTwistNarrative(gs: GameState): TwistNarrative | undefined {
@@ -45,29 +83,26 @@ export function initializeTwistNarrative(gs: GameState): TwistNarrative | undefi
 export function applyDailyNarrative(gs: GameState): GameState {
   const player = getPlayer(gs);
   if (!player) return gs;
-  
-  // Regenerate beats based on current gameplay state
+
+  // Build a working arc without wiping prior schedule
   let arc = gs.twistNarrative;
   if (!arc || arc.arc === 'none') {
     arc = initializeTwistNarrative(gs);
   } else {
-    // Refresh beats with current gameplay context
-    if (player.special?.kind === 'hosts_estranged_child') {
-      arc.beats = generateHostChildBeats(gs, player);
-    } else if (player.special?.kind === 'planted_houseguest') {
-      arc.beats = generatePlantedHGBeats(gs, player);
-    }
+    // Generate context-aware beats but merge with existing so we don't keep pushing them forward
+    const generated =
+      player.special?.kind === 'hosts_estranged_child'
+        ? generateHostChildBeats(gs, player)
+        : player.special?.kind === 'planted_houseguest'
+        ? generatePlantedHGBeats(gs, player)
+        : [];
+    arc.beats = mergeBeats(arc.beats, generated, gs.currentDay);
   }
-  
+
   if (!arc) return gs;
 
-  const beats = arc.beats.map(b => {
-    if (b.status === 'completed') return b;
-    if (gs.currentDay >= b.dayPlanned && b.status === 'planned') {
-      return { ...b, status: 'active' as const };
-    }
-    return b;
-  });
+  // Ensure activation check (for arcs freshly initialized this day)
+  const beats = mergeBeats(arc.beats, arc.beats, gs.currentDay);
 
   // Host child reveal sync
   if (player.special && player.special.kind === 'hosts_estranged_child') {
@@ -146,7 +181,7 @@ export function applyDailyNarrative(gs: GameState): GameState {
 export function getSpecialConfessionalPrompts(gs: GameState): ConfPrompt[] {
   const player = getPlayer(gs);
   if (!player || !player.special || player.special.kind === 'none') return [];
-  
+
   // Use gameplay-driven prompts instead of generic ones
   return getGameplayConfessionalPrompts(gs, player);
 }

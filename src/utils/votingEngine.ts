@@ -70,7 +70,18 @@ export const processVoting = (
   activeContestants.forEach(voter => {
     if (voter.name === playerName) return; // Player votes separately
     
-    // ENHANCED: Check for alliance vote coordination first
+    // ENHANCED: Check for player-influenced voting plan first (pressure/commitment stored in memory)
+    const memPlan = memoryEngine.getVotingPlan(voter.name);
+    if (memPlan && memPlan.target && memPlan.target !== voter.name && memPlan.target !== immunityWinner) {
+      // Honor explicit plans most of the time (represents soft/firm commitments)
+      if (Math.random() < 0.8) {
+        votes[voter.name] = memPlan.target;
+        voteCounts.set(memPlan.target, (voteCounts.get(memPlan.target) || 0) + 1);
+        return;
+      }
+    }
+
+    // ENHANCED: Check for alliance vote coordination next
     const voterAlliances = alliances.filter(a => a.members.includes(voter.name));
     let allianceTarget: string | null = null;
     
@@ -189,7 +200,7 @@ export const processVoting = (
       
       // Record voting reasoning in memory
       const reasoning = `Voting for ${targetName} based on threat level and relationships`;
-      memoryEngine.updateVotingPlan(voter.id, targetName, reasoning);
+      memoryEngine.updateVotingPlan(voter.name, targetName, reasoning);
     }
   });
 

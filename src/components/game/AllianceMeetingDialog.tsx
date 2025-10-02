@@ -29,13 +29,16 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
   const [selectedAlliance, setSelectedAlliance] = useState<string>('');
   const [agenda, setAgenda] = useState('');
   const [tone, setTone] = useState<string>('');
+  const [voteTarget, setVoteTarget] = useState<string>('');
 
   const handleSubmit = () => {
     if (selectedAlliance && agenda && tone) {
-      onSubmit(selectedAlliance, agenda, tone);
+      const finalAgenda = voteTarget ? `${agenda.trim()} [vote:${voteTarget}]` : agenda;
+      onSubmit(selectedAlliance, finalAgenda, tone);
       setSelectedAlliance('');
       setAgenda('');
       setTone('');
+      setVoteTarget('');
     }
   };
 
@@ -96,6 +99,8 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
 
     return { trust, susp, influence, entertainment };
   }, [selectedAllianceData, tone, contestants]);
+
+  const voteTargets = contestants.filter(c => !c.isEliminated && c.name !== playerName).map(c => c.name);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -191,6 +196,26 @@ export const AllianceMeetingDialog = ({ isOpen, onClose, alliances, contestants,
                 </div>
               </div>
             </div>
+
+            {/* Vote Target (optional) */}
+            {selectedAlliance && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Propose Vote Target (optional)</label>
+                <Select value={voteTarget} onValueChange={setVoteTarget}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pick a target to coordinate..." />
+                  </SelectTrigger>
+                  <SelectContent className="z-50 bg-popover text-popover-foreground">
+                    {voteTargets.map((name) => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="text-[11px] text-muted-foreground">
+                  This will be shared privately in your alliance log and used to coordinate votes when possible.
+                </div>
+              </div>
+            )}
 
             {/* Quick Suggestions */}
             <div className="space-y-2">

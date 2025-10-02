@@ -24,6 +24,7 @@ import { ratingsEngine } from '@/utils/ratingsEngine';
 import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild, finalizePlantedContract } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
+import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -404,6 +405,75 @@ export const useGameState = () => {
           dailyActionCount: (prev.dailyActionCount || 0) + 1,
           lastActionType: 'house_meeting',
           lastActionTarget: 'Group',
+        };
+      });
+      return;
+    }
+
+    // Handle Alliance Meeting (group, private)
+    if (actionType === 'alliance_meeting') {
+      setGameState(prev => {
+        const alliance = prev.alliances.find(a => a.id === (target || ''));
+        if (!alliance) return prev;
+
+        // Parse proposed vote target from agenda content if provided
+        const proposedMatch = (content || '').match(/(?:vote|target)[:=]\s*([A-Za-z0-9 _-]+)/i);
+        const proposedTarget = proposedMatch ? proposedMatch[1].trim() : undefined;
+
+        const members = alliance.members.filter(n => !prev.contestants.find(c => c.name === n)?.isEliminated);
+        const toneUsed = (tone || 'strategic').toLowerCase();
+
+        // Apply relationship deltas per member
+        const updatedContestants = prev.contestants.map(c => {
+          if (!members.includes(c.name) || c.name === prev.playerName) return c;
+          const trustDelta = getTrustDelta(toneUsed, c.psychProfile.disposition);
+          // Keep alliance meetings low suspicion (private)
+          const suspicionDelta = Math.max(0, Math.floor(getSuspicionDelta('friendly', content || '') / 3));
+          const newTrust = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustDelta));
+          const newSusp = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta));
+          const mem = {
+            day: prev.currentDay,
+            type: 'alliance_meeting' as const,
+            participants: [prev.playerName, ...members],
+            content: `[Alliance Meeting] ${content || 'discussion'}`,
+            emotionalImpact: Math.floor(trustDelta / 5),
+            timestamp: Date.now()
+          };
+          return {
+            ...c,
+            psychProfile: { ...c.psychProfile, trustLevel: newTrust, suspicionLevel: newSusp },
+            memory: [...c.memory, mem],
+          };
+        });
+
+        // If a vote target was proposed, record soft pressure on each member
+        if (proposedTarget) {
+          members.forEach(name => {
+            if (name === prev.playerName) return;
+            // Soft commitment via memory plan; votingEngine will consult
+            const npc = updatedContestants.find(c => c.name === name);
+            if (npc) {
+              AIVotingStrategy.attemptVotePressure(npc, proposedTarget, prev, { context: 'alliance' });
+            }
+          });
+        }
+
+        const interactionEntry = {
+          day: prev.currentDay,
+          type: 'alliance_meeting' as const,
+          participants: [prev.playerName, ...members],
+          content: content || '',
+          tone,
+          source: 'player' as const
+        };
+
+        return {
+          ...prev,
+          contestants: updatedContestants,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'alliance_meeting',
+          lastActionTarget: alliance.name || 'Alliance',
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
         };
       });
       return;
