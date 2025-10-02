@@ -1132,6 +1132,55 @@ export const useGameState = () => {
         juryMembers,
         isPlayerEliminated: false,
         gamePhase: 'final_3_vote' as const,
+        debugForceFinal3TieBreak: false, // default off
+      };
+    });
+  }, []);
+
+  // Debug helper: set up Final 3 and jump directly to tie-break selection UI
+  const setupFinal3TieBreak = useCallback(() => {
+    setGameState(prev => {
+      const contestants = [...prev.contestants];
+
+      // Ensure player + two others are active (reuse setup logic)
+      const others = contestants.filter(c => c.name !== prev.playerName);
+      const activeOthers = others.filter(c => !c.isEliminated);
+      const needed = 2 - activeOthers.length;
+      let selectedOthers = activeOthers.slice(0, 2).map(c => c.name);
+
+      if (needed > 0) {
+        const revivals = others
+          .filter(c => c.isEliminated)
+          .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+          .slice(0, needed)
+          .map(c => c.name);
+        selectedOthers = [...selectedOthers, ...revivals].slice(0, 2);
+      }
+
+      const activeSet = new Set<string>([prev.playerName, ...selectedOthers]);
+
+      const updatedContestants = contestants.map(c => {
+        if (activeSet.has(c.name)) {
+          return { ...c, isEliminated: false, eliminationDay: undefined };
+        }
+        return c.isEliminated ? c : { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+      });
+
+      // Build jury (up to 7 most recent eliminated)
+      const juryMembers = updatedContestants
+        .filter(c => c.isEliminated)
+        .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+        .slice(0, 7)
+        .map(c => c.name);
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        juryMembers,
+        isPlayerEliminated: false,
+        // Signal Final3VoteScreen to skip directly to tie-break selection
+        debugForceFinal3TieBreak: true,
+        gamePhase: 'final_3_vote' as const,
       };
     });
   }, []);
