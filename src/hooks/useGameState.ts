@@ -2066,35 +2066,53 @@ export const useGameState = () => {
     selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual'
   ) => {
     setGameState(prev => {
-      const newState = { ...prev };
-      
-      // Mark eliminated contestant
-      newState.contestants = prev.contestants.map(c => 
-        c.name === eliminated 
-          ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
-          : c
-      );
-      
-      // Add to jury
-      if (!newState.juryMembers) newState.juryMembers = [];
-      if (!newState.juryMembers.includes(eliminated)) {
-        newState.juryMembers.push(eliminated);
+      // Safety: if eliminated is missing, infer it from winners among current active Final 3
+      const activeFinalThree = prev.contestants.filter(c => !c.isEliminated);
+      const winnersSet = new Set<string>([winner1, winner2]);
+      let eliminatedName = eliminated;
+      if (!eliminatedName) {
+        eliminatedName = activeFinalThree.find(c => !winnersSet.has(c.name))?.name || eliminated;
       }
-      
-      // Record tie-break result in voting history
+
+      // Enforce exactly two finalists: winners advance, the third is eliminated, everyone else stays eliminated
+      const updatedContestants = prev.contestants.map(c => {
+        if (winnersSet.has(c.name)) {
+          // Winners must be active finalists
+          return { ...c, isEliminated: false, eliminationDay: undefined };
+        }
+        if (c.name === eliminatedName) {
+          // Tie-break loser is eliminated
+          return { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+        }
+        // Anyone outside the Final 3 remains eliminated; if somehow active, eliminate now to guarantee Final 2
+        return c.isEliminated ? c : { ...c, isEliminated: true, eliminationDay: prev.currentDay };
+      });
+
+      // Build jury list (up to 7 most recent eliminated, including the tie-break loser)
+      let updatedJuryMembers = (prev.juryMembers || []).slice();
+      if (eliminatedName && !updatedJuryMembers.includes(eliminatedName)) {
+        updatedJuryMembers.push(eliminatedName);
+      }
+      updatedJuryMembers = updatedContestants
+        .filter(c => c.isEliminated)
+        .sort((a, b) => (b.eliminationDay || prev.currentDay) - (a.eliminationDay || prev.currentDay))
+        .slice(0, 7)
+        .map(c => c.name);
+
+      // Record tie-break result in voting history (replace the last record if present)
       const tieBreakRecord = {
         day: prev.currentDay,
-        eliminated,
-        votes: { [winner1]: 'n/a', [winner2]: 'n/a', [eliminated]: 'n/a' },
+        eliminated: eliminatedName,
+        votes: { [winner1]: 'n/a', [winner2]: 'n/a', [eliminatedName]: 'n/a' },
         playerVote: prev.votingHistory[prev.votingHistory.length - 1]?.playerVote,
         reason: method
-          ? `${eliminated} lost Final 3 tie-break (${method.replace('_', ' ')})`
-          : `${eliminated} lost Final 3 tie-break challenge`,
+          ? `${eliminatedName} lost Final 3 tie-break (${method.replace('_', ' ')})`
+          : `${eliminatedName} lost Final 3 tie-break challenge`,
         tieBreak: {
-          tied: [winner1, winner2, eliminated],
+          tied: [winner1, winner2, eliminatedName],
           method: method ? (method as 'revote' | 'sudden_death') : 'sudden_death',
           suddenDeathWinner: winner1,
-          suddenDeathLoser: eliminated,
+          suddenDeathLoser: eliminatedName,
           log: [
             `Final 3 tie resolved via ${method || 'challenge'}`,
             `${winner1} and ${winner2} advance to finale`
@@ -2103,21 +2121,33 @@ export const useGameState = () => {
         }
       };
 
-      // Persist final 3 tie-break metadata for recap
-      newState.final3TieBreak = {
-        day: prev.currentDay,
-        method: method || 'challenge',
-        results,
-        eliminated,
-        winners: [winner1, winner2],
-        selectionReason,
+      const nextState: GameState = {
+        ...prev,
+        contestants: updatedContestants,
+        juryMembers: updatedJuryMembers,
+        isPlayerEliminated: eliminatedName === prev.playerName || prev.isPlayerEliminated,
+        final3TieBreak: {
+          day: prev.currentDay,
+          method: method || 'challenge',
+          results,
+          eliminated: eliminatedName,
+          winners: [winner1, winner2],
+          selectionReason,
+        },
+        votingHistory: [...prev.votingHistory.slice(0, -1), tieBreakRecord],
+        currentCutscene: undefined,
+        gamePhase: 'cutscene' as const,
       };
-      
-      newState.votingHistory = [...prev.votingHistory.slice(0, -1), tieBreakRecord];
-      newState.currentCutscene = buildFinaleCutscene(newState as GameState);
-      newState.gamePhase = 'cutscene' as const;
-      
-      return newState;
+
+      // Build finale cutscene from the enforced Final 2 state
+      nextState.currentCutscene = buildFinaleCutscene(nextState as GameState);
+
+      // Debug logs
+      const finalTwoNames = nextState.contestants.filter(c => !c.isEliminated).map(c => c.name);
+      console.log('handleTieBreakResult -> Final Two:', finalTwoNames);
+      console.log('handleTieBreakResult -> Eliminated:', eliminatedName);
+
+      return nextState;
     });
   }, []);
 
