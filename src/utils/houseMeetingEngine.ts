@@ -45,22 +45,47 @@ export const houseMeetingEngine = {
   },
 
   generateAIStatement(state: HouseMeetingState): string {
-    const { topic, target, mood, participants, currentRound } = state;
-    const randomName = participants[Math.floor(Math.random() * participants.length)] || 'Someone';
-    const base = (() => {
-      switch (topic) {
-        case 'nominate_target': return `${randomName}: We need a name. ${target || 'Someone'} keeps causing issues.`;
-        case 'defend_self': return `${randomName}: Stories aren't lining up. Explain yourself.`;
-        case 'shift_blame': return `${randomName}: That's a convenient narrative. Who's actually stirring it?`;
-        case 'expose_alliance': return `${randomName}: I see patterns. Some people are clearly voting together.`;
-      }
-    })();
+    const { topic, target, mood, participants, currentRound, initiator } = state;
+
+    // Scripted beats by topic and round (0-based)
+    const T = (name: string) => name || 'Someone';
+    const tgt = target ? T(target) : 'someone';
+    const host = T(initiator);
+    const other = T(participants.find(n => n !== initiator && n !== target) || participants[0] || 'Someone');
+
+    const scripts: Record<HouseMeetingTopic, string[]> = {
+      nominate_target: [
+        `${host}: I want a clean week. ${tgt} has been playing both sides. We should lock this in.`,
+        `${other}: If we don't unify, the numbers slip. ${tgt} makes the most sense right now.`,
+        `${host}: This isn't personal. It's protection. Are we aligned or not?`
+      ],
+      defend_self: [
+        `${host}: I'm not the one stirring chaos. Check the timelines—accusations don't line up.`,
+        `${other}: I've seen you put in work socially. This pile-on feels performative.`,
+        `${host}: If I were coming after you, you'd know. I'm here to stabilize the house, not blow it up.`
+      ],
+      shift_blame: [
+        `${host}: We're aiming at the wrong person. Look at who benefits if ${tgt} stays quiet in the corner.`,
+        `${other}: I've heard whispers that line up. Someone's managing narratives off camera.`,
+        `${host}: Stop letting the obvious slide. If we miss this window, we deserve the fallout.`
+      ],
+      expose_alliance: [
+        `${host}: Fine. Cards on the table—there's a bloc voting together. I can name two members right now.`,
+        `${other}: You can feel it. Side conversations, synchronized stories, perfectly timed pushbacks.`,
+        `${host}: If you want proof, compare who never call each other out. It's curated. It's deliberate.`
+      ]
+    };
+
+    const lines = scripts[topic] || ['The room buzzes with low voices.'];
+    const line = lines[Math.min(currentRound, lines.length - 1)];
+
     const tone = mood === 'heated'
       ? ' Voices overlap, tension rises.'
       : mood === 'tense'
       ? ' The room is wary.'
       : ' Calm but focused.';
-    return `[Round ${currentRound + 1}] ${base}${tone}`;
+
+    return `[Round ${currentRound + 1}] ${line}${tone}`;
   },
 
   applyChoice(state: HouseMeetingState, choice: HouseMeetingToneChoice, gameState: GameState): {

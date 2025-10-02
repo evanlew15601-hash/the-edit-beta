@@ -1,4 +1,4 @@
-import { GameState, Contestant, Alliance } from '@/types/game';
+import { GameState, Contestant } from '@/types/game';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 
@@ -26,7 +26,7 @@ export class AIVotingStrategy {
       plans.set(contestant.name, plan);
       
       // Store in memory for consistency
-      memoryEngine.updateVotingPlan(contestant.id, plan.target, plan.reasoning);
+      memoryEngine.updateVotingPlan(contestant.name, plan.target, plan.reasoning);
     });
     
     return plans;
@@ -120,8 +120,6 @@ export class AIVotingStrategy {
 
   private static generateReasoning(target: string, contestant: Contestant, gameState: GameState, score: number): string {
     const isPlayer = target === gameState.playerName;
-    const targetContestant = gameState.contestants.find(c => c.name === target);
-    
     if (score > 70) {
       return isPlayer 
         ? `You're playing too hard and becoming a major threat`
@@ -243,6 +241,54 @@ export class AIVotingStrategy {
       reasoning: plan.reasoning,
       isLying: false
     };
+  }
+
+  /**
+   * Attempt to pressure an NPC into committing to a specific vote.
+   * Returns success flag, commitment strength, and chosen target.
+   */
+  static attemptVotePressure(
+    contestant: Contestant,
+    desiredTarget: string,
+    gameState: GameState,
+    opts?: { context?: 'direct' | 'alliance' }
+  ): { success: boolean; commitment: 'soft' | 'firm'; chosenTarget: string; notes: string } {
+    const alliances = gameState.alliances.filter(a => a.members.includes(contestant.name));
+    const inAllianceWithPlayer = alliances.some(a => a.members.includes(gameState.playerName));
+    const rel = relationshipGraphEngine.getRelationship(contestant.name, gameState.playerName);
+    const trust = rel?.trust ?? contestant.psychProfile.trustLevel ?? 50;
+    const suspicionOfPlayer = rel?.suspicion ?? contestant.psychProfile.suspicionLevel ?? 30;
+    const base = trust / 100 - suspicionOfPlayer / 200; // baseline willingness
+    const allianceBoost = inAllianceWithPlayer ? Math.min(0.3, (alliances.find(a => a.members.includes(gameState.playerName))?.strength || 50) / 200) : 0;
+    const contextBoost = opts?.context === 'alliance' ? 0.15 : 0;
+    const phaseBoost = (gameState.contestants.filter(c => !c.isEliminated).length <= 7) ? 0.1 : 0; // late game pragmatism
+
+    let probability = Math.max(0.05, Math.min(0.95, base + allianceBoost + contextBoost + phaseBoost));
+
+    // Do not target close allies easily
+    if (alliances.some(a => a.members.includes(desiredTarget))) {
+      probability -= 0.35;
+    }
+
+    // Strong personalities resist pressure
+    if (contestant.psychProfile.disposition.includes('stubborn') || contestant.psychProfile.disposition.includes('independent')) {
+      probability -= 0.15;
+    }
+
+    const success = Math.random() < probability;
+    let commitment: 'soft' | 'firm' = success && probability > 0.6 ? 'firm' : success ? 'soft' : 'soft';
+
+    // If success, set voting plan in memory for downstream systems to consult
+    const chosenTarget = success ? desiredTarget : desiredTarget; // still surface what you asked for
+    if (success) {
+      memoryEngine.updateVotingPlan(contestant.name, desiredTarget, `Committed due to ${opts?.context === 'alliance' ? 'alliance meeting' : 'direct pressure'} by ${gameState.playerName}`);
+    }
+
+    const notes = success
+      ? (commitment === 'firm' ? 'They agreed firmly to your plan.' : 'They nodded along but might waver.')
+      : 'They resisted pressure. You may need more trust or leverage.';
+
+    return { success, commitment, chosenTarget, notes };
   }
 }
 

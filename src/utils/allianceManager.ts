@@ -194,6 +194,24 @@ export class AllianceManager {
       return null;
     }
 
+    // If the player proposed a target during a recent alliance meeting, prefer that
+    const recentMeeting = (gameState.interactionLog || [])
+      .filter(log =>
+        log.type === 'alliance_meeting' &&
+        log.day >= gameState.currentDay - 2 &&
+        alliance.members.some(m => log.participants.includes(m))
+      )
+      .sort((a, b) => b.day - a.day)[0];
+
+    if (recentMeeting && recentMeeting.content) {
+      const match = recentMeeting.content.match(/(?:vote|target)[:=]\s*([A-Za-z0-9 _-]+)/i);
+      const proposed = match ? match[1].trim() : undefined;
+      if (proposed && validTargets.includes(proposed)) {
+        console.log(`Alliance ${alliance.name} honoring proposed target from meeting: ${proposed}`);
+        return proposed;
+      }
+    }
+
     // Find target that threatens alliance most
     const threats = validTargets.map(target => {
       let threat = 0;
