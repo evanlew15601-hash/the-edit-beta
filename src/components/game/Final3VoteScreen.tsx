@@ -31,6 +31,20 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
 
   const [challengeResults, setChallengeResults] = useState<{ name: string; time: number }[]>([]);
 
+  // DEBUG: auto-skip to tie-break selection when requested
+  useEffect(() => {
+    if (!gameState.debugForceFinal3TieBreak) return;
+    const finalThree = gameState.contestants.filter(c => !c.isEliminated);
+    if (finalThree.length !== 3) return;
+    // Construct a 1-1-1 vote to trigger tie-break UI
+    const forcedVotes: { [name: string]: number } = {};
+    finalThree.forEach(c => { forcedVotes[c.name] = 1; });
+    setVoteResults(forcedVotes);
+    setShowingResults(true);
+    setTieBreakActive(true);
+    setTieBreakMethod(null);
+  }, [gameState.debugForceFinal3TieBreak, gameState.contestants]);
+
   // FIXED: Validate Final 3 state
   const finalThree = gameState.contestants.filter(c => !c.isEliminated);
   const playerStillActive = finalThree.some(c => c.name === gameState.playerName);

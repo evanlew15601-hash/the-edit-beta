@@ -327,6 +327,9 @@ export interface GameState {
 
   // Lite story mode current cutscene
   currentCutscene?: CurrentCutscene;
+
+  // Debug: force Final 3 tie-break flow
+  debugForceFinal3TieBreak?: boolean;
 }
 
 export interface Confessional {

@@ -248,6 +248,7 @@ const Index = () => {
         onProceedToFinaleAsJuror={proceedToFinaleAsJuror}
         onProceedToJuryVoteAsJuror={proceedToJuryVoteAsJuror}
         onGoToFinal3Vote={setupFinal3}
+        onGoToFinal3TieBreak={setupFinal3TieBreak}
         onContinueFromElimination={() => continueFromElimination()}
         onToggleDebug={toggleDebugMode}
         // New phase-specific quick actions

@@ -10,6 +10,7 @@ interface VotingDebugPanelProps {
   onProceedToFinaleAsJuror: () => void;
   onProceedToJuryVoteAsJuror: () => void;
   onGoToFinal3Vote: () => void;
+  onGoToFinal3TieBreak?: () => void;
   onContinueFromElimination: () => void;
   onToggleDebug: () => void;
   // New: phase-specific actions
@@ -98,6 +99,9 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
           </Button>
           <Button variant="outline" onClick={onGoToFinal3Vote} className="w-full">
             Go to Final 3 Vote (Test)
+          </Button>
+          <Button variant="outline" onClick={() => onGoToFinal3TieBreak && onGoToFinal3TieBreak()} className="w-full">
+            Skip to Final 3 Tie-Break
           </Button>
           <Button variant="surveillance" onClick={() => onContinueFromElimination()} className="w-full">
             Continue From Elimination
