@@ -273,7 +273,7 @@ function fillTags(raw: string, prompt: DynamicConfessionalPrompt, gameState: Gam
   for (const [key, val] of Object.entries(replacements)) {
     if (out.includes(key)) {
       if (val === undefined) return null; // Missing context for this template
-      out = out.replaceAll(key, val);
+      out = out.split(key).join(val);
     }
   }
 

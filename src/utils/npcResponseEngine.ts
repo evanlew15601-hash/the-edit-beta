@@ -285,67 +285,7 @@ class NPCResponseEngine {
     let mention: string | undefined;
     if (playerMessage) {
       const lower = playerMessage.toLowerCase();
-      const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\private composeContextTail(
-    context: NPCResponseContext,
-    speechAct?: SpeechAct,
-    playerMessage?: string
-  ): string | null {
-    // Try to extract a mentioned name from player's message among known contacts
-    const knownNames = new Set<string>([
-      'Player',
-      ...context.socialContext.alliances,
-      ...context.socialContext.threats,
-      ...context.socialContext.opportunities,
-    ].filter(Boolean));
-
-    let mention: string | null = null;
-    if (playerMessage) {
-      const lower = playerMessage.toLowerCase();
-      for (const name of knownNames) {
-        const n = String(name || '').trim();
-        if (!n) continue;
-        const re = new RegExp(`\\b${n.toLowerCase().replace(/[-/\\\\^$*+?.()|[\\]{}]/g, '\\private generateResponseContent(
-    speechAct: SpeechAct,
-    context: NPCResponseContext,
-    strategy: ResponseStrategy,
-    playerMessage?: string
-  ): string {
-    const npc = context.contestant;
-    const perception = this.npcPerceptions.get(npc.name) || this.initializeNPCPerception();
-
-    const responseTemplates = this.getResponseTemplates(strategy, speechAct, perception);
-
-    const template = this.selectBestTemplate(responseTemplates, context);
-
-    return this.customizeTemplate(template, context, perception, speechAct, playerMessage);
-  }')}\\b`, 'i');
-        if (re.test(lower)) { mention = n; break; }
-      }
-    }
-
-    const recent = context.socialContext.recentEvents?.slice(-1)[0];
-    const ally1 = context.socialContext.alliances[0];
-    const threat1 = context.socialContext.threats[0];
-
-    // Information seeking → ask for specificity using the mention if present
-    if (speechAct?.informationSeeking) {
-      if (mention) return `Be specific—what exactly about ${mention}?`;
-      return `Be specific—alliances, votes, or trust?`;
-    }
-
-    // High tension → surface one name or recent event
-    if (context.socialContext.currentDramaTension > 65) {
-      if (threat1) return `People are already wary of ${threat1}.`;
-      if (recent) return `Earlier today: ${recent}.`;
-    }
-
-    // Alliance hint when relevant
-    if (ally1 && (speechAct?.trustBuilding || (context.relationship && context.relationship.isInAlliance))) {
-      return `Keep our lane with ${ally1} in mind.`;
-    }
-
-    return null;
-  }');
+      const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       for (const n of names) {
         const key = esc(n.toLowerCase());
         const re = new RegExp(`\\b${key}\\b`, 'i');
@@ -619,55 +559,10 @@ class NPCResponseEngine {
         'Player',
       ])).filter(Boolean);
       const lower = playerMessage.toLowerCase();
-      const esc = (s: string) => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\private customizeTemplate(
-    template: ResponseTemplate,
-    context: NPCResponseContext,
-    perception: NPCPlayerPerception,
-    speechAct?: SpeechAct,
-    playerMessage?: string
-  ): string {
-    let content = template.content;
-
-    // Relationship memory hint
-    if (context.recentMemories.length > 0) {
-      const lastMemory = context.recentMemories[context.recentMemories.length - 1];
-      if (lastMemory.emotionalImpact < -3) {
-        content += " After what happened before, I am cautious.";
-      } else if (lastMemory.emotionalImpact > 3) {
-        content += " I appreciate that we can talk like this.";
-      }
-    }
-
-    // Personality modifiers
-    const personality = npcAutonomyEngine.getNPCPersonality(context.contestant.name);
-    if (personality) {
-      if (personality.paranoia > 70 && template.tags.includes('suspicious')) {
-        content += " Everyone has an angle.";
-      }
-      if (personality.charisma > 70 && template.tags.includes('alliance')) {
-        content = content.replace("stick together", "be an effective team");
-      }
-    }
-
-    // Linguistic note
-    if (perception.linguisticNotes.length > 3) {
-      const playerPattern = perception.linguisticNotes[perception.linguisticNotes.length - 1];
-      if (playerPattern.includes('formal') && Math.random() < 0.3) {
-        content += " You choose your words carefully.";
-      }
-    }
-
-    // Context-aware tail: mention names/events without fabricating details
-    const tail = this.composeContextTail(context, speechAct, playerMessage);
-    if (tail) {
-      content = /[.!?]$/.test(content) ? `${content} ${tail}` : `${content}. ${tail}`;
-    }
-
-    return content;
-  }');
+      const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       for (const n of names) {
         const key = esc(n.toLowerCase());
-        const re = new RegExp(`\\\\b${key}\\\\b`, 'i');
+        const re = new RegExp(`\\b${key}\\b`, 'i');
         if (re.test(lower)) { mention = n; break; }
       }
     }
@@ -685,7 +580,7 @@ class NPCResponseEngine {
     });
 
     // Clean up double spaces if placeholders were adjacent
-    return out.replace(/\\s{2,}/g, ' ').trim();
+    return out.replace(/\s{2,}/g, ' ').trim();
   }
 
   private determineTone(

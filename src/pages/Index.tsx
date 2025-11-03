@@ -45,6 +45,7 @@ const Index = () => {
     proceedToFinaleAsJuror,
     proceedToJuryVoteAsJuror,
     setupFinal3,
+    setupFinal3TieBreak,
     toggleDebugMode,
     saveGame,
     loadSavedGame,

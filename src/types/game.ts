@@ -101,7 +101,8 @@ export interface GameMemory {
     | 'dm'
     | 'confessional_leak'
     | 'elimination'
-    | 'event';
+    | 'event'
+    | 'alliance_meeting';
   participants: string[];
   content: string;
   emotionalImpact: number; // -10 to 10

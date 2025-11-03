@@ -27,6 +27,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
   onProceedToFinaleAsJuror,
   onProceedToJuryVoteAsJuror,
   onGoToFinal3Vote,
+  onGoToFinal3TieBreak,
   onContinueFromElimination,
   onToggleDebug,
   // Include optional handlers so they are in scope when used below

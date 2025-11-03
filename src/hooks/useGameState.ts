@@ -2374,6 +2374,7 @@ export const useGameState = () => {
     proceedToFinaleAsJuror,
     proceedToJuryVoteAsJuror,
     setupFinal3,
+    setupFinal3TieBreak,
     // Save/Load
     loadSavedGame,
     saveGame,
