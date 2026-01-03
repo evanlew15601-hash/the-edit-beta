@@ -41,6 +41,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
   const active = gameState.contestants.filter(c => !c.isEliminated);
   const eliminated = gameState.contestants.filter(c => c.isEliminated);
   const nonPlayerActive = active.filter(c => c.name !== gameState.playerName);
+  const debugWarnings = gameState.debugWarnings || [];
 
   return (
     <div className="fixed bottom-4 right-4 z-50 w-[340px]">
@@ -83,6 +84,12 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
               {(gameState.juryMembers || []).join(', ') || 'None'}
             </div>
           </div>
+          <div className="p-2 border rounded col-span-2">
+            <div className="text-muted-foreground">Finalists (Active)</div>
+            <div className="font-medium">
+              {active.length ? active.map(c => c.name).join(', ') : 'None'}
+            </div>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -114,6 +121,28 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
           >
             Force Player Elimination (Test)
           </Button>
+
+          {debugWarnings.length > 0 && (
+            <div className="mt-2 border border-destructive/30 bg-destructive/5 rounded p-2">
+              <div className="text-[11px] text-destructive mb-1">Invariant warnings (latest)</div>
+              <div className="max-h-24 overflow-y-auto space-y-1 text-[11px]">
+                {debugWarnings.slice(-5).map((w, idx) => (
+                  <div key={idx}>• {w}</div>
+                ))}
+              </div>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="mt-2 w-full text-[11px]"
+                onClick={() => {
+                  // eslint-disable-next-line no-console
+                  console.log('[VotingDebugPanel] GameState snapshot', gameState);
+                }}
+              >
+                Export game state to console
+              </Button>
+            </div>
+          )}
 
           {/* Phase-specific quick actions */}
           {gameState.gamePhase === 'player_vote' && onSubmitPlayerVote && (

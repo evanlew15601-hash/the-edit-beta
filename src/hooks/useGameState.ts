@@ -28,6 +28,103 @@ import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
+const MAX_DEBUG_WARNINGS = 20;
+
+const addDebugWarning = (state: GameState, label: string, info?: any): GameState => {
+  const detail = info ? ` :: ${JSON.stringify(info)}` : '';
+  const message = `${label}${detail}`;
+  const existing = state.debugWarnings || [];
+  const warnings = [...existing, message].slice(-MAX_DEBUG_WARNINGS);
+  return { ...state, debugWarnings: warnings };
+};
+
+const assertGameInvariant = (state: GameState, label: string, predicate: boolean, info?: any): GameState => {
+  if (!predicate) {
+    if (import.meta.env.DEV) {
+      // Surface detailed information in development builds
+      // eslint-disable-next-line no-console
+      console.warn('[GameInvariant]', label, info || {});
+    }
+    return addDebugWarning(state, label, info);
+  }
+  return state;
+};
+
+const applyCoreInvariants = (state: GameState): GameState => {
+  let next = { ...state };
+  const active = next.contestants.filter(c => !c.isEliminated);
+  const juryMembers = next.juryMembers || [];
+
+  // Jury members must be valid contestants
+  next = assertGameInvariant(
+    next,
+    'juryMembers-valid',
+    juryMembers.every(name => next.contestants.some(c => c.name === name)),
+    { juryMembers, contestantNames: next.contestants.map(c => c.name) }
+  );
+
+  if (next.gamePhase === 'final_3_vote') {
+    const playerInActive = active.some(c => c.name === next.playerName);
+    next = assertGameInvariant(
+      next,
+      'final_3_vote-active-count',
+      active.length === 3 && playerInActive,
+      { activeNames: active.map(c => c.name), player: next.playerName }
+    );
+  }
+
+  if (next.gamePhase === 'jury_vote') {
+    next = assertGameInvariant(
+      next,
+      'jury_vote-finalists',
+      active.length === 2,
+      { activeNames: active.map(c => c.name) }
+    );
+    next = assertGameInvariant(
+      next,
+      'jury_vote-jury-size',
+      juryMembers.length >= 1 &&
+        juryMembers.every(name => next.contestants.find(c => c.name === name)?.isEliminated),
+      { juryMembers }
+    );
+  }
+
+  if (next.gamePhase === 'finale') {
+    next = assertGameInvariant(
+      next,
+      'finale-finalists',
+      active.length === 2,
+      { activeNames: active.map(c => c.name) }
+    );
+  }
+
+  if (next.gamePhase === 'post_season') {
+    next = assertGameInvariant(
+      next,
+      'post_season-winner-set',
+      !!next.gameWinner,
+      { gameWinner: next.gameWinner }
+    );
+    next = assertGameInvariant(
+      next,
+      'post_season-finalJuryVotes-set',
+      !!next.finalJuryVotes,
+      { finalJuryVotes: next.finalJuryVotes }
+    );
+  }
+
+  if (next.gamePhase === 'weekly_recap') {
+    next = assertGameInvariant(
+      next,
+      'weekly_recap-on-week-boundary',
+      next.currentDay > 1 && next.currentDay % 7 === 0,
+      { currentDay: next.currentDay }
+    );
+  }
+
+  return next;
+};
+
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
     // Fresh start every load; manual save/load only
@@ -279,7 +376,7 @@ export const useGameState = () => {
         alliances: updatedAlliances,
       } as GameState);
 
-      return {
+      const nextState: GameState = {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
@@ -304,6 +401,8 @@ export const useGameState = () => {
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
         ongoingHouseMeeting: maybeHM || prev.ongoingHouseMeeting,
       };
+
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -941,11 +1040,11 @@ export const useGameState = () => {
       // If we couldn't find any other finalist (degenerate cast), just keep player solo and pick first available.
       if (!otherFinalistName) {
         console.warn('proceedToJuryVote: No non-player contestant found; unable to create proper Final 2.');
-        return {
+        return applyCoreInvariants({
           ...prev,
           gamePhase: 'jury_vote' as const,
           // Keep existing juryMembers; the JuryVoteScreen will guard and show awaiting finalists
-        };
+        });
       }
 
       // Construct Final 2: player + otherFinalistName
@@ -993,7 +1092,7 @@ export const useGameState = () => {
       console.log('proceedToJuryVote constructed finalists:', Array.from(finalists));
       console.log('proceedToJuryVote juryMembers:', juryMembers);
 
-      return nextState;
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -1035,7 +1134,7 @@ export const useGameState = () => {
 
       const finaleCutscene = buildFinaleCutscene({ ...prev, contestants: updatedContestants } as GameState);
 
-      return {
+      const nextState: GameState = {
         ...prev,
         contestants: updatedContestants,
         juryMembers: updatedJuryMembers,
@@ -1043,6 +1142,8 @@ export const useGameState = () => {
         isPlayerEliminated: true,
         gamePhase: 'finale' as const,
       };
+
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -1081,13 +1182,15 @@ export const useGameState = () => {
         .slice(0, 7)
         .map(c => c.name);
 
-      return {
+      const nextState: GameState = {
         ...prev,
         contestants: updatedContestants,
         juryMembers: updatedJuryMembers,
         isPlayerEliminated: true,
         gamePhase: 'jury_vote' as const,
       };
+
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -1427,7 +1530,7 @@ export const useGameState = () => {
     setGameState(prev => {
       const alreadyRanked = prev.afpRanking && prev.afpRanking.length > 0;
       const afpRanking = alreadyRanked ? prev.afpRanking : calculateAFPRanking(prev, prev.afpVote);
-      return {
+      const nextState: GameState = {
         ...prev,
         gamePhase: 'post_season' as const,
         gameWinner: winner,
@@ -1435,6 +1538,7 @@ export const useGameState = () => {
         juryRationales: rationales || prev.juryRationales,
         afpRanking,
       };
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -2196,7 +2300,7 @@ export const useGameState = () => {
       console.log('handleTieBreakResult -> Final Two:', finalTwoNames);
       console.log('handleTieBreakResult -> Eliminated:', eliminatedName);
 
-      return nextState;
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
