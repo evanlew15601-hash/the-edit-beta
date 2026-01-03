@@ -25,6 +25,7 @@ import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostCh
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
+import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
@@ -54,14 +55,61 @@ const applyCoreInvariants = (state: GameState): GameState => {
   let next = { ...state };
   const active = next.contestants.filter(c => !c.isEliminated);
   const juryMembers = next.juryMembers || [];
+  const contestantNames = new Set(next.contestants.map(c => c.name));
 
   // Jury members must be valid contestants
   next = assertGameInvariant(
     next,
     'juryMembers-valid',
-    juryMembers.every(name => next.contestants.some(c => c.name === name)),
+    juryMembers.every(name => contestantNames.has(name)),
     { juryMembers, contestantNames: next.contestants.map(c => c.name) }
   );
+
+  // Alliance invariants: members must exist, not be eliminated, and not be duplicated
+  if (next.alliances && next.alliances.length > 0) {
+    next.alliances.forEach(alliance => {
+      const uniqueCount = new Set(alliance.members).size;
+      if (uniqueCount !== alliance.members.length) {
+        next = assertGameInvariant(
+          next,
+          'alliance-duplicate-members',
+          false,
+          { allianceId: alliance.id, members: alliance.members }
+        );
+      }
+
+      const invalidMembers = alliance.members.filter(m => !contestantNames.has(m));
+      if (invalidMembers.length > 0) {
+        next = assertGameInvariant(
+          next,
+          'alliance-invalid-members',
+          false,
+          { allianceId: alliance.id, invalidMembers }
+        );
+      }
+
+      const eliminatedMembers = alliance.members.filter(m =>
+        next.contestants.some(c => c.name === m && c.isEliminated)
+      );
+      if (eliminatedMembers.length > 0) {
+        next = assertGameInvariant(
+          next,
+          'alliance-contains-eliminated',
+          false,
+          { allianceId: alliance.id, eliminatedMembers }
+        );
+      }
+
+      if (alliance.members.length <= 1 && !alliance.dissolved) {
+        next = assertGameInvariant(
+          next,
+          'alliance-singleton-not-dissolved',
+          false,
+          { allianceId: alliance.id, members: alliance.members }
+        );
+      }
+    });
+  }
 
   if (next.gamePhase === 'final_3_vote') {
     const playerInActive = active.some(c => c.name === next.playerName);
@@ -423,33 +471,58 @@ export const useGameState = () => {
     if (actionType === 'create_alliance') {
       const allianceName = target || 'New Alliance';
       const memberNames = content ? content.split(',') : [];
-      console.log('Creating alliance:', allianceName, 'with members:', memberNames);
+      console.log('Creating alliance:', allianceName, 'with members (raw):', memberNames);
       
       setGameState(prev => {
         console.log('Current player name:', prev.playerName);
-        
-        // Don't duplicate player name if it's already in the list
-        const allMembers = memberNames.includes(prev.playerName) 
-          ? memberNames 
-          : [prev.playerName, ...memberNames];
-        console.log('Will create alliance with members:', allMembers);
-        
-        const newAlliance = {
-          id: Date.now().toString(),
-          name: allianceName,
-          members: allMembers,
-          strength: 75,
-          secret: true,
-          formed: prev.currentDay,
-          lastActivity: prev.currentDay,
-          dissolved: false
-        };
-        
-        return {
+
+        const allContestantNames = new Set(prev.contestants.map(c => c.name));
+
+        // Normalize, trim, and filter to valid, active contestants
+        const requested = memberNames
+          .map(n => n.trim())
+          .filter(Boolean)
+          .filter(n => allContestantNames.has(n))
+          .filter(n => {
+            const c = prev.contestants.find(ct => ct.name === n);
+            return c && !c.isEliminated;
+          });
+
+        // Ensure player is included if they are an active contestant
+        const playerName = prev.playerName;
+        const playerContestant = prev.contestants.find(c => c.name === playerName && !c.isEliminated);
+        if (playerContestant && !requested.includes(playerName)) {
+          requested.unshift(playerName);
+        }
+
+        const uniqueMembers = Array.from(new Set(requested));
+        console.log('Will create alliance with normalized members:', uniqueMembers);
+
+        // Require at least two valid members to form an alliance
+        if (uniqueMembers.length < 2) {
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.warn('create_alliance aborted: not enough valid members', {
+              requested: memberNames,
+              normalized: uniqueMembers,
+            });
+          }
+          return prev;
+        }
+
+        const newAlliance = AllianceManager.createAlliance(
+          uniqueMembers,
+          allianceName,
+          prev.currentDay
+        );
+
+        const nextState: GameState = {
           ...prev,
           alliances: [...prev.alliances, newAlliance],
           dailyActionCount: prev.dailyActionCount + 1
         };
+
+        return applyCoreInvariants(nextState);
       });
       return;
     }
@@ -458,25 +531,45 @@ export const useGameState = () => {
     if (actionType === 'add_alliance_members') {
       const allianceId = target;
       const newMembers = content ? content.split(',') : [];
-      console.log('Adding members to alliance:', allianceId, 'new members:', newMembers);
+      console.log('Adding members to alliance:', allianceId, 'new members (raw):', newMembers);
       
       setGameState(prev => {
-        const updatedAlliances = prev.alliances.map(alliance => 
-          alliance.id === allianceId 
-            ? {
-                ...alliance,
-                members: [...alliance.members, ...newMembers],
-                lastActivity: prev.currentDay,
-                strength: Math.min(100, alliance.strength + 10) // Boost strength when expanding
-              }
-            : alliance
-        );
-        
-        return {
+        const allContestantNames = new Set(prev.contestants.map(c => c.name));
+
+        const updatedAlliances = prev.alliances.map(alliance => {
+          if (alliance.id !== allianceId) return alliance;
+
+          const normalizedNewMembers = newMembers
+            .map(n => n.trim())
+            .filter(Boolean)
+            .filter(n => allContestantNames.has(n))
+            .filter(n => {
+              const c = prev.contestants.find(ct => ct.name === n);
+              return c && !c.isEliminated;
+            })
+            .filter(n => !alliance.members.includes(n));
+
+          if (normalizedNewMembers.length === 0) {
+            return alliance;
+          }
+
+          const mergedMembers = [...alliance.members, ...normalizedNewMembers];
+
+          return {
+            ...alliance,
+            members: mergedMembers,
+            lastActivity: prev.currentDay,
+            strength: Math.min(100, alliance.strength + 10) // Boost strength when expanding
+          };
+        });
+
+        const nextState: GameState = {
           ...prev,
           alliances: updatedAlliances,
           dailyActionCount: prev.dailyActionCount + 1
         };
+
+        return applyCoreInvariants(nextState);
       });
       return;
     }
@@ -1535,6 +1628,10 @@ export const useGameState = () => {
         reactionProfiles[c.id] = getReactionProfileForNPC(c);
         reactionProfiles[c.name] = reactionProfiles[c.id];
       });
+
+      // Initialize relationship graph for the fresh cast so that downstream
+      // alliance and trust systems have a consistent baseline.
+      relationshipGraphEngine.initializeRelationships(contestants);
 
       const baseState = {
         ...prev,
