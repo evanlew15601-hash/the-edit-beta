@@ -125,6 +125,34 @@ const applyCoreInvariants = (state: GameState): GameState => {
   return next;
 };
 
+const nextPhaseAfterDayAdvance = (
+  prev: GameState,
+  newDay: number,
+  remainingCount: number
+): GameState['gamePhase'] => {
+  let gamePhase = prev.gamePhase;
+
+  // Check for key game events in a consistent order
+  if (remainingCount === 3 && prev.gamePhase !== 'final_3_vote') {
+    // Final 3 - needs voting first (only trigger if not already in final_3_vote)
+    gamePhase = 'final_3_vote';
+  } else if (remainingCount === 4 && prev.gamePhase !== 'player_vote') {
+    // Final 4 - force elimination (skip immunity for clean vote)
+    gamePhase = 'player_vote';
+  } else if (newDay === prev.nextEliminationDay - 1 && remainingCount > 4) {
+    // Day before elimination - immunity competition (skip at Final 4)
+    gamePhase = 'immunity_competition';
+  } else if (newDay === prev.nextEliminationDay && remainingCount > 4) {
+    // Elimination day - let player vote first
+    gamePhase = 'player_vote';
+  } else if (newDay % 7 === 0 && newDay > 1) {
+    // Weekly recap every 7 days
+    gamePhase = 'weekly_recap';
+  }
+
+  return gamePhase;
+};
+
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
     // Fresh start every load; manual save/load only
@@ -298,7 +326,6 @@ export const useGameState = () => {
       
       let juryMembers = prev.juryMembers;
       let daysUntilJury = prev.daysUntilJury;
-      let gamePhase = prev.gamePhase;
       
       if (shouldStartJury) {
         // Start jury phase - take the 7 most recently eliminated contestants
@@ -313,30 +340,9 @@ export const useGameState = () => {
         daysUntilJury = Math.max(0, (remainingCount - 7) * 3); // Estimate days until jury
       }
 
-      // Check for key game events - FIXED phase transitions with correct counting
+      // Determine next phase after day advance using normalized helper
       console.log('Phase check - Current phase:', prev.gamePhase, 'Remaining:', remainingCount);
-      
-      if (remainingCount === 3 && prev.gamePhase !== 'final_3_vote') {
-        // Final 3 - needs voting first (only trigger if not already in final_3_vote)
-        gamePhase = 'final_3_vote';
-        console.log('Final 3 reached - voting phase');
-      } else if (remainingCount === 4 && prev.gamePhase !== 'player_vote') {
-        // Final 4 - force elimination (skip immunity for clean vote)
-        console.log('Final 4 reached - forcing elimination without immunity');
-        gamePhase = 'player_vote';
-      } else if (newDay === prev.nextEliminationDay - 1 && remainingCount > 4) {
-        // Day before elimination - immunity competition (skip at Final 4)
-        gamePhase = 'immunity_competition';
-        console.log('Immunity competition day');
-      } else if (newDay === prev.nextEliminationDay) {
-        // Elimination day - let player vote first
-        console.log('Elimination voting day:', newDay);
-        gamePhase = 'player_vote';
-      } else if (newDay % 7 === 0 && newDay > 1) {
-        // Weekly recap every 7 days - FIXED integration
-        gamePhase = 'weekly_recap';
-        console.log('Weekly recap time');
-      }
+      const gamePhase = nextPhaseAfterDayAdvance(prev as GameState, newDay, remainingCount);
 
       // Clear old information and update systems
       InformationTradingEngine.clearOldInformation({ ...prev, currentDay: newDay });
@@ -2167,9 +2173,17 @@ export const useGameState = () => {
     });
   }, []);
 
-  // Add skip to jury handler
+  // Add skip to jury handler (debug-only)
   const skipToJury = useCallback(() => {
     setGameState(prev => {
+      if (!prev.debugMode) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('skipToJury called while debugMode is false; ignoring.');
+        }
+        return prev;
+      }
+
       const contestants = prev.contestants;
       const activePlayers = contestants.filter(c => !c.isEliminated);
 
@@ -2193,13 +2207,15 @@ export const useGameState = () => {
         .slice(0, 7)
         .map(c => c.name);
 
-      return {
+      const nextState: GameState = {
         ...prev,
         contestants: updatedContestants,
         juryMembers,
         daysUntilJury: 0,
         gamePhase: 'daily' as const
       };
+
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
