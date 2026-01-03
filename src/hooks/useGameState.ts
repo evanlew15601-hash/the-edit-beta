@@ -1302,7 +1302,8 @@ export const useGameState = () => {
         prev.alliances,
         prev,
         prev.immunityWinner,
-        choice // Player's vote
+        choice, // Player's vote
+        undefined // use default tie-break behavior
       );
       
       // Update voting result with current day
@@ -1345,13 +1346,18 @@ export const useGameState = () => {
   const submitFinal3Vote = useCallback((choice: string, tieBreakResult?: { winner: string; challengeResults: any }) => {
     setGameState(prev => {
       const active = prev.contestants.filter(c => !c.isEliminated);
+
+      // For Final 3 we want to surface ties (e.g. 1-1-1) without automatic
+      // revote/sudden-death inside the engine. The custom Final3VoteScreen
+      // UI will handle any tie-break routing.
       const votingResult = processVoting(
         prev.contestants,
         prev.playerName,
         prev.alliances,
         prev,
         undefined, // No immunity in Final 3
-        choice
+        choice,
+        { suppressTieBreak: true }
       );
       
       if (tieBreakResult) {
@@ -1367,6 +1373,19 @@ export const useGameState = () => {
       votingResult.day = prev.currentDay;
       votingResult.playerVote = choice;
       
+      // If no one is eliminated yet (e.g. 1-1-1 tie), we record the vote
+      // history but keep the Final 3 intact and remain on this phase
+      // until the tie-break is resolved via handleTieBreakResult.
+      if (!votingResult.eliminated && !tieBreakResult) {
+        console.log('Final3Vote submitted - tie detected, awaiting tie-break resolution.');
+        return {
+          ...prev,
+          votingHistory: [...prev.votingHistory, votingResult],
+          gamePhase: 'final_3_vote' as const,
+        };
+      }
+
+      // Otherwise, apply the elimination normally and continue flow
       const updatedContestants = prev.contestants.map(c => 
         c.name === votingResult.eliminated 
           ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
@@ -1375,7 +1394,7 @@ export const useGameState = () => {
       
       // Only add to jury if not in jury voting phase yet
       let updatedJuryMembers = [...(prev.juryMembers || [])];
-      if (prev.gamePhase !== 'jury_vote' && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
+      if (prev.gamePhase !== 'jury_vote' && votingResult.eliminated && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
         updatedJuryMembers.push(votingResult.eliminated);
       }
       

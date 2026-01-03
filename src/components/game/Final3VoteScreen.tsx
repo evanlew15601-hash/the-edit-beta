@@ -97,68 +97,40 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
   }
 
   useEffect(() => {
-    if (showingResults && !tieBreakActive) {
-      // Simulate AI votes
-      const votes: { [name: string]: number } = {};
-      finalThree.forEach(c => votes[c.name] = 0);
+    if (!showingResults || tieBreakActive) return;
 
-      // Add player vote
-      if (choice) {
-        votes[choice]++;
-      }
+    // Use the authoritative vote record from game state rather than
+    // re-simulating AI votes locally, so the UI matches elimination logic.
+    const todaysVotes = gameState.votingHistory
+      .filter(vr => vr.day === gameState.currentDay && vr.votes && Object.keys(vr.votes).length > 0);
+    const lastRecord = todaysVotes[todaysVotes.length - 1];
 
-      // BALANCED: Generate AI votes with less player bias
-      finalThree.filter(c => c.name !== gameState.playerName).forEach(voter => {
-        const targets = finalThree.filter(t => t.name !== voter.name);
-        
-        // Score each target based on relationships
-        const scores = targets.map(target => {
-          let score = 50;
-          
-          // Check relationships - reduced impact
-          const memories = voter.memory.filter(m => 
-            m.participants.includes(target.name) && m.day >= gameState.currentDay - 14
-          );
-          
-          const relationshipScore = memories.reduce((sum, memory) => {
-            return sum + (memory.emotionalImpact * (memory.content.includes('betrayal') ? -1.5 : 0.5));
-          }, 0);
-          
-          score += relationshipScore * 2; // Reduced from 3
-          
-          // REDUCED bias against player
-          if (target.name === gameState.playerName) {
-            score += 15; // Boost player score to reduce elimination bias
-          }
-          
-          // Add randomness - increased for more unpredictability
-          score += (Math.random() - 0.5) * 40;
-          
-          return { name: target.name, score };
-        });
-        
-        // Vote for lowest score (want to eliminate)
-        const target = scores.reduce((prev, current) => 
-          current.score < prev.score ? current : prev
-        );
-        
-        votes[target.name]++;
-      });
+    if (!lastRecord) return;
 
-      setVoteResults(votes);
+    // votingRecord.votes is voter -> target; convert to target -> count
+    const counts: { [name: string]: number } = {};
+    finalThree.forEach(c => { counts[c.name] = 0; });
 
-      // Check for 1-1-1 tie (Final 3 event only)
-      const voteValues = Object.values(votes);
-      const maxVotes = Math.max(...voteValues);
-      const playersWithMaxVotes = Object.entries(votes).filter(([_, v]) => v === maxVotes);
+    Object.values(lastRecord.votes || {}).forEach(targetName => {
+      if (typeof targetName !== 'string') return;
+      if (!counts[targetName]) counts[targetName] = 0;
+      counts[targetName]++;
+    });
 
-      if (playersWithMaxVotes.length > 1 && voteValues.every(v => v === 1)) {
-        // 1-1-1 tie: let the group decide the route to resolve it
-        setTieBreakActive(true);
-        setTieBreakMethod(null);
-      }
+    setVoteResults(counts);
+
+    // Check for 1-1-1 tie in the Final 3
+    const voteValues = Object.values(counts);
+    if (voteValues.length === 0) return;
+    const maxVotes = Math.max(...voteValues);
+    const playersWithMaxVotes = Object.entries(counts).filter(([, v]) => v === maxVotes);
+
+    if (playersWithMaxVotes.length > 1 && voteValues.length === 3 && voteValues.every(v => v === voteValues[0])) {
+      // Perfect 1-1-1 tie: trigger tie-break route selection
+      setTieBreakActive(true);
+      setTieBreakMethod(null);
     }
-  }, [showingResults, choice, gameState, finalThree, tieBreakActive]);
+  }, [showingResults, tieBreakActive, gameState.votingHistory, gameState.currentDay, finalThree]);
 
   // Execute selected tie-break route
   useEffect(() => {
