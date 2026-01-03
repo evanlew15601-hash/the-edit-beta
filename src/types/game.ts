@@ -292,6 +292,8 @@ export interface GameState {
   };
   // Debug flag to surface dev-only UI
   debugMode?: boolean;
+  // Recent invariant/debug warnings for developer HUD
+  debugWarnings?: string[];
   // Post-game data
   gameWinner?: string;
   finalJuryVotes?: { [juryMember: string]: string };

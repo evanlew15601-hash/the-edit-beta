@@ -9,7 +9,8 @@ export const processVoting = (
   alliances: Alliance[],
   gameState: GameState,
   immunityWinner?: string,
-  playerVote?: string
+  playerVote?: string,
+  options?: { suppressTieBreak?: boolean }
 ): VotingRecord => {
   const activeContestants = contestants.filter(c => !c.isEliminated);
   
@@ -109,12 +110,12 @@ export const processVoting = (
     }
     
     // Get voter's memory and strategic context for individual decision
-    const voterMemory = memoryEngine.queryMemory(voter.id, {
+    const voterMemory = memoryEngine.queryMemory(voter.name, {
       dayRange: { start: gameState.currentDay - 7, end: gameState.currentDay },
       minImportance: 3
     });
     
-    memoryEngine.getStrategicContext(voter.id, gameState);
+    memoryEngine.getStrategicContext(voter.name, gameState);
     
     // Find target with highest threat that isn't in voter's alliance
     const allianceMembers = new Set(voterAlliances.flatMap(a => a.members));
@@ -224,7 +225,12 @@ export const processVoting = (
 
   let tieBreak: VotingRecord['tieBreak'] | undefined = undefined;
 
-  if (tiedAtMax.length > 1) {
+  // In some contexts (e.g., Final 3), we want to surface tie information
+  // without running the built-in revote/sudden-death logic. Callers can
+  // then resolve the tie with custom UI/flows.
+  const suppressTieBreak = options?.suppressTieBreak ?? false;
+
+  if (tiedAtMax.length > 1 && !suppressTieBreak) {
     // 1) Revote among tied only
     const revoteCandidates = new Set(tiedAtMax);
     const revoteVotes: { [voter: string]: string } = {};
@@ -307,7 +313,7 @@ export const processVoting = (
   }
 
   // If still no eliminated (e.g., single winner path), pick the sole max target
-  if (!eliminated) {
+  if (!eliminated && !suppressTieBreak) {
     const sole = entries.find(([, c]) => c === maxVotes)?.[0];
     if (sole) eliminated = sole;
   }
@@ -319,7 +325,9 @@ export const processVoting = (
       ? (tieBreak.method === 'revote'
           ? `${eliminated} lost the tie-break revote and was eliminated`
           : `${eliminated} lost the sudden-death tie-break and was eliminated`)
-      : `${eliminated} was seen as the biggest threat and received ${maxVotes} votes`;
+      : eliminated
+        ? `${eliminated} was seen as the biggest threat and received ${maxVotes} votes`
+        : 'The house vote resulted in a tie that requires a special tie-break.';
 
   return {
     day: 0, // Will be set by caller

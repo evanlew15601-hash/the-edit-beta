@@ -28,6 +28,131 @@ import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
+const MAX_DEBUG_WARNINGS = 20;
+
+const addDebugWarning = (state: GameState, label: string, info?: any): GameState => {
+  const detail = info ? ` :: ${JSON.stringify(info)}` : '';
+  const message = `${label}${detail}`;
+  const existing = state.debugWarnings || [];
+  const warnings = [...existing, message].slice(-MAX_DEBUG_WARNINGS);
+  return { ...state, debugWarnings: warnings };
+};
+
+const assertGameInvariant = (state: GameState, label: string, predicate: boolean, info?: any): GameState => {
+  if (!predicate) {
+    if (import.meta.env.DEV) {
+      // Surface detailed information in development builds
+      // eslint-disable-next-line no-console
+      console.warn('[GameInvariant]', label, info || {});
+    }
+    return addDebugWarning(state, label, info);
+  }
+  return state;
+};
+
+const applyCoreInvariants = (state: GameState): GameState => {
+  let next = { ...state };
+  const active = next.contestants.filter(c => !c.isEliminated);
+  const juryMembers = next.juryMembers || [];
+
+  // Jury members must be valid contestants
+  next = assertGameInvariant(
+    next,
+    'juryMembers-valid',
+    juryMembers.every(name => next.contestants.some(c => c.name === name)),
+    { juryMembers, contestantNames: next.contestants.map(c => c.name) }
+  );
+
+  if (next.gamePhase === 'final_3_vote') {
+    const playerInActive = active.some(c => c.name === next.playerName);
+    next = assertGameInvariant(
+      next,
+      'final_3_vote-active-count',
+      active.length === 3 && playerInActive,
+      { activeNames: active.map(c => c.name), player: next.playerName }
+    );
+  }
+
+  if (next.gamePhase === 'jury_vote') {
+    next = assertGameInvariant(
+      next,
+      'jury_vote-finalists',
+      active.length === 2,
+      { activeNames: active.map(c => c.name) }
+    );
+    next = assertGameInvariant(
+      next,
+      'jury_vote-jury-size',
+      juryMembers.length >= 1 &&
+        juryMembers.every(name => next.contestants.find(c => c.name === name)?.isEliminated),
+      { juryMembers }
+    );
+  }
+
+  if (next.gamePhase === 'finale') {
+    next = assertGameInvariant(
+      next,
+      'finale-finalists',
+      active.length === 2,
+      { activeNames: active.map(c => c.name) }
+    );
+  }
+
+  if (next.gamePhase === 'post_season') {
+    next = assertGameInvariant(
+      next,
+      'post_season-winner-set',
+      !!next.gameWinner,
+      { gameWinner: next.gameWinner }
+    );
+    next = assertGameInvariant(
+      next,
+      'post_season-finalJuryVotes-set',
+      !!next.finalJuryVotes,
+      { finalJuryVotes: next.finalJuryVotes }
+    );
+  }
+
+  if (next.gamePhase === 'weekly_recap') {
+    next = assertGameInvariant(
+      next,
+      'weekly_recap-on-week-boundary',
+      next.currentDay > 1 && next.currentDay % 7 === 0,
+      { currentDay: next.currentDay }
+    );
+  }
+
+  return next;
+};
+
+const nextPhaseAfterDayAdvance = (
+  prev: GameState,
+  newDay: number,
+  remainingCount: number
+): GameState['gamePhase'] => {
+  let gamePhase = prev.gamePhase;
+
+  // Check for key game events in a consistent order
+  if (remainingCount === 3 && prev.gamePhase !== 'final_3_vote') {
+    // Final 3 - needs voting first (only trigger if not already in final_3_vote)
+    gamePhase = 'final_3_vote';
+  } else if (remainingCount === 4 && prev.gamePhase !== 'player_vote') {
+    // Final 4 - force elimination (skip immunity for clean vote)
+    gamePhase = 'player_vote';
+  } else if (newDay === prev.nextEliminationDay - 1 && remainingCount > 4) {
+    // Day before elimination - immunity competition (skip at Final 4)
+    gamePhase = 'immunity_competition';
+  } else if (newDay === prev.nextEliminationDay && remainingCount > 4) {
+    // Elimination day - let player vote first
+    gamePhase = 'player_vote';
+  } else if (newDay % 7 === 0 && newDay > 1) {
+    // Weekly recap every 7 days
+    gamePhase = 'weekly_recap';
+  }
+
+  return gamePhase;
+};
+
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
     // Fresh start every load; manual save/load only
@@ -201,7 +326,6 @@ export const useGameState = () => {
       
       let juryMembers = prev.juryMembers;
       let daysUntilJury = prev.daysUntilJury;
-      let gamePhase = prev.gamePhase;
       
       if (shouldStartJury) {
         // Start jury phase - take the 7 most recently eliminated contestants
@@ -216,30 +340,9 @@ export const useGameState = () => {
         daysUntilJury = Math.max(0, (remainingCount - 7) * 3); // Estimate days until jury
       }
 
-      // Check for key game events - FIXED phase transitions with correct counting
+      // Determine next phase after day advance using normalized helper
       console.log('Phase check - Current phase:', prev.gamePhase, 'Remaining:', remainingCount);
-      
-      if (remainingCount === 3 && prev.gamePhase !== 'final_3_vote') {
-        // Final 3 - needs voting first (only trigger if not already in final_3_vote)
-        gamePhase = 'final_3_vote';
-        console.log('Final 3 reached - voting phase');
-      } else if (remainingCount === 4 && prev.gamePhase !== 'player_vote') {
-        // Final 4 - force elimination (skip immunity for clean vote)
-        console.log('Final 4 reached - forcing elimination without immunity');
-        gamePhase = 'player_vote';
-      } else if (newDay === prev.nextEliminationDay - 1 && remainingCount > 4) {
-        // Day before elimination - immunity competition (skip at Final 4)
-        gamePhase = 'immunity_competition';
-        console.log('Immunity competition day');
-      } else if (newDay === prev.nextEliminationDay) {
-        // Elimination day - let player vote first
-        console.log('Elimination voting day:', newDay);
-        gamePhase = 'player_vote';
-      } else if (newDay % 7 === 0 && newDay > 1) {
-        // Weekly recap every 7 days - FIXED integration
-        gamePhase = 'weekly_recap';
-        console.log('Weekly recap time');
-      }
+      const gamePhase = nextPhaseAfterDayAdvance(prev as GameState, newDay, remainingCount);
 
       // Clear old information and update systems
       InformationTradingEngine.clearOldInformation({ ...prev, currentDay: newDay });
@@ -279,7 +382,7 @@ export const useGameState = () => {
         alliances: updatedAlliances,
       } as GameState);
 
-      return {
+      const nextState: GameState = {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
@@ -304,6 +407,8 @@ export const useGameState = () => {
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
         ongoingHouseMeeting: maybeHM || prev.ongoingHouseMeeting,
       };
+
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -941,11 +1046,11 @@ export const useGameState = () => {
       // If we couldn't find any other finalist (degenerate cast), just keep player solo and pick first available.
       if (!otherFinalistName) {
         console.warn('proceedToJuryVote: No non-player contestant found; unable to create proper Final 2.');
-        return {
+        return applyCoreInvariants({
           ...prev,
           gamePhase: 'jury_vote' as const,
           // Keep existing juryMembers; the JuryVoteScreen will guard and show awaiting finalists
-        };
+        });
       }
 
       // Construct Final 2: player + otherFinalistName
@@ -993,7 +1098,7 @@ export const useGameState = () => {
       console.log('proceedToJuryVote constructed finalists:', Array.from(finalists));
       console.log('proceedToJuryVote juryMembers:', juryMembers);
 
-      return nextState;
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -1035,7 +1140,7 @@ export const useGameState = () => {
 
       const finaleCutscene = buildFinaleCutscene({ ...prev, contestants: updatedContestants } as GameState);
 
-      return {
+      const nextState: GameState = {
         ...prev,
         contestants: updatedContestants,
         juryMembers: updatedJuryMembers,
@@ -1043,6 +1148,8 @@ export const useGameState = () => {
         isPlayerEliminated: true,
         gamePhase: 'finale' as const,
       };
+
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -1081,13 +1188,15 @@ export const useGameState = () => {
         .slice(0, 7)
         .map(c => c.name);
 
-      return {
+      const nextState: GameState = {
         ...prev,
         contestants: updatedContestants,
         juryMembers: updatedJuryMembers,
         isPlayerEliminated: true,
         gamePhase: 'jury_vote' as const,
       };
+
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -1193,7 +1302,8 @@ export const useGameState = () => {
         prev.alliances,
         prev,
         prev.immunityWinner,
-        choice // Player's vote
+        choice, // Player's vote
+        undefined // use default tie-break behavior
       );
       
       // Update voting result with current day
@@ -1236,13 +1346,18 @@ export const useGameState = () => {
   const submitFinal3Vote = useCallback((choice: string, tieBreakResult?: { winner: string; challengeResults: any }) => {
     setGameState(prev => {
       const active = prev.contestants.filter(c => !c.isEliminated);
+
+      // For Final 3 we want to surface ties (e.g. 1-1-1) without automatic
+      // revote/sudden-death inside the engine. The custom Final3VoteScreen
+      // UI will handle any tie-break routing.
       const votingResult = processVoting(
         prev.contestants,
         prev.playerName,
         prev.alliances,
         prev,
         undefined, // No immunity in Final 3
-        choice
+        choice,
+        { suppressTieBreak: true }
       );
       
       if (tieBreakResult) {
@@ -1258,6 +1373,19 @@ export const useGameState = () => {
       votingResult.day = prev.currentDay;
       votingResult.playerVote = choice;
       
+      // If no one is eliminated yet (e.g. 1-1-1 tie), we record the vote
+      // history but keep the Final 3 intact and remain on this phase
+      // until the tie-break is resolved via handleTieBreakResult.
+      if (!votingResult.eliminated && !tieBreakResult) {
+        console.log('Final3Vote submitted - tie detected, awaiting tie-break resolution.');
+        return {
+          ...prev,
+          votingHistory: [...prev.votingHistory, votingResult],
+          gamePhase: 'final_3_vote' as const,
+        };
+      }
+
+      // Otherwise, apply the elimination normally and continue flow
       const updatedContestants = prev.contestants.map(c => 
         c.name === votingResult.eliminated 
           ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
@@ -1266,7 +1394,7 @@ export const useGameState = () => {
       
       // Only add to jury if not in jury voting phase yet
       let updatedJuryMembers = [...(prev.juryMembers || [])];
-      if (prev.gamePhase !== 'jury_vote' && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
+      if (prev.gamePhase !== 'jury_vote' && votingResult.eliminated && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
         updatedJuryMembers.push(votingResult.eliminated);
       }
       
@@ -1427,7 +1555,7 @@ export const useGameState = () => {
     setGameState(prev => {
       const alreadyRanked = prev.afpRanking && prev.afpRanking.length > 0;
       const afpRanking = alreadyRanked ? prev.afpRanking : calculateAFPRanking(prev, prev.afpVote);
-      return {
+      const nextState: GameState = {
         ...prev,
         gamePhase: 'post_season' as const,
         gameWinner: winner,
@@ -1435,6 +1563,7 @@ export const useGameState = () => {
         juryRationales: rationales || prev.juryRationales,
         afpRanking,
       };
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -2063,9 +2192,17 @@ export const useGameState = () => {
     });
   }, []);
 
-  // Add skip to jury handler
+  // Add skip to jury handler (debug-only)
   const skipToJury = useCallback(() => {
     setGameState(prev => {
+      if (!prev.debugMode) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('skipToJury called while debugMode is false; ignoring.');
+        }
+        return prev;
+      }
+
       const contestants = prev.contestants;
       const activePlayers = contestants.filter(c => !c.isEliminated);
 
@@ -2089,13 +2226,15 @@ export const useGameState = () => {
         .slice(0, 7)
         .map(c => c.name);
 
-      return {
+      const nextState: GameState = {
         ...prev,
         contestants: updatedContestants,
         juryMembers,
         daysUntilJury: 0,
         gamePhase: 'daily' as const
       };
+
+      return applyCoreInvariants(nextState);
     });
   }, []);
 
@@ -2196,7 +2335,7 @@ export const useGameState = () => {
       console.log('handleTieBreakResult -> Final Two:', finalTwoNames);
       console.log('handleTieBreakResult -> Eliminated:', eliminatedName);
 
-      return nextState;
+      return applyCoreInvariants(nextState);
     });
   }, []);
 

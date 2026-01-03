@@ -151,13 +151,33 @@ const Index = () => {
           />
         );
       
-      case 'weekly_recap':
+      case 'weekly_recap': {
+        const isOnWeekBoundary = gameState.currentDay > 1 && gameState.currentDay % 7 === 0;
+        if (!isOnWeekBoundary) {
+          console.warn('[Index] Invalid weekly_recap state; falling back to daily', {
+            currentDay: gameState.currentDay,
+          });
+          return (
+            <GameplayScreen
+              gameState={gameState}
+              onUseAction={useAction}
+              onAdvanceDay={advanceDay}
+              onEmergentEventChoice={handleEmergentEventChoice}
+              onForcedConversationReply={respondToForcedConversation}
+              onTagTalk={tagTalk}
+              onHouseMeetingChoice={handleHouseMeetingChoice}
+              onEndHouseMeeting={endHouseMeeting}
+            />
+          );
+        }
+
         return (
           <WeeklyRecapScreen
             gameState={gameState}
             onContinue={continueFromWeeklyRecap}
           />
         );
+      }
       
       case 'immunity_competition':
         return (
@@ -167,7 +187,26 @@ const Index = () => {
           />
         );
       
-      case 'finale':
+      case 'finale': {
+        const activeFinalists = gameState.contestants.filter(c => !c.isEliminated);
+        if (activeFinalists.length !== 2) {
+          console.warn('[Index] Invalid finale state; falling back to daily', {
+            activeNames: activeFinalists.map(c => c.name),
+          });
+          return (
+            <GameplayScreen
+              gameState={gameState}
+              onUseAction={useAction}
+              onAdvanceDay={advanceDay}
+              onEmergentEventChoice={handleEmergentEventChoice}
+              onForcedConversationReply={respondToForcedConversation}
+              onTagTalk={tagTalk}
+              onHouseMeetingChoice={handleHouseMeetingChoice}
+              onEndHouseMeeting={endHouseMeeting}
+            />
+          );
+        }
+
         // If the player is eliminated and watching as a juror, continue to the juror-specific jury vote flow.
         // Otherwise, proceed to the standard jury vote where the player is a finalist.
         const onFinaleContinue = gameState.isPlayerEliminated ? proceedToJuryVoteAsJuror : proceedToJuryVote;
@@ -179,8 +218,30 @@ const Index = () => {
             onContinue={onFinaleContinue}
           />
         );
+      }
       
-      case 'final_3_vote':
+      case 'final_3_vote': {
+        const activeFinalThree = gameState.contestants.filter(c => !c.isEliminated);
+        const playerInActive = activeFinalThree.some(c => c.name === gameState.playerName);
+        if (activeFinalThree.length !== 3 || !playerInActive) {
+          console.warn('[Index] Invalid final_3_vote state; falling back to daily', {
+            activeNames: activeFinalThree.map(c => c.name),
+            player: gameState.playerName,
+          });
+          return (
+            <GameplayScreen
+              gameState={gameState}
+              onUseAction={useAction}
+              onAdvanceDay={advanceDay}
+              onEmergentEventChoice={handleEmergentEventChoice}
+              onForcedConversationReply={respondToForcedConversation}
+              onTagTalk={tagTalk}
+              onHouseMeetingChoice={handleHouseMeetingChoice}
+              onEndHouseMeeting={endHouseMeeting}
+            />
+          );
+        }
+
         return (
           <Final3VoteScreen
             gameState={gameState}
@@ -188,8 +249,36 @@ const Index = () => {
             onTieBreakResult={handleTieBreakResult}
           />
         );
+      }
       
-      case 'jury_vote':
+      case 'jury_vote': {
+        const activeFinalists = gameState.contestants.filter(c => !c.isEliminated);
+        const juryMembers = gameState.juryMembers || [];
+        const juryValid =
+          juryMembers.length >= 1 &&
+          juryMembers.every(name =>
+            gameState.contestants.some(c => c.name === name && c.isEliminated)
+          );
+
+        if (activeFinalists.length !== 2 || !juryValid) {
+          console.warn('[Index] Invalid jury_vote state; falling back to daily', {
+            activeNames: activeFinalists.map(c => c.name),
+            juryMembers,
+          });
+          return (
+            <GameplayScreen
+              gameState={gameState}
+              onUseAction={useAction}
+              onAdvanceDay={advanceDay}
+              onEmergentEventChoice={handleEmergentEventChoice}
+              onForcedConversationReply={respondToForcedConversation}
+              onTagTalk={tagTalk}
+              onHouseMeetingChoice={handleHouseMeetingChoice}
+              onEndHouseMeeting={endHouseMeeting}
+            />
+          );
+        }
+
         return (
           <JuryVoteScreen
             gameState={gameState}
@@ -197,6 +286,7 @@ const Index = () => {
             onGameEnd={endGame}
           />
         );
+      }
 
       case 'player_vote':
         return (
