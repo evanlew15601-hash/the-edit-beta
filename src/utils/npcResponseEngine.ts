@@ -10,6 +10,7 @@ export type NPCResponseContext = {
   motives: any[];
   socialContext: SocialContext;
   playerProfile: PlayerLinguisticProfile;
+  playerName: string;
 };
 
 export type SocialContext = {
@@ -73,15 +74,16 @@ class NPCResponseEngine {
 
     this.processResponseConsequences(response, npc, gameState);
 
-    this.updateConversationHistory(targetNPC, playerMessage, response.content);
+    this.updateConversationHistory(targetNPC, gameState.playerName, playerMessage, response.content);
 
     return response;
   }
 
   private buildResponseContext(npc: Contestant, gameState: GameState, speechAct: SpeechAct): NPCResponseContext {
-    const relationship = relationshipGraphEngine.getRelationship(npc.name, 'Player');
+    const playerName = gameState.playerName;
+    const relationship = relationshipGraphEngine.getRelationship(npc.name, playerName);
     const recentMemories = npc.memory
-      .filter(m => m.participants.includes('Player'))
+      .filter(m => m.participants.includes(playerName))
       .slice(-5); // Last 5 interactions with player
     
     const motives = npcAutonomyEngine.getNPCMotives(npc.name);
@@ -114,7 +116,8 @@ class NPCResponseEngine {
       recentMemories,
       motives,
       socialContext,
-      playerProfile
+      playerProfile,
+      playerName
     };
   }
 
@@ -230,7 +233,7 @@ class NPCResponseEngine {
           }
           break;
         case 'revenge':
-          if (primaryMotive.targets.includes('Player')) {
+          if (primaryMotive.targets.includes(context.playerName)) {
             approach = 'hostile';
             agenda = 'psychological_warfare';
           }
@@ -279,7 +282,7 @@ class NPCResponseEngine {
       ...context.socialContext.alliances,
       ...context.socialContext.threats,
       ...context.socialContext.opportunities,
-      'Player',
+      context.playerName,
     ])).filter(Boolean);
 
     let mention: string | undefined;
@@ -556,10 +559,24 @@ class NPCResponseEngine {
         ...context.socialContext.alliances,
         ...context.socialContext.threats,
         ...context.socialContext.opportunities,
+        context.playerName,
+      ])).filter(Boolean);
+      const lower = playerMessage.toLowerCase();
+      const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\if (!mention && playerMessage) {
+      const names = Array.from(new Set<string>([
+        ...context.socialContext.alliances,
+        ...context.socialContext.threats,
+        ...context.socialContext.opportunities,
         'Player',
       ])).filter(Boolean);
       const lower = playerMessage.toLowerCase();
       const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      for (const n of names) {
+        const key = esc(n.toLowerCase());
+        const re = new RegExp(`\\b${key}\\b`, 'i');
+        if (re.test(lower)) { mention = n; break; }
+      }
+    }');
       for (const n of names) {
         const key = esc(n.toLowerCase());
         const re = new RegExp(`\\b${key}\\b`, 'i');
@@ -748,22 +765,34 @@ class NPCResponseEngine {
       switch (consequence.type) {
         case 'trust_change':
           relationshipGraphEngine.updateRelationship(
-            npc.name, 'Player', consequence.value, 0, 0,
-            'conversation', consequence.description, gameState.currentDay
+            npc.name,
+            gameState.playerName,
+            consequence.value,
+            0,
+            0,
+            'conversation',
+            consequence.description,
+            gameState.currentDay
           );
           break;
         case 'suspicion_change':
           relationshipGraphEngine.updateRelationship(
-            npc.name, 'Player', 0, consequence.value, 0,
-            'conversation', consequence.description, gameState.currentDay
+            npc.name,
+            gameState.playerName,
+            0,
+            consequence.value,
+            0,
+            'conversation',
+            consequence.description,
+            gameState.currentDay
           );
           break;
         case 'memory_creation':
           const memory: GameMemory = {
             day: gameState.currentDay,
             type: 'conversation',
-            participants: ['Player', npc.name],
-            content: `Significant conversation with Player`,
+            participants: [gameState.playerName, npc.name],
+            content: `Significant conversation with ${gameState.playerName}`,
             emotionalImpact: response.memoryImpact,
             timestamp: Date.now()
           };
@@ -773,9 +802,9 @@ class NPCResponseEngine {
     });
   }
 
-  private updateConversationHistory(npcName: string, playerMessage: string, npcResponse: string): void {
+  private updateConversationHistory(npcName: string, playerName: string, playerMessage: string, npcResponse: string): void {
     let history = this.conversationHistory.get(npcName) || [];
-    history.push(`Player: ${playerMessage}`);
+    history.push(`${playerName}: ${playerMessage}`);
     history.push(`${npcName}: ${npcResponse}`);
     
     // Keep only last 20 exchanges

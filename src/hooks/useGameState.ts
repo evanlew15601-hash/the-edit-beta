@@ -11,6 +11,8 @@ import { InformationTradingEngine } from '@/utils/informationTradingEngine';
 import { calculateAFPRanking } from '@/utils/afpCalculator';
 import { gameSystemIntegrator } from '@/utils/gameSystemIntegrator';
 import { processVoting } from '@/utils/votingEngine';
+import { memoryEngine } from '@/utils/memoryEngine';
+import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
@@ -205,6 +207,9 @@ export const useGameState = () => {
       if (newDay % 3 === 0) { // Only every 3 days
         InformationTradingEngine.autoGenerateIntelligence(tempState);
       }
+
+      // Let long-term relationships gently decay over time
+      relationshipGraphEngine.decayRelationships(newDay);
       
       // Check if jury phase should begin - FIXED: Count ALL active contestants including player
       const remainingContestants = specialApplied.contestants.filter(c => !c.isEliminated);
@@ -516,397 +521,7 @@ export const useGameState = () => {
             // Soft commitment via memory plan; votingEngine will consult
             const npc = updatedContestants.find(c => c.name === name);
             if (npc) {
-              AIVotingStrategy.attemptVotePressure(npc, proposedTarget, prev, { context: 'alliance' });
-            }
-          });
-        }
-
-        const interactionEntry = {
-          day: prev.currentDay,
-          type: 'alliance_meeting' as const,
-          participants: [prev.playerName, ...members],
-          content: content || '',
-          tone,
-          source: 'player' as const
-        };
-
-        return {
-          ...prev,
-          contestants: updatedContestants,
-          dailyActionCount: (prev.dailyActionCount || 0) + 1,
-          lastActionType: 'alliance_meeting',
-          lastActionTarget: alliance.name || 'Alliance',
-          interactionLog: [...(prev.interactionLog || []), interactionEntry],
-        };
-      });
-      return;
-    }
-
-    // Handle confessional explicitly: persist to confessionals and update edit perception
-    if (actionType === 'confessional') {
-      setGameState(prev => {
-        const trimmed = (content || '').trim();
-        const confTone = tone || 'neutral';
-
-        // Build confessional object and use ConfessionalEngine for selection + impact
-        const baseConf = {
-          id: Date.now().toString(),
-          day: prev.currentDay,
-          content: trimmed,
-          tone: confTone,
-        } as any;
-
-        // Determine if this confessional makes the edit and calculate impact
-        const willAir = ConfessionalEngine.selectConfessionalForEdit(baseConf, prev);
-        const editImpact = ConfessionalEngine.calculateEditImpact(baseConf, prev, willAir);
-        const audienceScore = ConfessionalEngine.generateAudienceScore(baseConf, editImpact);
-
-        const conf = {
-          ...baseConf,
-          editImpact,
-          audienceScore,
-          selected: willAir,
-        };
-
-        // Update edit perception using legacy calculator with full context
-        const updatedEditPerception = calculateLegacyEditPerception(
-          [...prev.confessionals, conf],
-          prev.editPerception,
-          prev.currentDay,
-          prev
-        );
-
-        const updatedActions = prev.playerActions.map(action =>
-          action.type === 'confessional'
-            ? {
-                ...action,
-                used: true,
-                usageCount: (action.usageCount || 0) + 1,
-                content,
-                tone,
-              }
-            : action
-        );
-
-        // Optional: small chance a confessional vibe leaks to 1-2 houseguests
-        let updatedContestants = prev.contestants;
-        if (Math.random() < 0.2) {
-          const leaks = prev.contestants
-            .filter(c => !c.isEliminated && c.name !== prev.playerName)
-            .sort(() => 0.5 - Math.random())
-            .slice(0, 2);
-          updatedContestants = prev.contestants.map(c => {
-            if (leaks.some(l => l.name === c.name)) {
-              const newMemory = {
-                day: prev.currentDay,
-                type: 'confessional_leak' as const,
-                participants: [prev.playerName, c.name],
-                content: `Heard a confessional vibe: "${trimmed.slice(0, 60)}..."`,
-                emotionalImpact: -1,
-                timestamp: Date.now(),
-                tags: ['rumor'],
-              };
-              return { ...c, memory: [...c.memory, newMemory] };
-            }
-            return c;
-          });
-        }
-
-        const interactionEntry = {
-          day: prev.currentDay,
-          type: 'confessional' as const,
-          participants: [prev.playerName],
-          content: trimmed,
-          tone: confTone,
-          source: 'player' as const,
-        };
-
-        // Ratings update based on confessional
-        const ratingRes = ratingsEngine.applyConfessional(prev, conf);
-        const nextHistory = [
-          ...(prev.ratingsHistory || []),
-          { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
-        ];
-
-        return {
-          ...prev,
-          confessionals: [...prev.confessionals, conf],
-          editPerception: updatedEditPerception,
-          playerActions: updatedActions,
-          dailyActionCount: prev.dailyActionCount + 1,
-          lastActionType: 'confessional',
-          lastActionTarget: undefined,
-          lastAIReaction: {
-            take: 'neutral',
-            context: 'public',
-            notes: trimmed || undefined,
-            deltas: { trust: 0, suspicion: 0, influence: 0, entertainment: editImpact },
-          },
-          interactionLog: [...(prev.interactionLog || []), interactionEntry],
-          contestants: updatedContestants,
-          viewerRating: ratingRes.rating,
-          ratingsHistory: nextHistory,
-        };
-      });
-      return;
-    }
-    
-    setGameState(prev => {
-      console.log('Previous action count:', prev.dailyActionCount);
-      console.log('Previous actions:', prev.playerActions);
-      
-      // Generate minimal information based on the action (reduced from overwhelming amounts)
-      if (Math.random() < 0.3) { // Only 30% chance to generate intel
-        InformationTradingEngine.generateTradableInformation(prev);
-      }
-      
-      // Update action usage - CRITICAL FIX
-      const updatedActions = prev.playerActions.map(action => 
-        action.type === actionType ? { 
-          ...action, 
-          used: true, 
-          usageCount: (action.usageCount || 0) + 1,
-          target,
-          content,
-          tone
-        } : action
-      );
-
-      // Update contestant relationships based on action
-      let groupApplied: { name: string; trustDelta: number; suspDelta: number }[] = [];
-      let updatedContestants = prev.contestants as typeof prev.contestants;
-
-      if (target === 'Group') {
-        // Bias selection toward alliance members or recent interactions
-        const currentDay = prev.currentDay;
-        const alliancesWithPlayer = new Set(
-          prev.alliances
-            .filter(a => a.members.includes(prev.playerName))
-            .flatMap(a => a.members)
-        );
-
-        const candidates = prev.contestants
-          .filter(c => !c.isEliminated && c.name !== prev.playerName)
-          .map(c => {
-            // Alliance score: if shares any alliance with player
-            const inAlliance = alliancesWithPlayer.has(c.name);
-            const allianceScore = inAlliance ? 2 : 0;
-
-            // Recent interaction score: last 3 days interaction count
-            const recentCount = (prev.interactionLog || []).filter(
-              e => e.day >= currentDay - 2 && (e.participants || []).includes(c.name)
-            ).length;
-            const interactionScore = Math.min(3, recentCount); // cap
-
-            const noise = Math.random() * 0.5;
-            const score = allianceScore + interactionScore + noise;
-
-            return { c, score, allianceScore, interactionScore };
-          })
-          .sort((a, b) => b.score - a.score);
-
-        const used = prev.groupActionsUsedToday || 0;
-        const maxTargets = used === 0 ? 3 : 2;
-        const scaleFactor = used === 0 ? 0.5 : 0.2; // dampen subsequent group effects
-
-        const pool = candidates.slice(0, Math.max(0, maxTargets)).map(x => x.c);
-
-        updatedContestants = prev.contestants.map(c => {
-          const isHit = pool.some(p => p.name === c.name);
-          if (!isHit) return c;
-
-          const baseTrust = getTrustDelta(tone || 'neutral', c.psychProfile.disposition);
-          const baseSusp = getSuspicionDelta(tone || 'neutral', content || '');
-
-          // Scale down for group effect with anti-spam dampening
-          const trustDelta = Math.round(baseTrust * scaleFactor);
-          const suspicionDelta = Math.round(baseSusp * scaleFactor);
-
-          groupApplied.push({ name: c.name, trustDelta, suspDelta: suspicionDelta });
-
-          const newTrustLevel = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustDelta));
-          const newSuspicionLevel = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta));
-
-          const memoryType = actionType === 'dm' ? 'dm' :
-                             actionType === 'scheme' ? 'scheme' :
-                             actionType === 'observe' ? 'observation' : 'conversation';
-
-          const newMemory = {
-            day: prev.currentDay,
-            type: memoryType as 'conversation' | 'scheme' | 'observation' | 'dm' | 'confessional_leak' | 'elimination' | 'event',
-            participants: [prev.playerName, c.name],
-            content: (content || `${actionType} group interaction by ${prev.playerName}`).replace('[Basic]', '[Basic:Group]'),
-            emotionalImpact: Math.floor(trustDelta / 10),
-            timestamp: Date.now()
-          };
-
-          return {
-            ...c,
-            psychProfile: {
-              ...c.psychProfile,
-              trustLevel: newTrustLevel,
-              suspicionLevel: newSuspicionLevel
-            },
-            memory: [...c.memory, newMemory]
-          };
-        });
-      } else {
-        updatedContestants = prev.contestants.map(contestant => {
-          if (contestant.name === target) {
-            console.log(`Updating relationship with ${target}`);
-            const trustDelta = getTrustDelta(tone || 'neutral', contestant.psychProfile.disposition);
-            const suspicionDelta = getSuspicionDelta(tone || 'neutral', content || '');
-            
-            const newTrustLevel = Math.max(-100, Math.min(100, 
-              contestant.psychProfile.trustLevel + trustDelta
-            ));
-            const newSuspicionLevel = Math.max(0, Math.min(100, 
-              contestant.psychProfile.suspicionLevel + suspicionDelta
-            ));
-            
-            console.log(`Trust: ${contestant.psychProfile.trustLevel} -> ${newTrustLevel}`);
-            console.log(`Suspicion: ${contestant.psychProfile.suspicionLevel} -> ${newSuspicionLevel}`);
-            
-            // Add memory of the interaction
-            const memoryType = actionType === 'dm' ? 'dm' : 
-                             actionType === 'scheme' ? 'scheme' :
-                             actionType === 'observe' ? 'observation' : 'conversation';
-            
-            const newMemory = {
-              day: prev.currentDay,
-              type: memoryType as 'conversation' | 'scheme' | 'observation' | 'dm' | 'confessional_leak' | 'elimination' | 'event',
-              participants: [prev.playerName, target || ''],
-              content: content || `${actionType} interaction with ${prev.playerName}`,
-              emotionalImpact: Math.floor(trustDelta / 10),
-              timestamp: Date.now()
-            };
-
-            return {
-              ...contestant,
-              psychProfile: {
-                ...contestant.psychProfile,
-                trustLevel: newTrustLevel,
-                suspicionLevel: newSuspicionLevel
-              },
-              memory: [...contestant.memory, newMemory]
-            };
-          }
-          return contestant;
-        });
-      }
-
-      // CRITICAL FIX: Properly increment daily action count
-      const newActionCount = prev.dailyActionCount + 1;
-      console.log('New action count will be:', newActionCount);
-      console.log('Updated actions:', updatedActions);
-
-      // Build minimal reaction summary for non-enhanced actions
-      let reactionSummary: ReactionSummary | undefined = undefined;
-      if (target) {
-        if (target === 'Group' && groupApplied.length > 0) {
-          const avgTrust = groupApplied.reduce((s, g) => s + g.trustDelta, 0) / groupApplied.length;
-          const avgSusp = groupApplied.reduce((s, g) => s + g.suspDelta, 0) / groupApplied.length;
-          const context: ReactionSummary['context'] =
-            actionType === 'activity' ? 'activity' : 'public';
-          const take: ReactionTake =
-            avgTrust > 0 && avgSusp <= 0 ? 'positive' :
-            avgTrust < 0 && avgSusp > 0 ? 'pushback' :
-            avgSusp > 0 ? 'suspicious' : 'neutral';
-          reactionSummary = {
-            take,
-            context,
-            notes: content || undefined,
-            deltas: {
-              trust: Math.round(avgTrust),
-              suspicion: Math.round(avgSusp),
-              influence: 1,
-              entertainment: 1,
-            }
-          };
-        } else {
-          const npc = updatedContestants.find(c => c.name === target);
-          const trustDelta = npc ? (npc.psychProfile.trustLevel - (prev.contestants.find(c => c.name === target)?.psychProfile.trustLevel || 0)) : 0;
-          const suspDelta = npc ? (npc.psychProfile.suspicionLevel - (prev.contestants.find(c => c.name === target)?.psychProfile.suspicionLevel || 0)) : 0;
-          const context: ReactionSummary['context'] =
-            actionType === 'dm' ? 'private' :
-            actionType === 'scheme' ? 'scheme' :
-            actionType === 'activity' ? 'activity' : 'public';
-          const take: ReactionTake =
-            trustDelta > 0 && suspDelta <= 0 ? 'positive' :
-            trustDelta < 0 && suspDelta > 0 ? 'pushback' :
-            suspDelta > 0 ? 'suspicious' : 'neutral';
-          reactionSummary = {
-            take,
-            context,
-            notes: content || undefined,
-            deltas: {
-              trust: Math.round(trustDelta),
-              suspicion: Math.round(suspDelta),
-              influence: actionType === 'scheme' ? 2 : actionType === 'dm' ? 1 : 1,
-              entertainment: actionType === 'activity' ? 2 : 1,
-            }
-          };
-        }
-      }
-
-      // Ratings update based on reaction summary (if available)
-      const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
-      const nextHistory = [
-        ...(prev.ratingsHistory || []),
-        { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
-      ];
-
-      const newState = {
-        ...prev,
-        contestants: updatedContestants,
-        playerActions: updatedActions,
-        dailyActionCount: newActionCount, // This was the main issue!
-        lastActionType: actionType as PlayerAction['type'],
-        lastActionTarget: target === 'Group' ? 'Group' : target,
-        lastAIReaction: reactionSummary,
-        // Clear any prior NPC line and reset loading until generation starts
-        lastAIResponse: undefined,
-        lastAIResponseLoading: false,
-        groupActionsUsedToday: target === 'Group' ? ((prev.groupActionsUsedToday || 0) + 1) : (prev.groupActionsUsedToday || 0),
-        // Add to interaction log
-        interactionLog: [
-          ...(prev.interactionLog || []),
-          {
-            day: prev.currentDay,
-            type: actionType as PlayerAction['type'],
-            participants: target === 'Group' ? [prev.playerName, 'Group'] : (target ? [prev.playerName, target] : [prev.playerName]),
-            content,
-            tone,
-            source: 'player' as const
-          }
-        ],
-        viewerRating: ratingRes.rating,
-        ratingsHistory: nextHistory,
-      };
-      
-      console.log('=== NEW STATE CREATED ===');
-      console.log('New dailyActionCount:', newState.dailyActionCount);
-      console.log('Updated contestants:', updatedContestants.filter(c => c.name === target));
-      
-      return newState;
-    });
-
-    // Fire-and-forget: generate a short in-character reply with the free local LLM
-    // Append to lastAIResponse and, if empty, surface as the reaction note.
-    (async () => {
-      try {
-        if (
-          target &&
-          target !== 'Group' &&
-          content &&
-          (gameState.aiSettings?.useLocalLLM === true)
-        ) {
-          // Show typing indicator
-          setGameState(prev => ({ ...prev, lastAIResponseLoading: true, lastAIResponse: undefined }));
-
-          const npc = (gameState.contestants || []).find(c => c.name === target);
-          if (npc) {
-            const parsed = speechActClassifier.classifyMessage(content, gameState.playerName || 'Player');
+              const parsed = speechActClassifier.classifyMessage(content, 'Player');
             const socialContext = {
               day: gameState.currentDay,
               lastInteractions: (gameState.interactionLog || []).slice(-6),
@@ -1262,6 +877,15 @@ export const useGameState = () => {
       // Update voting result with current day
       votingResult.day = prev.currentDay;
       votingResult.playerVote = choice;
+
+      // Update relationship graph based on how the house voted
+      if (votingResult.eliminated) {
+        relationshipGraphEngine.updateVotingRelationships(
+          votingResult.votes,
+          votingResult.eliminated,
+          prev.currentDay
+        );
+      }
       
       // Mark eliminated contestant
       const updatedContestants = prev.contestants.map(c => 
@@ -1320,6 +944,15 @@ export const useGameState = () => {
       
       votingResult.day = prev.currentDay;
       votingResult.playerVote = choice;
+
+      // Update relationship graph based on this critical Final 3 vote
+      if (votingResult.eliminated) {
+        relationshipGraphEngine.updateVotingRelationships(
+          votingResult.votes,
+          votingResult.eliminated,
+          prev.currentDay
+        );
+      }
       
       const updatedContestants = prev.contestants.map(c => 
         c.name === votingResult.eliminated 
@@ -1563,6 +1196,11 @@ export const useGameState = () => {
         reactionProfiles[c.name] = reactionProfiles[c.id];
       });
 
+      // Initialize global systems that depend on the cast
+      memoryEngine.resetMemory();
+      memoryEngine.initializeJournals(contestants);
+      relationshipGraphEngine.initializeRelationships(contestants);
+
       const baseState = {
         ...prev,
         playerName,
@@ -1594,7 +1232,7 @@ export const useGameState = () => {
   }, []);
 
   const continueFromElimination = useCallback((forcePlayerElimination = false) => {
-    debugle.log('=== continueFromElimination called ===');
+    debugLog('=== continueFromElimination called ===');
     console.log('forcePlayerElimination:', forcePlayerElimination);
     
     setGameState(prev => {
@@ -2441,10 +2079,7 @@ export const useGameState = () => {
       // Debug logs
       const finalTwoNames = nextState.contestants.filter(c => !c.isEliminated).map(c => c.name);
       debugLog('handleTieBreakResult -> Final Two:', finalTwoNames);
-      debugLog('handleTieBreakResult -> Eliminated:', eliminatedName);ogs
-      const finalTwoNames = nextState.contestants.filter(c => !c.isEliminated).map(c => c.name);
-      console.log('handleTieBreakResult -> Final Two:', finalTwoNames);
-      console.log('handleTieBreakResult -> Eliminated:', eliminatedName);
+      debugLog('handleTieBreakResult -> Eliminated:', eliminatedName);
 
       return nextState;
     });

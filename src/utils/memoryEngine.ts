@@ -11,7 +11,7 @@ export class MemoryEngine {
 
   initializeJournals(contestants: Contestant[]): void {
     contestants.forEach(contestant => {
-      // Use name as key instead of id for consistency
+      // Use name as key for consistency with other systems
       this.memory.privateJournals[contestant.name] = {
         contestantId: contestant.name,
         currentStrategy: this.generateInitialStrategy(contestant),
@@ -101,10 +101,14 @@ export class MemoryEngine {
   }
 
   private findContestantByName(name: string): string | null {
-    return Object.keys(this.memory.privateJournals).find(id => {
-      // This is a simplified lookup - in practice you'd need contestant name mapping
-      return id.includes(name.toLowerCase().replace(/\s/g, ''));
-    }) || null;
+    const lowerName = (name || '').toLowerCase().trim();
+    if (!lowerName) return null;
+
+    const key = Object.keys(this.memory.privateJournals).find(id => {
+      return id.toLowerCase().trim() === lowerName;
+    });
+
+    return key || null;
   }
 
   recordPromise(from: string, to: string, promise: string, day: number): void {
