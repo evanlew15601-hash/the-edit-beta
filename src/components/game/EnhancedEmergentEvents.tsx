@@ -85,29 +85,14 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
 
   
 
-  const resolveEvent = (eventId: string, modeOrChoiceId: string) => {
+  const resolveEvent = (eventId: string, choiceId: string) => {
     const event = activeEvents.find(e => e.id === eventId);
     if (!event) return;
 
     setActiveEvents(prev => prev.filter(e => e.id !== eventId));
     setEventHistory(prev => [...prev, event].slice(-10)); // Keep last 10 events
     
-    if (modeOrChoiceId !== 'auto') {
-      let choiceId = modeOrChoiceId;
-      const normalized = modeOrChoiceId.toLowerCase();
-      const isPacifist = normalized === 'pacifist';
-      const isHeadfirst = normalized === 'headfirst';
-
-      if (Array.isArray(event.choices) && event.choices.length > 0 && (isPacifist || isHeadfirst)) {
-        const choices = event.choices as any[];
-        const sorted = [...choices].sort(
-          (a, b) => (a.editEffect ?? 0) - (b.editEffect ?? 0)
-        );
-        const low = sorted[0];
-        const high = sorted[sorted.length - 1];
-        choiceId = isPacifist ? low.id : high.id;
-      }
-
+    if (choiceId !== 'auto') {
       onEmergentEventChoice(event, choiceId);
     }
   };
@@ -164,31 +149,31 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
               
               {event.choices && (
                 <div className="grid gap-2">
-                  {/* For now, keep simple Pacifist / Headfirst mapping.
-                      Later we can surface each structured choice explicitly
-                      and update the handler to accept choice IDs directly. */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => resolveEvent(event.id, 'pacifist')}
-                    className="text-left justify-start bg-background hover:bg-accent text-foreground"
-                  >
-                    <span className="flex-1">Stay Pacifist</span>
-                    <Badge variant="secondary" className="text-xs ml-2">
-                      low drama
-                    </Badge>
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => resolveEvent(event.id, 'headfirst')}
-                    className="text-left justify-start bg-background hover:bg-accent text-foreground"
-                  >
-                    <span className="flex-1">Jump In Headfirst</span>
-                    <Badge variant="secondary" className="text-xs ml-2">
-                      high drama
-                    </Badge>
-                  </Button>
+                  {event.choices.map((choice) => (
+                    <Button
+                      key={choice.id}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => resolveEvent(event.id, choice.id)}
+                      className="text-left justify-start bg-background hover:bg-accent text-foreground"
+                    >
+                      <div className="flex-1 flex flex-col items-start">
+                        <span className="font-medium">{choice.text}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {choice.description}
+                        </span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs ml-2">
+                        {choice.editEffect > 10
+                          ? 'high drama'
+                          : choice.editEffect > 0
+                          ? 'moderate drama'
+                          : choice.editEffect < 0
+                          ? 'calming'
+                          : 'neutral'}
+                      </Badge>
+                    </Button>
+                  ))}
                 </div>
               )}
             </div>

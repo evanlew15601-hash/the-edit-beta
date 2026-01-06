@@ -1641,6 +1641,7 @@ export const useGameState = () => {
       let structuredRelationshipChanges: { [name: string]: number } = {};
       let structuredTrustChanges: { [name: string]: number } = {};
       let structuredEditDelta = 0;
+      let choiceLabel = choiceId;
 
       const hasStructuredChoices =
         Array.isArray(event.choices) &&
@@ -1649,30 +1650,18 @@ export const useGameState = () => {
 
       if (hasStructuredChoices) {
         const choices = event.choices as any[];
-        // First try direct id match
         let chosen = choices.find(c => c.id === choiceId);
 
         if (!chosen) {
-          // Fallback: pacifist/headfirst map to min/max editEffect
-          const pickExtremum = (cmp: (a: number, b: number) => boolean) =>
-            choices.reduce((best: any, c: any) =>
-              cmp(c.editEffect ?? 0, best.editEffect ?? 0) ? c : best,
-            choices[0]);
-
-          if (isPacifist) {
-            chosen = pickExtremum((a, b) => a < b);
-          } else if (isHeadfirst) {
-            chosen = pickExtremum((a, b) => a > b);
-          } else {
-            // If we still don't know, default to the first choice
-            chosen = choices[0];
-          }
+          console.warn('Structured emergent event choice not found for id:', choiceId, 'in event', event.id);
+          chosen = choices[0];
         }
 
         const result = StructuredEmergentEvents.executeEventChoice(chosen, prev as GameState);
         structuredRelationshipChanges = result.relationshipChanges || {};
         structuredTrustChanges = result.trustChanges || {};
         structuredEditDelta = result.editChange || 0;
+        choiceLabel = chosen.text || chosen.id;
       }
 
       const updatedContestants = prev.contestants.map(contestant => {
@@ -1736,9 +1725,9 @@ export const useGameState = () => {
             }
             break;
           default:
-            // For newer structured events without legacy type handling,
+            // For newer non-structured events without legacy type handling,
             // map trust changes into suspicion lightly if no explicit rule exists.
-            if (!['conflict', 'alliance_formation', 'betrayal', 'romance', 'rumor_spread', 'power_shift'].includes(event.type)) {
+            if (!hasStructuredChoices && !['conflict', 'alliance_formation', 'betrayal', 'romance', 'rumor_spread', 'power_shift'].includes(event.type)) {
               if (trustDelta > 0) suspicionDelta -= 2;
               if (trustDelta < 0) suspicionDelta += 4;
             }
@@ -1770,7 +1759,7 @@ export const useGameState = () => {
           day: prev.currentDay,
           type: 'event' as const,
           participants,
-          content: `${event.title}: ${prev.playerName} chose to ${isPacifist ? 'defuse' : 'escalate'} the situation`,
+          content: `${event.title}: ${prev.playerName} chose \"${choiceLabel}\"`,
           emotionalImpact: Math.max(-10, Math.min(10, Math.floor(trustDelta / 5))),
           timestamp: Date.now(),
           tags: microTag ? [microTag] : undefined,
@@ -1789,8 +1778,10 @@ export const useGameState = () => {
       });
       
       // Apply edit impact from the emergent event choice
-      const baseEditImpact = isPacifist ? -2 : 8; // Pacifist = less dramatic, headfirst = more screen time
-      const editImpact = structuredEditDelta || baseEditImpact;
+      // For structured events, structuredEditDelta is authoritative.
+      // For legacy events (interruptor), fall back to pacifist/headfirst semantics.
+      const baseEditImpact = isPacifist ? -2 : 8;
+      const editImpact = hasStructuredChoices ? structuredEditDelta : baseEditImpact;
       const updatedEditPerception = {
         ...prev.editPerception,
         screenTimeIndex: Math.max(0, Math.min(100, prev.editPerception.screenTimeIndex + editImpact)),
@@ -1817,7 +1808,7 @@ export const useGameState = () => {
             day: prev.currentDay,
             type: 'activity',
             participants: [prev.playerName, ...participants],
-            content: `Emergent Event: ${event.title} - ${isPacifist ? 'pacifist' : 'headfirst'} approach`,
+            content: `Emergent Event: ${event.title} - choice=\"${choiceLabel}\"`,
             source: 'emergent_event' as const
           }
         ],

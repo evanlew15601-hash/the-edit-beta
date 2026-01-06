@@ -39,20 +39,8 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
     setIsSkipping(false);
   };
 
-  const handleChoice = (mode: 'pacifist' | 'headfirst') => {
+  const handleChoice = (choiceId: string) => {
     if (emergentEvent) {
-      let choiceId: string = mode;
-
-      if (Array.isArray(emergentEvent.choices) && emergentEvent.choices.length > 0) {
-        const choices = emergentEvent.choices as any[];
-        const sorted = [...choices].sort(
-          (a, b) => (a.editEffect ?? 0) - (b.editEffect ?? 0)
-        );
-        const low = sorted[0];
-        const high = sorted[sorted.length - 1];
-        choiceId = mode === 'pacifist' ? low.id : high.id;
-      }
-
       onEventChoice(emergentEvent, choiceId);
       // After handling emergent event, proceed with day skip
       setTimeout(() => {
@@ -183,21 +171,39 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handleChoice('pacifist')} 
-                    className="w-full"
-                  >
-                    Stay Pacifist
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => handleChoice('headfirst')} 
-                    className="w-full"
-                  >
-                    Jump In Headfirst
-                  </Button>
+                <div className="grid gap-3">
+                  {Array.isArray(emergentEvent.choices) && emergentEvent.choices.length > 0 ? (
+                    emergentEvent.choices.map((choice: any) => (
+                      <Button
+                        key={choice.id}
+                        variant="outline"
+                        onClick={() => handleChoice(choice.id)}
+                        className="w-full justify-start flex flex-col items-start"
+                      >
+                        <span className="font-medium">{choice.text}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {choice.description}
+                        </span>
+                      </Button>
+                    ))
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleChoice('pacifist')} 
+                        className="w-full"
+                      >
+                        Stay Pacifist
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => handleChoice('headfirst')} 
+                        className="w-full"
+                      >
+                        Jump In Headfirst
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
