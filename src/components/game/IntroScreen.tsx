@@ -1,5 +1,16 @@
 import { Button } from '@/components/ui/enhanced-button';
 import { Button as TopButton } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface IntroScreenProps {
   onStartGame: (playerName?: string) => void;
@@ -10,10 +21,19 @@ interface IntroScreenProps {
   hasSave?: boolean;
 }
 
-export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, onToggleDebug, hasSave }: IntroScreenProps) => {
+export const IntroScreen = ({
+  onStartGame,
+  onContinue,
+  onDeleteSave,
+  debugMode,
+  onToggleDebug,
+  hasSave,
+}: IntroScreenProps) => {
   const handleStart = () => {
     onStartGame();
   };
+
+  const hasDeletableSave = !!hasSave && !!onDeleteSave;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -22,12 +42,57 @@ export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, 
         <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 flex items-center justify-between">
           <div className="text-sm font-medium">The Edit</div>
           <div className="flex items-center gap-2">
-            <TopButton variant="secondary" size="sm" onClick={onContinue} disabled={!hasSave} aria-label="Continue">
+            <TopButton
+              variant="secondary"
+              size="sm"
+              onClick={onContinue}
+              disabled={!hasSave}
+              aria-label="Continue"
+            >
               Continue
             </TopButton>
-            <TopButton variant="outline" size="sm" onClick={onDeleteSave} disabled={!hasSave} aria-label="Delete Save">
-              Delete Save
-            </TopButton>
+
+            {hasDeletableSave ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <TopButton
+                    variant="outline"
+                    size="sm"
+                    aria-label="Delete Save"
+                  >
+                    Delete Save
+                  </TopButton>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete saved game?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This cannot be undone. Your current season progress will be lost.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        onDeleteSave?.();
+                      }}
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <TopButton
+                variant="outline"
+                size="sm"
+                disabled
+                aria-label="Delete Save"
+              >
+                Delete Save
+              </TopButton>
+            )}
+
             <TopButton
               variant={debugMode ? 'secondary' : 'outline'}
               size="sm"
@@ -68,7 +133,8 @@ export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, 
                 Mars Vega (Host)
               </p>
               <p className="text-foreground italic leading-relaxed">
-                "Welcome to The Edit. From this moment on, everything you say, and everything you don't, becomes part of your story."
+                &quot;Welcome to The Edit. From this moment on, everything you say, and everything you
+                don&apos;t, becomes part of your story.&quot;
               </p>
             </div>
 
@@ -77,7 +143,7 @@ export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, 
                 Begin your season with character creation. Your name will be set and validated there.
               </p>
               <div className="flex justify-center">
-                <Button 
+                <Button
                   onClick={handleStart}
                   variant="surveillance"
                   size="wide"

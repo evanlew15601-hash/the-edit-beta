@@ -15,9 +15,16 @@ import { BasicConversationEngine } from './BasicConversationEngine';
 import { VotingIntelligencePanel } from './VotingIntelligencePanel';
 import { ProductionTasksPanel } from './ProductionTasksPanel';
 
+type GameActionType =
+  GameState['playerActions'][number]['type']
+  | 'create_alliance'
+  | 'add_alliance_members'
+  | 'house_meeting'
+  | 'alliance_meeting';
+
 interface GameplayScreenProps {
   gameState: GameState;
-  onUseAction: (actionType: string, target?: string, content?: string, tone?: string) => void;
+  onUseAction: (actionType: GameActionType, target?: string, content?: string, tone?: string) => void;
   onAdvanceDay: () => void;
   onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;

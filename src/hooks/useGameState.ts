@@ -26,6 +26,22 @@ import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarr
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 
+type GameActionType =
+  PlayerAction['type']
+  | 'create_alliance'
+  | 'add_alliance_members'
+  | 'house_meeting'
+  | 'alliance_meeting';
+
+const isDevEnv = import.meta.env.MODE !== 'production';
+const debugLog = (...args: any[]) => {
+  if (isDevEnv) console.log(...args);
+};
+
+const debugWarn = (...args: any[]) => {
+  if (isDevEnv) console.warn(...args);
+};
+
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
 export const useGameState = () => {
@@ -121,10 +137,10 @@ export const useGameState = () => {
   const advanceDay = useCallback(() => {
     setGameState(prev => {
       const newDay = prev.currentDay + 1;
-      console.log('Advancing to day:', newDay);
-      console.log('Player name before alliance update:', prev.playerName);
-      console.log('Current alliances before update:', prev.alliances);
-      console.log('All contestants before update:', prev.contestants.map(c => ({ name: c.name, eliminated: c.isEliminated })));
+      debugLog('Advancing to day:', newDay);
+      debugLog('Player name before alliance update:', prev.playerName);
+      debugLog('Current alliances before update:', prev.alliances);
+      debugLog('All contestants before update:', prev.contestants.map(c => ({ name: c.name, eliminated: c.isEliminated })));
       
       // Update alliances with the new management system - FIXED persistence
       const updatedAlliances = AllianceManager.updateAllianceTrust({
@@ -132,11 +148,11 @@ export const useGameState = () => {
         currentDay: newDay
       });
       
-      console.log('Updated alliances after cleanup:', updatedAlliances);
+      debugLog('Updated alliances after cleanup:', updatedAlliances);
       
       // Check if player is in any alliances
       const playerAlliances = updatedAlliances.filter(alliance => alliance.members.includes(prev.playerName));
-      console.log(`Player ${prev.playerName} is in ${playerAlliances.length} alliances:`, playerAlliances);
+      debugLog(`Player ${prev.playerName} is in ${playerAlliances.length} alliances:`, playerAlliances);
 
       // Auto-generate intelligence when day advances
       const tempState = {
@@ -194,9 +210,9 @@ export const useGameState = () => {
       const remainingContestants = specialApplied.contestants.filter(c => !c.isEliminated);
       const remainingCount = remainingContestants.length;
       const playerStillActive = remainingContestants.some(c => c.name === prev.playerName);
-      console.log('Remaining contestants:', remainingCount);
-      console.log('Player still active?', playerStillActive);
-      console.log('Remaining contestant names:', remainingContestants.map(c => c.name));
+      debugLog('Remaining contestants:', remainingCount);
+      debugLog('Player still active?', playerStillActive);
+      debugLog('Remaining contestant names:', remainingContestants.map(c => c.name));
       const shouldStartJury = remainingCount === 7 && !prev.juryMembers;
       
       let juryMembers = prev.juryMembers;
@@ -211,34 +227,34 @@ export const useGameState = () => {
           .slice(0, 7) // Exactly 7 jury members
           .map(c => c.name);
         daysUntilJury = 0;
-        console.log('Jury phase started with members:', juryMembers);
+        debugLog('Jury phase started with members:', juryMembers);
       } else if (remainingCount > 7) {
         daysUntilJury = Math.max(0, (remainingCount - 7) * 3); // Estimate days until jury
       }
 
       // Check for key game events - FIXED phase transitions with correct counting
-      console.log('Phase check - Current phase:', prev.gamePhase, 'Remaining:', remainingCount);
+      debugLog('Phase check - Current phase:', prev.gamePhase, 'Remaining:', remainingCount);
       
       if (remainingCount === 3 && prev.gamePhase !== 'final_3_vote') {
         // Final 3 - needs voting first (only trigger if not already in final_3_vote)
         gamePhase = 'final_3_vote';
-        console.log('Final 3 reached - voting phase');
+        debugLog('Final 3 reached - voting phase');
       } else if (remainingCount === 4 && prev.gamePhase !== 'player_vote') {
         // Final 4 - force elimination (skip immunity for clean vote)
-        console.log('Final 4 reached - forcing elimination without immunity');
+        debugLog('Final 4 reached - forcing elimination without immunity');
         gamePhase = 'player_vote';
       } else if (newDay === prev.nextEliminationDay - 1 && remainingCount > 4) {
         // Day before elimination - immunity competition (skip at Final 4)
         gamePhase = 'immunity_competition';
-        console.log('Immunity competition day');
+        debugLog('Immunity competition day');
       } else if (newDay === prev.nextEliminationDay) {
         // Elimination day - let player vote first
-        console.log('Elimination voting day:', newDay);
+        debugLog('Elimination voting day:', newDay);
         gamePhase = 'player_vote';
       } else if (newDay % 7 === 0 && newDay > 1) {
         // Weekly recap every 7 days - FIXED integration
         gamePhase = 'weekly_recap';
-        console.log('Weekly recap time');
+        debugLog('Weekly recap time');
       }
 
       // Clear old information and update systems
@@ -279,12 +295,58 @@ export const useGameState = () => {
         alliances: updatedAlliances,
       } as GameState);
 
+      // Forced conversations: ensure the house occasionally pulls you aside.
+      const baseContestants = narrativeApplied.contestants || specialApplied.contestants;
+      const activeNPCs = baseContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+      const existingQueue = prev.forcedConversationsQueue || [];
+      // Drop very old requests; keep only the most recent day so we don't backlog across weeks
+      let nextForcedQueue = existingQueue.filter(item => item.day >= newDay - 1);
+
+      if (nextForcedQueue.length === 0 && activeNPCs.length > 0 && gamePhase === 'daily') {
+        // Pick who pulls you aside based on either high suspicion or high closeness
+        const sortedBySusp = [...activeNPCs].sort(
+          (a, b) => b.psychProfile.suspicionLevel - a.psychProfile.suspicionLevel
+        );
+        const sortedByClose = [...activeNPCs].sort(
+          (a, b) => b.psychProfile.emotionalCloseness - a.psychProfile.emotionalCloseness
+        );
+
+        const topSusp = sortedBySusp[0];
+        const topClose = sortedByClose[0];
+
+        let from = topClose || topSusp;
+        let topic = 'They quietly ask where your head is at for the next vote.';
+        let urgency: 'casual' | 'important' = 'casual';
+
+        if (topSusp && topSusp.psychProfile.suspicionLevel >= 60) {
+          from = topSusp;
+          topic = 'They pull you aside to confront you about mixed signals and shifting votes.';
+          urgency = 'important';
+        } else if (topClose && topClose.psychProfile.emotionalCloseness >= 50) {
+          from = topClose;
+          topic = 'They pull you aside for a private check-in about how you are feeling in the game.';
+          urgency = 'casual';
+        }
+
+        if (from) {
+          nextForcedQueue = [
+            ...nextForcedQueue,
+            {
+              from: from.name,
+              topic,
+              urgency,
+              day: newDay,
+            },
+          ];
+        }
+      }
+
       return {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
         groupActionsUsedToday: 0,
-        contestants: narrativeApplied.contestants || specialApplied.contestants,
+        contestants: baseContestants,
         alliances: updatedAlliances,
         juryMembers,
         daysUntilJury,
@@ -303,31 +365,32 @@ export const useGameState = () => {
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
         ongoingHouseMeeting: maybeHM || prev.ongoingHouseMeeting,
+        forcedConversationsQueue: nextForcedQueue,
       };
     });
   }, []);
 
-  const useAction = useCallback((actionType: string, target?: string, content?: string, tone?: string) => {
-    console.log('=== ACTION TRIGGERED ===');
-    console.log('Action Type:', actionType);
-    console.log('Target:', target);
-    console.log('Content:', content);
-    console.log('Tone:', tone);
+  const useAction = useCallback((actionType: GameActionType, target?: string, content?: string, tone?: string) => {
+    debugLog('=== ACTION TRIGGERED ===');
+    debugLog('Action Type:', actionType);
+    debugLog('Target:', target);
+    debugLog('Content:', content);
+    debugLog('Tone:', tone);
     
     // Handle alliance creation separately
     if (actionType === 'create_alliance') {
       const allianceName = target || 'New Alliance';
       const memberNames = content ? content.split(',') : [];
-      console.log('Creating alliance:', allianceName, 'with members:', memberNames);
+      debugLog('Creating alliance:', allianceName, 'with members:', memberNames);
       
       setGameState(prev => {
-        console.log('Current player name:', prev.playerName);
+        debugLog('Current player name:', prev.playerName);
         
         // Don't duplicate player name if it's already in the list
         const allMembers = memberNames.includes(prev.playerName) 
           ? memberNames 
           : [prev.playerName, ...memberNames];
-        console.log('Will create alliance with members:', allMembers);
+        debugLog('Will create alliance with members:', allMembers);
         
         const newAlliance = {
           id: Date.now().toString(),
@@ -353,7 +416,7 @@ export const useGameState = () => {
     if (actionType === 'add_alliance_members') {
       const allianceId = target;
       const newMembers = content ? content.split(',') : [];
-      console.log('Adding members to alliance:', allianceId, 'new members:', newMembers);
+      debugLog('Adding members to alliance:', allianceId, 'new members:', newMembers);
       
       setGameState(prev => {
         const updatedAlliances = prev.alliances.map(alliance => 
@@ -890,7 +953,7 @@ export const useGameState = () => {
 
   const submitConfessional = useCallback(() => {
     // Simplified confessional submission
-    console.log('Confessional submitted');
+    debugLog('Confessional submitted');
   }, []);
 
   const setImmunityWinner = useCallback((winner: string) => {
@@ -990,8 +1053,8 @@ export const useGameState = () => {
       };
 
       // Log for debugging
-      console.log('proceedToJuryVote constructed finalists:', Array.from(finalists));
-      console.log('proceedToJuryVote juryMembers:', juryMembers);
+      debugLog('proceedToJuryVote constructed finalists:', Array.from(finalists));
+      debugLog('proceedToJuryVote juryMembers:', juryMembers);
 
       return nextState;
     });
@@ -1290,9 +1353,101 @@ export const useGameState = () => {
     });
   }, []);
 
-  const respondToForcedConversation = useCallback(() => {
-    // Simplified forced conversation response
-    console.log('Responded to forced conversation');
+  const respondToForcedConversation = useCallback((from: string, content: string, tone: string) => {
+    setGameState(prev => {
+      const targetNPC = prev.contestants.find(c => c.name === from);
+      if (!targetNPC || !prev.playerName) {
+        console.warn('Forced conversation target not found or playerName missing', from);
+        return {
+          ...prev,
+          forcedConversationsQueue: (prev.forcedConversationsQueue || []).slice(1),
+        };
+      }
+
+      const toneUsed = (tone || 'neutral').toLowerCase();
+      const trustDelta = getTrustDelta(toneUsed, targetNPC.psychProfile.disposition);
+      const suspicionDelta = getSuspicionDelta(toneUsed, content || '');
+
+      const updatedContestants = prev.contestants.map(c => {
+        if (c.name !== from) return c;
+
+        const newTrustLevel = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustDelta));
+        const newSuspicionLevel = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta));
+
+        const memory = {
+          day: prev.currentDay,
+          type: 'conversation' as const,
+          participants: [prev.playerName, from],
+          content: `[Forced pull-aside] ${content || 'You responded in the moment.'}`,
+          emotionalImpact: Math.max(-10, Math.min(10, Math.floor(trustDelta / 5))),
+          timestamp: Date.now(),
+        };
+
+        return {
+          ...c,
+          psychProfile: {
+            ...c.psychProfile,
+            trustLevel: newTrustLevel,
+            suspicionLevel: newSuspicionLevel,
+          },
+          memory: [...c.memory, memory],
+        };
+      });
+
+      const take: ReactionTake =
+        trustDelta > 0 && suspicionDelta <= 0
+          ? 'positive'
+          : trustDelta < 0 && suspicionDelta > 0
+          ? 'pushback'
+          : suspicionDelta > 0
+          ? 'suspicious'
+          : 'neutral';
+
+      const reactionSummary: ReactionSummary = {
+        take,
+        context: 'private',
+        notes: 'They pulled you aside and you responded directly.',
+        deltas: {
+          trust: trustDelta,
+          suspicion: suspicionDelta,
+          influence: 1,
+          entertainment: 1,
+        },
+      };
+
+      const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+      const nextHistory = [
+        ...(prev.ratingsHistory || []),
+        {
+          day: prev.currentDay,
+          rating: Math.round(ratingRes.rating * 100) / 100,
+          reason: ratingRes.reason,
+        },
+      ];
+
+      const nextQueue = (prev.forcedConversationsQueue || []).slice(1);
+
+      const interactionEntry = {
+        day: prev.currentDay,
+        type: 'conversation' as const,
+        participants: [prev.playerName, from],
+        content: `[Forced conversation reply] ${content || '(no text provided)'}`,
+        tone,
+        source: 'player' as const,
+      };
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        forcedConversationsQueue: nextQueue,
+        lastActionType: 'talk',
+        lastActionTarget: from,
+        lastAIReaction: reactionSummary,
+        interactionLog: [...(prev.interactionLog || []), interactionEntry],
+        viewerRating: ratingRes.rating,
+        ratingsHistory: nextHistory,
+      };
+    });
   }, []);
 
   const submitAFPVote = useCallback((choice: string) => {
@@ -1439,23 +1594,23 @@ export const useGameState = () => {
   }, []);
 
   const continueFromElimination = useCallback((forcePlayerElimination = false) => {
-    console.log('=== continueFromElimination called ===');
+    debugle.log('=== continueFromElimination called ===');
     console.log('forcePlayerElimination:', forcePlayerElimination);
     
     setGameState(prev => {
       const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
       const playerEliminated = forcePlayerElimination || prev.contestants.find(c => c.name === prev.playerName)?.isEliminated;
       
-      console.log('continueFromElimination - Remaining contestants:', remainingCount);
-      console.log('continueFromElimination - Player eliminated?', playerEliminated);
-      console.log('continueFromElimination - Current phase:', prev.gamePhase);
-      console.log('continueFromElimination - Current jury members:', prev.juryMembers);
-      console.log('continueFromElimination - Player name:', prev.playerName);
+      debugLog('continueFromElimination - Remaining contestants:', remainingCount);
+      debugLog('continueFromElimination - Player eliminated?', playerEliminated);
+      debugLog('continueFromElimination - Current phase:', prev.gamePhase);
+      debugLog('continueFromElimination - Current jury members:', prev.juryMembers);
+      debugLog('continueFromElimination - Player name:', prev.playerName);
       
       // If player was eliminated during jury phase, simulate eliminations down to final 2
       const isJuryPhase = prev.juryMembers && prev.juryMembers.length > 0;
       if (playerEliminated && isJuryPhase) {
-        console.log('continueFromElimination - Player eliminated during jury, simulating eliminations to final 2');
+        debugLog('continueFromElimination - Player eliminated during jury, simulating eliminations to final 2');
 
         // Mark player as eliminated and set isPlayerEliminated flag
         let updatedContestants = prev.contestants.map(c =>
@@ -1504,7 +1659,7 @@ export const useGameState = () => {
           // Update dynamic active list after elimination
           activeNonPlayerContestants = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
 
-          console.log(`Simulated elimination: ${eliminationTarget.name}`);
+          debugLog(`Simulated elimination: ${eliminationTarget.name}`);
         }
 
         return {
@@ -1515,12 +1670,29 @@ export const useGameState = () => {
           gamePhase: 'finale' as const
         };
       }
+
+      // If the player is eliminated before jury starts, end their season with a recap
+      if (playerEliminated && !isJuryPhase) {
+        debugLog('continueFromElimination - Player eliminated pre-jury, ending season with recap');
+        const afpRanking = prev.afpRanking && prev.afpRanking.length > 0
+          ? prev.afpRanking
+          : calculateAFPRanking(prev, prev.afpVote);
+        return {
+          ...prev,
+          isPlayerEliminated: true,
+          gamePhase: 'post_season' as const,
+          gameWinner: prev.gameWinner || 'Unknown',
+          finalJuryVotes: prev.finalJuryVotes || {},
+          juryRationales: prev.juryRationales,
+          afpRanking,
+        };
+      }
       
       // If we're down to final 3, go to final 3 vote (only if player is still active)
       if (remainingCount === 3) {
         const playerStillActive = !playerEliminated;
         if (playerStillActive) {
-          console.log('continueFromElimination - Going to final_3_vote');
+          debugLog('continueFromElimination - Going to final_3_vote');
           return {
             ...prev,
             gamePhase: 'final_3_vote' as const
@@ -1657,6 +1829,81 @@ export const useGameState = () => {
                 trustDelta = choice === 'headfirst' ? 15 : -5;
                 suspicionDelta = choice === 'headfirst' ? -10 : 5;
               }
+              break;
+            case 'romance':
+              if (choice === 'pacifist') {
+                trustDelta = 4;
+                suspicionDelta = -2;
+              } else {
+                trustDelta = 8;
+                suspicionDelta = 4;
+              }
+              break;
+            case 'rumor_spread':
+              if (choice === 'pacifist') {
+                trustDelta = 3;
+                suspicionDelta = -6;
+              } else {
+                trustDelta = -8;
+                suspicionDelta = 10;
+              }
+              break;
+            case 'power_shift':
+              if (choice === 'pacifist') {
+                trustDelta = 5;
+                suspicionDelta = -3;
+              } else {
+                trustDelta = -3;
+                suspicionDelta = 8;
+              }
+              break;
+            case 'alliance_crisis':
+              if (choice === 'pacifist') {
+                trustDelta = 8;
+                suspicionDelta = -4;
+              } else {
+                trustDelta = -12;
+                suspicionDelta = 15;
+              }
+              break;
+            case 'strategy_leak':
+              if (choice === 'pacifist') {
+                trustDelta = -3;
+                suspicionDelta = 5;
+              } else {
+                trustDelta = -10;
+                suspicionDelta = 15;
+              }
+              break;
+            case 'vote_chaos':
+              if (choice === 'pacifist') {
+                trustDelta = 3;
+                suspicionDelta = -2;
+              } else {
+                trustDelta = -6;
+                suspicionDelta = 12;
+              }
+              break;
+            case 'social_drama':
+              if (choice === 'pacifist') {
+                trustDelta = 6;
+                suspicionDelta = -4;
+              } else {
+                trustDelta = -10;
+                suspicionDelta = 8;
+              }
+              break;
+            case 'trust_shift':
+              if (choice === 'pacifist') {
+                trustDelta = 4;
+                suspicionDelta = -5;
+              } else {
+                trustDelta = -6;
+                suspicionDelta = 8;
+              }
+              break;
+            case 'competition_twist':
+              // Structural twist – mostly edit/ratings impact, little direct relationship change
               break;
           }
           
@@ -2193,6 +2440,9 @@ export const useGameState = () => {
 
       // Debug logs
       const finalTwoNames = nextState.contestants.filter(c => !c.isEliminated).map(c => c.name);
+      debugLog('handleTieBreakResult -> Final Two:', finalTwoNames);
+      debugLog('handleTieBreakResult -> Eliminated:', eliminatedName);ogs
+      const finalTwoNames = nextState.contestants.filter(c => !c.isEliminated).map(c => c.name);
       console.log('handleTieBreakResult -> Final Two:', finalTwoNames);
       console.log('handleTieBreakResult -> Eliminated:', eliminatedName);
 
@@ -2204,9 +2454,9 @@ export const useGameState = () => {
   const saveGame = useCallback(() => {
     try {
       localStorage.setItem('rtv_game_state', JSON.stringify(gameState));
-      console.log('Game saved manually.');
+      debugLog('Game saved manually.');
     } catch (e) {
-      console.warn('Failed to save game state', e);
+      debugWarn('Failed to save game state', e);
     }
   }, [gameState]);
 
@@ -2216,19 +2466,19 @@ export const useGameState = () => {
       if (raw) {
         const parsed = JSON.parse(raw);
         setGameState(parsed as GameState);
-        console.log('Loaded saved game.');
+        debugLog('Loaded saved game.');
       }
     } catch (e) {
-      console.warn('Failed to load saved game state', e);
+      debugWarn('Failed to load saved game state', e);
     }
   }, []);
 
   const deleteSavedGame = useCallback(() => {
     try {
       localStorage.removeItem('rtv_game_state');
-      console.log('Deleted saved game.');
+      debugLog('Deleted saved game.');
     } catch (e) {
-      console.warn('Failed to delete saved game state', e);
+      debugWarn('Failed to delete saved game state', e);
     }
   }, []);
 
@@ -2343,6 +2593,17 @@ export const useGameState = () => {
       }));
     }
   }, [gameState.gamePhase, gameState.playerName]);
+
+  // Watchdog: if the player has been eliminated, never drop them back into daily gameplay.
+  useEffect(() => {
+    if (gameState.isPlayerEliminated && gameState.gamePhase === 'daily') {
+      console.warn('Phase watchdog: Player is eliminated; redirecting to post-season recap');
+      setGameState(prev => ({
+        ...prev,
+        gamePhase: 'post_season' as const,
+      }));
+    }
+  }, [gameState.isPlayerEliminated, gameState.gamePhase]);
 
   return {
     gameState,

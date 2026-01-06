@@ -185,10 +185,11 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
             size="wide" 
             onClick={onContinue}
           >
-            {isPlayerEliminated ? 
-              (remainingCount === 2 ? 'Watch Finale' : 'Continue to Season End') : 
-              'Continue Game'
-            }
+            {isPlayerEliminated
+              ? (gameState.juryMembers && gameState.juryMembers.length > 0
+                  ? 'Watch Finale'
+                  : 'View Season Recap')
+              : 'Continue Game'}
           </Button>
         </div>
         </div>

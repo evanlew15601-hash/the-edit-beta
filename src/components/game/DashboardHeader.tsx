@@ -4,6 +4,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Users, Shield, Crown, Timer, Star } from 'lucide-react';
 import { GameState } from '@/types/game';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface DashboardHeaderProps {
   gameState: GameState;
@@ -165,9 +176,42 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
               <Button variant="secondary" size="sm" onClick={onLoad} aria-label="Load last save" disabled={!hasSave}>
                 Load
               </Button>
-              <Button variant="outline" size="sm" onClick={onDeleteSave} aria-label="Delete saved game" disabled={!hasSave}>
-                Delete
-              </Button>
+              {hasSave && onDeleteSave ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label="Delete saved game"
+                    >
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete saved game?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This cannot be undone. Your current season progress will be lost.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={onDeleteSave}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label="Delete saved game"
+                  disabled
+                >
+                  Delete
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={onTitle} aria-label="Quit to title">
                 Title
               </Button>

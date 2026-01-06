@@ -8,7 +8,6 @@ import { ConfessionalDialog } from './ConfessionalDialog';
 import { ObservationDialog } from './ObservationDialog';
 import { SchemeDialog } from './SchemeDialog';
 import { DaySkipDialog } from './DaySkipDialog';
-import { EmergentEventDialog } from './EmergentEventDialog';
 import { ActivityDialog } from './ActivityDialog';
 import { AllianceMeetingDialog } from './AllianceMeetingDialog';
 import { TagConversationDialog } from './TagConversationDialog';
@@ -18,9 +17,16 @@ import { AISettingsPanel } from './AISettingsPanel';
 import { Plus, UserPlus } from 'lucide-react';
 import { HouseMeetingDialog } from './HouseMeetingDialog';
 
+type GameActionType =
+  GameState['playerActions'][number]['type']
+  | 'create_alliance'
+  | 'add_alliance_members'
+  | 'house_meeting'
+  | 'alliance_meeting';
+
 interface ActionPanelProps {
   gameState: GameState;
-  onUseAction: (actionType: string, target?: string, content?: string, tone?: string) => void;
+  onUseAction: (actionType: GameActionType, target?: string, content?: string, tone?: string) => void;
   onAdvanceDay: () => void;
   onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
@@ -44,12 +50,8 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
   const hasCompletedConfessional = gameState.playerActions.find(a => a.type === 'confessional')?.used;
   const allActionsUsed = (gameState.dailyActionCount ?? 0) >= (gameState.dailyActionCap ?? 10);
-  
-  console.log('ActionPanel render - dailyActionCount:', gameState.dailyActionCount);
-  console.log('ActionPanel render - remainingActions:', remainingActions);
-  console.log('ActionPanel render - allActionsUsed:', allActionsUsed);
 
-  const getActionDescription = (type: string) => {
+  const getActionDescription = (type: GameActionType | string) => {
     switch (type) {
       case 'talk':
         return 'Have a conversation with another contestant. Choose your tone carefully.';
@@ -72,7 +74,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
     }
   };
 
-  const handleActionClick = (actionType: string) => {
+  const handleActionClick = (actionType: GameActionType) => {
     setActiveDialog(actionType);
   };
 
@@ -80,7 +82,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
     setActiveDialog(null);
   };
 
-  const handleActionSubmit = (actionType: string, target?: string, content?: string, tone?: string) => {
+  const handleActionSubmit = (actionType: GameActionType, target?: string, content?: string, tone?: string) => {
     onUseAction(actionType, target, content, tone);
     setActiveDialog(null);
   };
@@ -183,30 +185,13 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
           />
         </div>
 
-        {allActionsUsed && (
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-foreground">All actions completed for Day {gameState.currentDay}</p>
-                {!hasCompletedConfessional && (
-                  <p className="text-xs text-destructive">Warning: No confessional recorded</p>
-                )}
-              </div>
-              <Button
-                variant="surveillance"
-                size="wide"
-                onClick={onAdvanceDay}
-              >
-                Proceed to Next Day
-              </Button>
-            </div>
-          </div>
-        )}
-
         <div className="mt-6 pt-6 border-t border-border">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium">Alliance Management</h3>
-            <p className="text-xs text-muted-foreground">{gameState.alliances.length} active alliance{gameState.alliances.length > 1 ? 's' : ''}</p>
+            <p className="text-xs text-muted-foreground">
+              {gameState.alliances.length} active alliance
+              {gameState.alliances.length > 1 ? 's' : ''}
+            </p>
           </div>
           <div className="flex gap-2">
             {gameState.alliances.length > 0 && (
@@ -234,30 +219,44 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
               variant="action"
               onClick={() => setCreateAllianceOpen(true)}
               disabled={allActionsUsed}
-              className={gameState.alliances.length === 0 ? "w-full" : ""}
+              className={gameState.alliances.length === 0 ? 'w-full' : ''}
             >
               {gameState.alliances.length > 0 ? 'New Alliance' : 'Create Alliance'}
             </Button>
           </div>
         </div>
 
-        {!allActionsUsed && (
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Passive Strategy Option</p>
-                <p className="text-xs text-muted-foreground">Skip remaining actions and advance day</p>
-              </div>
-              <Button
-                variant="outline"
-                size="wide"
-                onClick={() => setShowSkipDialog(true)}
-              >
-                Proceed to Next Day
-              </Button>
+        <div className="mt-6 pt-6 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              {allActionsUsed ? (
+                <>
+                  <p className="text-sm text-foreground">
+                    All actions completed for Day {gameState.currentDay}
+                  </p>
+                  {!hasCompletedConfessional && (
+                    <p className="text-xs text-destructive">Warning: No confessional recorded</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Proceed to next day</p>
+                  <p className="text-xs text-muted-foreground">
+                    You have {remainingActions} unused action
+                    {remainingActions === 1 ? '' : 's'}. You can let the house move without you.
+                  </p>
+                </>
+              )}
             </div>
+            <Button
+              variant={allActionsUsed ? 'surveillance' : 'outline'}
+              size="wide"
+              onClick={allActionsUsed ? onAdvanceDay : () => setShowSkipDialog(true)}
+            >
+              Proceed to Next Day
+            </Button>
           </div>
-        )}
+        </div>
       </Card>
 
       {/* Dialog Components */}
@@ -387,22 +386,6 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onSubmit={(allianceId, newMembers) => {
           onUseAction('add_alliance_members', allianceId, newMembers.join(','), 'strategic');
           setAddMemberOpen(false);
-        }}
-      />
-
-      <EmergentEventDialog
-        event={gameState.lastEmergentEvent}
-        isOpen={!!gameState.lastEmergentEvent}
-        onChoice={(choice) => {
-          if (gameState.lastEmergentEvent) {
-            onEmergentEventChoice(gameState.lastEmergentEvent, choice);
-          }
-        }}
-        onClose={() => {
-          // Clear the emergent event to prevent lockup
-          if (gameState.lastEmergentEvent) {
-            onEmergentEventChoice(gameState.lastEmergentEvent, 'pacifist'); // Default choice to clear
-          }
         }}
       />
     </div>
