@@ -1638,7 +1638,12 @@ export const useGameState = () => {
       let structuredTrustChanges: { [name: string]: number } = {};
       let structuredEditDelta = 0;
 
-      if (Array.isArray(event.choices) && event.choices.length > 0) {
+      const hasStructuredChoices =
+        Array.isArray(event.choices) &&
+        event.choices.length > 0 &&
+        typeof event.choices[0]?.relationshipEffects !== 'undefined';
+
+      if (hasStructuredChoices) {
         const choices = event.choices;
         // Pacifist -> lowest editEffect (lower drama), Headfirst -> highest editEffect (maximum drama)
         const pickExtremum = (cmp: (a: number, b: number) => boolean) =>
