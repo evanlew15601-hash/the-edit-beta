@@ -19,9 +19,6 @@ interface PostSeasonRecapScreenProps {
 export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart }: PostSeasonRecapScreenProps) => {
   const [activeTab, setActiveTab] = useState('overview');
 
-  console.log('[PostSeasonRecap] Winner:', winner);
-  console.log('[PostSeasonRecap] Final votes:', finalVotes);
-
   const hasWinner =
     !!winner &&
     winner !== 'Unknown' &&

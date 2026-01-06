@@ -17,9 +17,16 @@ import { AISettingsPanel } from './AISettingsPanel';
 import { Plus, UserPlus } from 'lucide-react';
 import { HouseMeetingDialog } from './HouseMeetingDialog';
 
+type GameActionType =
+  GameState['playerActions'][number]['type']
+  | 'create_alliance'
+  | 'add_alliance_members'
+  | 'house_meeting'
+  | 'alliance_meeting';
+
 interface ActionPanelProps {
   gameState: GameState;
-  onUseAction: (actionType: string, target?: string, content?: string, tone?: string) => void;
+  onUseAction: (actionType: GameActionType, target?: string, content?: string, tone?: string) => void;
   onAdvanceDay: () => void;
   onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
@@ -43,12 +50,8 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
   const hasCompletedConfessional = gameState.playerActions.find(a => a.type === 'confessional')?.used;
   const allActionsUsed = (gameState.dailyActionCount ?? 0) >= (gameState.dailyActionCap ?? 10);
-  
-  console.log('ActionPanel render - dailyActionCount:', gameState.dailyActionCount);
-  console.log('ActionPanel render - remainingActions:', remainingActions);
-  console.log('ActionPanel render - allActionsUsed:', allActionsUsed);
 
-  const getActionDescription = (type: string) => {
+  const getActionDescription = (type: GameActionType | string) => {
     switch (type) {
       case 'talk':
         return 'Have a conversation with another contestant. Choose your tone carefully.';
@@ -71,7 +74,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
     }
   };
 
-  const handleActionClick = (actionType: string) => {
+  const handleActionClick = (actionType: GameActionType) => {
     setActiveDialog(actionType);
   };
 
@@ -79,7 +82,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
     setActiveDialog(null);
   };
 
-  const handleActionSubmit = (actionType: string, target?: string, content?: string, tone?: string) => {
+  const handleActionSubmit = (actionType: GameActionType, target?: string, content?: string, tone?: string) => {
     onUseAction(actionType, target, content, tone);
     setActiveDialog(null);
   };
