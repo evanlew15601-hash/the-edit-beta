@@ -488,81 +488,90 @@ export const useGameState = () => {
         const proposedMatch = (content || '').match(/(?:vote|target)[:=]\s*([A-Za-z0-9 _-]+)/i);
         const proposedTarget = proposedMatch ? proposedMatch[1].trim() : undefined;
 
-        const members = alliance.members.filter(n => !prev.contestants.find(c => c.name === n)?.isEliminated);
+        const members = alliance.members.filter(
+          n => !prev.contestants.find(c => c.name === n)?.isEliminated
+        );
         const toneUsed = (tone || 'strategic').toLowerCase();
 
-        // Apply relationship deltas per member
+        // Apply relationship deltas per member and log memory
         const updatedContestants = prev.contestants.map(c => {
           if (!members.includes(c.name) || c.name === prev.playerName) return c;
+
           const trustDelta = getTrustDelta(toneUsed, c.psychProfile.disposition);
           // Keep alliance meetings low suspicion (private)
-          const suspicionDelta = Math.max(0, Math.floor(getSuspicionDelta('friendly', content || '') / 3));
-          const newTrust = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustDelta));
-          const newSusp = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta));
+          const suspicionDelta = Math.max(
+            0,
+            Math.floor(getSuspicionDelta('friendly', content || '') / 3)
+          );
+
+          const newTrust = Math.max(
+            -100,
+            Math.min(100, c.psychProfile.trustLevel + trustDelta)
+          );
+          const newSusp = Math.max(
+            0,
+            Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta)
+          );
+
           const mem = {
             day: prev.currentDay,
             type: 'alliance_meeting' as const,
             participants: [prev.playerName, ...members],
             content: `[Alliance Meeting] ${content || 'discussion'}`,
             emotionalImpact: Math.floor(trustDelta / 5),
-            timestamp: Date.now()
+            timestamp: Date.now(),
           };
+
           return {
             ...c,
-            psychProfile: { ...c.psychProfile, trustLevel: newTrust, suspicionLevel: newSusp },
+            psychProfile: {
+              ...c.psychProfile,
+              trustLevel: newTrust,
+              suspicionLevel: newSusp,
+            },
             memory: [...c.memory, mem],
           };
         });
 
-        // If a vote target was proposed, record soft pressure on each member
+        // If a vote target was proposed, store soft voting plans in memory for each member
         if (proposedTarget) {
           members.forEach(name => {
             if (name === prev.playerName) return;
-            // Soft commitment via memory plan; votingEngine will consult
-            const npc = updatedContestants.find(c => c.name === name);
-            if (npc) {
-              const parsed = speechActClassifier.classifyMessage(content, 'Player');
-            const socialContext = {
-              day: gameState.currentDay,
-              lastInteractions: (gameState.interactionLog || []).slice(-6),
-            };
-            const reply = await generateLocalAIReply({
-              playerMessage: content,
-              parsedInput: parsed,
-              npc,
-              tone: tone || 'neutral',
-              socialContext,
-              conversationType: actionType === 'dm' ? 'private' : 'public',
-            }, { maxSentences: gameState.aiSettings?.depth === 'deep' ? 3 : gameState.aiSettings?.depth === 'brief' ? 1 : 2 });
-
-            setGameState(prev => ({
-              ...prev,
-              lastAIResponse: reply,
-              lastAIResponseLoading: false,
-              lastAIReaction: prev.lastAIReaction
-                ? { ...prev.lastAIReaction, notes: prev.lastAIReaction.notes || reply }
-                : prev.lastAIReaction,
-              interactionLog: [
-                ...(prev.interactionLog || []),
-                {
-                  day: prev.currentDay,
-                  type: 'npc',
-                  participants: [target],
-                  ai_response: reply,
-                  source: 'npc' as const,
-                }
-              ],
-            }));
-          } else {
-            // No NPC found; stop indicator
-            setGameState(prev => ({ ...prev, lastAIResponseLoading: false }));
-          }
+            memoryEngine.updateVotingPlan(
+              name,
+              proposedTarget,
+              `Alliance meeting plan coordinated by ${prev.playerName}`
+            );
+          });
         }
-      } catch (e) {
-        console.warn('Local LLM reply generation failed:', e);
-        setGameState(prev => ({ ...prev, lastAIResponseLoading: false }));
-      }
-    })();
+
+        // Log the meeting in interaction log so alliance/trust systems can see it
+        const interactionEntry = {
+          day: prev.currentDay,
+          type: 'alliance_meeting' as const,
+          participants: [prev.playerName, ...members],
+          content: `[Alliance Meeting] ${content || 'discussion'}`,
+          tone,
+          source: 'player' as const,
+        };
+
+        // Bump alliance activity timestamp
+        const updatedAlliances = prev.alliances.map(a =>
+          a.id === alliance.id ? { ...a, lastActivity: prev.currentDay } : a
+        );
+
+        return {
+          ...prev,
+          contestants: updatedContestants,
+          alliances: updatedAlliances,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'alliance_meeting',
+          lastActionTarget: alliance.name || 'Alliance',
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
+        };
+      });
+      return;
+    }
 
   }, []);
 

@@ -102,7 +102,7 @@ class RelationshipGraphEngine {
     relationship.emotionalCloseness = Math.max(0, Math.min(100, relationship.emotionalCloseness + emotionalDelta));
     
     // Update interaction history
-    relationship.lastInteraction = Date.now();
+    relationship.lastInteraction = currentDay;
     relationship.interactionHistory.push({
       day: currentDay,
       type: eventType,
@@ -127,7 +127,7 @@ class RelationshipGraphEngine {
       mutualRelationship.suspicion = Math.max(0, Math.min(100, mutualRelationship.suspicion + mutualSuspicionDelta));
       mutualRelationship.emotionalCloseness = Math.max(0, Math.min(100, mutualRelationship.emotionalCloseness + mutualEmotionalDelta));
       
-      mutualRelationship.lastInteraction = Date.now();
+      mutualRelationship.lastInteraction = currentDay;
       mutualRelationship.interactionHistory.push({
         day: currentDay,
         type: eventType,
@@ -271,7 +271,8 @@ class RelationshipGraphEngine {
   decayRelationships(currentDay: number): void {
     this.relationships.forEach((sourceRelations) => {
       sourceRelations.forEach((relationship) => {
-        const daysSinceInteraction = currentDay - (relationship.lastInteraction / (24 * 60 * 60 * 1000));
+        const lastDay = relationship.lastInteraction || 0;
+        const daysSinceInteraction = currentDay - lastDay;
         
         if (daysSinceInteraction > 2) {
           // Slowly decay extreme values toward neutral
