@@ -8,7 +8,6 @@ import { ConfessionalDialog } from './ConfessionalDialog';
 import { ObservationDialog } from './ObservationDialog';
 import { SchemeDialog } from './SchemeDialog';
 import { DaySkipDialog } from './DaySkipDialog';
-import { EmergentEventDialog } from './EmergentEventDialog';
 import { ActivityDialog } from './ActivityDialog';
 import { AllianceMeetingDialog } from './AllianceMeetingDialog';
 import { TagConversationDialog } from './TagConversationDialog';
@@ -384,22 +383,6 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onSubmit={(allianceId, newMembers) => {
           onUseAction('add_alliance_members', allianceId, newMembers.join(','), 'strategic');
           setAddMemberOpen(false);
-        }}
-      />
-
-      <EmergentEventDialog
-        event={gameState.lastEmergentEvent}
-        isOpen={!!gameState.lastEmergentEvent}
-        onChoice={(choice) => {
-          if (gameState.lastEmergentEvent) {
-            onEmergentEventChoice(gameState.lastEmergentEvent, choice);
-          }
-        }}
-        onClose={() => {
-          // Clear the emergent event to prevent lockup
-          if (gameState.lastEmergentEvent) {
-            onEmergentEventChoice(gameState.lastEmergentEvent, 'pacifist'); // Default choice to clear
-          }
         }}
       />
     </div>

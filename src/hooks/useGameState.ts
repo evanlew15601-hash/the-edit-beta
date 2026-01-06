@@ -281,12 +281,58 @@ export const useGameState = () => {
         alliances: updatedAlliances,
       } as GameState);
 
+      // Forced conversations: ensure the house occasionally pulls you aside.
+      const baseContestants = narrativeApplied.contestants || specialApplied.contestants;
+      const activeNPCs = baseContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
+      const existingQueue = prev.forcedConversationsQueue || [];
+      // Drop very old requests; keep only the most recent day so we don't backlog across weeks
+      let nextForcedQueue = existingQueue.filter(item => item.day >= newDay - 1);
+
+      if (nextForcedQueue.length === 0 && activeNPCs.length > 0 && gamePhase === 'daily') {
+        // Pick who pulls you aside based on either high suspicion or high closeness
+        const sortedBySusp = [...activeNPCs].sort(
+          (a, b) => b.psychProfile.suspicionLevel - a.psychProfile.suspicionLevel
+        );
+        const sortedByClose = [...activeNPCs].sort(
+          (a, b) => b.psychProfile.emotionalCloseness - a.psychProfile.emotionalCloseness
+        );
+
+        const topSusp = sortedBySusp[0];
+        const topClose = sortedByClose[0];
+
+        let from = topClose || topSusp;
+        let topic = 'They quietly ask where your head is at for the next vote.';
+        let urgency: 'casual' | 'important' = 'casual';
+
+        if (topSusp && topSusp.psychProfile.suspicionLevel >= 60) {
+          from = topSusp;
+          topic = 'They pull you aside to confront you about mixed signals and shifting votes.';
+          urgency = 'important';
+        } else if (topClose && topClose.psychProfile.emotionalCloseness >= 50) {
+          from = topClose;
+          topic = 'They pull you aside for a private check-in about how you are feeling in the game.';
+          urgency = 'casual';
+        }
+
+        if (from) {
+          nextForcedQueue = [
+            ...nextForcedQueue,
+            {
+              from: from.name,
+              topic,
+              urgency,
+              day: newDay,
+            },
+          ];
+        }
+      }
+
       return {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
         groupActionsUsedToday: 0,
-        contestants: narrativeApplied.contestants || specialApplied.contestants,
+        contestants: baseContestants,
         alliances: updatedAlliances,
         juryMembers,
         daysUntilJury,
@@ -305,6 +351,7 @@ export const useGameState = () => {
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
         ongoingHouseMeeting: maybeHM || prev.ongoingHouseMeeting,
+        forcedConversationsQueue: nextForcedQueue,
       };
     });
   }, []);
@@ -1292,9 +1339,101 @@ export const useGameState = () => {
     });
   }, []);
 
-  const respondToForcedConversation = useCallback(() => {
-    // Simplified forced conversation response
-    console.log('Responded to forced conversation');
+  const respondToForcedConversation = useCallback((from: string, content: string, tone: string) => {
+    setGameState(prev => {
+      const targetNPC = prev.contestants.find(c => c.name === from);
+      if (!targetNPC || !prev.playerName) {
+        console.warn('Forced conversation target not found or playerName missing', from);
+        return {
+          ...prev,
+          forcedConversationsQueue: (prev.forcedConversationsQueue || []).slice(1),
+        };
+      }
+
+      const toneUsed = (tone || 'neutral').toLowerCase();
+      const trustDelta = getTrustDelta(toneUsed, targetNPC.psychProfile.disposition);
+      const suspicionDelta = getSuspicionDelta(toneUsed, content || '');
+
+      const updatedContestants = prev.contestants.map(c => {
+        if (c.name !== from) return c;
+
+        const newTrustLevel = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustDelta));
+        const newSuspicionLevel = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta));
+
+        const memory = {
+          day: prev.currentDay,
+          type: 'conversation' as const,
+          participants: [prev.playerName, from],
+          content: `[Forced pull-aside] ${content || 'You responded in the moment.'}`,
+          emotionalImpact: Math.max(-10, Math.min(10, Math.floor(trustDelta / 5))),
+          timestamp: Date.now(),
+        };
+
+        return {
+          ...c,
+          psychProfile: {
+            ...c.psychProfile,
+            trustLevel: newTrustLevel,
+            suspicionLevel: newSuspicionLevel,
+          },
+          memory: [...c.memory, memory],
+        };
+      });
+
+      const take: ReactionTake =
+        trustDelta > 0 && suspicionDelta <= 0
+          ? 'positive'
+          : trustDelta < 0 && suspicionDelta > 0
+          ? 'pushback'
+          : suspicionDelta > 0
+          ? 'suspicious'
+          : 'neutral';
+
+      const reactionSummary: ReactionSummary = {
+        take,
+        context: 'private',
+        notes: 'They pulled you aside and you responded directly.',
+        deltas: {
+          trust: trustDelta,
+          suspicion: suspicionDelta,
+          influence: 1,
+          entertainment: 1,
+        },
+      };
+
+      const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+      const nextHistory = [
+        ...(prev.ratingsHistory || []),
+        {
+          day: prev.currentDay,
+          rating: Math.round(ratingRes.rating * 100) / 100,
+          reason: ratingRes.reason,
+        },
+      ];
+
+      const nextQueue = (prev.forcedConversationsQueue || []).slice(1);
+
+      const interactionEntry = {
+        day: prev.currentDay,
+        type: 'conversation' as const,
+        participants: [prev.playerName, from],
+        content: `[Forced conversation reply] ${content || '(no text provided)'}`,
+        tone,
+        source: 'player' as const,
+      };
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        forcedConversationsQueue: nextQueue,
+        lastActionType: 'talk',
+        lastActionTarget: from,
+        lastAIReaction: reactionSummary,
+        interactionLog: [...(prev.interactionLog || []), interactionEntry],
+        viewerRating: ratingRes.rating,
+        ratingsHistory: nextHistory,
+      };
+    });
   }, []);
 
   const submitAFPVote = useCallback((choice: string) => {
@@ -1676,6 +1815,81 @@ export const useGameState = () => {
                 trustDelta = choice === 'headfirst' ? 15 : -5;
                 suspicionDelta = choice === 'headfirst' ? -10 : 5;
               }
+              break;
+            case 'romance':
+              if (choice === 'pacifist') {
+                trustDelta = 4;
+                suspicionDelta = -2;
+              } else {
+                trustDelta = 8;
+                suspicionDelta = 4;
+              }
+              break;
+            case 'rumor_spread':
+              if (choice === 'pacifist') {
+                trustDelta = 3;
+                suspicionDelta = -6;
+              } else {
+                trustDelta = -8;
+                suspicionDelta = 10;
+              }
+              break;
+            case 'power_shift':
+              if (choice === 'pacifist') {
+                trustDelta = 5;
+                suspicionDelta = -3;
+              } else {
+                trustDelta = -3;
+                suspicionDelta = 8;
+              }
+              break;
+            case 'alliance_crisis':
+              if (choice === 'pacifist') {
+                trustDelta = 8;
+                suspicionDelta = -4;
+              } else {
+                trustDelta = -12;
+                suspicionDelta = 15;
+              }
+              break;
+            case 'strategy_leak':
+              if (choice === 'pacifist') {
+                trustDelta = -3;
+                suspicionDelta = 5;
+              } else {
+                trustDelta = -10;
+                suspicionDelta = 15;
+              }
+              break;
+            case 'vote_chaos':
+              if (choice === 'pacifist') {
+                trustDelta = 3;
+                suspicionDelta = -2;
+              } else {
+                trustDelta = -6;
+                suspicionDelta = 12;
+              }
+              break;
+            case 'social_drama':
+              if (choice === 'pacifist') {
+                trustDelta = 6;
+                suspicionDelta = -4;
+              } else {
+                trustDelta = -10;
+                suspicionDelta = 8;
+              }
+              break;
+            case 'trust_shift':
+              if (choice === 'pacifist') {
+                trustDelta = 4;
+                suspicionDelta = -5;
+              } else {
+                trustDelta = -6;
+                suspicionDelta = 8;
+              }
+              break;
+            case 'competition_twist':
+              // Structural twist – mostly edit/ratings impact, little direct relationship change
               break;
           }
           
