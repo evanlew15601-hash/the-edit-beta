@@ -1,4 +1,4 @@
-import { Contestant, Alliance, VotingRecord, GameState } from '@/types/game';
+import { Contestant, Alliance, VotingRecord, GameState, VotingDebugVoterEntry } from '@/types/game';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { AllianceManager } from '@/utils/allianceManager';
@@ -12,7 +12,7 @@ export const processVoting = (
   playerVote?: string
 ): VotingRecord => {
   const activeContestants = contestants.filter(c => !c.isEliminated);
-  
+
   if (activeContestants.length <= 2) {
     // Finale - different voting logic
     return {
@@ -23,30 +23,35 @@ export const processVoting = (
     };
   }
 
+  const debugEnabled = !!gameState.debugMode;
+  const debugVoters: VotingDebugVoterEntry[] = [];
+
   // Calculate threat levels for each contestant
   const threatLevels = new Map<string, number>();
-  
+
   activeContestants.forEach(contestant => {
     let threat = 0;
-    
-    // Base threat from psychological profile
-    threat += contestant.psychProfile.trustLevel * 0.3;
-    threat += contestant.psychProfile.suspicionLevel * 0.2;
-    
-    // Alliance considerations
+
+    // Base threat from psychological profile:
+    // - High suspicion is strongly threatening
+    // - High trust is mildly threatening (they're liked, but not automatically the target)
+    threat += contestant.psychProfile.trustLevel * 0.2;
+    threat += contestant.psychProfile.suspicionLevel * 0.45;
+
+    // Alliance considerations (each additional alliance bumps perceived threat)
     const contestantAlliances = alliances.filter(a => a.members.includes(contestant.name));
-    threat += contestantAlliances.length * 10;
+    threat += contestantAlliances.length * 8;
 
     // Social standing from relationship graph (how powerful they are socially)
     const standing = relationshipGraphEngine.calculateSocialStanding(contestant.name);
-    threat += standing.socialPower * 0.4;
-    
-    // Edit bias (production favorites get protected)
-    threat -= contestant.psychProfile.editBias * 2;
-    
-    // Random factor for unpredictability (slightly reduced now that we use relationships)
-    threat += (Math.random() - 0.5) * 10;
-    
+    threat += standing.socialPower * 0.6;
+
+    // Edit bias (production favorites get protected a bit)
+    threat -= contestant.psychProfile.editBias * 1.5;
+
+    // Random factor for unpredictability (kept small so systems dominate)
+    threat += (Math.random() - 0.5) * 6;
+
     threatLevels.set(contestant.name, threat);
   });
 
@@ -55,15 +60,15 @@ export const processVoting = (
   let playerThreat = 0;
   if (playerEntity) {
     playerThreat += playerEntity.psychProfile.trustLevel * 0.15;
-    playerThreat += playerEntity.psychProfile.suspicionLevel * 0.25;
+    playerThreat += playerEntity.psychProfile.suspicionLevel * 0.35;
     const playerAlliances = alliances.filter(a => a.members.includes(playerName));
     playerThreat += playerAlliances.length * 6;
-    playerThreat -= playerEntity.psychProfile.editBias * 2;
+    playerThreat -= playerEntity.psychProfile.editBias * 1.5;
 
     const playerStanding = relationshipGraphEngine.calculateSocialStanding(playerName);
-    playerThreat += playerStanding.socialPower * 0.3;
+    playerThreat += playerStanding.socialPower * 0.5;
   }
-  playerThreat += (Math.random() - 0.5) * 8;
+  playerThreat += (Math.random() - 0.5) * 6;
   // Bias mitigation: unless clearly suspicious, dampen player targeting
   if (playerEntity && playerEntity.psychProfile.suspicionLevel < 55 && playerThreat > 0) {
     playerThreat *= 0.7;
@@ -81,9 +86,19 @@ export const processVoting = (
     const memPlan = memoryEngine.getVotingPlan(voter.name);
     if (memPlan && memPlan.target && memPlan.target !== voter.name && memPlan.target !== immunityWinner) {
       // Honor explicit plans most of the time (represents soft/firm commitments)
-      if (Math.random() < 0.8) {
+      if (Math.random() < 0.9) {
         votes[voter.name] = memPlan.target;
         voteCounts.set(memPlan.target, (voteCounts.get(memPlan.target) || 0) + 1);
+
+        if (debugEnabled) {
+          debugVoters.push({
+            voter: voter.name,
+            decidedTarget: memPlan.target,
+            via: 'memory_plan',
+            notes: memPlan.reasoning
+          });
+        }
+
         return;
       }
     }
@@ -91,6 +106,7 @@ export const processVoting = (
     // ENHANCED: Check for alliance vote coordination next
     const voterAlliances = alliances.filter(a => a.members.includes(voter.name));
     let allianceTarget: string | null = null;
+    let coordinatingAllianceStrength: number | undefined;
 
     // Check if any of voter's alliances want to coordinate
     for (const alliance of voterAlliances) {
@@ -101,17 +117,37 @@ export const processVoting = (
       const coordTarget = AllianceManager.getCoordinatedTarget(alliance, gameState, validTargets);
       if (coordTarget && coordTarget !== immunityWinner) {
         allianceTarget = coordTarget;
+        coordinatingAllianceStrength = alliance.strength;
         console.log(`${voter.name} following alliance coordination: voting for ${coordTarget}`);
         break;
       }
     }
 
-    // If alliance coordination exists, use it (with small chance of betrayal)
-    if (allianceTarget && allianceTarget !== voter.name && Math.random() > 0.15) { // 85% alliance loyalty
-      votes[voter.name] = allianceTarget;
-      const currentCount = voteCounts.get(allianceTarget) || 0;
-      voteCounts.set(allianceTarget, currentCount + 1);
-      return;
+    // If alliance coordination exists, use it (with chance of betrayal based on strength)
+    if (allianceTarget && allianceTarget !== voter.name) {
+      const strength = coordinatingAllianceStrength ?? 50;
+      // Strong alliances are very sticky; weak ones are easy to defect from
+      const loyaltyChance =
+        strength >= 75 ? 0.93 :
+        strength >= 55 ? 0.88 :
+        strength >= 35 ? 0.8 : 0.7;
+
+      if (Math.random() < loyaltyChance) {
+        votes[voter.name] = allianceTarget;
+        const currentCount = voteCounts.get(allianceTarget) || 0;
+        voteCounts.set(allianceTarget, currentCount + 1);
+
+        if (debugEnabled) {
+          debugVoters.push({
+            voter: voter.name,
+            decidedTarget: allianceTarget,
+            via: 'alliance_coord',
+            notes: `Followed alliance plan (strength ${strength})`
+          });
+        }
+
+        return;
+      }
     }
 
     // Get voter's memory and strategic context for individual decision
@@ -127,61 +163,94 @@ export const processVoting = (
 
     let targetName = '';
     let highestThreat = -Infinity;
+    const consideredDebug: VotingDebugVoterEntry['considered'] = [];
 
     activeContestants.forEach(target => {
       if (target.name === voter.name) return;
       if (target.name === immunityWinner) return; // Can't vote for immunity winner
 
       // Enhanced alliance loyalty with memory
+      let recentBetrayal = false;
       if (allianceMembers.has(target.name)) {
         const relationship = relationshipGraphEngine.getRelationship(voter.name, target.name);
         const isGenuinelyLoyal = voter.psychProfile.trustLevel > 60 && voter.psychProfile.suspicionLevel < 40;
 
         // Check memory for recent betrayals or broken promises
-        const recentBetrayal = voterMemory.events.some((e: any) =>
+        recentBetrayal = voterMemory.events.some((e: any) =>
           e.type === 'betrayal' && e.participants.includes(target.name) && e.day >= gameState.currentDay - 3
         );
 
         if (recentBetrayal) {
-          // Betrayed allies can be voted for
+          // Betrayed allies can be voted for freely
         } else if (relationship && relationship.trust > 70 && isGenuinelyLoyal) {
-          if (Math.random() > 0.2) return; // 80% loyalty for high trust
-        } else if (allianceMembers.has(target.name) && Math.random() > 0.1) {
-          return; // 90% general alliance loyalty
+          if (Math.random() > 0.15) return; // ~85% loyalty for high trust bonds
+        } else if (allianceMembers.has(target.name) && Math.random() > 0.2) {
+          return; // ~80% general alliance loyalty
         }
       }
 
       const threat = threatLevels.get(target.name) || 0;
 
       // Enhanced relationship factors using memory and relationship graph
-      let personalModifier = 0;
+      let relationshipModifier = 0;
+      let graphModifier = 0;
+      let memoryModifier = 0;
 
-      // Traditional memory impact
+      // Traditional memory impact (recent conversations)
       const relationship = voter.memory.filter(m =>
         m.participants.includes(target.name) && m.type === 'conversation'
       ).reduce((sum, m) => sum + m.emotionalImpact, 0);
-      personalModifier += -relationship * 3;
+      relationshipModifier += -relationship * 2.5;
 
       // Relationship graph impact
       const graphRelationship = relationshipGraphEngine.getRelationship(voter.name, target.name);
       if (graphRelationship) {
-        personalModifier += -graphRelationship.trust * 0.5;
-        personalModifier += graphRelationship.suspicion * 0.7;
+        graphModifier += -graphRelationship.trust * 0.4;
+        graphModifier += graphRelationship.suspicion * 0.8;
       }
 
       // Memory-based strategic factors
       const promisesBroken = voterMemory.events.filter((e: any) =>
         e.type === 'promise' && e.participants.includes(target.name) && e.content.includes('broken')
       ).length;
-      personalModifier += promisesBroken * 15;
+      memoryModifier += promisesBroken * 20;
 
       // Recent gossip impact
       const recentGossip = voterMemory.relevantGossip.filter((g: any) =>
         g.info.includes(target.name) && g.day >= gameState.currentDay - 2
       );
-      personalModifier += recentGossip.length * 5;
+      memoryModifier += recentGossip.length * 6;
 
+      // Betrayal memories (longer-lived resentment)
+      const betrayalEvents = voterMemory.events.filter((e: any) =>
+        e.type === 'betrayal' && e.participants.includes(target.name)
+      );
+      betrayalEvents.forEach((e: any) => {
+        const daysAgo = gameState.currentDay - e.day;
+        if (daysAgo <= 3) {
+          memoryModifier += 35;
+        } else if (daysAgo <= 7) {
+          memoryModifier += 25;
+        } else {
+          memoryModifier += 15;
+        }
+      });
+
+      const personalModifier = relationshipModifier + graphModifier + memoryModifier;
       const finalThreat = threat + personalModifier;
+
+      if (debugEnabled) {
+        consideredDebug.push({
+          target: target.name,
+          baseThreat: threat,
+          relationshipModifier,
+          graphModifier,
+          memoryModifier,
+          finalThreat,
+          allianceMember: allianceMembers.has(target.name),
+          recentBetrayal
+        });
+      }
 
       if (finalThreat > highestThreat) {
         highestThreat = finalThreat;
@@ -205,8 +274,17 @@ export const processVoting = (
       voteCounts.set(targetName, currentCount + 1);
 
       // Record voting reasoning in memory
-      const reasoning = `Voting for ${targetName} based on threat level and relationships`;
+      const reasoning = `Voting for ${targetName} based on threat level, relationships, and memory`;
       memoryEngine.updateVotingPlan(voter.name, targetName, reasoning);
+
+      if (debugEnabled) {
+        debugVoters.push({
+          voter: voter.name,
+          decidedTarget: targetName,
+          via: 'individual',
+          considered: consideredDebug
+        });
+      }
     }
   });
 
@@ -327,11 +405,27 @@ export const processVoting = (
           : `${eliminated} lost the sudden-death tie-break and was eliminated`)
       : `${eliminated} was seen as the biggest threat and received ${maxVotes} votes`;
 
+  // Optional debug payload for developer tooling
+  let debug: VotingRecord['debug'] | undefined;
+  if (debugEnabled) {
+    const threatSnapshot: { [name: string]: number } = {};
+    threatLevels.forEach((val, key) => {
+      threatSnapshot[key] = val;
+    });
+    debug = {
+      threatSnapshot,
+      voters: debugVoters
+    };
+    // Surface a concise console log for quick inspection without opening the panel
+    console.debug('[VotingEngine] Debug snapshot', { eliminated, threatSnapshot, voters: debugVoters });
+  }
+
   return {
     day: 0, // Will be set by caller
     eliminated,
     votes,
     reason,
-    tieBreak
+    tieBreak,
+    debug
   };
 };

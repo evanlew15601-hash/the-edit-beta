@@ -385,6 +385,28 @@ export interface Alliance {
   exposureRisk?: number; // 0-100, risk of being discovered
 }
 
+export interface VotingDebugVoterEntry {
+  voter: string;
+  decidedTarget: string;
+  via: 'memory_plan' | 'alliance_coord' | 'individual' | 'revote';
+  notes?: string;
+  considered?: {
+    target: string;
+    baseThreat: number;
+    relationshipModifier: number;
+    graphModifier: number;
+    memoryModifier: number;
+    finalThreat: number;
+    allianceMember: boolean;
+    recentBetrayal: boolean;
+  }[];
+}
+
+export interface VotingDebugInfo {
+  threatSnapshot?: { [name: string]: number };
+  voters?: VotingDebugVoterEntry[];
+}
+
 export interface VotingRecord {
   day: number;
   eliminated: string;
@@ -399,6 +421,8 @@ export interface VotingRecord {
     suddenDeathLoser?: string;
     log: string[];
   };
+  // Optional debug payload for developer tools
+  debug?: VotingDebugInfo;
 }
 
 export interface DialogueOption {

@@ -2,6 +2,8 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { GameState } from '@/types/game';
+import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
+import { memoryEngine } from '@/utils/memoryEngine';
 
 interface VotingDebugPanelProps {
   gameState: GameState;
@@ -41,6 +43,42 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
   const active = gameState.contestants.filter(c => !c.isEliminated);
   const eliminated = gameState.contestants.filter(c => c.isEliminated);
   const nonPlayerActive = active.filter(c => c.name !== gameState.playerName);
+
+  const lastVote = gameState.votingHistory[gameState.votingHistory.length - 1];
+  const lastDebug = lastVote?.debug;
+
+  const relationshipSnapshot = React.useMemo(
+    () =>
+      active
+        .map((c) => {
+          const standing = relationshipGraphEngine.calculateSocialStanding(c.name);
+          return { name: c.name, ...standing };
+        })
+        .sort((a, b) => b.socialPower - a.socialPower)
+        .slice(0, 6),
+    [active]
+  );
+
+  const allianceSummary = React.useMemo(
+    () =>
+      gameState.alliances.map((a) => ({
+        id: a.id,
+        name: a.name,
+        strength: a.strength,
+        members: a.members.length,
+      })),
+    [gameState.alliances]
+  );
+
+  const votingPlans = React.useMemo(() => {
+    return active
+      .map((c) => {
+        const plan = memoryEngine.getVotingPlan(c.name);
+        if (!plan || !plan.target) return null;
+        return { name: c.name, target: plan.target, reasoning: plan.reasoning };
+      })
+      .filter(Boolean) as { name: string; target: string; reasoning?: string }[];
+  }, [active, gameState.currentDay]);
 
   return (
     <div className="fixed bottom-4 right-4 z-50 w-[340px]">
@@ -187,8 +225,60 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
           )}
         </div>
 
-        <div className="mt-3 text-[11px] text-muted-foreground">
-          Shortcut: Press Shift+D to toggle this panel.
+        <div className="mt-3 space-y-2 text-[11px] text-muted-foreground">
+          <div>Shortcut: Press Shift+D to toggle this panel.</div>
+
+          {relationshipSnapshot.length > 0 && (
+            <div className="border-t border-border pt-2 space-y-1">
+              <div className="font-semibold text-[11px]">Relationship snapshot</div>
+              {relationshipSnapshot.map((row) => (
+                <div key={row.name} className="flex justify-between">
+                  <span>{row.name}</span>
+                  <span>
+                    T {row.averageTrust.toFixed(0)} • S {row.averageSuspicion.toFixed(0)} • P{' '}
+                    {row.socialPower.toFixed(0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {allianceSummary.length > 0 && (
+            <div className="border-t border-border pt-2 space-y-1">
+              <div className="font-semibold text-[11px]">Alliances</div>
+              {allianceSummary.map((a) => (
+                <div key={a.id} className="flex justify-between">
+                  <span>{a.name || a.id}</span>
+                  <span>
+                    Str {a.strength} • {a.members} members
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {votingPlans.length > 0 && (
+            <div className="border-t border-border pt-2 space-y-1">
+              <div className="font-semibold text-[11px]">Current voting plans</div>
+              {votingPlans.map((p) => (
+                <div key={p.name}>
+                  <span className="font-medium">{p.name}</span> → <span>{p.target}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {lastDebug?.voters && lastDebug.voters.length > 0 && (
+            <div className="border-t border-border pt-2 space-y-1">
+              <div className="font-semibold text-[11px]">Last vote breakdown</div>
+              {lastDebug.voters.slice(0, 6).map((v) => (
+                <div key={`${v.voter}-${v.decidedTarget}`}>
+                  <span className="font-medium">{v.voter}</span> → {v.decidedTarget}{' '}
+                  <span className="text-muted-foreground">({v.via})</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </Card>
     </div>
