@@ -12,7 +12,7 @@ interface DaySkipDialogProps {
   onConfirmSkip: () => void;
   currentDay: number;
   gameState: GameState;
-  onEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
+  onEventChoice: (event: any, choiceId: string) => void;
 }
 
 export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, gameState, onEventChoice }: DaySkipDialogProps) => {
@@ -39,9 +39,21 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
     setIsSkipping(false);
   };
 
-  const handleChoice = (choice: 'pacifist' | 'headfirst') => {
+  const handleChoice = (mode: 'pacifist' | 'headfirst') => {
     if (emergentEvent) {
-      onEventChoice(emergentEvent, choice);
+      let choiceId: string = mode;
+
+      if (Array.isArray(emergentEvent.choices) && emergentEvent.choices.length > 0) {
+        const choices = emergentEvent.choices as any[];
+        const sorted = [...choices].sort(
+          (a, b) => (a.editEffect ?? 0) - (b.editEffect ?? 0)
+        );
+        const low = sorted[0];
+        const high = sorted[sorted.length - 1];
+        choiceId = mode === 'pacifist' ? low.id : high.id;
+      }
+
+      onEventChoice(emergentEvent, choiceId);
       // After handling emergent event, proceed with day skip
       setTimeout(() => {
         onConfirmSkip();

@@ -19,7 +19,7 @@ interface GameplayScreenProps {
   gameState: GameState;
   onUseAction: (actionType: string, target?: string, content?: string, tone?: string) => void;
   onAdvanceDay: () => void;
-  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
+  onEmergentEventChoice: (event: any, choiceId: string) => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
   onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
   onHouseMeetingChoice: (choice: 'persuasive' | 'defensive' | 'aggressive' | 'manipulative' | 'silent') => void;

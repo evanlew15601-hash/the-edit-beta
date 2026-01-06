@@ -6,7 +6,7 @@ import { EmergentEvent } from '@/utils/emergentEventInterruptor';
 interface EmergentEventDialogProps {
   event: EmergentEvent | null;
   isOpen: boolean;
-  onChoice: (choice: 'pacifist' | 'headfirst') => void;
+  onChoice: (choiceId: string) => void;
   onClose: () => void;
 }
 

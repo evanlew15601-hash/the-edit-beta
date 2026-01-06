@@ -1623,8 +1623,8 @@ export const useGameState = () => {
     }
   }, []);
 
-  const handleEmergentEventChoice = useCallback((event: any, choice: 'pacifist' | 'headfirst') => {
-    console.log('Emergent event choice handled:', event.type, choice);
+  const handleEmergentEventChoice = useCallback((event: any, choiceId: string) => {
+    console.log('Emergent event choice handled:', event.type, choiceId);
     
     setGameState(prev => {
       const participants: string[] =
@@ -1632,8 +1632,12 @@ export const useGameState = () => {
         event.involvedContestants ||
         [];
 
+      const normalizedChoice = (choiceId || '').toString().toLowerCase();
+      const isPacifist = normalizedChoice === 'pacifist';
+      const isHeadfirst = normalizedChoice === 'headfirst';
+
       // If this is a structured emergent event (from EnhancedEmergentEvents util),
-      // map pacifist/headfirst to one of its choices and use its defined effects.
+      // map the choiceId to one of its choices and use its defined effects.
       let structuredRelationshipChanges: { [name: string]: number } = {};
       let structuredTrustChanges: { [name: string]: number } = {};
       let structuredEditDelta = 0;
@@ -1644,17 +1648,26 @@ export const useGameState = () => {
         typeof event.choices[0]?.relationshipEffects !== 'undefined';
 
       if (hasStructuredChoices) {
-        const choices = event.choices;
-        // Pacifist -> lowest editEffect (lower drama), Headfirst -> highest editEffect (maximum drama)
-        const pickExtremum = (cmp: (a: number, b: number) => boolean) =>
-          choices.reduce((best: any, c: any) =>
-            cmp(c.editEffect ?? 0, best.editEffect ?? 0) ? c : best,
-          choices[0]);
+        const choices = event.choices as any[];
+        // First try direct id match
+        let chosen = choices.find(c => c.id === choiceId);
 
-        const chosen =
-          choice === 'pacifist'
-            ? pickExtremum((a, b) => a < b)
-            : pickExtremum((a, b) => a > b);
+        if (!chosen) {
+          // Fallback: pacifist/headfirst map to min/max editEffect
+          const pickExtremum = (cmp: (a: number, b: number) => boolean) =>
+            choices.reduce((best: any, c: any) =>
+              cmp(c.editEffect ?? 0, best.editEffect ?? 0) ? c : best,
+            choices[0]);
+
+          if (isPacifist) {
+            chosen = pickExtremum((a, b) => a < b);
+          } else if (isHeadfirst) {
+            chosen = pickExtremum((a, b) => a > b);
+          } else {
+            // If we still don't know, default to the first choice
+            chosen = choices[0];
+          }
+        }
 
         const result = StructuredEmergentEvents.executeEventChoice(chosen, prev as GameState);
         structuredRelationshipChanges = result.relationshipChanges || {};
@@ -1669,56 +1682,54 @@ export const useGameState = () => {
         let suspicionDelta = 0;
         let closenessDelta = structuredRelationshipChanges[contestant.name] || 0;
         
-        // Apply additional relationship effects based on legacy event type and choice
+        // Apply additional relationship effects based on legacy event type and choice semantics
         switch (event.type) {
           case 'conflict':
-            if (choice === 'pacifist') {
+            if (isPacifist) {
               trustDelta += 10;
               suspicionDelta -= 5;
-            } else {
+            } else if (isHeadfirst) {
               trustDelta += -15;
               suspicionDelta += 10;
             }
             break;
           case 'alliance_formation':
-            if (choice === 'pacifist') {
+            if (isPacifist) {
               trustDelta += 5;
-            } else {
+            } else if (isHeadfirst) {
               trustDelta += -10;
               suspicionDelta += 15;
             }
             break;
           case 'betrayal':
-            if (choice === 'pacifist') {
-              // stay mostly neutral, rely on structured deltas
-            } else {
+            if (isHeadfirst) {
               trustDelta += 15;
               suspicionDelta += -10;
             }
             break;
           case 'romance':
-            if (choice === 'pacifist') {
+            if (isPacifist) {
               closenessDelta += 2;
               trustDelta += 2;
-            } else {
+            } else if (isHeadfirst) {
               closenessDelta += 6;
               trustDelta += 4;
               suspicionDelta -= 2;
             }
             break;
           case 'rumor_spread':
-            if (choice === 'pacifist') {
+            if (isPacifist) {
               suspicionDelta -= 3;
-            } else {
+            } else if (isHeadfirst) {
               suspicionDelta += 6;
               trustDelta -= 4;
             }
             break;
           case 'power_shift':
-            if (choice === 'pacifist') {
+            if (isPacifist) {
               // steady the vote
               suspicionDelta -= 2;
-            } else {
+            } else if (isHeadfirst) {
               // push the flip, increase volatility
               suspicionDelta += 5;
               trustDelta -= 3;
@@ -1759,7 +1770,7 @@ export const useGameState = () => {
           day: prev.currentDay,
           type: 'event' as const,
           participants,
-          content: `${event.title}: ${prev.playerName} chose to ${choice === 'pacifist' ? 'defuse' : 'escalate'} the situation`,
+          content: `${event.title}: ${prev.playerName} chose to ${isPacifist ? 'defuse' : 'escalate'} the situation`,
           emotionalImpact: Math.max(-10, Math.min(10, Math.floor(trustDelta / 5))),
           timestamp: Date.now(),
           tags: microTag ? [microTag] : undefined,
@@ -1778,7 +1789,7 @@ export const useGameState = () => {
       });
       
       // Apply edit impact from the emergent event choice
-      const baseEditImpact = choice === 'pacifist' ? -2 : 8; // Pacifist = less dramatic, headfirst = more screen time
+      const baseEditImpact = isPacifist ? -2 : 8; // Pacifist = less dramatic, headfirst = more screen time
       const editImpact = structuredEditDelta || baseEditImpact;
       const updatedEditPerception = {
         ...prev.editPerception,
@@ -1806,7 +1817,7 @@ export const useGameState = () => {
             day: prev.currentDay,
             type: 'activity',
             participants: [prev.playerName, ...participants],
-            content: `Emergent Event: ${event.title} - ${choice} approach`,
+            content: `Emergent Event: ${event.title} - ${isPacifist ? 'pacifist' : 'headfirst'} approach`,
             source: 'emergent_event' as const
           }
         ],

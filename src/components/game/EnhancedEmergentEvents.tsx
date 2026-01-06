@@ -18,7 +18,7 @@ type UIEmergentEvent = StructuredEmergentEvent & {
 
 interface EnhancedEmergentEventsProps {
   gameState: GameState;
-  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
+  onEmergentEventChoice: (event: any, choiceId: string) => void;
 }
 
 export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: EnhancedEmergentEventsProps) => {
@@ -85,20 +85,30 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
 
   
 
-  const resolveEvent = (eventId: string, choiceId: string) => {
+  const resolveEvent = (eventId: string, modeOrChoiceId: string) => {
     const event = activeEvents.find(e => e.id === eventId);
     if (!event) return;
 
     setActiveEvents(prev => prev.filter(e => e.id !== eventId));
     setEventHistory(prev => [...prev, event].slice(-10)); // Keep last 10 events
     
-    if (choiceId !== 'auto') {
-      const mappedChoice = choiceId === 'pacifist' || choiceId === 'headfirst'
-        ? (choiceId as 'pacifist' | 'headfirst')
-        : choiceId === 'damage_control' || choiceId === 'reinforce_loyalty' || choiceId === 'probe_quietly'
-        ? 'pacifist'
-        : 'headfirst';
-      onEmergentEventChoice(event, mappedChoice);
+    if (modeOrChoiceId !== 'auto') {
+      let choiceId = modeOrChoiceId;
+      const normalized = modeOrChoiceId.toLowerCase();
+      const isPacifist = normalized === 'pacifist';
+      const isHeadfirst = normalized === 'headfirst';
+
+      if (Array.isArray(event.choices) && event.choices.length > 0 && (isPacifist || isHeadfirst)) {
+        const choices = event.choices as any[];
+        const sorted = [...choices].sort(
+          (a, b) => (a.editEffect ?? 0) - (b.editEffect ?? 0)
+        );
+        const low = sorted[0];
+        const high = sorted[sorted.length - 1];
+        choiceId = isPacifist ? low.id : high.id;
+      }
+
+      onEmergentEventChoice(event, choiceId);
     }
   };
 

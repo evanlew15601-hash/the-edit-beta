@@ -22,7 +22,7 @@ interface ActionPanelProps {
   gameState: GameState;
   onUseAction: (actionType: string, target?: string, content?: string, tone?: string) => void;
   onAdvanceDay: () => void;
-  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
+  onEmergentEventChoice: (event: any, choiceId: string) => void;
   onForcedConversationReply: (from: string, content: string, tone: string) => void;
   onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
   onAllianceMeeting: (allianceId: string, agenda: string, tone: string) => void;
