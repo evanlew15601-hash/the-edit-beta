@@ -1,6 +1,18 @@
 import { Button } from '@/components/ui/enhanced-button';
 import { Button as TopButton } from '@/components/ui/button';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 interface IntroScreenProps {
   onStartGame: (playerName?: string) => void;
   onContinue?: () => void;
@@ -64,37 +76,15 @@ export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, 
             </div>
 
             <div className="border-l-2 border-primary pl-6 space-y-3">
-              <p className="text-sm text-muted-foreground uppercase tracking-wide">
-                Mars Vega (Host)
-              </p>
-              <p className="text-foreground italic leading-relaxed">
-                "Welcome to The Edit. From this moment on, everything you say, and everything you don't, becomes part of your story."
-              </p>
-            </div>
-
-            <div className="space-y-4 pt-6">
-              <p className="text-foreground">
-                Begin your season with character creation. Your name will be set and validated there.
-              </p>
-              <div className="flex justify-center">
-                <Button 
-                  onClick={handleStart}
-                  variant="surveillance"
-                  size="wide"
-                >
-                  Begin Character Creation
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>All actions have consequences</p>
-            <p>Everything is being recorded</p>
-            <p>Trust no one completely</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+              <p className="text-sm text-muted-foreground uppercase 'intro':
+        return (
+          <IntroScreen 
+            onStartGame={startGame}
+            onContinue={loadSavedGame}
+            onDeleteSave={deleteSavedGame}
+            debugMode={gameState.debugMode}
+            onToggleDebug={toggleDebugMode}
+            hasSave={hasSavedGame()}
+          />
+        );
 };
