@@ -22,8 +22,13 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
   console.log('[PostSeasonRecap] Winner:', winner);
   console.log('[PostSeasonRecap] Final votes:', finalVotes);
 
-  // Guard: Validate winner exists
-  if (!winner || !gameState.contestants.find(c => c.name === winner)) {
+  const hasWinner =
+    !!winner &&
+    winner !== 'Unknown' &&
+    !!gameState.contestants.find(c => c.name === winner);
+
+  // Guard: Validate winner exists when we expect one
+  if (!hasWinner && winner && winner !== 'Unknown') {
     console.error('[PostSeasonRecap] Invalid winner:', winner);
   }
 
@@ -41,19 +46,29 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Winner Announcement */}
+        {/* Winner / Recap Announcement */}
         <Card className="p-8 text-center bg-primary/10 border-primary/20">
           <Crown className="w-16 h-16 text-primary mx-auto mb-4" />
-          <h1 className="text-4xl font-light mb-2">Season Complete</h1>
-          <h2 className="text-2xl font-medium mb-4">
-            {winner} is the Winner!
-          </h2>
-          <p className="text-muted-foreground">
-            {winner === gameState.playerName 
-              ? 'Congratulations! You played the perfect game and won the jury vote.'
-              : `${winner} outplayed, outwitted, and outlasted everyone to claim victory.`
-            }
-          </p>
+          <h1 className="text-4xl font-light mb-2">
+            {hasWinner ? 'Season Complete' : 'Season Recap'}
+          </h1>
+          {hasWinner ? (
+            <>
+              <h2 className="text-2xl font-medium mb-4">
+                {winner} is the Winner!
+              </h2>
+              <p className="text-muted-foreground">
+                {winner === gameState.playerName 
+                  ? 'Congratulations! You played the perfect game and won the jury vote.'
+                  : `${winner} outplayed, outwitted, and outlasted everyone to claim victory.`
+                }
+              </p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">
+              Your game ended before a final winner was crowned in this save. Here’s how your story was edited this season.
+            </p>
+          )}
         </Card>
 
         {/* Tabbed Content */}
@@ -370,17 +385,19 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                   ))}
                   
                   {/* Finale */}
-                  <div className="flex items-start gap-3 p-3 border border-primary/20 bg-primary/10 rounded">
-                    <Crown className="w-5 h-5 text-primary mt-1" />
-                    <div className="flex-1">
-                      <div className="font-medium">
-                        Day {gameState.currentDay}: {winner} Crowned Winner
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        Won jury vote {Object.values(finalVotes).filter(v => v === winner).length}-{Object.values(finalVotes).filter(v => v !== winner).length}
+                  {hasWinner && (
+                    <div className="flex items-start gap-3 p-3 border border-primary/20 bg-primary/10 rounded">
+                      <Crown className="w-5 h-5 text-primary mt-1" />
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          Day {gameState.currentDay}: {winner} Crowned Winner
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Won jury vote {Object.values(finalVotes).filter(v => v === winner).length}-{Object.values(finalVotes).filter(v => v !== winner).length}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </ScrollArea>
             </Card>

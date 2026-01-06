@@ -1517,6 +1517,23 @@ export const useGameState = () => {
           gamePhase: 'finale' as const
         };
       }
+
+      // If the player is eliminated before jury starts, end their season with a recap
+      if (playerEliminated && !isJuryPhase) {
+        console.log('continueFromElimination - Player eliminated pre-jury, ending season with recap');
+        const afpRanking = prev.afpRanking && prev.afpRanking.length > 0
+          ? prev.afpRanking
+          : calculateAFPRanking(prev, prev.afpVote);
+        return {
+          ...prev,
+          isPlayerEliminated: true,
+          gamePhase: 'post_season' as const,
+          gameWinner: prev.gameWinner || 'Unknown',
+          finalJuryVotes: prev.finalJuryVotes || {},
+          juryRationales: prev.juryRationales,
+          afpRanking,
+        };
+      }
       
       // If we're down to final 3, go to final 3 vote (only if player is still active)
       if (remainingCount === 3) {
@@ -2345,6 +2362,17 @@ export const useGameState = () => {
       }));
     }
   }, [gameState.gamePhase, gameState.playerName]);
+
+  // Watchdog: if the player has been eliminated, never drop them back into daily gameplay.
+  useEffect(() => {
+    if (gameState.isPlayerEliminated && gameState.gamePhase === 'daily') {
+      console.warn('Phase watchdog: Player is eliminated; redirecting to post-season recap');
+      setGameState(prev => ({
+        ...prev,
+        gamePhase: 'post_season' as const,
+      }));
+    }
+  }, [gameState.isPlayerEliminated, gameState.gamePhase]);
 
   return {
     gameState,

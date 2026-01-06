@@ -102,6 +102,11 @@ export const PlayerVoteScreen = ({ gameState, onSubmitVote }: PlayerVoteScreenPr
               >
                 Submit Vote
               </Button>
+              {!choice && eligible.length > 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Select a houseguest above to cast your vote.
+                </p>
+              )}
             </>
           )}
         </Card>
