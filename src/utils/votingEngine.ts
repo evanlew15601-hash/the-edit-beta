@@ -36,12 +36,16 @@ export const processVoting = (
     // Alliance considerations
     const contestantAlliances = alliances.filter(a => a.members.includes(contestant.name));
     threat += contestantAlliances.length * 10;
+
+    // Social standing from relationship graph (how powerful they are socially)
+    const standing = relationshipGraphEngine.calculateSocialStanding(contestant.name);
+    threat += standing.socialPower * 0.4;
     
     // Edit bias (production favorites get protected)
     threat -= contestant.psychProfile.editBias * 2;
     
-    // Random factor for unpredictability
-    threat += (Math.random() - 0.5) * 20;
+    // Random factor for unpredictability (slightly reduced now that we use relationships)
+    threat += (Math.random() - 0.5) * 10;
     
     threatLevels.set(contestant.name, threat);
   });
@@ -55,21 +59,24 @@ export const processVoting = (
     const playerAlliances = alliances.filter(a => a.members.includes(playerName));
     playerThreat += playerAlliances.length * 6;
     playerThreat -= playerEntity.psychProfile.editBias * 2;
+
+    const playerStanding = relationshipGraphEngine.calculateSocialStanding(playerName);
+    playerThreat += playerStanding.socialPower * 0.3;
   }
-  playerThreat += (Math.random() - 0.5) * 15;
+  playerThreat += (Math.random() - 0.5) * 8;
   // Bias mitigation: unless clearly suspicious, dampen player targeting
   if (playerEntity && playerEntity.psychProfile.suspicionLevel < 55 && playerThreat > 0) {
     playerThreat *= 0.7;
   }
   threatLevels.set(playerName, playerThreat);
 
-  // Generate votes based on relationships and threat levels
+  // Generate votes based on relationships, memory, and threat levels
   const votes: { [voterName: string]: string } = {};
   const voteCounts = new Map<string, number>();
 
   activeContestants.forEach(voter => {
     if (voter.name === playerName) return; // Player votes separately
-    
+
     // ENHANCED: Check for player-influenced voting plan first (pressure/commitment stored in memory)
     const memPlan = memoryEngine.getVotingPlan(voter.name);
     if (memPlan && memPlan.target && memPlan.target !== voter.name && memPlan.target !== immunityWinner) {
@@ -84,14 +91,13 @@ export const processVoting = (
     // ENHANCED: Check for alliance vote coordination next
     const voterAlliances = alliances.filter(a => a.members.includes(voter.name));
     let allianceTarget: string | null = null;
-    
+
     // Check if any of voter's alliances want to coordinate
     for (const alliance of voterAlliances) {
       const validTargets = activeContestants
         .filter(c => c.name !== voter.name && c.name !== immunityWinner)
         .map(c => c.name);
-      validTargets.push(playerName); // Include player as valid target
-      
+
       const coordTarget = AllianceManager.getCoordinatedTarget(alliance, gameState, validTargets);
       if (coordTarget && coordTarget !== immunityWinner) {
         allianceTarget = coordTarget;
@@ -99,7 +105,7 @@ export const processVoting = (
         break;
       }
     }
-    
+
     // If alliance coordination exists, use it (with small chance of betrayal)
     if (allianceTarget && allianceTarget !== voter.name && Math.random() > 0.15) { // 85% alliance loyalty
       votes[voter.name] = allianceTarget;
@@ -107,35 +113,35 @@ export const processVoting = (
       voteCounts.set(allianceTarget, currentCount + 1);
       return;
     }
-    
+
     // Get voter's memory and strategic context for individual decision
-    const voterMemory = memoryEngine.queryMemory(voter.id, {
+    const voterMemory = memoryEngine.queryMemory(voter.name, {
       dayRange: { start: gameState.currentDay - 7, end: gameState.currentDay },
       minImportance: 3
     });
-    
-    memoryEngine.getStrategicContext(voter.id, gameState);
-    
+
+    memoryEngine.getStrategicContext(voter.name, gameState);
+
     // Find target with highest threat that isn't in voter's alliance
     const allianceMembers = new Set(voterAlliances.flatMap(a => a.members));
-    
+
     let targetName = '';
     let highestThreat = -Infinity;
-    
-    [...activeContestants, { name: playerName } as any].forEach(target => {
+
+    activeContestants.forEach(target => {
       if (target.name === voter.name) return;
       if (target.name === immunityWinner) return; // Can't vote for immunity winner
-      
+
       // Enhanced alliance loyalty with memory
       if (allianceMembers.has(target.name)) {
         const relationship = relationshipGraphEngine.getRelationship(voter.name, target.name);
         const isGenuinelyLoyal = voter.psychProfile.trustLevel > 60 && voter.psychProfile.suspicionLevel < 40;
-        
+
         // Check memory for recent betrayals or broken promises
-        const recentBetrayal = voterMemory.events.some((e: any) => 
+        const recentBetrayal = voterMemory.events.some((e: any) =>
           e.type === 'betrayal' && e.participants.includes(target.name) && e.day >= gameState.currentDay - 3
         );
-        
+
         if (recentBetrayal) {
           // Betrayed allies can be voted for
         } else if (relationship && relationship.trust > 70 && isGenuinelyLoyal) {
@@ -144,45 +150,45 @@ export const processVoting = (
           return; // 90% general alliance loyalty
         }
       }
-      
+
       const threat = threatLevels.get(target.name) || 0;
-      
+
       // Enhanced relationship factors using memory and relationship graph
       let personalModifier = 0;
-      
+
       // Traditional memory impact
-      const relationship = voter.memory.filter(m => 
+      const relationship = voter.memory.filter(m =>
         m.participants.includes(target.name) && m.type === 'conversation'
       ).reduce((sum, m) => sum + m.emotionalImpact, 0);
       personalModifier += -relationship * 3;
-      
+
       // Relationship graph impact
       const graphRelationship = relationshipGraphEngine.getRelationship(voter.name, target.name);
       if (graphRelationship) {
         personalModifier += -graphRelationship.trust * 0.5;
         personalModifier += graphRelationship.suspicion * 0.7;
       }
-      
+
       // Memory-based strategic factors
-      const promisesBroken = voterMemory.events.filter((e: any) => 
+      const promisesBroken = voterMemory.events.filter((e: any) =>
         e.type === 'promise' && e.participants.includes(target.name) && e.content.includes('broken')
       ).length;
       personalModifier += promisesBroken * 15;
-      
+
       // Recent gossip impact
-      const recentGossip = voterMemory.relevantGossip.filter((g: any) => 
+      const recentGossip = voterMemory.relevantGossip.filter((g: any) =>
         g.info.includes(target.name) && g.day >= gameState.currentDay - 2
       );
       personalModifier += recentGossip.length * 5;
-      
+
       const finalThreat = threat + personalModifier;
-      
+
       if (finalThreat > highestThreat) {
         highestThreat = finalThreat;
         targetName = target.name;
       }
     });
-    
+
     // Fallback: if no target computed (e.g. all filtered), pick a valid non-immune opponent
     if (!targetName) {
       const pool = activeContestants
@@ -192,12 +198,12 @@ export const processVoting = (
         targetName = pool[Math.floor(Math.random() * pool.length)];
       }
     }
-    
+
     if (targetName) {
       votes[voter.name] = targetName;
       const currentCount = voteCounts.get(targetName) || 0;
       voteCounts.set(targetName, currentCount + 1);
-      
+
       // Record voting reasoning in memory
       const reasoning = `Voting for ${targetName} based on threat level and relationships`;
       memoryEngine.updateVotingPlan(voter.name, targetName, reasoning);
