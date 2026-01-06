@@ -11,6 +11,7 @@ import { InformationTradingEngine } from '@/utils/informationTradingEngine';
 import { calculateAFPRanking } from '@/utils/afpCalculator';
 import { gameSystemIntegrator } from '@/utils/gameSystemIntegrator';
 import { processVoting } from '@/utils/votingEngine';
+import { EnhancedEmergentEvents as StructuredEmergentEvents } from '@/utils/enhancedEmergentEvents';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
@@ -1626,83 +1627,154 @@ export const useGameState = () => {
     console.log('Emergent event choice handled:', event.type, choice);
     
     setGameState(prev => {
-      const updatedContestants = prev.contestants.map(contestant => {
-        if (event.participants.includes(contestant.name)) {
-          let trustDelta = 0;
-          let suspicionDelta = 0;
-          
-          // Apply relationship effects based on event type and choice
-          switch (event.type) {
-            case 'conflict':
-              if (choice === 'pacifist') {
-                trustDelta = 10;
-                suspicionDelta = -5;
-              } else {
-                trustDelta = -15;
-                suspicionDelta = 10;
-              }
-              break;
-            case 'alliance_formation':
-              if (choice === 'pacifist') {
-                trustDelta = 5;
-              } else {
-                trustDelta = -10;
-                suspicionDelta = 15;
-              }
-              break;
-            case 'betrayal':
-              if (choice === 'pacifist') {
-                trustDelta = 0;
-              } else {
-                trustDelta = choice === 'headfirst' ? 15 : -5;
-                suspicionDelta = choice === 'headfirst' ? -10 : 5;
-              }
-              break;
-          }
-          
-          const newTrustLevel = Math.max(-100, Math.min(100, 
-            contestant.psychProfile.trustLevel + trustDelta
-          ));
-          const newSuspicionLevel = Math.max(0, Math.min(100, 
-            contestant.psychProfile.suspicionLevel + suspicionDelta
-          ));
-          
-          // Tag resolved micro-events for jury reasoning (rumor/correction/trap)
-          const microTag = (() => {
-            const id = (event.id || '').toString().toLowerCase();
-            const title = (event.title || '').toString().toLowerCase();
-            if (id.includes('whisper') || title.includes('whisper') || title.includes('rumor')) return 'rumor';
-            if (id.includes('misquote') || title.includes('misquote') || title.includes('correction')) return 'correction';
-            if (id.includes('soft_betrayal') || title.includes('trap')) return 'trap';
-            return undefined;
-          })();
+      const participants: string[] =
+        event.participants ||
+        event.involvedContestants ||
+        [];
 
-          // Add memory of the emergent event
-          const newMemory = {
-            day: prev.currentDay,
-            type: 'event' as const,
-            participants: event.participants,
-            content: `${event.title}: ${prev.playerName} chose to ${choice === 'pacifist' ? 'defuse' : 'escalate'} the situation`,
-            emotionalImpact: Math.floor(trustDelta / 5),
-            timestamp: Date.now(),
-            tags: microTag ? [microTag] : undefined,
-          };
-          
-          return {
-            ...contestant,
-            psychProfile: {
-              ...contestant.psychProfile,
-              trustLevel: newTrustLevel,
-              suspicionLevel: newSuspicionLevel
-            },
-            memory: [...contestant.memory, newMemory]
-          };
+      // If this is a structured emergent event (from EnhancedEmergentEvents util),
+      // map pacifist/headfirst to one of its choices and use its defined effects.
+      let structuredRelationshipChanges: { [name: string]: number } = {};
+      let structuredTrustChanges: { [name: string]: number } = {};
+      let structuredEditDelta = 0;
+
+      if (Array.isArray(event.choices) && event.choices.length > 0) {
+        const choices = event.choices;
+        // Pacifist -> lowest editEffect (lower drama), Headfirst -> highest editEffect (maximum drama)
+        const pickExtremum = (cmp: (a: number, b: number) => boolean) =>
+          choices.reduce((best: any, c: any) =>
+            cmp(c.editEffect ?? 0, best.editEffect ?? 0) ? c : best,
+          choices[0]);
+
+        const chosen =
+          choice === 'pacifist'
+            ? pickExtremum((a, b) => a < b)
+            : pickExtremum((a, b) => a > b);
+
+        const result = StructuredEmergentEvents.executeEventChoice(chosen, prev as GameState);
+        structuredRelationshipChanges = result.relationshipChanges || {};
+        structuredTrustChanges = result.trustChanges || {};
+        structuredEditDelta = result.editChange || 0;
+      }
+
+      const updatedContestants = prev.contestants.map(contestant => {
+        if (!participants.includes(contestant.name)) return contestant;
+
+        let trustDelta = structuredTrustChanges[contestant.name] || 0;
+        let suspicionDelta = 0;
+        let closenessDelta = structuredRelationshipChanges[contestant.name] || 0;
+        
+        // Apply additional relationship effects based on legacy event type and choice
+        switch (event.type) {
+          case 'conflict':
+            if (choice === 'pacifist') {
+              trustDelta += 10;
+              suspicionDelta -= 5;
+            } else {
+              trustDelta += -15;
+              suspicionDelta += 10;
+            }
+            break;
+          case 'alliance_formation':
+            if (choice === 'pacifist') {
+              trustDelta += 5;
+            } else {
+              trustDelta += -10;
+              suspicionDelta += 15;
+            }
+            break;
+          case 'betrayal':
+            if (choice === 'pacifist') {
+              // stay mostly neutral, rely on structured deltas
+            } else {
+              trustDelta += 15;
+              suspicionDelta += -10;
+            }
+            break;
+          case 'romance':
+            if (choice === 'pacifist') {
+              closenessDelta += 2;
+              trustDelta += 2;
+            } else {
+              closenessDelta += 6;
+              trustDelta += 4;
+              suspicionDelta -= 2;
+            }
+            break;
+          case 'rumor_spread':
+            if (choice === 'pacifist') {
+              suspicionDelta -= 3;
+            } else {
+              suspicionDelta += 6;
+              trustDelta -= 4;
+            }
+            break;
+          case 'power_shift':
+            if (choice === 'pacifist') {
+              // steady the vote
+              suspicionDelta -= 2;
+            } else {
+              // push the flip, increase volatility
+              suspicionDelta += 5;
+              trustDelta -= 3;
+            }
+            break;
+          default:
+            // For newer structured events without legacy type handling,
+            // map trust changes into suspicion lightly if no explicit rule exists.
+            if (!['conflict', 'alliance_formation', 'betrayal', 'romance', 'rumor_spread', 'power_shift'].includes(event.type)) {
+              if (trustDelta > 0) suspicionDelta -= 2;
+              if (trustDelta < 0) suspicionDelta += 4;
+            }
+            break;
         }
-        return contestant;
+        
+        const newTrustLevel = Math.max(-100, Math.min(100, 
+          contestant.psychProfile.trustLevel + trustDelta
+        ));
+        const newSuspicionLevel = Math.max(0, Math.min(100, 
+          contestant.psychProfile.suspicionLevel + suspicionDelta
+        ));
+        const newCloseness = Math.max(0, Math.min(100,
+          (contestant.psychProfile.emotionalCloseness || 0) + closenessDelta
+        ));
+        
+        // Tag resolved micro-events for jury reasoning (rumor/correction/trap)
+        const microTag = (() => {
+          const id = (event.id || '').toString().toLowerCase();
+          const title = (event.title || '').toString().toLowerCase();
+          if (id.includes('whisper') || title.includes('whisper') || title.includes('rumor')) return 'rumor';
+          if (id.includes('misquote') || title.includes('misquote') || title.includes('correction')) return 'correction';
+          if (id.includes('soft_betrayal') || title.includes('trap')) return 'trap';
+          return undefined;
+        })();
+
+        // Add memory of the emergent event
+        const newMemory = {
+          day: prev.currentDay,
+          type: 'event' as const,
+          participants,
+          content: `${event.title}: ${prev.playerName} chose to ${choice === 'pacifist' ? 'defuse' : 'escalate'} the situation`,
+          emotionalImpact: Math.max(-10, Math.min(10, Math.floor(trustDelta / 5))),
+          timestamp: Date.now(),
+          tags: microTag ? [microTag] : undefined,
+        };
+        
+        return {
+          ...contestant,
+          psychProfile: {
+            ...contestant.psychProfile,
+            trustLevel: newTrustLevel,
+            suspicionLevel: newSuspicionLevel,
+            emotionalCloseness: newCloseness,
+          },
+          memory: [...contestant.memory, newMemory]
+        };
       });
       
       // Apply edit impact from the emergent event choice
-      const editImpact = choice === 'pacifist' ? -2 : 8; // Pacifist = less dramatic, headfirst = more screen time
+      const baseEditImpact = choice === 'pacifist' ? -2 : 8; // Pacifist = less dramatic, headfirst = more screen time
+      const editImpact = structuredEditDelta || baseEditImpact;
       const updatedEditPerception = {
         ...prev.editPerception,
         screenTimeIndex: Math.max(0, Math.min(100, prev.editPerception.screenTimeIndex + editImpact)),
@@ -1728,7 +1800,7 @@ export const useGameState = () => {
           {
             day: prev.currentDay,
             type: 'activity',
-            participants: [prev.playerName, ...event.participants],
+            participants: [prev.playerName, ...participants],
             content: `Emergent Event: ${event.title} - ${choice} approach`,
             source: 'emergent_event' as const
           }

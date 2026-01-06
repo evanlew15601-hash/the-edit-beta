@@ -86,7 +86,7 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   // Build event montage from real events
   const eventMontage: string[] = [];
   
-  // Process player-involved events
+  // Process player-involved events from the weekly memory system
   playerEvents.forEach(event => {
     switch (event.type) {
       case 'alliance_form':
@@ -157,7 +157,7 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
       `Your confessional became required viewing for strategy analysis`,
       `The confessional clip broke viewing records for the episode`
     ]
-  };
+  } as const;
 
   // Generate diverse viral moments based on actual strategic play
   const viralMomentsByType = new Map<string, number>();
@@ -172,29 +172,103 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
       viralMomentsByType.set(event.type, currentCount + 1);
       
       // Use different templates based on how many times we've seen this type
-      const templates = viralMomentTemplates[event.type as keyof typeof viralMomentTemplates] || [
-        `This strategic moment had fans talking across all platforms`,
-        `Your gameplay move became essential viewing this week`,
-        `Fans are calling this scene television gold`,
-        `This moment became the highlight of the episode for viewers`
-      ];
+      const templates =
+        viralMomentTemplates[event.type as keyof typeof viralMomentTemplates] || [
+          `This strategic moment had fans talking across all platforms`,
+          `Your gameplay move became essential viewing this week`,
+          `Fans are calling this scene television gold`,
+          `This moment became the highlight of the episode for viewers`
+        ];
       
       // Rotate through templates to avoid repetition
       const templateIndex = currentCount % templates.length;
       viralMoments.push(templates[templateIndex]);
     });
 
-  // Reality vs Edit comparison
-  const actualEvents = playerEvents.length;
-  const shownEvents = eventMontage.length;
-  
-  const whatHappened = actualEvents > 0 
-    ? `You were involved in ${actualEvents} strategic moments this week`
-    : `Quiet week focused on relationship building`;
-    
-  const whatWasShown = shownEvents > 0
-    ? `Edit highlighted ${shownEvents} key moments, framing you as ${editPerception.persona.toLowerCase()}`
-    : `Limited screen time this week - edit focused elsewhere`;
+  // Reality vs Edit comparison, grounded in what the player actually did
+  const playerLogsThisWeek = (gameState.interactionLog || []).filter(
+    (log) =>
+      log.day >= weekStartDay &&
+      log.day <= weekEndDay &&
+      (log.participants || []).includes(playerName)
+  );
+
+  const totalActions = playerLogsThisWeek.length;
+  const schemeCount = playerLogsThisWeek.filter((l) => l.type === 'scheme').length;
+  const socialCount = playerLogsThisWeek.filter(
+    (l) => l.type === 'talk' || l.type === 'activity'
+  ).length;
+  const dmCount = playerLogsThisWeek.filter((l) => l.type === 'dm').length;
+  const meetingCount = playerLogsThisWeek.filter(
+    (l) => l.type === 'house_meeting' || l.type === 'alliance_meeting'
+  ).length;
+
+  let whatHappened: string;
+  if (totalActions === 0) {
+    whatHappened =
+      weekElimination
+        ? `You largely stayed on the sidelines while the house sent ${weekElimination.eliminated} out. Quiet from your side, loud around you.`
+        : `You largely stayed on the sidelines this week, letting others drive the story while you observed.`;
+  } else {
+    const bits: string[] = [];
+    bits.push(
+      `You took ${totalActions} visible action${totalActions !== 1 ? 's' : ''} this week.`
+    );
+    if (schemeCount) {
+      bits.push(
+        `${schemeCount} of those were high-risk schemes that could reshape the vote.`
+      );
+    }
+    if (socialCount) {
+      bits.push(
+        `${socialCount} focused on social bonding or managing tension with other houseguests.`
+      );
+    }
+    if (dmCount) {
+      bits.push(
+        `You held ${dmCount} private DM${dmCount !== 1 ? 's' : ''} that may ripple into future votes.`
+      );
+    }
+    if (meetingCount) {
+      bits.push(
+        `You drove ${meetingCount} house or alliance meeting${meetingCount !== 1 ? 's' : ''}, putting your game on display.`
+      );
+    }
+    if (weekElimination) {
+      bits.push(`${weekElimination.eliminated} left the game as the week’s casualty.`);
+    }
+    whatHappened = bits.join(' ');
+  }
+
+  const persona = editPerception.persona;
+  const shift = editPerception.lastEditShift || 0;
+
+  let whatWasShown: string;
+  if (eventMontage.length > 0) {
+    const headline = eventMontage[0];
+    const secondary = eventMontage[1];
+    const anchors = secondary ? `${headline} and ${secondary}` : headline;
+    const sentiment =
+      shift > 3
+        ? 'Your stock seemed to rise with the audience.'
+        : shift < -3
+        ? 'You lost some goodwill with viewers.'
+        : 'Audience sentiment stayed relatively steady.';
+    whatWasShown = `The edit framed you as a ${persona.toLowerCase()}, centering the week around ${anchors.toLowerCase()}. ${sentiment}`;
+  } else if (totalActions === 0) {
+    whatWasShown =
+      persona === 'Underedited' || persona === 'Ghosted'
+        ? 'The episode barely cut to you, reinforcing an under-the-radar, almost invisible edit.'
+        : `Even with a light week, the edit kept you in frame just enough to maintain your ${persona.toLowerCase()} narrative.`;
+  } else {
+    const sentiment =
+      shift > 3
+        ? 'You quietly gained heat in the edit.'
+        : shift < -3
+        ? 'Your scenes were framed more negatively.'
+        : 'You felt present but not dominant in the episode.';
+    whatWasShown = `The edit gave you selective coverage: enough to remind viewers who you are without overexposing you. ${sentiment}`;
+  }
 
   return {
     week,

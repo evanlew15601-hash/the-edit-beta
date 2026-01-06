@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GameState, WeeklyEdit } from '@/types/game';
 import { generateFanReactions } from '@/utils/fanReactions';
-import { buildWeeklyEdit } from '@/utils/weeklyEditBuilder';
+
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { buildEnhancedWeeklyEdit } from '@/utils/enhancedMemoryRecap';
 import { Badge } from '@/components/ui/badge';
