@@ -75,6 +75,12 @@ class EmergentEventEngine {
       const forcedEvent = this.generateMinimumDramaEvent(gameState);
       if (forcedEvent) newEvents.push(forcedEvent);
     }
+
+    // If any events fired, record the time for pacing checks
+    if (newEvents.length > 0) {
+      const now = Date.now();
+      this.lastEventTime.set('global', now);
+    }
     
     // Process event consequences
     newEvents.forEach(event => {
@@ -301,11 +307,16 @@ class EmergentEventEngine {
   }
 
   private shouldForceEvent(gameState: GameState): boolean {
-    // Force event if drama is too low
-    const averageTension = Array.from(this.dramaTensionLevels.values())
-      .reduce((sum, tension) => sum + tension, 0) / this.dramaTensionLevels.size;
-    
-    const timeSinceLastEvent = Date.now() - Math.max(...Array.from(this.lastEventTime.values()));
+    // Force an event if drama is too low, or it has been a long time since the last one.
+    const tensionValues = Array.from(this.dramaTensionLevels.values());
+    const averageTension = tensionValues.length
+      ? tensionValues.reduce((sum, tension) => sum + tension, 0) / tensionValues.length
+      : 0;
+
+    const lastTimes = Array.from(this.lastEventTime.values());
+    const timeSinceLastEvent = lastTimes.length
+      ? Date.now() - Math.max(...lastTimes)
+      : Infinity;
     
     return averageTension < 30 || timeSinceLastEvent > 600000; // 10 minutes
   }
