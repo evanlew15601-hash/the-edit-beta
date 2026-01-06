@@ -94,11 +94,7 @@ const Index = () => {
           <IntroScreen 
             onStartGame={startGame}
             onContinue={loadSavedGame}
-            onDeleteSave={() => {
-              if (window.confirm('Delete saved game? This cannot be undone.')) {
-                deleteSavedGame();
-              }
-            }}
+            onDeleteSave={deleteSavedGame}
             debugMode={gameState.debugMode}
             onToggleDebug={toggleDebugMode}
             hasSave={hasSavedGame()}
@@ -230,11 +226,7 @@ const Index = () => {
           gameState={gameState}
           onSave={saveGame}
           onLoad={loadSavedGame}
-          onDeleteSave={() => {
-            if (window.confirm('Delete saved game? This cannot be undone.')) {
-              deleteSavedGame();
-            }
-          }}
+          onDeleteSave={deleteSavedGame}
           onTitle={goToTitle}
           onToggleDebug={toggleDebugMode}
           hasSave={hasSavedGame()}

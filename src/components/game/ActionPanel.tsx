@@ -183,30 +183,13 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
           />
         </div>
 
-        {allActionsUsed && (
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-foreground">All actions completed for Day {gameState.currentDay}</p>
-                {!hasCompletedConfessional && (
-                  <p className="text-xs text-destructive">Warning: No confessional recorded</p>
-                )}
-              </div>
-              <Button
-                variant="surveillance"
-                size="wide"
-                onClick={onAdvanceDay}
-              >
-                Proceed to Next Day
-              </Button>
-            </div>
-          </div>
-        )}
-
         <div className="mt-6 pt-6 border-t border-border">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium">Alliance Management</h3>
-            <p className="text-xs text-muted-foreground">{gameState.alliances.length} active alliance{gameState.alliances.length > 1 ? 's' : ''}</p>
+            <p className="text-xs text-muted-foreground">
+              {gameState.alliances.length} active alliance
+              {gameState.alliances.length > 1 ? 's' : ''}
+            </p>
           </div>
           <div className="flex gap-2">
             {gameState.alliances.length > 0 && (
@@ -234,30 +217,44 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
               variant="action"
               onClick={() => setCreateAllianceOpen(true)}
               disabled={allActionsUsed}
-              className={gameState.alliances.length === 0 ? "w-full" : ""}
+              className={gameState.alliances.length === 0 ? 'w-full' : ''}
             >
               {gameState.alliances.length > 0 ? 'New Alliance' : 'Create Alliance'}
             </Button>
           </div>
         </div>
 
-        {!allActionsUsed && (
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Passive Strategy Option</p>
-                <p className="text-xs text-muted-foreground">Skip remaining actions and advance day</p>
-              </div>
-              <Button
-                variant="outline"
-                size="wide"
-                onClick={() => setShowSkipDialog(true)}
-              >
-                Proceed to Next Day
-              </Button>
+        <div className="mt-6 pt-6 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              {allActionsUsed ? (
+                <>
+                  <p className="text-sm text-foreground">
+                    All actions completed for Day {gameState.currentDay}
+                  </p>
+                  {!hasCompletedConfessional && (
+                    <p className="text-xs text-destructive">Warning: No confessional recorded</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Proceed to next day</p>
+                  <p className="text-xs text-muted-foreground">
+                    You have {remainingActions} unused action
+                    {remainingActions === 1 ? '' : 's'}. You can let the house move without you.
+                  </p>
+                </>
+              )}
             </div>
+            <Button
+              variant={allActionsUsed ? 'surveillance' : 'outline'}
+              size="wide"
+              onClick={allActionsUsed ? onAdvanceDay : () => setShowSkipDialog(true)}
+            >
+              Proceed to Next Day
+            </Button>
           </div>
-        )}
+        </div>
       </Card>
 
       {/* Dialog Components */}

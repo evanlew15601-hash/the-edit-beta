@@ -26,6 +26,8 @@ import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarr
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 
+type GameActionType = PlayerAction['type'] | 'create_alliance' | 'add_alliance_members';
+
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
 export const useGameState = () => {
@@ -307,7 +309,7 @@ export const useGameState = () => {
     });
   }, []);
 
-  const useAction = useCallback((actionType: string, target?: string, content?: string, tone?: string) => {
+  const useAction = useCallback((actionType: GameActionType, target?: string, content?: string, tone?: string) => {
     console.log('=== ACTION TRIGGERED ===');
     console.log('Action Type:', actionType);
     console.log('Target:', target);

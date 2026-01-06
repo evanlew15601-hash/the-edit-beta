@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/enhanced-button';
 import { Button as TopButton } from '@/components/ui/button';
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,10 +21,19 @@ interface IntroScreenProps {
   hasSave?: boolean;
 }
 
-export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, onToggleDebug, hasSave }: IntroScreenProps) => {
+export const IntroScreen = ({
+  onStartGame,
+  onContinue,
+  onDeleteSave,
+  debugMode,
+  onToggleDebug,
+  hasSave,
+}: IntroScreenProps) => {
   const handleStart = () => {
     onStartGame();
   };
+
+  const hasDeletableSave = !!hasSave && !!onDeleteSave;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -34,12 +42,57 @@ export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, 
         <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 flex items-center justify-between">
           <div className="text-sm font-medium">The Edit</div>
           <div className="flex items-center gap-2">
-            <TopButton variant="secondary" size="sm" onClick={onContinue} disabled={!hasSave} aria-label="Continue">
+            <TopButton
+              variant="secondary"
+              size="sm"
+              onClick={onContinue}
+              disabled={!hasSave}
+              aria-label="Continue"
+            >
               Continue
             </TopButton>
-            <TopButton variant="outline" size="sm" onClick={onDeleteSave} disabled={!hasSave} aria-label="Delete Save">
-              Delete Save
-            </TopButton>
+
+            {hasDeletableSave ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <TopButton
+                    variant="outline"
+                    size="sm"
+                    aria-label="Delete Save"
+                  >
+                    Delete Save
+                  </TopButton>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete saved game?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This cannot be undone. Your current season progress will be lost.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        onDeleteSave?.();
+                      }}
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <TopButton
+                variant="outline"
+                size="sm"
+                disabled
+                aria-label="Delete Save"
+              >
+                Delete Save
+              </TopButton>
+            )}
+
             <TopButton
               variant={debugMode ? 'secondary' : 'outline'}
               size="sm"
@@ -76,15 +129,38 @@ export const IntroScreen = ({ onStartGame, onContinue, onDeleteSave, debugMode, 
             </div>
 
             <div className="border-l-2 border-primary pl-6 space-y-3">
-              <p className="text-sm text-muted-foreground uppercase 'intro':
-        return (
-          <IntroScreen 
-            onStartGame={startGame}
-            onContinue={loadSavedGame}
-            onDeleteSave={deleteSavedGame}
-            debugMode={gameState.debugMode}
-            onToggleDebug={toggleDebugMode}
-            hasSave={hasSavedGame()}
-          />
-        );
+              <p className="text-sm text-muted-foreground uppercase tracking-wide">
+                Mars Vega (Host)
+              </p>
+              <p className="text-foreground italic leading-relaxed">
+                &quot;Welcome to The Edit. From this moment on, everything you say, and everything you
+                don&apos;t, becomes part of your story.&quot;
+              </p>
+            </div>
+
+            <div className="space-y-4 pt-6">
+              <p className="text-foreground">
+                Begin your season with character creation. Your name will be set and validated there.
+              </p>
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleStart}
+                  variant="surveillance"
+                  size="wide"
+                >
+                  Begin Character Creation
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>All actions have consequences</p>
+            <p>Everything is being recorded</p>
+            <p>Trust no one completely</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };

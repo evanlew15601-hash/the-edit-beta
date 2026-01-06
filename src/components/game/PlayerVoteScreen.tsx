@@ -22,8 +22,11 @@ export const PlayerVoteScreen = ({ gameState, onSubmitVote }: PlayerVoteScreenPr
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-3xl mx-auto space-y-6">
         <Card className="p-6">
-          <h1 className="text-3xl font-light mb-2">Cast Your Vote</h1>
-          <p className="text-muted-foreground mb-6">Choose the contestant you want to eliminate.</p>
+          <h1 className="text-3xl font-light mb-1">Eviction Night</h1>
+          <p className="text-sm text-muted-foreground mb-1">Player Vote</p>
+          <p className="text-sm text-muted-foreground mb-6">
+            Choose the houseguest you want to evict. Your vote will be locked in once submitted.
+          </p>
 
           {gameState.immunityWinner && (
             <div className="mb-4 p-3 rounded border border-border bg-muted/50 text-sm">
