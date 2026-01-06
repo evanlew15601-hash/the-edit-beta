@@ -109,12 +109,14 @@ export const processVoting = (
     }
     
     // Get voter's memory and strategic context for individual decision
-    const voterMemory = memoryEngine.queryMemory(voter.id, {
+    // MemoryEngine journals are keyed by contestant name, not id.
+    const voterKey = voter.name;
+    const voterMemory = memoryEngine.queryMemory(voterKey, {
       dayRange: { start: gameState.currentDay - 7, end: gameState.currentDay },
       minImportance: 3
     });
     
-    memoryEngine.getStrategicContext(voter.id, gameState);
+    memoryEngine.getStrategicContext(voterKey, gameState);
     
     // Find target with highest threat that isn't in voter's alliance
     const allianceMembers = new Set(voterAlliances.flatMap(a => a.members));
