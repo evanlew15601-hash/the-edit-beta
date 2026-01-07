@@ -158,6 +158,51 @@ function isMetaOrBroken(text: string): boolean {
   return forbidden.some((re) => re.test(lower));
 }
 
+// Fix simple third-person self-references like "about Ava" when Ava is the speaker.
+function fixSelfReference(text: string, npcName?: string): string {
+  const name = (npcName || "").trim();
+  if (!name) return text;
+
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\// Lightweight validator to catch meta / obviously broken lines.
+// If this flags a line, we fall back to the rule-based response.
+function isMetaOrBroken(text: string): boolean {
+  const t = String(text || "").trim();
+  if (!t) return true;
+  if (t.length > 320) return true;
+
+  const lower = t.toLowerCase();
+  const forbidden = [
+    /\bas an ai\b/,
+    /\blanguage model\b/,
+    /\bi am an ai\b/,
+    /\bi'm an ai\b/,
+    /\bopenai\b/,
+    /\bchatgpt\b/,
+    /\bprompt\b/,
+    /\bsystem prompt\b/,
+    /\bdeveloper\b/,
+    /\bsource code\b/,
+    /\bthis (simulation|game) is not real\b/,
+  ];
+
+  return forbidden.some((re) => re.test(lower));
+}");
+  let t = text;
+
+  const patterns: Array<[RegExp, string]> = [
+    [new RegExp(`\\babout\\s+${esc}\\b`, "gi"), "about me"],
+    [new RegExp(`\\bon\\s+${esc}\\b`, "gi"), "on me"],
+    [new RegExp(`\\bfor\\s+${esc}\\b`, "gi"), "for me"],
+    [new RegExp(`\\btowards?\\s+${esc}\\b`, "gi"), "toward me"],
+  ];
+
+  for (const [re, replacement] of patterns) {
+    t = t.replace(re, replacement);
+  }
+
+  return t;
+}
+
 function buildPrompt(payload: {
   playerMessage: string;
   parsedInput: any;
@@ -252,6 +297,7 @@ Your reply must:
 - If an internal plan is provided, keep its strategic intent but phrase it as natural dialogue.
 Style constraints:
 - First-person voice only
+- Do not refer to yourself by your own name ("${npcName}"); use "I" or "me" instead
 - No third-person narration, no stage directions
 - No quotes or speaker labels
 - Clear diction; mild contractions allowed (keep it human, not slang-heavy)
@@ -363,6 +409,9 @@ export async function generateLocalAIReply(
       }
     }
 
+    // Fix simple third-person self-reference issues like "about Ava" when Ava is the speaker.
+    cleaned = fixSelfReference(cleaned, payload.npc?.name);
+
     cacheSet(cacheKey, cleaned);
     return cleaned;
   } catch (e) {
@@ -371,13 +420,15 @@ export async function generateLocalAIReply(
       // Fallback: use deterministic rule-based line (prefer npcPlan summary if provided)
       const maxSent = Math.max(1, Math.min(2, opts?.maxSentences ?? 2));
 
-      if (payload.npcPlan?.summary) {
-        return sanitizeOutput(payload.npcPlan.summary, maxSent);
+      let base = payload.npcPlan?.summary;
+      if (!base) {
+        const npc = payload.npc as any;
+        base = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
       }
 
-      const npc = payload.npc as any;
-      const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
-      return sanitizeOutput(line, maxSent);
+      let cleaned = sanitizeOutput(base, maxSent);
+      cleaned = fixSelfReference(cleaned, payload.npc?.name);
+      return cleaned;
     } catch (e2) {
       console.error("Fallback failed:", e2);
       return "I will consider that and keep us protected.";
