@@ -82,11 +82,13 @@ function sanitizeOutput(text: string, maxSentences: number) {
   // Common patterns to strip
   t = t.replace(/^[\s\-–—]+/, "");
   t = t.replace(/^[\"'“”`]+|[\"'“”`]+$/g, ""); // drop wrapping quotes
+
   // If quoted line appears inside, prefer it
-  const quoted = t.match(/\\"([^\"]{3,})\\"/);
+  const quoted = t.match(/\\"([^\\"]{3,})\\"/);
   if (quoted) t = quoted[1];
 
   // Drop speaker labels, stage directions, or third-person narration prefixes
+  t = t.replace(/^(assistant|system|npc)\s*:/i, "");
   t = t.replace(/^[A-Z][a-z]+:\s*/, "");
   t = t.replace(/^\(([^)]+)\)\s*/, "");
   t = t.replace(/^\*[^*]+\*\s*/, "");
@@ -98,9 +100,32 @@ function sanitizeOutput(text: string, maxSentences: number) {
   // Enforce first-person voice quickly by removing lingering labels/quotes
   t = t.replace(/^[\"'“”]+/, "").replace(/[\"'“”]+$/, "");
 
-  // Strict sentence limit
-  const parts = t.split(/(?<=[.!?])\s+/).filter(Boolean);
-  t = parts.slice(0, Math.max(1, Math.min(5, maxSentences))).join(" ");
+  // Split into sentences
+  let parts = t
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const max = Math.max(1, Math.min(2, maxSentences || 2));
+
+  if (parts.length > max) {
+    // Prefer sentences that actually talk about strategy or game concepts
+    const strategicRegex = /\b(vote|votes|numbers|target|alliance|trust|plan|count|jury)\b/i;
+    const prioritized = parts.filter((p) => strategicRegex.test(p));
+
+    const selected: string[] = [];
+    for (const p of prioritized) {
+      if (selected.length >= max) break;
+      selected.push(p);
+    }
+    for (const p of parts) {
+      if (selected.length >= max) break;
+      if (!selected.includes(p)) selected.push(p);
+    }
+    parts = selected.slice(0, max);
+  }
+
+  t = parts.join(" ");
 
   // Avoid empty line
   if (!t) t = "I will keep an eye on that.";
@@ -115,6 +140,8 @@ function buildPrompt(payload: {
   tone?: string;
   socialContext?: any;
   conversationType?: "public" | "private" | "confessional" | string;
+  npcPlan?: { summary?: string; followUpAction?: string; tone?: string };
+  playerName?: string;
 }) {
   const { playerMessage, npc, tone, conversationType, parsedInput, socialContext } = payload;
   const npcName = npc?.name ?? "Houseguest";
@@ -133,7 +160,31 @@ function buildPrompt(payload: {
 
   const alliances = Array.isArray(socialContext?.alliances) ? socialContext.alliances.join(", ") : "none";
   const threats = Array.isArray(socialContext?.threats) ? socialContext.threats.join(", ") : "none";
-  const recent = Array.isArray(socialContext?.recentEvents) ? socialContext.recentEvents.slice(-2).join(" | ") : "";
+  const recent = Array.isArray(socialContext?.recentEvents) ? socialContext?.recentEvents.slice(-2).join(" | ") : "";
+
+  const planSummary = (payload.npcPlan?.summary || "").trim();
+  const followUp = payload.npcPlan?.followUpAction;
+  const planTone = payload.npcPlan?.tone;
+
+  let allowedPeople: string[] = Array.isArray(socialContext?.allowedPeople)
+    ? [...socialContext.allowedPeople]
+    : [];
+
+  if (npcName && !allowedPeople.includes(npcName)) {
+    allowedPeople.push(npcName);
+  }
+  if (payload.playerName && !allowedPeople.includes(payload.playerName)) {
+    allowedPeople.push(payload.playerName);
+  }
+  if (Array.isArray(parsedInput?.namedMentions)) {
+    parsedInput.namedMentions.forEach((n: string) => {
+      if (n && !allowedPeople.includes(n)) allowedPeople.push(n);
+    });
+  }
+
+  const allowedPeopleText = allowedPeople.length
+    ? allowedPeople.join(", ")
+    : "houseguests you actually know about";
 
   const system = `You are ${npcName}, a cunning contestant in The Edit Game (a high-stakes social strategy reality show).
 Respond ONLY as ${npcName}. Never reveal production notes or hidden information.
@@ -144,12 +195,19 @@ Context:
 - Alliances: ${alliances}
 - Threats: ${threats}
 - Recent: ${recent}
+${planSummary ? `Internal plan (do NOT quote this text verbatim): ${planSummary}
+Follow-up intent: ${followUp || "none provided"}
+Plan tone: ${planTone || "unspecified"}` : ""}
+Allowed surface info:
+- You may only mention people in: ${allowedPeopleText}
+- You may only reference events the player could plausibly know from visible house dynamics or prior conversations.
 Your reply must:
 - Address the player's specific content (no generic advice)
 - Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)
 - Keep it tight: 1–2 sentences with subtext
 - If pressed for secrets, deflect unless it benefits you
 - Never expose info the player could not plausibly know
+- If an internal plan is provided, keep its strategic intent but phrase it as natural dialogue.
 Style constraints:
 - First-person voice only
 - No third-person narration, no stage directions
@@ -157,7 +215,10 @@ Style constraints:
 - Clear diction; mild contractions allowed (keep it human, not slang-heavy)
 Game talk handling:
 ${visibilityRule}
-- Prefer specific follow-ups ("who is the target?", "how many do we have?")`;
+- Prefer specific follow-ups ("who is the target?", "how many do we have?")
+Safety rails:
+- Do NOT invent new alliances, secret powers, or vote counts that are not implied by the plan, alliances, threats, or the player's line.
+- Do NOT mention being an AI, a bot, or anything about 'systems', 'code', or 'developers'.`;
 
   const user = `Player says to ${npcName}: "${playerMessage}"
 Tone hint: ${tone || "neutral"} | Context: ${conversationType || "public"}
@@ -208,10 +269,10 @@ export async function generateLocalAIReply(
     // transformers.js supports an optional "callback_function" for streaming;
     // here we just expose abort via opts.signal by racing.
     const generation = gen(prompt, {
-      max_new_tokens: Math.max(16, Math.min(256, opts?.maxNewTokens ?? 128)),
-      temperature: typeof opts?.temperature === "number" ? opts.temperature : 0.7,
+      max_new_tokens: Math.max(16, Math.min(160, opts?.maxNewTokens ?? 64)),
+      temperature: typeof opts?.temperature === "number" ? opts.temperature : 0.6,
       top_p: typeof opts?.top_p === "number" ? opts.top_p : 0.9,
-      repetition_penalty: typeof opts?.repetition_penalty === "number" ? opts.repetition_penalty : 1.1,
+      repetition_penalty: typeof opts?.repetition_penalty === "number" ? opts.repetition_penalty : 1.2,
       do_sample: true,
       return_full_text: false,
       seed: opts?.seed,
@@ -238,7 +299,10 @@ export async function generateLocalAIReply(
       text = out.trim();
     }
 
-    const cleaned = sanitizeOutput(text, Math.max(1, Math.min(5, opts?.maxSentences ?? 2)));
+    const cleaned = sanitizeOutput(
+      text,
+      Math.max(1, Math.min(2, opts?.maxSentences ?? 2))
+    );
     cacheSet(cacheKey, cleaned);
     return cleaned;
   } catch (e) {
@@ -247,7 +311,10 @@ export async function generateLocalAIReply(
       // Fallback: use deterministic rule-based line and then sanitize to match tone constraints
       const npc = payload.npc as any;
       const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
-      return sanitizeOutput(line, Math.max(1, Math.min(5, opts?.maxSentences ?? 2)));
+      return sanitizeOutput(
+        line,
+        Math.max(1, Math.min(2, opts?.maxSentences ?? 2))
+      );
     } catch (e2) {
       console.error("Fallback failed:", e2);
       return "I will consider that and keep us protected.";

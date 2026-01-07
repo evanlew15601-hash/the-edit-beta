@@ -45,6 +45,53 @@ const debugWarn = (...args: any[]) => {
 
 const USE_REMOTE_AI = false; // Set to true when remote backends are working
 
+function buildLocalLLMSocialContext(gameState: GameState, npcName: string) {
+  const npc = gameState.contestants.find((c) => c.name === npcName);
+  if (!npc) return {};
+
+  const alliancesForNPC = gameState.alliances.filter((a) => a.members.includes(npcName));
+  const alliancePartners = Array.from(
+    new Set(
+      alliancesForNPC
+        .flatMap((a) => a.members)
+        .filter((name) => name !== npcName)
+    )
+  );
+
+  const activeOthers = gameState.contestants.filter(
+    (c) => !c.isEliminated && c.name !== npcName
+  );
+  const threats = activeOthers
+    .filter((c) => {
+      const rel = relationshipGraphEngine.getRelationship(npcName, c.name);
+      return rel ? rel.suspicion > 60 : false;
+    })
+    .map((c) => c.name);
+
+  const recentEvents = (npc.memory || [])
+    .filter((m) => m.day >= gameState.currentDay - 2)
+    .slice(-4)
+    .map((m) => m.content);
+
+  const allowedPeople = Array.from(
+    new Set(
+      [
+        ...alliancePartners,
+        ...threats,
+        npcName,
+        gameState.playerName,
+      ].filter(Boolean)
+    )
+  );
+
+  return {
+    alliances: alliancePartners,
+    threats,
+    recentEvents,
+    allowedPeople,
+  };
+}
+
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
     // Fresh start every load; manual save/load only
@@ -386,6 +433,7 @@ export const useGameState = () => {
     // - RelationshipGraphEngine is updated
     // - NPC memory entries are created consistently
     // - A minimal ReactionSummary is surfaced for the UI
+    // - Optionally, a local free LLM paraphrases the internal plan into an in-character line
     if (actionType === 'talk' || actionType === 'dm') {
       setGameState(prev => {
         if (!target || !content || !prev.playerName) {
@@ -462,6 +510,67 @@ export const useGameState = () => {
           source: 'player' as const,
         };
 
+        // Optional: drive a short, in-character NPC line via local LLM
+        const npc = prev.contestants.find((c) => c.name === target);
+        const parsedInput = speechActClassifier.classifyMessage(content, 'Player', {
+          allContestantNames: prev.contestants.map((c) => c.name),
+        });
+        const useLocalLLM = !!prev.aiSettings?.useLocalLLM;
+
+        if (useLocalLLM && npc) {
+          const llmPayload = {
+            playerMessage: content,
+            parsedInput,
+            npc: {
+              name: npc.name,
+              publicPersona: npc.publicPersona,
+              psychProfile: npc.psychProfile,
+            },
+            tone,
+            socialContext: buildLocalLLMSocialContext(prev, npc.name),
+            conversationType,
+            npcPlan: response
+              ? {
+                  summary: response.content,
+                  followUpAction: response.followUpAction,
+                  tone: response.tone,
+                }
+              : undefined,
+            playerName: prev.playerName,
+          };
+
+          const fallbackLine = response?.content || '';
+
+          (async () => {
+            try {
+              const line = await generateLocalAIReply(llmPayload, {
+                maxSentences: 2,
+              });
+              const safeLine =
+                line && typeof line === 'string' ? line : fallbackLine;
+              setGameState((curr) => ({
+                ...curr,
+                lastAIResponse: safeLine || curr.lastAIResponse,
+                lastAIResponseLoading: false,
+              }));
+            } catch (e) {
+              debugWarn('Local LLM generation failed; using fallback line.', e);
+              if (fallbackLine) {
+                setGameState((curr) => ({
+                  ...curr,
+                  lastAIResponse: fallbackLine,
+                  lastAIResponseLoading: false,
+                }));
+              } else {
+                setGameState((curr) => ({
+                  ...curr,
+                  lastAIResponseLoading: false,
+                }));
+              }
+            }
+          })();
+        }
+
         const nextState: GameState = {
           ...prev,
           playerActions: updatedActions,
@@ -469,8 +578,9 @@ export const useGameState = () => {
           lastActionType: actionType,
           lastActionTarget: target,
           lastAIReaction: reactionSummary,
-          lastAIResponse: response?.content,
-          lastAIResponseLoading: false,
+          lastParsedInput: parsedInput,
+          lastAIResponse: useLocalLLM && npc ? undefined : response?.content,
+          lastAIResponseLoading: useLocalLLM && npc ? true : false,
           interactionLog: [...(prev.interactionLog || []), interactionEntry],
         };
 
