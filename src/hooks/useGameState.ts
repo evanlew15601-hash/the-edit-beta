@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic } from '@/types/game';
+import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic, InteractionLogEntry } from '@/types/game';
 import { houseMeetingEngine } from '@/utils/houseMeetingEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { generateStaticNPCs } from '@/utils/npcGeneration';
@@ -1320,13 +1320,13 @@ export const useGameState = () => {
 
       const nextQueue = (prev.forcedConversationsQueue || []).slice(1);
 
-      const interactionEntry = {
+      const interactionEntry: InteractionLogEntry = {
         day: prev.currentDay,
-        type: 'conversation' as const,
+        type: 'talk',
         participants: [prev.playerName, from],
         content: `[Forced conversation reply] ${content || '(no text provided)'}`,
         tone,
-        source: 'player' as const,
+        source: 'player',
       };
 
       return {
