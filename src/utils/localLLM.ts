@@ -350,14 +350,17 @@ export async function generateLocalAIReply(
     );
 
     // Final guard: if the local LLM output is meta or otherwise broken,
-    // fall back to the deterministic rule-based line.
+    // fall back to a deterministic rule-based line or the provided NPC plan.
     if (isMetaOrBroken(cleaned)) {
-      const npc = payload.npc as any;
-      const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
-      cleaned = sanitizeOutput(
-        line,
-        Math.max(1, Math.min(2, opts?.maxSentences ?? 2))
-      );
+      const maxSent = Math.max(1, Math.min(2, opts?.maxSentences ?? 2));
+
+      if (payload.npcPlan?.summary) {
+        cleaned = sanitizeOutput(payload.npcPlan.summary, maxSent);
+      } else {
+        const npc = payload.npc as any;
+        const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
+        cleaned = sanitizeOutput(line, maxSent);
+      }
     }
 
     cacheSet(cacheKey, cleaned);
@@ -365,13 +368,16 @@ export async function generateLocalAIReply(
   } catch (e) {
     console.warn("Local generation failed, falling back to rule-based engine:", e);
     try {
-      // Fallback: use deterministic rule-based line and then sanitize to match tone constraints
+      // Fallback: use deterministic rule-based line (prefer npcPlan summary if provided)
+      const maxSent = Math.max(1, Math.min(2, opts?.maxSentences ?? 2));
+
+      if (payload.npcPlan?.summary) {
+        return sanitizeOutput(payload.npcPlan.summary, maxSent);
+      }
+
       const npc = payload.npc as any;
       const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
-      return sanitizeOutput(
-        line,
-        Math.max(1, Math.min(2, opts?.maxSentences ?? 2))
-      );
+      return sanitizeOutput(line, maxSent);
     } catch (e2) {
       console.error("Fallback failed:", e2);
       return "I will consider that and keep us protected.";
