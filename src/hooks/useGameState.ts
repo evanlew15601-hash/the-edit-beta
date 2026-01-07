@@ -15,7 +15,6 @@ import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
-import { generateLocalAIReply } from '@/utils/localLLM';
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
 import { getReactionProfileForNPC } from '@/utils/tagDialogueEngine';
 import { TAG_CHOICES } from '@/data/tagChoices';
@@ -438,9 +437,10 @@ export const useGameState = () => {
     if (actionType === 'talk' || actionType === 'dm') {
       // Capture current state for async processing
       const currentState = gameState;
-      
-      if (!target || !content || !currentState.playerName) {
-        debugWarn('useAction(talk/dm) missing target/content/playerName', {
+      const playerNameForLog = (currentState.playerName || '').trim() || 'Player';
+
+      if (!target || !content) {
+        debugWarn('useAction(talk/dm) missing target/content', {
           actionType,
           target,
           hasContent: !!content,
@@ -519,7 +519,7 @@ export const useGameState = () => {
           const interactionEntry = {
             day: currentState.currentDay,
             type: actionType,
-            participants: [currentState.playerName, target],
+            participants: [playerNameForLog, target],
             content: content || '',
             tone: tone || 'neutral',
             source: 'player' as const,
