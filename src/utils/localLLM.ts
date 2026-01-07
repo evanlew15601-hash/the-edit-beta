@@ -1,4 +1,4 @@
-import { pipeline } from "@huggingface/transformers";
+import { supabase } from "@/integrations/supabase/client";
 import { generateAIResponse } from "./aiResponseEngine";
 
 // Local, free LLM for in-browser replies (WebGPU/WASM). No API keys required.
@@ -9,8 +9,7 @@ import { generateAIResponse } from "./aiResponseEngine";
 // - Post-process to keep things in-character and non-meta
 // - Fall back to the rule-based engines if anything goes wrong
 
-let generator: any | null = null;
-let initPromise: Promise<any> | null = null;
+// Deprecated local in-browser generator; replies now come from a Supabase edge function.
 
 // Simple LRU cache for short prompts
 const CACHE_LIMIT = 200;
@@ -33,41 +32,10 @@ function cacheSet(key: string, val: string) {
   }
 }
 
+// Legacy in-browser generator initialization is no longer used.
+// Supabase edge functions now handle text generation.
 async function ensureGenerator() {
-  if (generator) return generator;
-  if (!initPromise) {
-    initPromise = (async () => {
-      try {
-        const modelIdCandidates = [
-          "Qwen/Qwen2.5-0.5B-Instruct",
-          "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-        ];
-        let lastErr: any = null;
-
-        for (const device of ["webgpu", "wasm"]) {
-          for (const model of modelIdCandidates) {
-            try {
-              const gen = await pipeline("text-generation", model, {
-                device,
-                dtype: "auto",
-              } as any);
-              generator = gen;
-              return generator;
-            } catch (e) {
-              lastErr = e;
-              continue;
-            }
-          }
-        }
-
-        throw lastErr || new Error("Failed to initialize local generator");
-      } catch (e) {
-        console.error("Local LLM init failed:", e);
-        throw e;
-      }
-    })();
-  }
-  return initPromise;
+  return null;
 }
 
 // Normalize strings for cache keys
@@ -321,9 +289,8 @@ export async function generateLocalAIReply(
   },
   opts?: GenOpts
 ) {
-  const prompt = buildPrompt(payload);
-
-  // Cache
+  // Cache key is based on semantic context, not on the raw prompt,
+  // so swapping the backend (local HF vs. Lovable edge function) is transparent.
   const cacheKey = `${norm(payload.npc?.name)}|${norm(payload.conversationType)}|${norm(
     payload.tone
   )}|${norm(payload.parsedInput)}|${norm(payload.socialContext)}|${norm(payload.playerMessage)}`;
@@ -331,37 +298,38 @@ export async function generateLocalAIReply(
   if (cached) return cached;
 
   try {
-    await ensureGenerator();
-    const gen = generator as any;
-
-    const generation = gen(prompt, {
-      max_new_tokens: Math.max(16, Math.min(160, opts?.maxNewTokens ?? 64)),
-      temperature: typeof opts?.temperature === "number" ? opts.temperature : 0.6,
-      top_p: typeof opts?.top_p === "number" ? opts.top_p : 0.9,
-      repetition_penalty: typeof opts?.repetition_penalty === "number" ? opts.repetition_penalty : 1.2,
-      do_sample: true,
-      return_full_text: false,
-      seed: opts?.seed,
+    // Call Supabase edge function backed by Lovable AI (e.g., google/gemini-2.5-flash).
+    // The function builds its own prompt from the raw fields; we still post-process
+    // the returned text to enforce strict 1–2 sentence, in-character constraints.
+    const { data, error } = await supabase.functions.invoke("generate-ai-reply", {
+      body: {
+        playerMessage: payload.playerMessage,
+        npc: payload.npc,
+        tone: payload.tone,
+        conversationType: payload.conversationType,
+        parsedInput: payload.parsedInput,
+        socialContext: payload.socialContext,
+        // Extra fields are sent through so the edge function can evolve
+        // without front-end changes.
+        npcPlan: payload.npcPlan,
+        playerName: payload.playerName,
+        intent: payload.intent,
+      },
     });
 
-    const out = await (opts?.signal
-      ? Promise.race([
-          generation,
-          new Promise((_, reject) => {
-            const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
-            if (opts.signal!.aborted) onAbort();
-            else opts.signal!.addEventListener("abort", onAbort, { once: true });
-          }),
-        ])
-      : generation);
+    if (error) {
+      throw error;
+    }
 
     let text = "";
-    if (Array.isArray(out)) {
-      text = (out[0]?.generated_text || out[0]?.summary_text || "").trim();
-    } else if (typeof out === "object" && out) {
-      text = String((out as any).generated_text || (out as any).summary_text || "").trim();
-    } else if (typeof out === "string") {
-      text = out.trim();
+    if (data && typeof data === "object") {
+      text = String(
+        (data as any).generatedText ??
+        (data as any).text ??
+        ""
+      ).trim();
+    } else if (typeof data === "string") {
+      text = data.trim();
     }
 
     let cleaned = sanitizeOutput(
@@ -369,7 +337,7 @@ export async function generateLocalAIReply(
       Math.max(1, Math.min(2, opts?.maxSentences ?? 2))
     );
 
-    // Final guard: if the local LLM output is meta or otherwise broken,
+    // Final guard: if the remote LLM output is meta or otherwise broken,
     // fall back to a deterministic rule-based line or the provided NPC plan.
     if (isMetaOrBroken(cleaned)) {
       const maxSent = Math.max(1, Math.min(2, opts?.maxSentences ?? 2));
@@ -389,7 +357,7 @@ export async function generateLocalAIReply(
     cacheSet(cacheKey, cleaned);
     return cleaned;
   } catch (e) {
-    console.warn("Local generation failed, falling back to rule-based engine:", e);
+    console.warn("Remote generation failed, falling back to rule-based engine:", e);
     try {
       const maxSent = Math.max(1, Math.min(2, opts?.maxSentences ?? 2));
 
