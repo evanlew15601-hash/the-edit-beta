@@ -133,6 +133,31 @@ function sanitizeOutput(text: string, maxSentences: number) {
   return t.trim();
 }
 
+// Lightweight validator to catch meta / obviously broken lines.
+// If this flags a line, we fall back to the rule-based response.
+function isMetaOrBroken(text: string): boolean {
+  const t = String(text || "").trim();
+  if (!t) return true;
+  if (t.length > 320) return true;
+
+  const lower = t.toLowerCase();
+  const forbidden = [
+    /\bas an ai\b/,
+    /\blanguage model\b/,
+    /\bi am an ai\b/,
+    /\bi'm an ai\b/,
+    /\bopenai\b/,
+    /\bchatgpt\b/,
+    /\bprompt\b/,
+    /\bsystem prompt\b/,
+    /\bdeveloper\b/,
+    /\bsource code\b/,
+    /\bthis (simulation|game) is not real\b/,
+  ];
+
+  return forbidden.some((re) => re.test(lower));
+}
+
 function buildPrompt(payload: {
   playerMessage: string;
   parsedInput: any;
@@ -319,10 +344,22 @@ export async function generateLocalAIReply(
       text = out.trim();
     }
 
-    const cleaned = sanitizeOutput(
+    let cleaned = sanitizeOutput(
       text,
       Math.max(1, Math.min(2, opts?.maxSentences ?? 2))
     );
+
+    // Final guard: if the local LLM output is meta or otherwise broken,
+    // fall back to the deterministic rule-based line.
+    if (isMetaOrBroken(cleaned)) {
+      const npc = payload.npc as any;
+      const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
+      cleaned = sanitizeOutput(
+        line,
+        Math.max(1, Math.min(2, opts?.maxSentences ?? 2))
+      );
+    }
+
     cacheSet(cacheKey, cleaned);
     return cleaned;
   } catch (e) {
