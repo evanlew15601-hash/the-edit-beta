@@ -26,6 +26,7 @@ import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostCh
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
+import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
 
 type GameActionType =
   PlayerAction['type']
@@ -515,6 +516,11 @@ export const useGameState = () => {
         const parsedInput = speechActClassifier.classifyMessage(content, 'Player', {
           allContestantNames: prev.contestants.map((c) => c.name),
         });
+        const intent = conversationIntentEngine.parse(
+          content,
+          parsedInput,
+          prev.contestants.map((c) => c.name)
+        );
         const useLocalLLM = !!prev.aiSettings?.useLocalLLM;
 
         if (useLocalLLM && npc) {
@@ -537,6 +543,7 @@ export const useGameState = () => {
                 }
               : undefined,
             playerName: prev.playerName,
+            intent,
           };
 
           const fallbackLine = response?.content || '';
@@ -579,6 +586,7 @@ export const useGameState = () => {
           lastActionTarget: target,
           lastAIReaction: reactionSummary,
           lastParsedInput: parsedInput,
+          lastParsedIntent: intent,
           lastAIResponse: useLocalLLM && npc ? undefined : response?.content,
           lastAIResponseLoading: useLocalLLM && npc ? true : false,
           interactionLog: [...(prev.interactionLog || []), interactionEntry],

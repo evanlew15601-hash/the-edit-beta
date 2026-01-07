@@ -142,6 +142,7 @@ function buildPrompt(payload: {
   conversationType?: "public" | "private" | "confessional" | string;
   npcPlan?: { summary?: string; followUpAction?: string; tone?: string };
   playerName?: string;
+  intent?: any;
 }) {
   const { playerMessage, npc, tone, conversationType, parsedInput, socialContext } = payload;
   const npcName = npc?.name ?? "Houseguest";
@@ -186,6 +187,18 @@ function buildPrompt(payload: {
     ? allowedPeople.join(", ")
     : "houseguests you actually know about";
 
+  const intent = (payload as any).intent || {};
+  const topic = intent.topic || "unknown";
+  const voteTarget = intent.voteTarget || "none";
+  const wantsAllianceWithText =
+    Array.isArray(intent.wantsAllianceWith) && intent.wantsAllianceWith.length
+      ? intent.wantsAllianceWith.join(", ")
+      : "none";
+  const wantsInfoOnText =
+    Array.isArray(intent.wantsInfoOn) && intent.wantsInfoOn.length
+      ? intent.wantsInfoOn.join(", ")
+      : "none";
+
   const system = `You are ${npcName}, a cunning contestant in The Edit Game (a high-stakes social strategy reality show).
 Respond ONLY as ${npcName}. Never reveal production notes or hidden information.
 Context:
@@ -195,6 +208,10 @@ Context:
 - Alliances: ${alliances}
 - Threats: ${threats}
 - Recent: ${recent}
+- Conversation topic: ${topic}
+- Vote target (if any): ${voteTarget}
+- Alliance interest: ${wantsAllianceWithText}
+- Info being sought about: ${wantsInfoOnText}
 ${planSummary ? `Internal plan (do NOT quote this text verbatim): ${planSummary}
 Follow-up intent: ${followUp || "none provided"}
 Plan tone: ${planTone || "unspecified"}` : ""}
@@ -252,6 +269,9 @@ export async function generateLocalAIReply(
     tone?: string;
     socialContext?: any;
     conversationType?: "public" | "private" | "confessional" | string;
+    npcPlan?: { summary?: string; followUpAction?: string; tone?: string };
+    playerName?: string;
+    intent?: any;
   },
   opts?: GenOpts
 ) {
