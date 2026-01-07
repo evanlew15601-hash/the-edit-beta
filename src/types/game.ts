@@ -262,6 +262,7 @@ export interface GameState {
   };
   lastAIReaction?: ReactionSummary; // Minimal, credit-free reaction summary
   lastParsedInput?: any; // Store parsed input for debugging
+  lastParsedIntent?: any; // Structured conversational intent for debugging
   lastEmergentEvent?: any; // Store emergent event for UI display
   // Active House Meeting popup with multi-round flow
   ongoingHouseMeeting?: HouseMeetingState;

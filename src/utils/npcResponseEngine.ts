@@ -333,12 +333,18 @@ class NPCResponseEngine {
         }
         return `You're charming, but I'm not sure mixing game and feelings is smart.`;
 
-      case 'information_fishing':
+      case 'information_fishing': {
+        const subject = mention || threat || ally || 'people';
         if (tone === 'strategic') {
-          const subject = mention || threat || 'people';
           return `What exactly about ${subject}? Votes, alliances, or just vibes? I don't hand out info for free.`;
         }
-        return `You're asking a lot of questions. Why now, and why me?`;
+
+        if (tone === 'suspicious' || context.socialContext.currentDramaTension > 60) {
+          return `You keep circling around ${subject}. If you want something from me, say whether you're protecting me or aiming at me.`;
+        }
+
+        return `You're probing a lot right now, and I'm clocking it. Be clear whether you want numbers, a target, or just reassurance.`;
+      }
 
       case 'expressing_trust':
         return `I hear you. Trust goes both ways, and I'm clocking how you move as much as what you say.`;
