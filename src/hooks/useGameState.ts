@@ -522,26 +522,10 @@ export const useGameState = () => {
           prev.contestants.map((c) => c.name)
         );
 
-        // LLM is experimental and should never override high-stakes strategic replies.
-        // For alliance/vote/loyalty style messages, always use the deterministic
-        // rule-based text from npcResponseEngine instead of local LLM paraphrasing.
-        const highStakesTopics = new Set(['alliance', 'vote']);
-        const highStakesActs = new Set([
-          'alliance_proposal',
-          'threatening',
-          'testing_loyalty',
-          'expressing_trust',
-          'expressing_suspicion',
-          'withholding_info',
-          'sabotaging',
-        ] as string[]);
-
-        const isHighStakes =
-          highStakesTopics.has(intent.topic) ||
-          highStakesActs.has(parsedInput.primary);
-
-        const useLocalLLM =
-          !!prev.aiSettings?.useLocalLLM && !isHighStakes;
+        // Use Lovable AI (via Supabase edge function) for all talk/dm NPC replies
+        // when enabled in settings. Rule-based templates are kept only as a
+        // safety/net fallback inside the generation pipeline.
+        const useLocalLLM = !!prev.aiSettings?.useLocalLLM;
 
         if (useLocalLLM && npc) {
           const llmPayload = {
