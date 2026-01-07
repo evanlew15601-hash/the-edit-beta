@@ -43,7 +43,37 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary, aiL
     );
   };
 
-  if (!lastTarget || !reactionSummary) {
+  // Render only when we have at least a target or an AI line/generation state.
+  // This avoids hiding the card entirely if the ReactionSummary is temporarily missing.
+  if (!lastTarget &amp;&amp; !aiLine &amp;&amp; !isGenerating) {
+    return null;
+  }
+
+  const take = reactionSummary?.take ?? 'neutral';
+  const context = reactionSummary?.context ?? 'public';
+
+  return (
+    &lt;Card className="p-4 md:p-5 animate-fade-in border-l-4 border-l-primary/80 rounded-lg shadow-sm bg-card/85 ring-1 ring-border"&gt;
+      &lt;div className="space-y-3"&gt;
+        &lt;div className="flex items-center justify-between"&gt;
+          &lt;div className="flex items-center gap-2"&gt;
+            {getReactionIcon()}
+            &lt;span className="text-sm md:text-base font-medium tracking-wide"&gt;{lastTarget || 'NPC'} reacted&lt;/span&gt;
+            &lt;span className="text-lg"&gt;{getContextIcon()}&lt;/span&gt;
+          &lt;/div&gt;
+          &lt;div className="flex items-center gap-2"&gt;
+            &lt;Badge variant={
+              take === 'positive' ? 'secondary' :
+              take === 'pushback' ? 'destructive' :
+              take === 'suspicious' ? 'outline' : 'outline'
+            } className="uppercase tracking-wide"&gt;
+              {take}
+            &lt;/Badge&gt;
+            &lt;Badge variant="outline" className="text-[10px] md:text-xs uppercase tracking-wider"&gt;
+              {context}
+            &lt;/Badge&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;lastTarget || !reactionSummary) {
     return null;
   }
 
