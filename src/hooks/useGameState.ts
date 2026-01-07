@@ -437,8 +437,10 @@ export const useGameState = () => {
     // - Optionally, a local free LLM paraphrases the internal plan into an in-character line
     if (actionType === 'talk' || actionType === 'dm') {
       setGameState(prev => {
-        if (!target || !content || !prev.playerName) {
-          debugWarn('useAction(talk/dm) missing target/content/playerName', {
+        // Require a target and content; if playerName is missing for some reason,
+        // still proceed using the rule-based engines so the UI can surface a reaction.
+        if (!target || !content) {
+          debugWarn('useAction(talk/dm) missing target or content', {
             actionType,
             target,
             hasContent: !!content,
