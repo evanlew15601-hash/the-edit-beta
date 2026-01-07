@@ -99,10 +99,10 @@ class GameSystemIntegrator {
   }
 
   // Process player action with advanced AI response
-  processPlayerAction(action: PlayerAction, gameState: GameState): NPCResponse | null {
+  async processPlayerAction(action: PlayerAction, gameState: GameState): Promise<NPCResponse | null> {
     if (!action.content || !action.target) return null;
     
-    const response = npcResponseEngine.generateResponse(
+    const response = await npcResponseEngine.generateResponse(
       action.content,
       action.target,
       gameState,

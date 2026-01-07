@@ -436,164 +436,125 @@ export const useGameState = () => {
     // - A minimal ReactionSummary is surfaced for the UI
     // - Optionally, a local free LLM paraphrases the internal plan into an in-character line
     if (actionType === 'talk' || actionType === 'dm') {
-      setGameState(prev => {
-        if (!target || !content || !prev.playerName) {
-          debugWarn('useAction(talk/dm) missing target/content/playerName', {
-            actionType,
-            target,
-            hasContent: !!content,
-            playerName: prev.playerName,
-          });
-          return prev;
-        }
-
-        const conversationType: 'public' | 'private' =
-          actionType === 'dm' ? 'private' : 'public';
-
-        const playerAction: PlayerAction = {
-          type: actionType as PlayerAction['type'],
+      // Capture current state for async processing
+      const currentState = gameState;
+      
+      if (!target || !content || !currentState.playerName) {
+        debugWarn('useAction(talk/dm) missing target/content/playerName', {
+          actionType,
           target,
-          content,
-          tone,
-          used: true,
-          usageCount: 0,
-        };
-
-        const response = gameSystemIntegrator.processPlayerAction(playerAction, prev);
-
-        // Aggregate rule-based consequences into a lightweight reaction summary
-        let trustDelta = 0;
-        let suspicionDelta = 0;
-
-        (response?.consequences || []).forEach((consequence) => {
-          if (consequence.type === 'trust_change') {
-            trustDelta += consequence.value;
-          } else if (consequence.type === 'suspicion_change') {
-            suspicionDelta += consequence.value;
-          }
+          hasContent: !!content,
+          playerName: currentState.playerName,
         });
+        return;
+      }
 
-        const take: ReactionTake =
-          trustDelta > 0 && suspicionDelta <= 0
-            ? 'positive'
-            : trustDelta < 0 && suspicionDelta > 0
-            ? 'pushback'
-            : suspicionDelta > 0
-            ? 'suspicious'
-            : 'neutral';
+      const conversationType: 'public' | 'private' =
+        actionType === 'dm' ? 'private' : 'public';
 
-        const reactionSummary: ReactionSummary = {
-          take,
-          context: conversationType,
-          notes:
-            response?.content ||
-            'They respond in character based on your message and the current game state.',
-          deltas: {
-            trust: Math.round(trustDelta),
-            suspicion: Math.round(suspicionDelta),
-            influence: 0,
-            entertainment: 0,
-          },
-        };
+      const playerAction: PlayerAction = {
+        type: actionType as PlayerAction['type'],
+        target,
+        content,
+        tone,
+        used: true,
+        usageCount: 0,
+      };
 
-        const updatedActions = prev.playerActions.map((a) =>
-          a.type === actionType
-            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
-            : a
-        );
+      // Set loading state immediately
+      setGameState(prev => ({
+        ...prev,
+        lastAIResponseLoading: true,
+      }));
 
-        const interactionEntry = {
-          day: prev.currentDay,
-          type: actionType,
-          participants: [prev.playerName, target],
-          content: content || '',
-          tone: tone || 'neutral',
-          source: 'player' as const,
-        };
+      // Process async AI response
+      (async () => {
+        try {
+          const response = await gameSystemIntegrator.processPlayerAction(playerAction, currentState);
 
-        // Optional: drive a short, in-character NPC line via local LLM
-        const npc = prev.contestants.find((c) => c.name === target);
-        const parsedInput = speechActClassifier.classifyMessage(content, 'Player', {
-          allContestantNames: prev.contestants.map((c) => c.name),
-        });
-        const intent = conversationIntentEngine.parse(
-          content,
-          parsedInput,
-          prev.contestants.map((c) => c.name)
-        );
-        const useLocalLLM = !!prev.aiSettings?.useLocalLLM;
+          // Aggregate rule-based consequences into a lightweight reaction summary
+          let trustDelta = 0;
+          let suspicionDelta = 0;
 
-        if (useLocalLLM && npc) {
-          const llmPayload = {
-            playerMessage: content,
-            parsedInput,
-            npc: {
-              name: npc.name,
-              publicPersona: npc.publicPersona,
-              psychProfile: npc.psychProfile,
+          (response?.consequences || []).forEach((consequence) => {
+            if (consequence.type === 'trust_change') {
+              trustDelta += consequence.value;
+            } else if (consequence.type === 'suspicion_change') {
+              suspicionDelta += consequence.value;
+            }
+          });
+
+          const take: ReactionTake =
+            trustDelta > 0 && suspicionDelta <= 0
+              ? 'positive'
+              : trustDelta < 0 && suspicionDelta > 0
+              ? 'pushback'
+              : suspicionDelta > 0
+              ? 'suspicious'
+              : 'neutral';
+
+          const reactionSummary: ReactionSummary = {
+            take,
+            context: conversationType,
+            notes:
+              response?.content ||
+              'They respond in character based on your message and the current game state.',
+            deltas: {
+              trust: Math.round(trustDelta),
+              suspicion: Math.round(suspicionDelta),
+              influence: 0,
+              entertainment: 0,
             },
-            tone,
-            socialContext: buildLocalLLMSocialContext(prev, npc.name),
-            conversationType,
-            npcPlan: response
-              ? {
-                  summary: response.content,
-                  followUpAction: response.followUpAction,
-                  tone: response.tone,
-                }
-              : undefined,
-            playerName: prev.playerName,
-            intent,
           };
 
-          const fallbackLine = response?.content || '';
+          const parsedInput = speechActClassifier.classifyMessage(content, 'Player', {
+            allContestantNames: currentState.contestants.map((c) => c.name),
+          });
+          const intent = conversationIntentEngine.parse(
+            content,
+            parsedInput,
+            currentState.contestants.map((c) => c.name)
+          );
 
-          (async () => {
-            try {
-              const line = await generateLocalAIReply(llmPayload, {
-                maxSentences: 2,
-              });
-              const safeLine =
-                line && typeof line === 'string' ? line : fallbackLine;
-              setGameState((curr) => ({
-                ...curr,
-                lastAIResponse: safeLine || curr.lastAIResponse,
-                lastAIResponseLoading: false,
-              }));
-            } catch (e) {
-              debugWarn('Local LLM generation failed; using fallback line.', e);
-              if (fallbackLine) {
-                setGameState((curr) => ({
-                  ...curr,
-                  lastAIResponse: fallbackLine,
-                  lastAIResponseLoading: false,
-                }));
-              } else {
-                setGameState((curr) => ({
-                  ...curr,
-                  lastAIResponseLoading: false,
-                }));
-              }
-            }
-          })();
+          const interactionEntry = {
+            day: currentState.currentDay,
+            type: actionType,
+            participants: [currentState.playerName, target],
+            content: content || '',
+            tone: tone || 'neutral',
+            source: 'player' as const,
+          };
+
+          setGameState(prev => {
+            const updatedActions = prev.playerActions.map((a) =>
+              a.type === actionType
+                ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+                : a
+            );
+
+            return {
+              ...prev,
+              playerActions: updatedActions,
+              dailyActionCount: (prev.dailyActionCount || 0) + 1,
+              lastActionType: actionType,
+              lastActionTarget: target,
+              lastAIReaction: reactionSummary,
+              lastParsedInput: parsedInput,
+              lastParsedIntent: intent,
+              lastAIResponse: response?.content,
+              lastAIResponseLoading: false,
+              interactionLog: [...(prev.interactionLog || []), interactionEntry],
+            };
+          });
+        } catch (e) {
+          console.error('AI response generation failed:', e);
+          setGameState(prev => ({
+            ...prev,
+            lastAIResponseLoading: false,
+          }));
         }
+      })();
 
-        const nextState: GameState = {
-          ...prev,
-          playerActions: updatedActions,
-          dailyActionCount: (prev.dailyActionCount || 0) + 1,
-          lastActionType: actionType,
-          lastActionTarget: target,
-          lastAIReaction: reactionSummary,
-          lastParsedInput: parsedInput,
-          lastParsedIntent: intent,
-          lastAIResponse: useLocalLLM && npc ? undefined : response?.content,
-          lastAIResponseLoading: useLocalLLM && npc ? true : false,
-          interactionLog: [...(prev.interactionLog || []), interactionEntry],
-        };
-
-        return nextState;
-      });
       return;
     }
     

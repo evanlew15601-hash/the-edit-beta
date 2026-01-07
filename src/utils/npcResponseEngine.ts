@@ -2,6 +2,7 @@ import { Contestant, GameState, GameMemory } from '@/types/game';
 import { speechActClassifier, SpeechAct } from './speechActClassifier';
 import { relationshipGraphEngine, Relationship } from './relationshipGraphEngine';
 import { npcAutonomyEngine, NPCPersonalityProfile } from './npcAutonomyEngine';
+import { generateLocalAIReply } from './localLLM';
 
 export type SocialContext = {
   alliances: string[];
@@ -55,12 +56,12 @@ class NPCResponseEngine {
   private conversationHistory: Map<string, string[]> = new Map();
   private npcPerceptions: Map<string, NPCPlayerPerception> = new Map();
 
-  generateResponse(
+  async generateResponse(
     playerMessage: string,
     targetNPC: string,
     gameState: GameState,
     conversationType: 'public' | 'private' | 'confessional'
-  ): NPCResponse {
+  ): Promise<NPCResponse> {
     const npc = gameState.contestants.find(c => c.name === targetNPC);
     if (!npc) {
       return {
@@ -91,7 +92,33 @@ class NPCResponseEngine {
     const perception = this.updateNPCPerception(npc.name, context, speechAct);
 
     const tone = this.determineTone(speechAct, context, personality, perception);
-    const content = this.generateContent(speechAct, context, tone, playerMessage);
+    
+    // Use Lovable AI for content generation
+    let content: string;
+    try {
+      content = await generateLocalAIReply({
+        playerMessage,
+        parsedInput: speechAct,
+        npc: {
+          name: npc.name,
+          publicPersona: npc.publicPersona,
+          psychProfile: npc.psychProfile,
+        },
+        tone,
+        conversationType,
+        socialContext: {
+          alliances: context.socialContext.alliances,
+          threats: context.socialContext.threats,
+          recentEvents: context.socialContext.recentEvents,
+          lastInteractions: context.recentMemories.slice(-3).map(m => m.content),
+        },
+        playerName: gameState.playerName,
+      });
+    } catch (e) {
+      console.warn('AI generation failed in npcResponseEngine, using rule-based fallback:', e);
+      content = this.generateContent(speechAct, context, tone, playerMessage);
+    }
+
     const emotionalSubtext = this.calculateEmotionalSubtext(speechAct, personality);
     const consequences = this.calculateConsequences(speechAct, emotionalSubtext);
     const followUpAction = this.determineFollowUpAction(speechAct, context, tone, consequences);
