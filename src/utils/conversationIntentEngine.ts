@@ -144,7 +144,16 @@ function extractExclusions(
 
 class ConversationIntentEngine {
   parse(message: string, speechAct: SpeechAct, allContestantNames: string[]): ConversationIntent {
-    const topic = detectTopic(message);
+    // Start from surface topic, but let explicit speech acts override it.
+    let topic = detectTopic(message);
+
+    // If the classifier has already decided this is an alliance proposal,
+    // treat the conversation as an alliance talk even if the word "vote"
+    // is present in the text.
+    if (speechAct.primary === "alliance_proposal") {
+      topic = "alliance";
+    }
+
     const validMentions = normalizeNames(allContestantNames, speechAct.namedMentions);
 
     const voteTarget = extractVoteTarget(message, topic, speechAct, validMentions);
