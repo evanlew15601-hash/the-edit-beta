@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { npcResponseEngine } from '@/utils/npcResponseEngine';
 import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic } from '@/types/game';
 import { houseMeetingEngine } from '@/utils/houseMeetingEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
@@ -381,6 +380,104 @@ export const useGameState = () => {
     debugLog('Target:', target);
     debugLog('Content:', content);
     debugLog('Tone:', tone);
+
+    // Primary player → NPC conversation flows (free-text Talk / DM)
+    // Route through the cleaned NPCResponseEngine via gameSystemIntegrator so that:
+    // - RelationshipGraphEngine is updated
+    // - NPC memory entries are created consistently
+    // - A minimal ReactionSummary is surfaced for the UI
+    if (actionType === 'talk' || actionType === 'dm') {
+      setGameState(prev => {
+        if (!target || !content || !prev.playerName) {
+          debugWarn('useAction(talk/dm) missing target/content/playerName', {
+            actionType,
+            target,
+            hasContent: !!content,
+            playerName: prev.playerName,
+          });
+          return prev;
+        }
+
+        const conversationType: 'public' | 'private' =
+          actionType === 'dm' ? 'private' : 'public';
+
+        const playerAction: PlayerAction = {
+          type: actionType as PlayerAction['type'],
+          target,
+          content,
+          tone,
+          used: true,
+          usageCount: 0,
+        };
+
+        const response = gameSystemIntegrator.processPlayerAction(playerAction, prev);
+
+        // Aggregate rule-based consequences into a lightweight reaction summary
+        let trustDelta = 0;
+        let suspicionDelta = 0;
+
+        (response?.consequences || []).forEach((consequence) => {
+          if (consequence.type === 'trust_change') {
+            trustDelta += consequence.value;
+          } else if (consequence.type === 'suspicion_change') {
+            suspicionDelta += consequence.value;
+          }
+        });
+
+        const take: ReactionTake =
+          trustDelta > 0 && suspicionDelta <= 0
+            ? 'positive'
+            : trustDelta < 0 && suspicionDelta > 0
+            ? 'pushback'
+            : suspicionDelta > 0
+            ? 'suspicious'
+            : 'neutral';
+
+        const reactionSummary: ReactionSummary = {
+          take,
+          context: conversationType,
+          notes:
+            response?.content ||
+            'They respond in character based on your message and the current game state.',
+          deltas: {
+            trust: Math.round(trustDelta),
+            suspicion: Math.round(suspicionDelta),
+            influence: 0,
+            entertainment: 0,
+          },
+        };
+
+        const updatedActions = prev.playerActions.map((a) =>
+          a.type === actionType
+            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+            : a
+        );
+
+        const interactionEntry = {
+          day: prev.currentDay,
+          type: actionType,
+          participants: [prev.playerName, target],
+          content: content || '',
+          tone: tone || 'neutral',
+          source: 'player' as const,
+        };
+
+        const nextState: GameState = {
+          ...prev,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: actionType,
+          lastActionTarget: target,
+          lastAIReaction: reactionSummary,
+          lastAIResponse: response?.content,
+          lastAIResponseLoading: false,
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
+        };
+
+        return nextState;
+      });
+      return;
+    }
     
     // Handle alliance creation separately
     if (actionType === 'create_alliance') {
@@ -493,6 +590,8 @@ export const useGameState = () => {
         );
         const toneUsed = (tone || 'strategic').toLowerCase();
 
+        const meetingDeltas: { member: string; trustDelta: number; suspicionDelta: number }[] = [];
+
         // Apply relationship deltas per member and log memory
         const updatedContestants = prev.contestants.map(c => {
           if (!members.includes(c.name) || c.name === prev.playerName) return c;
@@ -503,6 +602,8 @@ export const useGameState = () => {
             0,
             Math.floor(getSuspicionDelta('friendly', content || '') / 3)
           );
+
+          meetingDeltas.push({ member: c.name, trustDelta, suspicionDelta });
 
           const newTrust = Math.max(
             -100,
@@ -535,6 +636,7 @@ export const useGameState = () => {
 
         // If a vote target was proposed, store soft voting plans in memory for each member
         if (proposedTarget) {
+          const plannedFor: string[] = [];
           members.forEach(name => {
             if (name === prev.playerName) return;
             memoryEngine.updateVotingPlan(
@@ -542,7 +644,16 @@ export const useGameState = () => {
               proposedTarget,
               `Alliance meeting plan coordinated by ${prev.playerName}`
             );
+            plannedFor.push(name);
           });
+
+          if (prev.debugMode) {
+            debugLog('[AllianceMeeting] voting plans created', {
+              alliance: alliance.name || alliance.id,
+              proposedTarget,
+              plannedFor,
+            });
+          }
         }
 
         // Log the meeting in interaction log so alliance/trust systems can see it
@@ -559,6 +670,16 @@ export const useGameState = () => {
         const updatedAlliances = prev.alliances.map(a =>
           a.id === alliance.id ? { ...a, lastActivity: prev.currentDay } : a
         );
+
+        if (prev.debugMode) {
+          debugLog('[AllianceMeeting] relationship deltas', {
+            alliance: alliance.name || alliance.id,
+            members,
+            tone: toneUsed,
+            proposedTarget,
+            deltas: meetingDeltas,
+          });
+        }
 
         return {
           ...prev,
@@ -1035,6 +1156,18 @@ export const useGameState = () => {
           memory: [...c.memory, memory],
         };
       });
+
+      // Mirror forced pull-asides into the relationship graph so jury/voting can see them
+      relationshipGraphEngine.updateRelationship(
+        prev.playerName,
+        from,
+        trustDelta,
+        suspicionDelta,
+        0,
+        'conversation',
+        '[Forced pull-aside] player reply',
+        prev.currentDay
+      );
 
       const take: ReactionTake =
         trustDelta > 0 && suspicionDelta <= 0
@@ -1679,6 +1812,20 @@ export const useGameState = () => {
         const suspPts = Math.round((outcome.suspicionDelta || 0) * trustSuspScale);
         const inflPts = Math.round((outcome.influenceDelta || 0) * influenceScale);
         const entPts = Math.round((outcome.entertainmentDelta || 0) * entertainmentScale);
+
+        // Mirror tag outcomes into the global relationship graph so voting/strategy systems see them
+        if (prev.playerName && (trustPts !== 0 || suspPts !== 0)) {
+          relationshipGraphEngine.updateRelationship(
+            target,
+            prev.playerName,
+            trustPts,
+            suspPts,
+            0,
+            interaction === 'scheme' ? 'scheme' : 'conversation',
+            `[TAG] ${choice.choiceId}`,
+            prev.currentDay
+          );
+        }
 
         // Apply trust/suspicion to target
         const updatedContestants = prev.contestants.map(c => {

@@ -224,12 +224,19 @@ class RelationshipGraphEngine {
     const averageTrust = relationships.reduce((sum, rel) => sum + rel.trust, 0) / relationships.length;
     const averageSuspicion = relationships.reduce((sum, rel) => sum + rel.suspicion, 0) / relationships.length;
     const allianceCount = relationships.filter(rel => rel.isInAlliance).length;
-    
-    // Social power calculation
-    const trustWeight = averageTrust * 0.4;
-    const suspicionPenalty = averageSuspicion * -0.3;
-    const allianceBonus = allianceCount * 10;
-    const socialPower = Math.max(0, Math.min(100, trustWeight + suspicionPenalty + allianceBonus));
+    const averageCloseness = relationships.reduce((sum, rel) => sum + rel.emotionalCloseness, 0) / relationships.length;
+
+    // Social power calculation – tuned so that:
+    // - High trust + low suspicion is powerful
+    // - Emotional closeness helps, but less than raw trust
+    // - Each alliance adds a noticeable, but not overwhelming, bump
+    const trustComponent = averageTrust * 0.45;
+    const suspicionComponent = averageSuspicion * -0.35;
+    const closenessComponent = averageCloseness * 0.2;
+    const allianceComponent = allianceCount * 12;
+
+    const socialPowerRaw = trustComponent + suspicionComponent + closenessComponent + allianceComponent;
+    const socialPower = Math.max(0, Math.min(100, socialPowerRaw));
 
     return {
       averageTrust,
@@ -269,26 +276,51 @@ class RelationshipGraphEngine {
 
   // Decay relationships over time (call periodically)
   decayRelationships(currentDay: number): void {
+    const HIGH_TRUST = 70;
+    const LOW_TRUST = 30;
+    const HIGH_SUSPICION = 70;
+    const MID_SUSPICION = 40;
+    const HIGH_CLOSENESS = 75;
+    const MID_CLOSENESS = 45;
+    const GRACE_DAYS = 3;
+
     this.relationships.forEach((sourceRelations) => {
       sourceRelations.forEach((relationship) => {
         const lastDay = relationship.lastInteraction || 0;
         const daysSinceInteraction = currentDay - lastDay;
-        
-        if (daysSinceInteraction > 2) {
-          // Slowly decay extreme values toward neutral
-          if (relationship.trust > 60) {
-            relationship.trust = Math.max(60, relationship.trust - 1);
-          } else if (relationship.trust < 40) {
-            relationship.trust = Math.min(40, relationship.trust + 1);
-          }
-          
-          if (relationship.suspicion > 60) {
-            relationship.suspicion = Math.max(60, relationship.suspicion - 1);
-          }
-          
-          if (relationship.emotionalCloseness > 60) {
-            relationship.emotionalCloseness = Math.max(60, relationship.emotionalCloseness - 1);
-          }
+
+        if (daysSinceInteraction <= GRACE_DAYS) {
+          return;
+        }
+
+        // The longer two people go without interacting, the faster extremes soften.
+        const decaySteps = Math.min(3, Math.floor((daysSinceInteraction - GRACE_DAYS) / 2) + 1);
+
+        // Pull extreme trust back toward a neutral band
+        if (relationship.trust > HIGH_TRUST) {
+          relationship.trust = Math.max(HIGH_TRUST, relationship.trust - decaySteps);
+        } else if (relationship.trust < LOW_TRUST) {
+          relationship.trust = Math.min(LOW_TRUST, relationship.trust + decaySteps);
+        }
+
+        // Let very high suspicion cool slowly over time
+        if (relationship.suspicion > HIGH_SUSPICION) {
+          relationship.suspicion = Math.max(MID_SUSPICION, relationship.suspicion - decaySteps);
+        }
+
+        // Emotional closeness also drifts toward a mid-band if people stop interacting
+        if (relationship.emotionalCloseness > HIGH_CLOSENESS) {
+          relationship.emotionalCloseness = Math.max(MID_CLOSENESS, relationship.emotionalCloseness - decaySteps);
+        } else if (
+          relationship.emotionalCloseness < MID_CLOSENESS &&
+          relationship.trust > HIGH_TRUST - 10 &&
+          relationship.suspicion < MID_SUSPICION - 10
+        ) {
+          // Warm relationships that cooled a bit can rebound slightly even without direct contact
+          relationship.emotionalCloseness = Math.min(
+            MID_CLOSENESS,
+            relationship.emotionalCloseness + Math.max(1, Math.floor(decaySteps / 2))
+          );
         }
       });
     });

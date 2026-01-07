@@ -5,6 +5,8 @@ import { Progress } from '@/components/ui/progress';
 import { Crown, Gavel, Users } from 'lucide-react';
 import { GameState } from '@/types/game';
 import { analyzeFinaleSpeech } from '@/utils/speechQuality';
+import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
+import { memoryEngine } from '@/utils/memoryEngine';
 
 interface JuryVoteScreenProps {
   gameState: GameState;
@@ -83,31 +85,97 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       // If the player is in the jury, skip their vote until they choose.
       if (isPlayerInJury && juryMember.name === gameState.playerName) return;
 
-      // Calculate vote probability for each finalist
+      // Calculate weighted score for each finalist based on:
+      // - Trust / suspicion in the relationship graph
+      // - Emotional history (positive vs negative memories)
+      // - Betrayal memories from the global memory engine
+      // - Perceived strategy / social power
+      // - Finale speech impact (for the player)
       const finalTwoScores = finalTwo.map(finalist => {
         let score = 50; // Base score
 
-        // Relationship with jury member (last 14 days)
+        const rel = relationshipGraphEngine.getRelationship(juryMember.name, finalist.name);
+        const trust = rel?.trust ?? 0;
+        const suspicion = rel?.suspicion ?? 0;
+
+        const trustComponent = trust * 0.4;
+        const suspicionComponent = -suspicion * 0.3;
+        score += trustComponent + suspicionComponent;
+
+        // Direct memories between juror and finalist (last 21 days)
         const memories = juryMember.memory.filter(m =>
-          m.participants.includes(finalist.name) && m.day >= gameState.currentDay - 14
+          m.participants.includes(finalist.name) && m.day >= gameState.currentDay - 21
         );
 
-        const relationshipScore = memories.reduce((sum, memory) => {
-          return sum + memory.emotionalImpact;
-        }, 0);
+        const totalEmotion = memories.reduce((sum, m) => sum + m.emotionalImpact, 0);
+        const positiveEmotion = memories.reduce(
+          (sum, m) => sum + (m.emotionalImpact > 0 ? m.emotionalImpact : 0),
+          0
+        );
+        const negativeEmotion = memories.reduce(
+          (sum, m) => sum + (m.emotionalImpact < 0 ? m.emotionalImpact : 0),
+          0
+        );
 
-        score += relationshipScore * 5;
+        // Warm history helps, bad blood hurts more
+        score += positiveEmotion * 3;
+        score += negativeEmotion * 7; // negativeEmotion is negative, so this is a penalty
+
+        // MemoryEngine-level betrayal events for lingering resentment
+        const journal = memoryEngine.queryMemory(juryMember.name, {
+          dayRange: { start: 1, end: gameState.currentDay },
+          typeFilter: ['betrayal'],
+        });
+
+        let betrayalPenalty = 0;
+        journal.events
+          .filter((e: any) => e.participants?.includes(finalist.name))
+          .forEach((e: any) => {
+            const daysAgo = gameState.currentDay - e.day;
+            if (daysAgo <= 3) {
+              betrayalPenalty -= 30;
+            } else if (daysAgo <= 7) {
+              betrayalPenalty -= 22;
+            } else {
+              betrayalPenalty -= 12;
+            }
+          });
+
+        score += betrayalPenalty;
+
+        // Perceived strategy / resume
+        const socialStanding = relationshipGraphEngine.calculateSocialStanding(finalist.name);
+        const strategyStat = (finalist as any).stats?.strategy ?? 50;
+
+        const rawStrategyComponent =
+          (strategyStat - 50) * 0.3 + (socialStanding.socialPower - 50) * 0.25;
+
+        const jurorPrefersStrategy =
+          juryMember.psychProfile.disposition.includes('strategic') ||
+          juryMember.psychProfile.disposition.includes('competitive');
+
+        const strategyComponent = jurorPrefersStrategy
+          ? rawStrategyComponent * 1.3
+          : rawStrategyComponent * 0.9;
+
+        score += strategyComponent;
 
         // Speech impact (if it was the player finalist)
         if (finalist.name === gameState.playerName && effectivePlayerSpeech) {
-          // Use analyzer instead of raw length so "hi" has no effect
-          score += speechEval.impact;
+          // Let a strong speech meaningfully bump jury perception
+          score += speechEval.impact * 1.5;
         }
 
-        // Random factor for unpredictability (applied once)
-        score += (Math.random() - 0.5) * 20;
+        // Random factor for unpredictability (kept modest)
+        score += (Math.random() - 0.5) * 10;
 
-        return { name: finalist.name, score, relationshipScore };
+        return {
+          name: finalist.name,
+          score,
+          totalEmotion,
+          betrayalPenalty,
+          strategyComponent,
+        };
       });
 
       // Vote for highest score
@@ -120,18 +188,34 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       // Build rationale
       const top = finalTwoScores.find(s => s.name === topChoice.name)!;
       const relationPhrase =
-        top.relationshipScore > 0 ? 'positive interactions' :
-        top.relationshipScore < 0 ? 'strained interactions' :
-        'neutral history';
-      const speechPhrase =
-        (topChoice.name === gameState.playerName && effectivePlayerSpeech)
-          ? (speechEval.tier === 'compelling' ? 'compelling speech'
-             : speechEval.tier === 'solid' ? 'solid speech'
-             : speechEval.tier === 'weak' ? 'weak speech'
-             : 'no meaningful speech')
-          : 'overall gameplay';
+        top.totalEmotion > 5
+          ? 'a strong positive history'
+          : top.totalEmotion < -5
+          ? 'lingering resentment'
+          : 'mixed feelings';
 
-      rationaleMap[juryMember.name] = `Chose ${topChoice.name} due to ${relationPhrase} and ${speechPhrase}.`;
+      let speechOrGamePhrase: string;
+      if (topChoice.name === gameState.playerName && effectivePlayerSpeech) {
+        speechOrGamePhrase =
+          speechEval.tier === 'compelling'
+            ? 'a compelling finale speech that reframed their game'
+            : speechEval.tier === 'solid'
+            ? 'a solid finale speech that backed up their game'
+            : speechEval.tier === 'weak'
+            ? 'a weak or unfocused finale speech'
+            : 'a neutral speech with limited impact';
+      } else {
+        speechOrGamePhrase =
+          top.strategyComponent > 0
+            ? 'respect for their overall strategic game'
+            : 'their overall social presence in the house';
+      }
+
+      if (top.betrayalPenalty < 0) {
+        speechOrGamePhrase += ', despite past betrayal';
+      }
+
+      rationaleMap[juryMember.name] = `Chose ${topChoice.name} due to ${relationPhrase} and ${speechOrGamePhrase}.`;
     });
 
     setVotes(juryVotes);
