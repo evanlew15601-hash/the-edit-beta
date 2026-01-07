@@ -2,12 +2,12 @@ import { pipeline } from "@huggingface/transformers";
 import { generateAIResponse } from "./aiResponseEngine";
 
 // Local, free LLM for in-browser replies (WebGPU/WASM). No API keys required.
-// We keep the current approach and expand it with:
-// - Robust model/device fallback (WebGPU -> WASM)
-// - Optional caching and abort support
-// - Context-aware prompt shaping (public/private/confessional)
-// - Stronger post-processing to enforce first-person, concise 1–2 sentences
-// - Rule-based fallback if generation fails
+// Responsibilities:
+// - Initialize a small instruction model (Qwen 0.5B or TinyLlama 1.1B) on WebGPU/WASM
+// - Build a rich prompt from the simulation state
+// - Generate 1–2 sentence first-person replies
+// - Post-process to keep things in-character and non-meta
+// - Fall back to the rule-based engines if anything goes wrong
 
 let generator: any | null = null;
 let initPromise: Promise<any> | null = null;
@@ -19,7 +19,6 @@ const replyCache = new Map<string, string>();
 function cacheGet(key: string): string | undefined {
   const v = replyCache.get(key);
   if (v !== undefined) {
-    // refresh LRU
     replyCache.delete(key);
     replyCache.set(key, v);
   }
@@ -43,8 +42,8 @@ async function ensureGenerator() {
           "Qwen/Qwen2.5-0.5B-Instruct",
           "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
         ];
-        // Try WebGPU first
         let lastErr: any = null;
+
         for (const device of ["webgpu", "wasm"]) {
           for (const model of modelIdCandidates) {
             try {
@@ -60,7 +59,7 @@ async function ensureGenerator() {
             }
           }
         }
-        // If all attempts failed, propagate the last error
+
         throw lastErr || new Error("Failed to initialize local generator");
       } catch (e) {
         console.error("Local LLM init failed:", e);
@@ -127,7 +126,6 @@ function sanitizeOutput(text: string, maxSentences: number) {
 
   t = parts.join(" ");
 
-  // Avoid empty line
   if (!t) t = "I will keep an eye on that.";
 
   return t.trim();
@@ -163,30 +161,7 @@ function fixSelfReference(text: string, npcName?: string): string {
   const name = (npcName || "").trim();
   if (!name) return text;
 
-  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\// Lightweight validator to catch meta / obviously broken lines.
-// If this flags a line, we fall back to the rule-based response.
-function isMetaOrBroken(text: string): boolean {
-  const t = String(text || "").trim();
-  if (!t) return true;
-  if (t.length > 320) return true;
-
-  const lower = t.toLowerCase();
-  const forbidden = [
-    /\bas an ai\b/,
-    /\blanguage model\b/,
-    /\bi am an ai\b/,
-    /\bi'm an ai\b/,
-    /\bopenai\b/,
-    /\bchatgpt\b/,
-    /\bprompt\b/,
-    /\bsystem prompt\b/,
-    /\bdeveloper\b/,
-    /\bsource code\b/,
-    /\bthis (simulation|game) is not real\b/,
-  ];
-
-  return forbidden.some((re) => re.test(lower));
-}");
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   let t = text;
 
   const patterns: Array<[RegExp, string]> = [
@@ -349,7 +324,9 @@ export async function generateLocalAIReply(
   const prompt = buildPrompt(payload);
 
   // Cache
-  const cacheKey = `${norm(payload.npc?.name)}|${norm(payload.conversationType)}|${norm(payload.tone)}|${norm(payload.parsedInput)}|${norm(payload.socialContext)}|${norm(payload.playerMessage)}`;
+  const cacheKey = `${norm(payload.npc?.name)}|${norm(payload.conversationType)}|${norm(
+    payload.tone
+  )}|${norm(payload.parsedInput)}|${norm(payload.socialContext)}|${norm(payload.playerMessage)}`;
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -357,8 +334,6 @@ export async function generateLocalAIReply(
     await ensureGenerator();
     const gen = generator as any;
 
-    // transformers.js supports an optional "callback_function" for streaming;
-    // here we just expose abort via opts.signal by racing.
     const generation = gen(prompt, {
       max_new_tokens: Math.max(16, Math.min(160, opts?.maxNewTokens ?? 64)),
       temperature: typeof opts?.temperature === "number" ? opts.temperature : 0.6,
@@ -376,10 +351,9 @@ export async function generateLocalAIReply(
             const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
             if (opts.signal!.aborted) onAbort();
             else opts.signal!.addEventListener("abort", onAbort, { once: true });
-          })
+          }),
         ])
-      : generation
-    );
+      : generation);
 
     let text = "";
     if (Array.isArray(out)) {
@@ -417,7 +391,6 @@ export async function generateLocalAIReply(
   } catch (e) {
     console.warn("Local generation failed, falling back to rule-based engine:", e);
     try {
-      // Fallback: use deterministic rule-based line (prefer npcPlan summary if provided)
       const maxSent = Math.max(1, Math.min(2, opts?.maxSentences ?? 2));
 
       let base = payload.npcPlan?.summary;
