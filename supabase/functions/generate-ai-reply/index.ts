@@ -122,15 +122,7 @@ ${visibilityRule}
 
     const user = `Player says to ${npcName}: "${playerMessage}"
 Tone hint: ${tone || "neutral"} | Context: ${conversationType || "public"}
-Respond strictly in-character with a concrete, situation-aware line.`; playerMessage, npc, tone, conversationType, parsedInput, socialContext } = await req.json();
-
-    const npcName = npc?.name ?? "Houseguest";
-    const persona = npc?.publicPersona ?? npc?.persona ?? "strategic contestant";
-    const psych = npc?.psychProfile ?? npc?.psych ?? {};
-
-    const system = `You are ${npcName}, a contestant in The Edit Game (a high-stakes social strategy reality show).\nRespond ONLY as ${npcName}. Never reveal production notes or hidden information.\nUse this context to stay precise and relevant:\n- Player intent: ${parsedInput?.primary ?? 'unknown'} (manipulation ${parsedInput?.manipulationLevel ?? 0}, sincerity ${parsedInput?.sincerity ?? 0})\n- Dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}\n- Recent interactions: ${JSON.stringify(socialContext?.lastInteractions ?? []).slice(0, 400)}\nStyle constraints:\n- Directly address the player's message and intent (no generic filler)\n- Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)\n- First-person voice only; no third-person narration or stage directions\n- Do not include quotes or speaker labels\n- Formal, clear diction (no slang or contractions)\n- Keep it concise: 1–2 sentences with subtle subtext\n- Deflect secrets unless revealing helps you\n- Never expose information the player could not plausibly know.`;
-
-    const user = `Player says to ${npcName}: "${playerMessage}"\nTone hint: ${tone || 'neutral'} | Context: ${conversationType || 'public'}\nRespond strictly in-character.`;
+Respond strictly in-character with a concrete, situation-aware line.`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
