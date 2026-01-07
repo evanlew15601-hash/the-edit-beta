@@ -521,7 +521,27 @@ export const useGameState = () => {
           parsedInput,
           prev.contestants.map((c) => c.name)
         );
-        const useLocalLLM = !!prev.aiSettings?.useLocalLLM;
+
+        // LLM is experimental and should never override high-stakes strategic replies.
+        // For alliance/vote/loyalty style messages, always use the deterministic
+        // rule-based text from npcResponseEngine instead of local LLM paraphrasing.
+        const highStakesTopics = new Set(['alliance', 'vote']);
+        const highStakesActs = new Set([
+          'alliance_proposal',
+          'threatening',
+          'testing_loyalty',
+          'expressing_trust',
+          'expressing_suspicion',
+          'withholding_info',
+          'sabotaging',
+        ] as string[]);
+
+        const isHighStakes =
+          highStakesTopics.has(intent.topic) ||
+          highStakesActs.has(parsedInput.primary);
+
+        const useLocalLLM =
+          !!prev.aiSettings?.useLocalLLM && !isHighStakes;
 
         if (useLocalLLM && npc) {
           const llmPayload = {
