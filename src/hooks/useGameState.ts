@@ -461,6 +461,101 @@ export const useGameState = () => {
             );
           }
 
+          // Subtle relationship nudges based on alliance/vote talk content.
+          // These sit on top of the rule-based trust/suspicion changes coming from gameSystemIntegrator.
+          if (target) {
+            const playerName = (currentState.playerName || '').trim() || 'Player';
+            const day = currentState.currentDay;
+
+            if (intent.topic === 'vote') {
+              // Asking someone to vote with you can slightly shift how tightly they see you as a partner.
+              const trustNudge =
+                reactionSummary.take === 'positive' ? 2 :
+                reactionSummary.take === 'pushback' ? -1 :
+                reactionSummary.take === 'suspicious' ? -3 :
+                0;
+              const suspicionNudge =
+                reactionSummary.take === 'suspicious' ? 4 :
+                reactionSummary.take === 'pushback' ? 2 :
+                0;
+              const emotionalNudge =
+                reactionSummary.take === 'positive' ? 1 :
+                reactionSummary.take === 'pushback' ? -1 :
+                0;
+
+              if (trustNudge !== 0 || suspicionNudge !== 0 || emotionalNudge !== 0) {
+                relationshipGraphEngine.updateRelationship(
+                  target,
+                  playerName,
+                  trustNudge,
+                  suspicionNudge,
+                  emotionalNudge,
+                  'conversation',
+                  `[Vote Talk] Discussed voting for ${intent.voteTarget || 'someone'} with the player via ${conversationType} chat.`,
+                  day
+                );
+              }
+
+              // If the player clearly positions against specific others ("without X"), let that
+              // lightly shape the target's perception of those excluded names as less trusted.
+              if (intent.wantsToExclude && intent.wantsToExclude.length > 0) {
+                intent.wantsToExclude.forEach((excludedName) => {
+                  if (!excludedName || excludedName === target || excludedName === playerName) return;
+                  relationshipGraphEngine.updateRelationship(
+                    target,
+                    excludedName,
+                    -2,
+                    3,
+                    -1,
+                    'conversation',
+                    `[Vote Talk] Player and ${target} talked about not working with ${excludedName}.`,
+                    day
+                  );
+                });
+              }
+            } else if (intent.topic === 'alliance') {
+              // Alliance talk: small trust bumps toward the player and toward named allies.
+              const baseTrust =
+                reactionSummary.take === 'positive' ? 4 :
+                reactionSummary.take === 'neutral' ? 2 :
+                reactionSummary.take === 'suspicious' ? -2 :
+                1;
+              const baseSuspicion = reactionSummary.take === 'suspicious' ? 3 : 0;
+              const baseEmotional = reactionSummary.take === 'positive' ? 2 : 0;
+
+              relationshipGraphEngine.updateRelationship(
+                target,
+                playerName,
+                baseTrust,
+                baseSuspicion,
+                baseEmotional,
+                'conversation',
+                `[Alliance Talk] Talked about working together${
+                  intent.wantsAllianceWith && intent.wantsAllianceWith.length
+                    ? ` with ${intent.wantsAllianceWith.join(', ')}`
+                    : ''
+                }.`,
+                day
+              );
+
+              if (intent.wantsAllianceWith && intent.wantsAllianceWith.length > 0) {
+                intent.wantsAllianceWith.forEach((name) => {
+                  if (!name || name === target || name === playerName) return;
+                  relationshipGraphEngine.updateRelationship(
+                    target,
+                    name,
+                    2,
+                    0,
+                    1,
+                    'conversation',
+                    `[Alliance Talk] ${target} heard player describe ${name} as part of their numbers.`,
+                    day
+                  );
+                });
+              }
+            }
+          }
+
           const interactionEntry = {
             day: currentState.currentDay,
             type: actionType,
