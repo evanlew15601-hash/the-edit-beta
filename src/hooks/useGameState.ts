@@ -27,6 +27,7 @@ import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
 import { getCurrentWeek } from '@/utils/taskEngine';
+import { BackgroundConversationEngine } from '@/utils/backgroundConversationEngine';
 
 type GameActionType =
   PlayerAction['type']
@@ -351,6 +352,29 @@ export const useGameState = () => {
         missionBroadcastBanner: missionBanner,
       };
     });
+
+    // After the synchronous day-advance state update, trigger background
+    // NPC conversations asynchronously using the latest gameStateRef.
+    (async () => {
+      try {
+        const stateAfterAdvance = gameStateRef.current;
+        const outcomes = await BackgroundConversationEngine.generateDailyBackgroundConversations(stateAfterAdvance);
+        if (!outcomes || outcomes.length === 0) {
+          return;
+        }
+
+        setGameState(prev => {
+          // Avoid applying stale outcomes if the day has already moved on.
+          if (prev.currentDay !== stateAfterAdvance.currentDay) {
+            return prev;
+          }
+          return BackgroundConversationEngine.applyOutcomes(prev, outcomes);
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to generate/apply background NPC conversations:', e);
+      }
+    })();
   }, []);
 
   const useAction = useCallback((actionType: GameActionType, target?: string, content?: string, tone?: string) => {
