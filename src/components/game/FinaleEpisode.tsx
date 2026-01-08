@@ -20,14 +20,14 @@ export const FinaleEpisode = ({ gameState, onSubmitSpeech, onAFPVote, onContinue
   const persona = gameState.editPerception.persona;
   const personaLabel =
     persona === 'Hero'
-      ? 'the season’s steady hand'
+      ? 'a steady player the show often framed in a positive light'
       : persona === 'Villain'
-      ? 'the lightning rod'
+      ? 'a player the show highlighted when conflict started'
       : persona === 'Dark Horse'
-      ? 'the late-game threat'
+      ? 'a player who gained attention later in the season'
       : persona === 'Underedited'
-      ? 'the quiet player who finally stepped into the spotlight'
-      : 'a question mark the audience never fully agreed on';
+      ? 'a player who appeared less often but was present in key moments'
+      : 'a player the audience never fully agreed on';
 
   const slides: CutsceneSlide[] = [
     {

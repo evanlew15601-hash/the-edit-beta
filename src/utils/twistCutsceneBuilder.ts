@@ -338,14 +338,14 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: beat.title,
             speaker: 'Narrator',
             text:
-              'Mid-arc moment: in another building, people decide how much of your real life belongs on television.',
+              'Producers discuss how much of your life outside the house they are willing to put on television.',
           },
           {
             title: 'Grounding',
             speaker: name,
             text:
               back.line ||
-              'I keep returning to who I said I was on Day 1 so the people in this house can decide for themselves, no matter what the network does.',
+              'I keep my explanation of who I am simple and repeat it, so people in this house can decide how to treat me.',
           },
         );
     }
@@ -534,14 +534,14 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
         title: beat.title,
         speaker: 'Narrator',
         text:
-          'Mid-season scene: the way you handle this moment will echo in the next vote more than you think.',
+          'What you say and do in this moment will affect who trusts you in the next vote.',
       },
       {
         title: 'Identity Thread',
         speaker: name,
         text:
           back.line ||
-          'You keep one throughline in how you play so people can read your moves—and misread the next one.',
+          'I try to play in a consistent way so people understand my moves and notice when I change direction.',
       },
     );
   }
@@ -552,14 +552,14 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
         title: beat.title,
         speaker: 'Narrator',
         text:
-          'The week tilts a little. You feel the twist underneath your conversations.',
+          'The week shifts slightly. Your conversations feel different because of the twist in play.',
       },
       {
         title: 'Quiet Resolve',
         speaker: name,
         text:
           back.line ||
-          'You make a quiet promise to keep your story steady, even as the house gets louder.',
+          'I decide how I want to play the rest of the week and stick to it, even if the house becomes more chaotic.',
       },
     );
   }
@@ -634,41 +634,41 @@ export function buildTwistResultCutscene(
         speaker: 'Narrator',
         text:
           result === 'success'
-            ? 'In the edit bay, someone strings together clips where houseguests defend you unprompted. The story tilts toward “earned respect.”'
-            : 'The editors lean on the tense moments: side-eyes after votes, quiet whispers about favoritism. The story tilts back toward “rigged.”',
+            ? 'In the edit bay, someone builds a sequence where houseguests defend you without prompting. The segment shows you earning respect from the cast.'
+            : 'The editors select tense clips: side-eyes after votes and quiet whispers about favoritism. The segment focuses on whether your connection to Mars was unfair.',
       },
       {
         title: 'Network Note',
         speaker: 'Producer',
         text:
           result === 'success'
-            ? '“We show that they stood on their own two feet,” a note reads. “Family connection as pressure, not shield.”'
-            : '“Lean into the discomfort,” another note says. “This is what people will argue about on the drive home.”',
+            ? '“We show that they stood on their own two feet,” a note reads. “We do not present the family connection as a shield.”'
+            : '“Emphasize how uncomfortable this was,” another note says. “People will argue about whether the season was fair.”',
       },
       {
         title: 'Inside Your Head',
         speaker: name,
         text:
           back.line ||
-          'I can only measure the week in conversations and votes. Somewhere else, people I have never met are deciding whether to call it a comeback or a mistake.',
+          'I can only measure the week in conversations and votes. Editors I have never met are deciding how much that work will count on screen.',
       },
     );
   } else {
     slides.push(
       {
-        title: result === 'success' ? 'Small Momentum' : 'A Bump in the Path',
+        title: result === 'success' ? 'Small Momentum' : 'A Setback',
         speaker: 'Narrator',
         text:
           result === 'success'
-            ? 'It was not a headline moment, but it nudged the week in your favour.'
-            : 'It stung, but the game rarely ends on one bad beat.',
+            ? 'This improved your position slightly this week.'
+            : 'This hurt your position this week, but the game continues.',
       },
       {
         title: 'What You Take From It',
         speaker: name,
         text:
           back.line ||
-          'I decide what this means before anyone else does. Lesson learned, then back to work.',
+          'I look at what happened, adjust my next moves, and keep playing.',
       },
     );
   }
@@ -739,14 +739,14 @@ export function buildFinaleCutscene(gs: GameState) {
         title: "Season's End",
         speaker: 'Narrator',
         text:
-          'The house is smaller, quieter, and full of echoes. All the small choices that felt forgettable now sit in a straight line leading to this moment.',
+          'Most of the cast is gone. Early votes and conversations clearly led to this final situation.',
       },
       {
         title: 'What Stuck',
         speaker: name,
         text:
           back.line ||
-          'Whatever people say about my game when they leave this place, I want it to sound like they watched the same person from premiere to finale.',
+          'When people talk about my game after this, I want them to describe clear decisions from the first week through the finale.',
       },
     );
   }

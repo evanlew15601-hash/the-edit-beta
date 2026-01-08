@@ -198,12 +198,12 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   const shownEvents = eventMontage.length;
   
   const whatHappened = actualEvents > 0 
-    ? `In reality, you touched ${actualEvents} high-impact moments this week.`
-    : `In the house, it was a quieter week focused on relationship building.`;
+    ? `This week you were directly involved in ${actualEvents} important moments.`
+    : `This week you focused mainly on maintaining relationships rather than big moves.`;
     
   const whatWasShown = shownEvents > 0
-    ? `In the episodes, the edit zoomed in on ${shownEvents} of those beats and kept pushing you as ${editPerception.persona.toLowerCase()}.`
-    : `On The Edit, your screen time dipped as the story shifted to other players.`;
+    ? `The episodes highlighted ${shownEvents} of those moments and presented you as ${editPerception.persona.toLowerCase()}.`
+    : `This week the episodes gave more attention to other players than to you.`;
 
   return {
     week,
@@ -220,33 +220,32 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
 }
 
 function generateDynamicQuote(gameState: GameState, week: number, playerEvents: any[]): string {
-  const { editPerception, alliances, contestants } = gameState;
-  const activeCount = contestants.filter(c => !c.isEliminated).length;
+  const { editPerception, contestants } = gameState;
+  const dayNumber = week * 7;
   
-  // Base quotes on persona and week activity
+  // Base quotes on week activity
   if (playerEvents.length > 3) {
-    // Active week quotes
     const quotes = [
-      `This week has been intense. I've had to make some difficult decisions but I think I'm positioning myself well.`,
-      `A lot is happening right now and I need to stay focused on my long-term strategy while handling the immediate threats.`,
-      `I'm playing multiple angles this week. Sometimes you have to create chaos to find opportunity.`,
-      `The game is accelerating and I'm ready for it. This is where the real players separate from the followers.`
+      `This week I made several difficult decisions and changed some of my plans.`,
+      `This week I adjusted my strategy based on who is actually voting with me.`,
+      `I pushed harder this week and took risks that will show up in the next vote.`,
+      `This week made it clear which relationships are solid and which are not stable.`
     ];
     return quotes[Math.floor(Math.random() * quotes.length)];
   }
   
-  // Persona-based quotes
+  // Persona-based quotes, written in a direct, concrete style
   switch (editPerception.persona) {
     case 'Hero':
-      return `I'm trying to play with integrity while still making the moves I need to make. It's a fine line to walk.`;
+      return `I want to make moves I can explain clearly and still keep myself in the game.`;
     case 'Villain':
-      return `I know people see me as ruthless, but this is a game and I'm here to win. I'll do what's necessary.`;
+      return `I am willing to make moves that hurt people in the short term if they keep me in the game.`;
     case 'Underedited':
-      return `I may not be getting much screen time, but I'm observing everything and my moment will come.`;
+      return `I am not on screen much, but I follow every conversation and I know where the votes are.`;
     case 'Dark Horse':
-      return `People are starting to notice my game, which means I need to be even more strategic about my next moves.`;
+      return `More people are starting to notice my game, so I need tighter control over who hears my plans.`;
     default:
-      return `Day ${week * 7} and I'm still here. Every day is a victory and I'm not taking anything for granted.`;
+      return `It is Day ${dayNumber} and I am still in the house, planning my next move.`;
   }
 }
 

@@ -40,12 +40,12 @@ export class EmergentEventInterruptor {
         id: 'heated_argument',
         type: 'drama',
         title: 'Explosive Confrontation',
-        description: `${targetA.name} and ${targetB.name} are mid-argument in the common room, voices already high enough to make the edit. ${targetC.name} is trying to calm things down while cameras swing closer. If you step in, the scene changes.`,
+        description: `${targetA.name} and ${targetB.name} are in a loud argument in the common room. ${targetC.name} is trying to calm them down while cameras record the exchange. If you step in, the direction of the argument changes.`,
         involvedContestants: [targetA.name, targetB.name, targetC.name],
         requiresPlayerAction: true,
         impact: {
-          immediate: 'Relationships tilt sharply based on how you handle the moment',
-          longTerm: 'This will sit in people’s memories and in the recap package'
+          immediate: 'Relationships between the people involved and you will change based on what you do',
+          longTerm: 'This argument and your response will be visible in recaps and in how players remember the week'
         }
       });
     }
@@ -78,12 +78,12 @@ export class EmergentEventInterruptor {
         id: `npc_check_in_${confidant.name}`,
         type: 'npc_check_in',
         title: 'Pulled Aside',
-        description: `${confidant.name} waits until the room thins out, then pulls you aside for a quiet read on where your head is. It is the kind of soft conversation that never looks big until the recap reminds everyone where it started.`,
+        description: `${confidant.name} waits until the room is quieter, then pulls you aside to ask directly where your head is. It is a small conversation that will matter later when viewers see it again in a recap.`,
         involvedContestants: [confidant.name],
         requiresPlayerAction: true,
         impact: {
           immediate: 'Your tone will affect trust and closeness with them',
-          longTerm: 'Sets the tone for how one-on-one strategy talks with them play on The Edit'
+          longTerm: 'Sets the tone for how one-on-one strategy talks with them appear on The Edit'
         }
       });
     }
