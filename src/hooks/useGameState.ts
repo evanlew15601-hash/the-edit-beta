@@ -686,7 +686,7 @@ export const useGameState = () => {
           isAIInitiated: false,
           participants,
           currentRound: 0,
-          maxRounds: 3,
+          maxRounds: 5,
           mood: houseMeetingEngine.getMood(prev),
           conversationLog: [{ speaker: prev.playerName || 'Player', text: `Call House Meeting: ${topic.replace('_', ' ')}` }],
           currentOptions: houseMeetingEngine.buildOptions(topic),
