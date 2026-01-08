@@ -158,6 +158,7 @@ export const IntroScreen = ({
             <p>All actions have consequences</p>
             <p>Everything is being recorded</p>
             <p>Trust no one completely</p>
+            <p>In the end, one person walks out with the grand prize.</p>
           </div>
         </div>
       </div>

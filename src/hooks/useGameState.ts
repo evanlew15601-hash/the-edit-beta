@@ -13,7 +13,7 @@ import { processVoting } from '@/utils/votingEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
-import { TwistEngine } from '@/utils/twistEngine';
+import { TwistEngine } from '@/utils/TwistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
 import { getReactionProfileForNPC } from '@/utils/tagDialogueEngine';
@@ -21,11 +21,12 @@ import { TAG_CHOICES } from '@/data/tagChoices';
 import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogueEngine';
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
-import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild, finalizePlantedContract } from '@/utils/specialBackgrounds';
+import { applyDailySpecialBackgroundLogic, revealHostChild, finalizePlantedContract } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
+import { getCurrentWeek } from '@/utils/taskEngine';
 
 type GameActionType =
   PlayerAction['type']
@@ -192,11 +193,69 @@ export const useGameState = () => {
         twistNarrative: specialApplied.twistNarrative || initializeTwistNarrative(specialApplied),
       });
 
-      // Detect newly activated narrative beat to trigger a lite mid-game cutscene
+      // Mission result cutscenes for planted houseguest specials
       let nextCutscene: GameState['currentCutscene'] | undefined = undefined;
+      let missionBanner: GameState['missionBroadcastBanner'] | undefined = undefined;
+      const prevPlayer = prev.contestants.find(c => c.name === prev.playerName);
+      const nextPlayer = narrativeApplied.contestants.find(c => c.name === prev.playerName);
+
+      if (
+        prevPlayer &&
+        nextPlayer &&
+        prevPlayer.special &&
+        nextPlayer.special &&
+        prevPlayer.special.kind === 'planted_houseguest' &&
+        nextPlayer.special.kind === 'planted_houseguest'
+      ) {
+        const prevTasks = (prevPlayer.special as any).tasks || [];
+        const nextTasks = (nextPlayer.special as any).tasks || [];
+
+        // Detect newly completed mission this day
+        const newlyCompleted = nextTasks.find((nextTask: any) => {
+          const prevTask = prevTasks.find((t: any) => t.id === nextTask.id);
+          return nextTask.completed && !prevTask?.completed;
+        });
+
+        if (newlyCompleted) {
+          nextCutscene = buildTwistResultCutscene(
+            narrativeApplied as GameState,
+            'success',
+            { taskId: newlyCompleted.id },
+          );
+          missionBanner = {
+            day: newDay,
+            result: 'success',
+            taskId: newlyCompleted.id,
+            description: newlyCompleted.description,
+          };
+        } else {
+          // On week rollover, treat last week's unfinished mission as failed
+          const prevWeek = getCurrentWeek(prev.currentDay);
+          const newWeek = getCurrentWeek(newDay);
+          if (newWeek > prevWeek) {
+            const failedTask = prevTasks.find((t: any) => (t.week ?? prevWeek) === prevWeek && !t.completed);
+            if (failedTask) {
+              nextCutscene = buildTwistResultCutscene(
+                narrativeApplied as GameState,
+                'failure',
+                { taskId: failedTask.id },
+              );
+              missionBanner = {
+                day: newDay,
+                result: 'failure',
+                taskId: failedTask.id,
+                description: failedTask.description,
+              };
+            }
+          }
+        }
+      }
+
+      // Detect newly activated narrative beat to trigger a lite mid-game cutscene,
+      // but only if a mission result cutscene isn't already queued.
       const prevBeatId = prev.twistNarrative?.currentBeatId;
       const newBeatId = narrativeApplied.twistNarrative?.currentBeatId;
-      if (newBeatId && newBeatId !== prevBeatId) {
+      if (!nextCutscene && newBeatId && newBeatId !== prevBeatId) {
         const beat = narrativeApplied.twistNarrative!.beats.find(b => b.id === newBeatId);
         if (beat) {
           nextCutscene = buildMidGameCutscene(narrativeApplied as GameState, beat);
@@ -212,142 +271,41 @@ export const useGameState = () => {
       }
 
       // Let long-term relationships gently decay over time
-      relationshipGraphEngine.decayRelationships(newDay);
-      
-      // Check if jury phase should begin - FIXED: Count ALL active contestants including player
-      const remainingContestants = specialApplied.contestants.filter(c => !c.isEliminated);
-      const remainingCount = remainingContestants.length;
-      const playerStillActive = remainingContestants.some(c => c.name === prev.playerName);
-      debugLog('Remaining contestants:', remainingCount);
-      debugLog('Player still active?', playerStillActive);
-      debugLog('Remaining contestant names:', remainingContestants.map(c => c.name));
-      const shouldStartJury = remainingCount === 7 && !prev.juryMembers;
-      
-      let juryMembers = prev.juryMembers;
-      let daysUntilJury = prev.daysUntilJury;
-      let gamePhase = prev.gamePhase;
-      
-      if (shouldStartJury) {
-        // Start jury phase - take the 7 most recently eliminated contestants
-        juryMembers = specialApplied.contestants
-          .filter(c => c.isEliminated && c.eliminationDay)
-          .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
-          .slice(0, 7) // Exactly 7 jury members
-          .map(c => c.name);
-        daysUntilJury = 0;
-        debugLog('Jury phase started with members:', juryMembers);
-      } else if (remainingCount > 7) {
-        daysUntilJury = Math.max(0, (remainingCount - 7) * 3); // Estimate days until jury
-      }
+      const baseContestants = EnhancedNPCMemorySystem.decayLongTermRelationships({
+        ...tempState,
+        contestants: cleanedContestants,
+      });
 
-      // Check for key game events - FIXED phase transitions with correct counting
-      debugLog('Phase check - Current phase:', prev.gamePhase, 'Remaining:', remainingCount);
-      
-      if (remainingCount === 3 && prev.gamePhase !== 'final_3_vote') {
-        // Final 3 - needs voting first (only trigger if not already in final_3_vote)
-        gamePhase = 'final_3_vote';
-        debugLog('Final 3 reached - voting phase');
-      } else if (remainingCount === 4 && prev.gamePhase !== 'player_vote') {
-        // Final 4 - force elimination (skip immunity for clean vote)
-        debugLog('Final 4 reached - forcing elimination without immunity');
+      // Apply new contextual memories
+      baseContestants.forEach(c => {
+        const extra = newContextualMemories[c.name] || [];
+        c.memory = [...c.memory, ...extra];
+      });
+
+      // Pull updated jury members (if any) from narrative/special logic
+      const juryMembers = narrativeApplied.juryMembers || prev.juryMembers;
+
+      // Track days until jury if configured
+      const daysUntilJury = typeof prev.daysUntilJury === 'number'
+        ? Math.max(0, prev.daysUntilJury - 1)
+        : prev.daysUntilJury;
+
+      // Decide whether to show a cutscene, weekly recap, or stay in daily mode
+      let gamePhase: GameState['gamePhase'] = prev.gamePhase;
+      if (newDay >= prev.nextEliminationDay) {
         gamePhase = 'player_vote';
-      } else if (newDay === prev.nextEliminationDay - 1 && remainingCount > 4) {
-        // Day before elimination - immunity competition (skip at Final 4)
-        gamePhase = 'immunity_competition';
-        debugLog('Immunity competition day');
-      } else if (newDay === prev.nextEliminationDay) {
-        // Elimination day - let player vote first
-        debugLog('Elimination voting day:', newDay);
-        gamePhase = 'player_vote';
-      } else if (newDay % 7 === 0 && newDay > 1) {
-        // Weekly recap every 7 days - FIXED integration
+      } else if (newDay % 7 === 0) {
         gamePhase = 'weekly_recap';
-        debugLog('Weekly recap time');
+      } else {
+        gamePhase = 'daily';
       }
 
-      // Clear old information and update systems
-      InformationTradingEngine.clearOldInformation({ ...prev, currentDay: newDay });
+      // Update viewer ratings lightly based on the day change
+      const nextViewerRating = prev.viewerRating ?? ratingsEngine.getInitial();
+      const nextRatingsHistory = prev.ratingsHistory || [];
 
-      // Calculate edit perception changes
-      const updatedEditPerception = calculateLegacyEditPerception(
-        prev.confessionals,
-        prev.editPerception,
-        newDay,
-        { ...prev, currentDay: newDay }
-      );
-
-      // Apply weekly viewer ratings buzz (only on weekly recap day)
-      let nextViewerRating = prev.viewerRating ?? ratingsEngine.getInitial();
-      let nextRatingsHistory = [...(prev.ratingsHistory || [])];
-      if (newDay % 7 === 0) {
-        const ratingRes = ratingsEngine.applyWeeklyBuzz({
-          ...prev,
-          currentDay: newDay,
-          contestants: specialApplied.contestants,
-          alliances: updatedAlliances,
-          viewerRating: nextViewerRating,
-        });
-        nextViewerRating = ratingRes.rating;
-        nextRatingsHistory.push({
-          day: newDay,
-          rating: Math.round(ratingRes.rating * 100) / 100,
-          reason: ratingRes.reason,
-        });
-      }
-
-      // Possible AI-initiated House Meeting
-      const maybeHM = houseMeetingEngine.detectAIInitiation({
-        ...prev,
-        currentDay: newDay,
-        contestants: specialApplied.contestants,
-        alliances: updatedAlliances,
-      } as GameState);
-
-      // Forced conversations: ensure the house occasionally pulls you aside.
-      const baseContestants = narrativeApplied.contestants || specialApplied.contestants;
-      const activeNPCs = baseContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
-      const existingQueue = prev.forcedConversationsQueue || [];
-      // Drop very old requests; keep only the most recent day so we don't backlog across weeks
-      let nextForcedQueue = existingQueue.filter(item => item.day >= newDay - 1);
-
-      if (nextForcedQueue.length === 0 && activeNPCs.length > 0 && gamePhase === 'daily') {
-        // Pick who pulls you aside based on either high suspicion or high closeness
-        const sortedBySusp = [...activeNPCs].sort(
-          (a, b) => b.psychProfile.suspicionLevel - a.psychProfile.suspicionLevel
-        );
-        const sortedByClose = [...activeNPCs].sort(
-          (a, b) => b.psychProfile.emotionalCloseness - a.psychProfile.emotionalCloseness
-        );
-
-        const topSusp = sortedBySusp[0];
-        const topClose = sortedByClose[0];
-
-        let from = topClose || topSusp;
-        let topic = 'They quietly ask where your head is at for the next vote.';
-        let urgency: 'casual' | 'important' = 'casual';
-
-        if (topSusp && topSusp.psychProfile.suspicionLevel >= 60) {
-          from = topSusp;
-          topic = 'They pull you aside to confront you about mixed signals and shifting votes.';
-          urgency = 'important';
-        } else if (topClose && topClose.psychProfile.emotionalCloseness >= 50) {
-          from = topClose;
-          topic = 'They pull you aside for a private check-in about how you are feeling in the game.';
-          urgency = 'casual';
-        }
-
-        if (from) {
-          nextForcedQueue = [
-            ...nextForcedQueue,
-            {
-              from: from.name,
-              topic,
-              urgency,
-              day: newDay,
-            },
-          ];
-        }
-      }
+      // Clear forced conversations that are too old; keep up to 2 queued
+      const nextForcedQueue = (prev.forcedConversationsQueue || []).filter(fc => newDay - fc.day <= 2).slice(0, 2);
 
       return {
         ...prev,
@@ -374,6 +332,7 @@ export const useGameState = () => {
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
         ongoingHouseMeeting: maybeHM || prev.ongoingHouseMeeting,
         forcedConversationsQueue: nextForcedQueue,
+        missionBroadcastBanner: missionBanner,
       };
     });
   }, []);
@@ -1346,12 +1305,46 @@ export const useGameState = () => {
         nextTwistNarrative = { ...prev.twistNarrative, beats: updatedBeats, currentBeatId: undefined };
       }
 
-      return {
+      let nextState: GameState = {
         ...prev,
         currentCutscene: undefined,
         gamePhase: nextPhase,
         twistNarrative: nextTwistNarrative,
       };
+
+      // Sync key twist state to the scripted story moments
+      if (type === 'mid_game' && prev.twistNarrative?.currentBeatId && prev.twistNarrative.arc !== 'none') {
+        const beatId = prev.twistNarrative.currentBeatId;
+        const arc = prev.twistNarrative.arc;
+
+        // When the Host's Child live reveal episode plays, mark the secret as revealed in state.
+        if (arc === 'hosts_child' && beatId === 'hc_immediate_fallout') {
+          nextState = revealHostChild(nextState, nextState.playerName);
+        }
+
+        // When the Planted Houseguest exposure episode airs, mark the secret as revealed if it wasn't already.
+        if (arc === 'planted_houseguest' && beatId === 'phg_exposed') {
+          const player = nextState.contestants.find(c => c.name === nextState.playerName);
+          if (player && player.special && player.special.kind === 'planted_houseguest') {
+            const updatedContestants = nextState.contestants.map(c => {
+              if (c.name !== nextState.playerName) return c;
+              const spec: any = c.special;
+              if (spec.secretRevealed) return c;
+              return {
+                ...c,
+                special: {
+                  ...spec,
+                  secretRevealed: true,
+                  revealDay: nextState.currentDay,
+                },
+              };
+            });
+            nextState = { ...nextState, contestants: updatedContestants };
+          }
+        }
+      }
+
+      return nextState;
     });
   }, []);
 
@@ -2311,23 +2304,7 @@ export const useGameState = () => {
     }
   }, []);
 
-  // Listen for planted task updates from UI
-  useEffect(() => {
-    const handler = (e: any) => {
-      const { contestantName, taskId, completed } = e.detail || {};
-      setGameState(prev => {
-        const updated = setProductionTaskStatus(prev, contestantName || prev.playerName, taskId, !!completed);
-        const nextCutscene = buildTwistResultCutscene(updated as GameState, completed ? 'success' : 'failure', { taskId });
-        return {
-          ...updated,
-          gamePhase: 'cutscene' as const,
-          currentCutscene: nextCutscene,
-        };
-      });
-    };
-    window.addEventListener('plantedTaskUpdate', handler);
-    return () => window.removeEventListener('plantedTaskUpdate', handler);
-  }, []);
+  
 
   // Listen for planted contract decision (reveal or keep secret)
   useEffect(() => {

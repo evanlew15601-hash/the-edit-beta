@@ -10,83 +10,97 @@ export const PremiereCutscene = ({ onComplete, gameState }: PremiereCutsceneProp
   const contestants = gameState?.contestants || [];
   const playerName = gameState?.playerName || 'You';
 
-  // Build Big Brother style intros and first meeting montage
+  const player = contestants.find(c => c.name === playerName);
+  const others = contestants.filter(c => c.name !== playerName && !c.isEliminated);
+
   const introSlides: CutsceneSlide[] = [];
 
+  // Cold open: walking toward a show you've only seen from the couch
   introSlides.push({
-    title: 'Cold Open',
+    title: 'Studio Night',
     speaker: 'Narrator',
-    text: 'Cameras hum. Doors slide open. A dozen stories cross in one house. The edit will decide which one becomes legend.',
+    text:
+      'The hallway outside the stage smells like cold air and hot lights. At the end of it waits the door you\'ve seen a hundred times on TV—only this time, your mic is the one that\'s live.',
   });
 
-  // Player intro
-  const player = contestants.find(c => c.name === playerName);
   if (player) {
+    const backgroundLabel =
+      player.background === 'Other'
+        ? player.customBackgroundText
+        : player.background;
+    const primary = player.stats?.primary;
+
     introSlides.push({
-      title: 'Your Arrival',
+      title: 'On Deck',
       speaker: playerName,
       text:
-        player.background && player.background !== 'Other'
-          ? `${playerName}, ${player.background.toLowerCase()}. Strengths: ${
-              player.stats?.primary || 'social'
-            }. Eyes on the room, hands steady on the story.`
-          : `${playerName}. Strengths: ${player.stats?.primary || 'social'}. Take a breath. Step in.`,
-      aside: player.customBackgroundText ? `Backstory: ${player.customBackgroundText}` : undefined,
+        backgroundLabel
+          ? `Back home you\'re ${backgroundLabel.toLowerCase()}. Tonight you\'re the person about to walk into a house full of strangers and cameras.`
+          : 'Back home you had a normal life. Tonight you\'re the person about to walk into a house full of strangers and cameras.',
+      aside:
+        primary
+          ? `You quietly decide to lean on your ${primary} game first. Everything else can wait.`
+          : undefined,
     });
   } else {
     introSlides.push({
-      title: 'Confessional',
+      title: 'On Deck',
       speaker: 'You',
-      text: 'Day one. New faces, new tells. Play quiet. Listen louder. The story starts whether I speak or not.',
+      text:
+        'You roll your shoulders once, feeling the weight of the mic pack. Whatever your life was before this hallway, it stays on the other side of the door.',
     });
   }
 
-  // Quick-fire intros for a subset of NPCs
-  contestants
-    .filter(c => c.name !== playerName)
-    .slice(0, 7)
-    .forEach(c => {
-      const prim = c.stats?.primary || 'social';
-      const special =
-        c.special && c.special.kind !== 'none'
-          ? c.special.kind === 'hosts_estranged_child'
-            ? 'Rumored ties beyond the walls.'
-            : 'Production plants curious seeds.'
-          : undefined;
-
-      introSlides.push({
-        title: 'Arrival',
-        speaker: c.name,
-        text:
-          c.background && c.background !== 'Other'
-            ? `${c.name}, ${c.background.toLowerCase()}. Leans ${prim}. ${c.publicPersona}.`
-            : `${c.name}. Leans ${prim}. ${c.publicPersona}.`,
-        aside: special,
-      });
-    });
-
-  // First meeting montage
+  // First steps into the house
   introSlides.push({
-    title: 'The Meeting',
+    title: 'First Steps Inside',
+    speaker: 'Narrator',
     text:
-      'Helloes overlap. Hugs, handshakes, glances. Names travel fast; judgments travel faster. The house calibrates social gravity.',
-    aside: 'Tip: Observe early. First impressions harden into habits.',
+      'The door opens on a room that looks slightly smaller than it did on screen. Bright, too bright. A dozen empty seats and too many cameras wait for the cast to exist.',
+  });
+
+  // Feature a handful of other houseguests with small, grounded snapshots
+  const featured = others.slice(0, 4);
+  featured.forEach(c => {
+    const bg =
+      c.background === 'Other' && c.customBackgroundText
+        ? c.customBackgroundText
+        : c.background;
+    introSlides.push({
+      title: 'First Impressions',
+      speaker: c.name,
+      text: [
+        bg ? `${c.name} laughs as they cross the threshold, talking about life as ${bg.toLowerCase()}.` : `${c.name} fills the doorway with an easy grin.`,
+        c.publicPersona
+          ? `Casting called them \"${c.publicPersona}\". You watch to see if the room believes it.`
+          : 'They take in the room quickly, eyes bouncing from camera to faces and back again.',
+      ].join(' '),
+    });
+  });
+
+  // Group settling scene
+  introSlides.push({
+    title: 'The Room Fills',
+    speaker: 'Narrator',
+    text:
+      'Shoes hit the floor, bags thump against couches, and names start to overlap. Some people hug like instant friends; others hover just outside the circle, measuring.',
+    aside: 'You don\'t have to be the loudest voice in the room. You just have to remember who spoke first and who watched.',
   });
 
   // Host welcome
   introSlides.push({
-    title: 'Host Stinger',
+    title: 'Live from the Stage',
     speaker: 'Mars Vega (Host)',
     text:
-      'Welcome to The Edit. Every conversation is a choice. Every silence is too. Your first week starts now—good luck.',
+      'Welcome to The Edit. Sixteen strangers, one house, and a season of choices. Every move you make from this moment on is part of the story we tell.',
   });
 
-  // House entry
+  // Final beat before normal gameplay
   introSlides.push({
-    title: 'House Entry',
+    title: 'Your Turn',
+    speaker: playerName || 'You',
     text:
-      'Footsteps on polished floor. The room adjusts to you. Time to write the first line of your story.',
-    aside: 'Confessionals affect screen-time and approval. Use them.',
+      'You feel the eyes, the lights, the weight of the key wall you can\'t see yet. However this season plays out, the first move is simple: walk in and sit down.',
   });
 
   return (

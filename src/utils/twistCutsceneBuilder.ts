@@ -1,5 +1,4 @@
 import { GameState, CutsceneSlide, NarrativeBeat } from '@/types/game';
-import { BACKGROUND_META } from '@/data/backgrounds';
 
 function getPlayer(gs: GameState) {
   return gs.contestants.find(c => c.name === gs.playerName);
@@ -9,20 +8,81 @@ function getBackstoryContext(gs: GameState): { summary?: string; line?: string }
   const p = getPlayer(gs);
   if (!p) return {};
   const bgName = p.background;
-  const meta = bgName ? BACKGROUND_META.find(m => m.name === bgName) : undefined;
-  const hint = meta?.personaHint ? `—${meta.personaHint}` : '';
-  const backgroundLine = p.customBackgroundText
-    ? `Backstory: ${p.customBackgroundText}`
-    : bgName
-    ? `Background: ${bgName}${hint ? ` ${hint}` : ''}.`
+
+  const base =
+    bgName === 'Other'
+      ? (p.customBackgroundText && p.customBackgroundText.trim()) || undefined
+      : bgName;
+
+  const summary = base
+    ? `Before the show, you worked as ${base.toLowerCase()}.`
     : undefined;
-  const summary =
-    p.customBackgroundText
-      ? `You carry a ${bgName || 'custom'} backstory that informs how you read the room.`
-      : bgName
-      ? `Your ${bgName.toLowerCase()} background shapes your timing and tone.`
-      : undefined;
-  return { summary, line: backgroundLine };
+
+  const line = base
+    ? `${p.name}, ${base}.`
+    : undefined;
+
+  return { summary, line };
+}
+
+function getPlantedSpec(gs: GameState) {
+  const p = getPlayer(gs);
+  if (!p || !p.special || p.special.kind !== 'planted_houseguest') return undefined;
+  return p.special;
+}
+
+function describeMission(gs: GameState, taskId?: string): string | undefined {
+  const spec = getPlantedSpec(gs);
+  if (!spec) return undefined;
+  const tasks = spec.tasks || [];
+  const task = taskId
+    ? tasks.find(t => t.id === taskId)
+    : tasks.find(t => !t.completed);
+  return task?.description;
+}
+</old_code>
+<new_code>
+import { GameState, CutsceneSlide, NarrativeBeat } from '@/types/game';
+
+function getPlayer(gs: GameState) {
+  return gs.contestants.find(c => c.name === gs.playerName);
+}
+
+function getBackstoryContext(gs: GameState): { summary?: string; line?: string } {
+  const p = getPlayer(gs);
+  if (!p) return {};
+  const bgName = p.background;
+
+  const base =
+    bgName === 'Other'
+      ? (p.customBackgroundText && p.customBackgroundText.trim()) || undefined
+      : bgName;
+
+  const summary = base
+    ? `Before the show, you worked as ${base.toLowerCase()}.`
+    : undefined;
+
+  const line = base
+    ? `${p.name}, ${base}.`
+    : undefined;
+
+  return { summary, line };
+}
+
+function getPlantedSpec(gs: GameState) {
+  const p = getPlayer(gs);
+  if (!p || !p.special || p.special.kind !== 'planted_houseguest') return undefined;
+  return p.special;
+}
+
+function describeMission(gs: GameState, taskId?: string): string | undefined {
+  const spec = getPlantedSpec(gs);
+  if (!spec) return undefined;
+  const tasks = spec.tasks || [];
+  const task = taskId
+    ? tasks.find(t => t.id === taskId)
+    : tasks.find(t => !t.completed);
+  return task?.description;
 }
 
 export function buildTwistIntroCutscene(gs: GameState) {
@@ -31,85 +91,99 @@ export function buildTwistIntroCutscene(gs: GameState) {
   const name = player?.name || 'You';
   const back = getBackstoryContext(gs);
 
-  let title = 'Twist: Prologue';
+  let title = 'Prologue';
   let slides: CutsceneSlide[] = [];
-  let ctaLabel = 'Continue';
+  let ctaLabel = 'Enter Week 1';
 
   if (arc === 'hosts_child') {
-    title = 'Prologue: The Unspoken';
+    title = 'Prologue: The Connection';
     slides = [
       {
-        title: 'Establishing Shot',
+        title: 'Legal Line',
         speaker: 'Narrator',
-        text: 'Some stories enter the house before the houseguests do. Yours is one of them. The walls are neutral; the cameras are not.',
-        aside: back.summary || 'Start from game first principles: votes, numbers, timing.',
+        text:
+          'Weeks before move-in, someone in a quiet office added one sentence to a contract: you are related to Mars Vega.',
+        aside: back.summary,
       },
       {
-        title: 'Backstory',
+        title: 'Control Room',
+        speaker: 'Producer',
+        text:
+          '“We keep it quiet until we don\'t,” a producer says to Mars over a stack of rundown cards. “If the season drags, we open that box on air.”',
+      },
+      {
+        title: 'Walk-On Instructions',
+        speaker: 'Stage Manager',
+        text:
+          'At the edge of the stage, a hand adjusts your mic. “On live shows, look at Mars like any other host. No hugs. No jokes about home. We\'ll tell you if that changes.”',
+      },
+      {
+        title: 'Plan A',
         speaker: name,
-        text: back.line
-          ? `${back.line} However it reads on TV, it won’t play the votes for me.`
-          : 'I brought a life outside this house. In here, only moves matter.',
-        aside: 'Use confessionals to frame who you are before the house frames you.',
-      },
-      {
-        title: 'Private Resolve',
-        speaker: name,
-        text: 'I came to play this game. The rest stays off the table—until the game forces it on. If that moment comes, I’ll choose the frame before someone else does.',
-        aside: 'Keep focus: gameplay first, reveal only if necessary.',
-      },
-      {
-        title: 'Seeds',
-        text: 'Whispers arrive before proof. A glance lingers. A rumor finds a host. You prepare the antidote before the cut.',
-        aside: 'Tip: confessionals shape perception—plant context before events plant you.',
+        text:
+          'Go in like I\'m just another contestant. Make friends, make votes, pretend the cameras don\'t know my last name.',
       },
     ];
-    ctaLabel = 'Enter Week 1';
   } else if (arc === 'planted_houseguest') {
     title = 'Prologue: The Assignment';
-    const firstTask = player?.special && player.special.kind === 'planted_houseguest'
-      ? (player.special.tasks || [])[0]
-      : undefined;
     slides = [
       {
-        title: 'Briefing',
+        title: 'Off-Camera Offer',
+        speaker: 'Producer',
+        text:
+          '“You\'re not just a player,” they say in a windowless office. “You\'re our plant. Every week, you get a mission the others don\'t see.”',
+        aside: back.summary,
+      },
+      {
+        title: 'Audience Tease',
+        speaker: 'Mars Vega (Host)',
+        text:
+          '“This season, someone inside that house will be taking secret orders from us,” Mars tells the cameras. “At home, you\'ll see every mission. The house will see none of it.”',
+      },
+      {
+        title: 'First Card',
         speaker: 'Narrator',
-        text: 'You have a mission. Production will test subtlety, timing, and cover. Your job is to make art look like reality.',
-        aside: back.summary || 'Leverage your day-one persona to hide day-two influence.',
+        text:
+          'They slide you a sealed envelope with a glossy logo. Inside: this week\'s instructions, written for viewers to read along as a graphic under your face.',
       },
       {
         title: 'Cover Story',
         speaker: name,
-        text: back.line
-          ? `${back.line} That’s my camouflage. I’ll repeat it until even I believe it.`
-          : 'No explicit backstory on file. So I’ll write one and perform it until it sticks.',
-      },
-      {
-        title: 'Week 1',
-        speaker: name,
-        text: firstTask
-          ? `Mission assigned: "${firstTask.description}". I’ll fold it into natural conversation beats and let others carry it.`
-          : 'No explicit mission yet. Blend in; build a believable cover; front-load normalcy.',
-        aside: 'Consistent story beats matter more than loud ones.',
-      },
-      {
-        title: 'Operating Principle',
-        text: 'What you repeat becomes what they believe. Define habits, phrases, and tells now. Later, they’ll justify your moves for you.',
+        text:
+          'On the call sheet I\'m just another houseguest. On the network schedule I\'m a recurring twist. My job is to make the missions look like my own bad ideas.',
       },
     ];
-    ctaLabel = 'Enter Week 1';
   } else {
-    title = 'Prologue';
+    title = 'Prologue: No Twist';
     slides = [
-      { title: 'Orientation', text: 'A new game starts. The house calibrates around you. You choose the signal; the edit chooses the volume.', aside: back.summary },
-      { title: 'Identity', speaker: name, text: back.line || 'I’ll let my game define my identity here.' },
-      { title: 'Thesis', text: 'Every choice becomes footage. Every silence becomes implication. You’ll use both.' },
+      {
+        title: 'Orientation',
+        speaker: 'Narrator',
+        text:
+          'The house is dressed, the lights are set, and the game is ready. For once, there is no secret twist with your name on it.',
+        aside: back.summary,
+      },
+      {
+        title: 'Who You Are',
+        speaker: name,
+        text:
+          back.line ||
+          'You take inventory of your own habits: who you talk to first, where you stand, how long you hold eye contact.',
+      },
+      {
+        title: 'Quiet Promise',
+        speaker: name,
+        text:
+          'Play the week in front of you. Whatever the network has planned, your job is simple: stay off the block and out of the worst conversations.',
+      },
     ];
   }
 
   return { title, slides, ctaLabel, type: 'twist_intro' as const };
 }
 
+// Mid-game beats are treated as fixed episodes in a small story mode.
+// Gameplay timing decides when they trigger, but the scenes themselves are scripted.
 export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
   const arc = gs.twistNarrative?.arc || 'none';
   const player = getPlayer(gs);
@@ -117,355 +191,435 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
   const back = getBackstoryContext(gs);
 
   const slides: CutsceneSlide[] = [];
+  let title = 'Mid-Game Beat';
+  const ctaLabel = 'Return to Game';
 
   if (arc === 'hosts_child') {
-    if (beat.id === 'hc_rumor_swirl') {
-      slides.push(
-        {
-          title: 'Air Currents',
-          speaker: 'Narrator',
-          text: 'Rumors circle without landing. Your name is lighter and heavier at the same time. Gravity builds with repetition.',
-        },
-        {
-          title: 'Containment',
-          speaker: name,
-          text: 'I heard it. They heard it. We move anyway. Tighten alliances; limit oxygen. I’ll feed them gameplay until the rumor starves.',
-          aside: 'Pick confessionals that steer the audience back to gameplay.',
-        },
-        {
-          title: 'Context',
-          speaker: name,
-          text: back.line
-            ? `${back.line} That explains my tone—not my vote. I’ll keep reminding them of the difference.`
-            : 'My personal story informs my tone, not my target.',
-        },
-      );
-    } else if (beat.id === 'hc_reveal') {
-      slides.push(
-        {
-          title: 'Moment of Truth',
-          text: 'Silence breaks. The connection leaves shadows and steps into light. The room reads you; you read the room.',
-        },
-        {
-          title: 'Frame It',
-          speaker: name,
-          text: 'It’s part of my life, not my strategy. Judge me by my moves. If you can’t, I’ll give you moves you can’t ignore.',
-        },
-        {
-          title: 'Edit Math',
-          text: 'A reveal reframes old footage and scripts new confessionals. You choose which clips they remember.',
-          aside: 'Deliver a clean, memorable thesis right after the reveal.',
-        },
-      );
-    } else {
-      // Scripted beats for Host's Child arc (deterministic across playthroughs)
-      switch (beat.id) {
-        case 'hc_premiere_seeds':
-          slides.push(
-            {
-              title: 'Premiere Seeds',
-              speaker: 'Narrator',
-              text: 'Introductions skate across the surface. Yours leaves a wake. Someone will notice the current before they notice the cause.',
-            },
-            {
-              title: 'Opening Move',
-              speaker: name,
-              text: 'I set tempo: calm, useful, unemotional. If anyone clocks a story, they’ll have to dig through the gameplay to reach it.',
-              aside: 'Anchor to votes and numbers on Days 1–3.',
-            },
-          );
-          break;
-        case 'hc_mars_private_meet':
-          slides.push(
-            {
-              title: 'Behind the Scenes',
-              speaker: 'Narrator',
-              text: 'A quiet hall, a closed door. Mars Vega doesn’t need cameras to read the room.',
-            },
-            {
-              title: 'Private: Mars Vega',
-              speaker: name,
-              text: 'We keep it professional. I set boundaries: my story isn’t a prop; my game is the show.',
-              aside: 'This meeting is off-camera. Choose the tone and move on.',
-              choices: [
-                { id: 'hc_private_keep_game', text: 'Keep it strictly game. “No favors.”', televised: false },
-                { id: 'hc_private_seek_grace', text: 'Ask for off-camera grace to control timing.', televised: false },
-              ],
-              televised: false,
-            },
-          );
-          break;
-        case 'hc_consequence':
-          slides.push(
-            {
-              title: 'Consequences',
-              text: 'Reveals don’t end scenes; they start negotiations. Trust resets to pending. Your allies test the new math.',
-            },
-            {
-              title: 'Terms',
-              speaker: name,
-              text: 'No theatrics. I’ll make a clean week: direct talks, measurable follow-through. People remember consistency.',
-            },
-          );
-          break;
-        case 'hc_mars_televised_checkin':
-          slides.push(
-            {
-              title: 'Broadcast',
-              speaker: 'Narrator',
-              text: 'The red light blinks on. A check-in with Mars Vega turns a story into a segment.',
-            },
-            {
-              title: 'On-Camera: Mars Vega',
-              speaker: name,
-              text: 'I set the frame myself before anyone else does.',
-              aside: 'Televised choice — a light edit impact applies.',
-              choices: [
-                { id: 'hc_tv_own', text: 'Own it cleanly. Set terms and move forward.', televised: true, editDelta: 4 },
-                { id: 'hc_tv_deflect', text: 'Deflect to strategy. Minimize the headline.', televised: true, editDelta: -2 },
-              ],
-              televised: true,
-            },
-          );
-          break;
-        case 'hc_redemption_attempt':
-          slides.push(
-            {
-              title: 'Redemption Attempt',
-              speaker: 'Narrator',
-              text: 'A steady run of days can rewrite a headline. The audience loves competence more than confessions.',
-            },
-            {
-              title: 'Plan',
-              speaker: name,
-              text: 'Stack small wins: help a target feel safe, call the numbers early, deliver the vote. Repeat until the room relaxes.',
-            },
-          );
-          break;
-        case 'hc_final_reckoning':
-          slides.push(
-            {
-              title: 'Final Reckoning',
-              text: 'The season remembers the throughline you deliver now. You decide if the story lands on spectacle or substance.',
-            },
-            {
-              title: 'Closing Frame',
-              speaker: name,
-              text: 'Judge the moves. The connection is biography; the gameplay is the argument.',
-            },
-          );
-          break;
-        default:
-          // Fallback should rarely hit because all host-child beats are scripted above
-          slides.push(
-            { title: beat.title, text: 'Mid-arc scene. You choose the frame before others do.' },
-            { title: 'Grounding', speaker: name, text: back.line || 'I anchor back to who I am so the house can predict me—until it can’t.' },
-          );
-      }
+    switch (beat.id) {
+      case 'hc_first_week':
+        slides.push(
+          {
+            title: 'Casting Playback',
+            speaker: 'Narrator',
+            text:
+              'In a dark control room, producers scrub through early footage of the house. Your face keeps popping up on their monitors, circled on a printout that reads “family tie.”',
+          },
+          {
+            title: 'Quiet Notes',
+            speaker: 'Producer',
+            text:
+              '“Keep them safe for now,” someone says. “We can\'t burn the host\'s kid on week one. Tease it in confessionals, not in votes.”',
+          },
+          {
+            title: 'Inside the House',
+            speaker: name,
+            text:
+              'All I feel is normal first-week nerves. I don\'t hear the part where people in another building are already protecting my screen time.',
+          },
+        );
+        break;
+
+      case 'hc_build_trust':
+        slides.push(
+          {
+            title: 'Leading Questions',
+            speaker: 'Narrator',
+            text:
+              'In the confessional, the lights are a little brighter than usual. A producer off camera keeps circling back to your family.',
+          },
+          {
+            title: 'Confessional Prompt',
+            speaker: 'Producer',
+            text:
+              '“What would Mars say if they saw you aligned with this person?” they ask. “Would they be proud? Would they be worried?”',
+          },
+          {
+            title: 'Answer on Tape',
+            speaker: name,
+            text:
+              'I try to talk about strategy instead of childhood. They nod, but I can tell they\'re really listening for the name, not the plan.',
+          },
+        );
+        break;
+
+      case 'hc_voting_block':
+        slides.push(
+          {
+            title: 'Segment Meeting',
+            speaker: 'Narrator',
+            text:
+              'Around a table covered in paper coffee cups, someone reads out the current boot order. Your name is on the maybe list.',
+          },
+          {
+            title: 'Programming Note',
+            speaker: 'Producer',
+            text:
+              '“We can\'t lose them before we use them,” a producer says. “If the vote gets close, push more confessionals from another target. We need this reveal later in the season.”',
+          },
+          {
+            title: 'Unseen Help',
+            speaker: name,
+            text:
+              'Inside the house, I just feel like the tide turned at the last minute. I don\'t know an entire building quietly nudged it away from me.',
+          },
+        );
+        break;
+
+      case 'hc_reveal_timing':
+        slides.push(
+          {
+            title: 'Whiteboard',
+            speaker: 'Narrator',
+            text:
+              'On a wall in the control room, weeks are written in marker. Under this one, someone has circled your name and written “soft reveal?”',
+          },
+          {
+            title: 'The Pitch',
+            speaker: 'Producer',
+            text:
+              '“We build a segment,” they tell Mars. “You ask a question you\'d only ask your own kid. We cut to confessional. If it plays, we lean in. If not, we save the hard reveal for later.”',
+          },
+          {
+            title: 'Rehearsal',
+            speaker: name,
+            text:
+              'In my head I practice both versions: the one where I say nothing, and the one where I admit everything into a camera lens before I say it to the house.',
+          },
+        );
+        break;
+
+      case 'hc_immediate_fallout':
+        slides.push(
+          {
+            title: 'Live Segment',
+            speaker: 'Narrator',
+            text:
+              'On eviction night, the studio audience quiets on command. Mars looks at you a half-second too long before reading the teleprompter.',
+          },
+          {
+            title: 'On-Air Reveal',
+            speaker: 'Mars Vega (Host)',
+            text:
+              '“There\'s something the other houseguests don\'t know about you,” Mars says for millions of viewers and a dozen stunned players. “We have family in the house.”',
+          },
+          {
+            title: 'Silence',
+            speaker: name,
+            text:
+              'I hear the crowd before I hear my own heartbeat. Inside the house, people stare at me like I\'ve changed shape. In the control room, someone nods at the ratings monitor.',
+          },
+        );
+        break;
+
+      case 'hc_rebuild_trust':
+        slides.push(
+          {
+            title: 'Damage Report',
+            speaker: 'Narrator',
+            text:
+              'Back in the control room, they watch the fallout like game tape. Who sits closer, who pulls away, who avoids looking at you at all.',
+          },
+          {
+            title: 'Producer Note',
+            speaker: 'Producer',
+            text:
+              '“Let them talk it out,” one says. “Then feed them prompts about fairness and second chances. We want this to feel messy, not rigged.”',
+          },
+          {
+            title: 'In the House',
+            speaker: name,
+            text:
+              'I spend the week repeating the same sentence: judge me by my votes, not my family. I don\'t know how much of that will actually make air.',
+          },
+        );
+        break;
+
+      case 'hc_flip_narrative':
+        slides.push(
+          {
+            title: 'Edit Bay',
+            speaker: 'Narrator',
+            text:
+              'In a small dark room, someone drags clips of you across a timeline. Moments of nerves get cut against shots of Mars looking proud, then worried, then proud again.',
+          },
+          {
+            title: 'New Storyline',
+            speaker: 'Producer',
+            text:
+              '“We sell it as pressure, not privilege,” they decide. “The kid who had to work twice as hard to prove they weren\'t handed anything.”',
+          },
+          {
+            title: 'What You Control',
+            speaker: name,
+            text:
+              'All I can actually control are the people I vote with and the people I look in the eye. Whatever they turn that into later isn\'t really up to me.',
+          },
+        );
+        break;
+
+      case 'hc_jury_pitch':
+        slides.push(
+          {
+            title: 'Final Package',
+            speaker: 'Narrator',
+            text:
+              'As the season narrows, an editor assembles a montage: your first confessional, the reveal, every time someone said your last name like an accusation.',
+          },
+          {
+            title: 'Producer Directive',
+            speaker: 'Producer',
+            text:
+              '“In their final plea, ask about Mars,” they tell the host. “The audience has watched that thread all season. We need to hear how they see it now.”',
+          },
+          {
+            title: 'Preparing Your Words',
+            speaker: name,
+            text:
+              'If I make it to that last chair, I\'ll have to explain the game I played and the parent I played it in front of. One answer for the jury, another for the cameras.',
+          },
+        );
+        break;
+
+      default:
+        slides.push(
+          {
+            title: beat.title,
+            speaker: 'Narrator',
+            text:
+              'Mid-arc moment: in another building, people decide how much of your real life belongs on TV.',
+          },
+          {
+            title: 'Grounding',
+            speaker: name,
+            text:
+              back.line ||
+              'I keep returning to who I said I was on Day 1 so the people in this house can decide for themselves, no matter what the network does.',
+          },
+        );
     }
   } else if (arc === 'planted_houseguest') {
-    if (beat.id === 'phg_risky_plant') {
-      slides.push(
-        {
-          title: 'The Plant',
-          speaker: 'Narrator',
-          text: 'Risk is the premium paid for influence. You place a seed and pretend you forgot you did. The house waters it for you.',
-        },
-        {
-          title: 'Execution',
-          speaker: name,
-          text: 'Casual tone. Specific detail. Someone repeats it. Now it lives. If it traces back, it still sounds like me.',
-        },
-        {
-          title: 'Cover Integrity',
-          text: back.line
-            ? `Your cover loops through your ${player?.background?.toLowerCase() || 'day-one'} habits. Repetition protects you.`
-            : 'Define a habit, a phrase, a daily rhythm—make it your alibi.',
-        },
-      );
-    } else if (beat.id === 'phg_close_call') {
-      slides.push(
-        {
-          title: 'Close Call',
-          text: 'Eyes linger too long. Your alibi needs a second draft. You slow your pulse and speed up your context.',
-          aside: 'Consistency beats brilliance. Repeat the cover.',
-        },
-        {
-          title: 'Reframe',
-          speaker: name,
-          text: back.line
-            ? `Lean into ${player?.background?.toLowerCase()}: give a reason only that persona would give.`
-            : 'Offer a reason only your established persona would offer.',
-        },
-      );
-    } else {
-      // Scripted beats for Planted Houseguest arc (deterministic across playthroughs)
-      switch (beat.id) {
-        case 'phg_mission_brief':
-          slides.push(
-            {
-              title: 'Mission Brief',
-              speaker: 'Narrator',
-              text: 'The first assignment is the simplest: look ordinary while being specific. Specific reads as truth even when it’s performance.',
-            },
-            {
-              title: 'Protocol',
-              speaker: name,
-              text: 'I’ll define a routine and keep it so consistent that any move fits inside it.',
-              aside: 'Repeat your cover details out loud. Repetition is camouflage.',
-            },
-          );
-          break;
-        case 'phg_producer_brief':
-          slides.push(
-            {
-              title: 'Behind the Scenes',
-              speaker: 'Narrator',
-              text: 'A producer checks your cover integrity. Notes are given in whispers, not scripts.',
-            },
-            {
-              title: 'Producer Brief',
-              speaker: name,
-              text: 'Guardrails are fine; I need room to improvise without breaking character.',
-              aside: 'Off-camera. Choose how tightly you want to play it.',
-              choices: [
-                { id: 'phg_guardrails_tight', text: 'Accept tighter guardrails. Fewer flashy moves.', televised: false },
-                { id: 'phg_guardrails_loose', text: 'Ask for leeway to pivot mid-conversation.', televised: false },
-              ],
-              televised: false,
-            },
-          );
-          break;
-        case 'phg_cover_story':
-          slides.push(
-            {
-              title: 'Cover Story Built',
-              text: 'A believable story isn’t one sentence; it’s five habits. People trust habits.',
-            },
-            {
-              title: 'Mantra',
-              speaker: name,
-              text: back.line
-                ? `${back.line} That’s the spine. Every conversation bends to that shape.`
-                : 'I’ll pick a simple identity and never deviate on camera.',
-            },
-          );
-          break;
-        case 'phg_risky_plant':
-          slides.push(
-            {
-              title: 'The Plant',
-              speaker: 'Narrator',
-              text: 'Risk is the premium paid for influence. You place a seed and pretend you forgot you did. The house waters it for you.',
-            },
-            {
-              title: 'Execution',
-              speaker: name,
-              text: 'Casual tone. Specific detail. Someone repeats it. Now it lives. If it traces back, it still sounds like me.',
-            },
-            {
-              title: 'Cover Integrity',
-              text: back.line
-                ? `Your cover loops through your ${player?.background?.toLowerCase() || 'day-one'} habits. Repetition protects you.`
-                : 'Define a habit, a phrase, a daily rhythm—make it your alibi.',
-            },
-          );
-          break;
-        case 'phg_close_call':
-          slides.push(
-            {
-              title: 'Close Call',
-              text: 'Eyes linger too long. Your alibi needs a second draft. You slow your pulse and speed up your context.',
-              aside: 'Consistency beats brilliance. Repeat the cover.',
-            },
-            {
-              title: 'Reframe',
-              speaker: name,
-              text: back.line
-                ? `Lean into ${player?.background?.toLowerCase()}: give a reason only that persona would give.`
-                : 'Offer a reason only your established persona would offer.',
-            },
-          );
-          break;
-        case 'phg_mars_televised_checkin':
-          slides.push(
-            {
-              title: 'Broadcast',
-              speaker: 'Narrator',
-              text: 'Mars Vega leads a quick check-in. The camera looks for a wink; the audience looks for a tell.',
-            },
-            {
-              title: 'On-Camera: Mars Vega',
-              speaker: name,
-              text: 'I can be legible without being obvious.',
-              aside: 'Televised choice — a light edit impact applies.',
-              choices: [
-                { id: 'phg_tv_wink', text: 'Give a playful line that keeps the cover intact.', televised: true, editDelta: 3 },
-                { id: 'phg_tv_straight', text: 'Play it straight and low-key.', televised: true, editDelta: 1 },
-              ],
-              televised: true,
-            },
-          );
-          break;
-        case 'phg_double_down':
-          slides.push(
-            {
-              title: 'Double-Down Mission',
-              speaker: 'Narrator',
-              text: 'Success invites greed. The assignment scales. Precision matters more than speed.',
-            },
-            {
-              title: 'Execution',
-              speaker: name,
-              text: 'Two small pushes instead of one big shove. Let other people narrate my idea back to me.',
-            },
-          );
-          break;
-        case 'phg_exposure_test':
-          slides.push(
-            {
-              title: 'Exposure Test',
-              text: 'The room runs a silent audit. Your tells are in the edit. If they find one, you’ll need a reason they already believe.',
-            },
-            {
-              title: 'Countermeasure',
-              speaker: name,
-              text: 'I’ll answer suspicion with something boring and repeatable. Suspicion hates boredom.',
-            },
-          );
-          break;
-        case 'phg_endgame_leverage':
-          slides.push(
-            {
-              title: 'Endgame Leverage',
-              text: 'Influence compounds. Quiet credits become loud debts. Spend carefully.',
-            },
-            {
-              title: 'Ask',
-              speaker: name,
-              text: 'I’ll trade the smallest visible favor for the largest invisible vote.',
-            },
-          );
-          break;
-        default:
-          // Fallback should rarely hit because all planted-HG beats are scripted above
-          slides.push(
-            { title: beat.title, text: 'Mid-arc scene. Keep the cover consistent while steering outcomes.' },
-            { title: 'Grounding', speaker: name, text: back.line || 'If they recognize my rhythm, they won’t question my tempo.' },
-          );
-      }
+    switch (beat.id) {
+      case 'phg_current_mission':
+        slides.push(
+          {
+            title: 'Tonight\'s Gimmick',
+            speaker: 'Narrator',
+            text:
+              'In a rundown meeting, a line on the board reads: “Secret mission: plant.” Next to it, your face is printed twice—once for the control room, once for the graphics team.',
+          },
+          {
+            title: 'Viewer Card',
+            speaker: 'Mars Vega (Host)',
+            text:
+              '“At home, you\'ll see the mission on your screen,” Mars tells the audience. “Inside the house, they\'ll have no idea one of their own is playing for us.”',
+          },
+          {
+            title: 'Envelope in Hand',
+            speaker: name,
+            text:
+              'They give me the card and tell me to smile. Whatever the words say this week, millions of people will read them before I take my first step toward the target.',
+          },
+        );
+        break;
+
+      case 'phg_avoid_detection':
+        slides.push(
+          {
+            title: 'Suspicion is Content',
+            speaker: 'Narrator',
+            text:
+              'In the control room, someone rewinds a clip of another player squinting at you. “They\'re onto them,” a voice says, not worried—excited.',
+          },
+          {
+            title: 'House Angle',
+            speaker: name,
+            text:
+              'Around the kitchen table, they joke about production plants like it\'s a myth. I laugh along and check my face for tells in the reflection of the oven door.',
+          },
+          {
+            title: 'Quiet Decision',
+            speaker: 'Producer',
+            text:
+              '“Don\'t save them if they get caught,” a producer decides. “If the house sniffs it out, that\'s our episode.”',
+          },
+        );
+        break;
+
+      case 'phg_balance_act':
+        slides.push(
+          {
+            title: 'Two Scoreboards',
+            speaker: 'Narrator',
+            text:
+              'On one monitor, the game board shows votes, alliances, risk. On another, a smaller graphic tracks your missions: green checkmarks, red Xs.',
+          },
+          {
+            title: 'Confessional Pressure',
+            speaker: 'Producer',
+            text:
+              '“The mission only works if you lean into it,” they remind you. “If you sand off the edges to protect your game, there\'s nothing to air.”',
+          },
+          {
+            title: 'Choosing the Hurt',
+            speaker: name,
+            text:
+              'Every time I push a little too hard on someone, I have to ask which thing I\'m damaging: my chances of winning, or their night of television.',
+          },
+        );
+        break;
+
+      case 'phg_contract_decision':
+        slides.push(
+          {
+            title: 'End of the Deal',
+            speaker: 'Narrator',
+            text:
+              'In a cramped office away from the set, your original contract sits on the table. Someone has highlighted the clauses about “additional on-air obligations.”',
+          },
+          {
+            title: 'One More Stunt',
+            speaker: 'Producer',
+            text:
+              '“We can end the missions quietly,” they say, tapping the paper, “or we can pay you more to go out in a blaze. Live reveal, clip package, the whole thing.”',
+          },
+          {
+            title: 'Your Line',
+            speaker: name,
+            text:
+              'I am still just a contestant trying to not get voted out. But here, away from the house, I\'m also someone being asked how much of my own game I\'m willing to sell for a segment.',
+          },
+        );
+        break;
+
+      case 'phg_exposed':
+        slides.push(
+          {
+            title: 'Live Confession',
+            speaker: 'Narrator',
+            text:
+              'On a live show, the big screen fills with a montage: your missions, your near-misses, graphics that shout “SECRET PLANT” over slow-motion reactions.',
+          },
+          {
+            title: 'On Stage',
+            speaker: 'Mars Vega (Host)',
+            text:
+              '“All season long, one of you has been working for us,” Mars tells the house. “Every mission you saw at home, they lived in secret.”',
+          },
+          {
+            title: 'In the Spotlight',
+            speaker: name,
+            text:
+              'I stand there while the others count back through moments that didn\'t make sense at the time. Whatever I say now, the edit has already decided what I was.',
+          },
+        );
+        break;
+
+      case 'phg_reframe':
+        slides.push(
+          {
+            title: 'Post-Game Spin',
+            speaker: 'Narrator',
+            text:
+              'In a network hallway, someone practices the phrase “superfan plant” until it sounds less harsh. The press release will say the twist was about love of the game.',
+          },
+          {
+            title: 'Exit Interview',
+            speaker: name,
+            text:
+              'Every interviewer asks the same thing: did you feel used? I give them the answer that gets me booked again: I talk about how “fun” it was to be part of the show.',
+          },
+          {
+            title: 'What You Don\'t Say',
+            speaker: 'Narrator',
+            text:
+              'Off camera, your throat is hoarse from repeating the same safe story. The parts about pressure and guilt stay between you and the empty hotel room.',
+          },
+        );
+        break;
+
+      case 'phg_use_intel':
+        slides.push(
+          {
+            title: 'Earpiece',
+            speaker: 'Narrator',
+            text:
+              'During a late-season segment, a producer feeds you gentle nudges through a hidden speaker: who might flip, what might play well if you say it out loud.',
+          },
+          {
+            title: 'Soft Cheating',
+            speaker: 'Producer',
+            text:
+              '“We\'re not telling you what to do,” they insist between takes. “We\'re just giving you information the audience already has.”',
+          },
+          {
+            title: 'Carrying It Back',
+            speaker: name,
+            text:
+              'I walk back into the house with knowledge I didn\'t earn, trying to use it without looking like I can see the cameras more clearly than everyone else.',
+          },
+        );
+        break;
+
+      default:
+        slides.push(
+          {
+            title: beat.title,
+            speaker: 'Narrator',
+            text:
+              'Mid-arc moment: you are still taking orders from a room nobody else can see.',
+          },
+          {
+            title: 'Check Your Cover',
+            speaker: name,
+            text:
+              back.line || 'I remind myself what version of me the house has seen so far, and I don\'t break character.',
+          },
+        );
     }
   } else {
     slides.push(
-      { title: beat.title, text: 'Mid-game scene. Choices connect to reputation; reputation connects to votes.' },
-      { title: 'Identity Thread', speaker: name, text: back.line || 'I keep a throughline so people can read my moves—and misread the next one.' },
+      {
+        title: beat.title,
+        speaker: 'Narrator',
+        text:
+          'Mid-game scene: the way you handle this moment will echo in the next vote more than you think.',
+      },
+      {
+        title: 'Identity Thread',
+        speaker: name,
+        text:
+          back.line ||
+          'You keep one throughline in how you play so people can read your moves—and misread the next one.',
+      },
     );
   }
 
-  return { title: 'Mid-Game Beat', slides, ctaLabel: 'Return to Game', type: 'mid_game' as const };
+  if (slides.length === 0) {
+    slides.push(
+      {
+        title: beat.title,
+        speaker: 'Narrator',
+        text:
+          'The week tilts a little. You feel the twist underneath your conversations.',
+      },
+      {
+        title: 'Quiet Resolve',
+        speaker: name,
+        text:
+          back.line ||
+          'You make a quiet promise to keep your story steady, even as the house gets louder.',
+      },
+    );
+  }
+
+  return { title, slides, ctaLabel, type: 'mid_game' as const };
 }
 
-export function buildTwistResultCutscene(gs: GameState, result: 'success' | 'failure', ctx?: { taskId?: string }) {
+export function buildTwistResultCutscene(
+  gs: GameState,
+  result: 'success' | 'failure',
+  ctx?: { taskId?: string },
+) {
   const arc = gs.twistNarrative?.arc || 'none';
   const player = getPlayer(gs);
   const name = player?.name || 'You';
@@ -475,37 +629,48 @@ export function buildTwistResultCutscene(gs: GameState, result: 'success' | 'fai
   let title = 'Result';
 
   if (arc === 'planted_houseguest') {
-    title = result === 'success' ? 'Mission: Clear' : 'Mission: Compromised';
+    title = result === 'success' ? 'Mission Cleared' : 'Mission Compromised';
+
     if (result === 'success') {
       slides.push(
         {
-          title: 'Clean Cut',
-          text: 'The move reads natural. No one sees the stitch. The story breathes on its own.',
+          title: 'Control Room Reaction',
+          speaker: 'Narrator',
+          text:
+            'In the booth, someone marks your mission as a green check. A producer smiles without looking away from the ratings graph.',
         },
         {
-          title: 'Leverage',
+          title: 'Segment Wrap',
+          speaker: 'Producer',
+          text:
+            '“Perfect,” they say into their headset. “We got the laugh, we got the gasp, and the house is none the wiser. Flag it for the recap.”',
+        },
+        {
+          title: 'Your Take',
           speaker: name,
-          text: 'Subtle wins compound. I cash small chips later for big ones. The less I take credit, the more it pays.',
-        },
-        {
-          title: 'Cover Status',
-          text: back.line ? back.line : 'Your cover holds because you kept performing the same person.',
+          text:
+            'On my side of the cameras, it just feels like a risk that happened to land. The envelope goes back in a drawer. The people I pushed have no idea why.',
         },
       );
     } else {
       slides.push(
         {
-          title: 'Noise',
-          text: 'Someone hears a seam. Suspicion rises faster than truth. Your next words decide if it frays.',
+          title: 'Red X',
+          speaker: 'Narrator',
+          text:
+            'On the mission tracker, your line turns red. The control room winces; a missed stunt is dead airtime.',
         },
         {
-          title: 'Damage Control',
+          title: 'Blame to Share',
+          speaker: 'Producer',
+          text:
+            '“We cut around it,” someone says. “Blame the house vibe, blame the timing. Nobody at home needs to know how hard we tried to force this one.”',
+        },
+        {
+          title: 'Carrying the Cost',
           speaker: name,
-          text: 'Reframe without overexplaining. Repeat the cover. Change the subject. Give them a new puzzle that solves the old one.',
-        },
-        {
-          title: 'Collateral',
-          text: 'Trust dips in the short term; edit sharpens the outline. You can still turn edges into angles.',
+          text:
+            'Out here, failure doesn\'t feel abstract. It looks like strained eye contact and a week where my moves made less sense to everyone but the viewers who saw the card.',
         },
       );
     }
@@ -513,35 +678,54 @@ export function buildTwistResultCutscene(gs: GameState, result: 'success' | 'fai
     title = result === 'success' ? 'Trust Rebuilt' : 'Trust Fractured';
     slides.push(
       {
-        title: 'Fallout',
-        text: result === 'success'
-          ? 'A steady week softens the edges of perception. Confessionals match behavior; the story feels earned.'
-          : 'A sharp moment makes the edit sharper. Silence looks like strategy; strategy looks like deflection.',
+        title: 'Package Review',
+        speaker: 'Narrator',
+        text:
+          result === 'success'
+            ? 'In the edit bay, someone strings together clips where houseguests defend you unprompted. The story tilts toward “earned respect.”'
+            : 'The editors lean on the tense moments: side-eyes after votes, quiet whispers about favoritism. The story tilts back toward “rigged.”',
       },
       {
-        title: 'Next Beat',
+        title: 'Network Note',
+        speaker: 'Producer',
+        text:
+          result === 'success'
+            ? '“We show that they stood on their own two feet,” a note reads. “Family connection as pressure, not shield.”'
+            : '“Lean into the discomfort,” another note says. “This is what people will argue about on the drive home.”',
+      },
+      {
+        title: 'Inside Your Head',
         speaker: name,
-        text: result === 'success'
-          ? 'Keep it simple; make it about votes and numbers. Familiarity rebuilds safety.'
-          : 'Own the moment; make the next one a counterweight. Give people a reason to root for the game you play.',
-      },
-      {
-        title: 'Grounding',
-        text: back.line || 'Re-anchor to your stated identity so the reveal becomes context, not definition.',
+        text:
+          back.line ||
+          'I can only measure the week in conversations and votes. Somewhere else, people I\'ve never met are deciding whether to call it a comeback or a mistake.',
       },
     );
   } else {
     slides.push(
-      { text: result === 'success' ? 'Positive momentum. Small wins bank future options.' : 'A setback—recover on the next choice. Define the lesson so others don’t define you.' },
-      { title: 'Identity Thread', text: back.line || 'Return to your throughline before you pivot.' },
+      {
+        title: result === 'success' ? 'Small Momentum' : 'A Bump in the Path',
+        speaker: 'Narrator',
+        text:
+          result === 'success'
+            ? 'It wasn\'t a headline moment, but it nudged the week in your favour.'
+            : 'It stung, but the game rarely ends on one bad beat.',
+      },
+      {
+        title: 'What You Take From It',
+        speaker: name,
+        text:
+          back.line ||
+          'I decide what this means before anyone else does. Lesson learned, then back to work.',
+      },
     );
   }
 
-  return { 
-    title, 
-    slides, 
-    ctaLabel: 'Return to Game', 
-    type: result === 'success' ? 'twist_result_success' as const : 'twist_result_failure' as const 
+  return {
+    title,
+    slides,
+    ctaLabel: 'Return to Game',
+    type: result === 'success' ? ('twist_result_success' as const) : ('twist_result_failure' as const),
   };
 }
 
@@ -556,41 +740,65 @@ export function buildFinaleCutscene(gs: GameState) {
   if (arc === 'hosts_child') {
     slides.push(
       {
-        title: 'Throughline',
-        text: 'A rumor became a reveal became a resolved story. You turned a headline into context and context into gameplay.',
+        title: 'Two Audiences',
+        speaker: 'Narrator',
+        text:
+          'On finale night, the live crowd cheers for a season they watched. Somewhere in the dark, Mars watches a child they barely got to speak to on camera.',
       },
       {
-        title: 'Backstory Thread',
-        text: back.line || 'Your personal story became a lens, not a leash.',
+        title: 'Backstage',
+        speaker: 'Producer',
+        text:
+          '“We got what we needed,” someone says, nodding at a monitor playing your family montage on loop. “Heart, conflict, a little mess. It\'ll test well.”',
       },
       {
-        title: 'Closing Statement',
+        title: 'Who You Were Here',
         speaker: name,
-        text: 'Judge the game I played, not the headline I carried. The moves hold up without the lore.',
+        text:
+          back.line ||
+          'I played with the people in this house, not the person on that stage. When they talk about this season later, I want them arguing about my moves, not my bloodline.',
       },
     );
   } else if (arc === 'planted_houseguest') {
     slides.push(
       {
-        title: 'Ledger',
-        text: 'Some missions succeeded. Some exposed. The pattern tells the truth: consistent cover, controlled reveals, leverage banked.',
+        title: 'Twist Recap',
+        speaker: 'Narrator',
+        text:
+          'The finale package turns your missions into a highlight reel: slow-motion glances, bold text, a narrator acting like every envelope changed the course of the game.',
       },
       {
-        title: 'Backstory Thread',
-        text: back.line || 'Your cover worked because your identity never broke character.',
+        title: 'Green Room Debrief',
+        speaker: 'Producer',
+        text:
+          '“The plant landed,” they tell a network exec. “We can sell the format again next year.” On the screen behind them, your face freezes on a smile that looks more tired than triumphant.',
       },
       {
-        title: 'Closing Statement',
+        title: 'After the Contract',
         speaker: name,
-        text: 'I planted, I pivoted, and I kept the house alive. The question now is: did I keep my own game alive too?',
+        text:
+          back.line ||
+          'When the lights cool and the mic comes off, all that\'s left is the question I have to live with: did I come here to win, or to give them a better show?',
       },
     );
   } else {
     slides.push(
-      { title: 'Epilogue', text: 'The season writes its epilogue. One story remains: the winner. Your identity stitched the edit together.' },
-      { title: 'Backstory Thread', text: back.line || 'Your background quietly explained your decisions all season.' },
+      {
+        title: 'Season\'s End',
+        speaker: 'Narrator',
+        text:
+          'The house is smaller, quieter, and full of echoes. All the small choices that felt forgettable now sit in a straight line leading to this moment.',
+      },
+      {
+        title: 'What Stuck',
+        speaker: name,
+        text:
+          back.line ||
+          'Whatever people say about my game when they leave this place, I want it to sound like they watched the same person from premiere to finale.',
+      },
     );
   }
 
   return { title: 'Arc Finale', slides, ctaLabel: 'Proceed', type: 'finale_twist' as const };
+};
 }

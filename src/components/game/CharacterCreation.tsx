@@ -95,28 +95,8 @@ export function CharacterCreation({
     }
     return {
       kind: 'planted_houseguest',
-      tasks: [
-        {
-          id: 'p1',
-          description: 'Secretly influence the weekly target',
-          dayAssigned: 2,
-          difficulty: 'medium',
-          objective: { kind: 'scheme_pitch', count: 2 },
-          target: 2,
-          progress: 0,
-          completed: false
-        },
-        {
-          id: 'p2',
-          description: 'Plant a misleading rumor in a group setting',
-          dayAssigned: 5,
-          difficulty: 'medium',
-          objective: { kind: 'talk_count', count: 3, distinct: true },
-          target: 3,
-          progress: 0,
-          completed: false
-        }
-      ],
+      // Tasks are assigned dynamically week by week by the task engine.
+      tasks: [],
       secretRevealed: false,
       contractWeeks: 6,
       contractEndWeek: 6,

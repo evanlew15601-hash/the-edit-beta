@@ -1,6 +1,6 @@
 import { GameState, Contestant, TwistNarrative, NarrativeBeat } from '@/types/game';
 import { createWeeklyTask, verifyAndUpdateTasks } from './taskEngine';
-import { generateHostChildBeats, generatePlantedHGBeats, getGameplayConfessionalPrompts } from './gameplayDrivenNarrative';
+import { getGameplayConfessionalPrompts } from './gameplayDrivenNarrative';
 
 // Minimal prompt shape compatible with EnhancedConfessionalEngine
 export type ConfPrompt = {
@@ -17,7 +17,125 @@ function getPlayer(gs: GameState): Contestant | undefined {
   return gs.contestants.find(c => c.name === gs.playerName);
 }
 
-// Merge newly generated beats with existing ones, preserving scheduled days and progress
+// Static beat schedules for lite story mode twist arcs.
+// Beats fire in a fixed order based on day, independent of gameplay stats.
+function buildStaticHostChildBeats(startDay: number): NarrativeBeat[] {
+  return [
+    {
+      id: 'hc_first_week',
+      title: 'Casting Playback',
+      dayPlanned: startDay + 1,
+      status: 'planned',
+      summary: 'Producers review early footage and flag you as the host’s family.',
+    },
+    {
+      id: 'hc_build_trust',
+      title: 'Leading Questions',
+      dayPlanned: startDay + 4,
+      status: 'planned',
+      summary: 'Confessional prompts circle your family more than your strategy.',
+    },
+    {
+      id: 'hc_voting_block',
+      title: 'Segment Meeting',
+      dayPlanned: startDay + 7,
+      status: 'planned',
+      summary: 'A segment meeting quietly steers an early vote away from you.',
+    },
+    {
+      id: 'hc_reveal_timing',
+      title: 'Whiteboard',
+      dayPlanned: startDay + 10,
+      status: 'planned',
+      summary: 'Production debates when and how to reveal your connection.',
+    },
+    {
+      id: 'hc_immediate_fallout',
+      title: 'Live Segment',
+      dayPlanned: startDay + 14,
+      status: 'planned',
+      summary: 'A live reveal makes your secret public to the house.',
+    },
+    {
+      id: 'hc_rebuild_trust',
+      title: 'Damage Report',
+      dayPlanned: startDay + 17,
+      status: 'planned',
+      summary: 'Fallout is monitored from the control room while you repair trust.',
+    },
+    {
+      id: 'hc_flip_narrative',
+      title: 'Edit Bay',
+      dayPlanned: startDay + 21,
+      status: 'planned',
+      summary: 'Editors reshape your arc as pressure instead of privilege.',
+    },
+    {
+      id: 'hc_jury_pitch',
+      title: 'Final Package',
+      dayPlanned: startDay + 24,
+      status: 'planned',
+      summary: 'Your story is packaged for finale questions and jury debate.',
+    },
+  ];
+}
+
+function buildStaticPlantedHGBeats(startDay: number): NarrativeBeat[] {
+  return [
+    {
+      id: 'phg_current_mission',
+      title: "Tonight's Gimmick",
+      dayPlanned: startDay + 2,
+      status: 'planned',
+      summary: 'The first mission card is introduced to the audience at home.',
+    },
+    {
+      id: 'phg_avoid_detection',
+      title: 'Suspicion is Content',
+      dayPlanned: startDay + 5,
+      status: 'planned',
+      summary: 'Rising suspicion about you is treated as good television.',
+    },
+    {
+      id: 'phg_balance_act',
+      title: 'Two Scoreboards',
+      dayPlanned: startDay + 9,
+      status: 'planned',
+      summary: 'You juggle production missions against real relationships.',
+    },
+    {
+      id: 'phg_contract_decision',
+      title: 'End of the Deal',
+      dayPlanned: startDay + 14,
+      status: 'planned',
+      summary: 'Production pushes you to choose a quiet end or a big reveal.',
+    },
+    {
+      id: 'phg_exposed',
+      title: 'Live Confession',
+      dayPlanned: startDay + 18,
+      status: 'planned',
+      summary: 'Your role as a plant is exposed to the house on air.',
+    },
+    {
+      id: 'phg_reframe',
+      title: 'Post-Game Spin',
+      dayPlanned: startDay + 20,
+      status: 'planned',
+      summary: 'Press and PR spin your twist into a marketable story.',
+    },
+    {
+      id: 'phg_use_intel',
+      title: 'Earpiece',
+      dayPlanned: startDay + 23,
+      status: 'planned',
+      summary: 'Production funnels viewer information into your decisions.',
+    },
+  ];
+}
+
+// Merge beats with existing ones, preserving scheduled days and progress.
+// In the static story mode, this mainly advances planned beats into active status by day.
 function mergeBeats(existing: NarrativeBeat[] = [], generated: NarrativeBeat[], currentDay: number): NarrativeBeat[] {
   const map = new Map<string, NarrativeBeat>();
   existing.forEach(b => map.set(b.id, b));
@@ -27,10 +145,8 @@ function mergeBeats(existing: NarrativeBeat[] = [], generated: NarrativeBeat[], 
   generated.forEach(g => {
     const prev = map.get(g.id);
     if (!prev) {
-      // New beat - keep its planned day relative to when it is first seen
       result.push({ ...g });
     } else {
-      // Preserve prior scheduling/progress; only refresh title/summary if provided
       result.push({
         ...prev,
         title: g.title || prev.title,
@@ -40,12 +156,10 @@ function mergeBeats(existing: NarrativeBeat[] = [], generated: NarrativeBeat[], 
     }
   });
 
-  // Carry over any extra beats that no longer generate but were already in progress
   map.forEach(rem => {
     result.push(rem);
   });
 
-  // Activate any planned beats whose day has arrived
   return result.map(b => {
     if (b.status === 'completed') return b;
     if (b.status === 'planned' && currentDay >= b.dayPlanned) {
@@ -55,16 +169,18 @@ function mergeBeats(existing: NarrativeBeat[] = [], generated: NarrativeBeat[], 
   });
 }
 
-// Note: Beats are now generated dynamically in gameplayDrivenNarrative.ts based on actual gameplay
-
 export function initializeTwistNarrative(gs: GameState): TwistNarrative | undefined {
   const player = getPlayer(gs);
-  if (!player || !player.special || player.special.kind === 'none') return { arc: 'none', beats: [] };
+  if (!player || !player.special || player.special.kind === 'none') {
+    return { arc: 'none', beats: [] };
+  }
+
+  const startDay = gs.currentDay || 1;
 
   if (player.special.kind === 'hosts_estranged_child') {
     return {
       arc: 'hosts_child',
-      beats: generateHostChildBeats(gs, player),
+      beats: buildStaticHostChildBeats(startDay),
       confessionalThemes: ['family', 'reputation', 'trust', 'edit_bias'],
     };
   }
@@ -72,7 +188,7 @@ export function initializeTwistNarrative(gs: GameState): TwistNarrative | undefi
   if (player.special.kind === 'planted_houseguest') {
     return {
       arc: 'planted_houseguest',
-      beats: generatePlantedHGBeats(gs, player),
+      beats: buildStaticPlantedHGBeats(startDay),
       confessionalThemes: ['mission', 'cover_story', 'pressure', 'secret'],
     };
   }
@@ -88,36 +204,13 @@ export function applyDailyNarrative(gs: GameState): GameState {
   let arc = gs.twistNarrative;
   if (!arc || arc.arc === 'none') {
     arc = initializeTwistNarrative(gs);
-  } else {
-    // Generate context-aware beats but merge with existing so we don't keep pushing them forward
-    const generated =
-      player.special?.kind === 'hosts_estranged_child'
-        ? generateHostChildBeats(gs, player)
-        : player.special?.kind === 'planted_houseguest'
-        ? generatePlantedHGBeats(gs, player)
-        : [];
-    arc.beats = mergeBeats(arc.beats, generated, gs.currentDay);
   }
 
   if (!arc) return gs;
 
-  // Ensure activation check (for arcs freshly initialized this day)
-  const beats = mergeBeats(arc.beats, arc.beats, gs.currentDay);
+  let working: GameState = { ...gs };
 
-  // Host child reveal sync
-  if (player.special && player.special.kind === 'hosts_estranged_child') {
-    const revealed = !!player.special.revealed;
-    const revealBeatIdx = beats.findIndex(b => b.id.includes('reveal'));
-    if (revealBeatIdx >= 0) {
-      const revealBeat = beats[revealBeatIdx];
-      if (revealed && revealBeat.status !== 'completed') {
-        beats[revealBeatIdx] = { ...revealBeat, status: 'completed' as const, summary: `Revealed on Day ${gs.currentDay}` };
-      }
-    }
-  }
-
-  // Planted HG task sync, exposure, and contract end handling
-  let working = { ...gs };
+  // Planted HG task sync, exposure, and contract end handling (linear contract window)
   if (player.special && player.special.kind === 'planted_houseguest') {
     const spec = player.special;
 
@@ -128,17 +221,9 @@ export function applyDailyNarrative(gs: GameState): GameState {
     const contractEnded = week > contractEndWeek;
 
     // Update spec with contract meta
-    let specUpdated = { ...spec, contractWeeks, contractEndWeek, contractEnded } as typeof spec;
+    const specUpdated = { ...spec, contractWeeks, contractEndWeek, contractEnded } as typeof spec;
 
-    // escalate beat when secret revealed
-    if (spec.secretRevealed) {
-      const exposureIdx = beats.findIndex(b => b.id.includes('exposed'));
-      if (exposureIdx >= 0) {
-        beats[exposureIdx] = { ...beats[exposureIdx], status: 'active' as const, summary: `Secret flagged Day ${spec.revealDay || gs.currentDay}` };
-      }
-    }
-
-    // ensure at least one task per week assigned by appending if needed, only within contract window
+    // Ensure at least one task per week assigned by appending if needed, only within contract window
     const tasks = (spec.tasks || []).slice();
     const weekTaskId = `w${week}_mission`;
     const hasWeekTask = tasks.some(t => t.id === weekTaskId);
@@ -168,9 +253,12 @@ export function applyDailyNarrative(gs: GameState): GameState {
       working = { ...working, contestants: updatedContestants, twistsActivated: twists };
     }
 
-    // Verify and update task progress/completion and apply rewards
+    // Verify and update task progress/completion and apply rewards once per day
     working = verifyAndUpdateTasks(working);
   }
+
+  // Advance any planned beats into active status based purely on day
+  const beats = mergeBeats(arc.beats, arc.beats, gs.currentDay);
 
   return {
     ...working,

@@ -24,6 +24,8 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
     winner !== 'Unknown' &&
     !!gameState.contestants.find(c => c.name === winner);
 
+  const missionWinnings = gameState.playerFunds ?? 0;
+
   // Guard: Validate winner exists when we expect one
   if (!hasWinner && winner && winner !== 'Unknown') {
     console.error('[PostSeasonRecap] Invalid winner:', winner);
@@ -56,10 +58,15 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
               </h2>
               <p className="text-muted-foreground">
                 {winner === gameState.playerName 
-                  ? 'Congratulations! You played the perfect game and won the jury vote.'
-                  : `${winner} outplayed, outwitted, and outlasted everyone to claim victory.`
+                  ? 'Congratulations. You won the jury vote and walk out with the grand prize.'
+                  : `${winner} outplayed, outwitted, and outlasted everyone to claim the grand prize.`
                 }
               </p>
+              {missionWinnings > 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  You also banked ${missionWinnings.toLocaleString()} in secret production mission bonuses along the way.
+                </p>
+              )}
             </>
           ) : (
             <p className="text-muted-foreground">
@@ -494,6 +501,11 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                     .filter(c => c.special?.kind === 'planted_houseguest')
                     .map(c => {
                       const spec = c.special as any;
+                      const tasks = spec.tasks || [];
+                      const completedCount = tasks.filter((t: any) => t.completed).length;
+                      const totalMissions = tasks.length;
+                      const missedCount = totalMissions - completedCount;
+
                       return (
                         <div key={c.id} className="p-4 border border-border rounded">
                           <div className="flex items-center justify-between">
@@ -507,7 +519,7 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                             </div>
                           </div>
                           <div className="mt-2 space-y-1">
-                            {(spec.tasks || []).map((t: any) => (
+                            {tasks.map((t: any) => (
                               <div key={t.id} className="flex items-center justify-between text-sm">
                                 <div>
                                   <span className="font-medium">{t.description}</span>
@@ -518,6 +530,17 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                                 </Badge>
                               </div>
                             ))}
+                            {totalMissions > 0 && (
+                              <div className="text-[11px] text-muted-foreground pt-1">
+                                Missions completed: {completedCount} of {totalMissions}
+                                {missedCount > 0 ? ` (missed ${missedCount})` : ''}.
+                              </div>
+                            )}
+                            {c.name === gameState.playerName && typeof gameState.playerFunds === 'number' && (
+                              <div className="text-[11px] text-muted-foreground pt-1">
+                                Total mission bonuses earned: ${gameState.playerFunds.toLocaleString()}.
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
