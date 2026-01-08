@@ -391,6 +391,15 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
   if (activeEvents.length === 0) return null;
 
   return (
+    &lt;div className="space-y-4"&gt;
+      &lt;h3 className="text-lg font-medium text-foreground"&gt;Emergent Events&lt;/h3&gt;
+      &lt;p className="text-xs text-muted-foreground"&gt;
+        Unscripted moments that sit on top of your choices and do not consume your daily actions.
+      &lt;/p&gt;
+      {activeEvents.map((event) =&gt; (
+        &lt;Alert key={event.id} className={`${getIntensityColor(event.intensity)} border-2`}&gt;vents.length === 0) return null;
+
+  return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium text-foreground">Emergent Events</h3>
       {activeEvents.map((event) => (

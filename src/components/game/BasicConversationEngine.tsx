@@ -290,6 +290,15 @@ export const BasicConversationEngine = ({ gameState, onUseAction }: BasicConvers
   if (availableTargets.length === 0) return null;
 
   return (
+    &lt;Card className="p-6"&gt;
+      &lt;div className="mb-4"&gt;
+        &lt;h3 className="text-lg font-medium"&gt;Basic RPG Conversation&lt;/h3&gt;
+        &lt;p className="text-sm text-muted-foreground"&gt;
+          Simple pre-written options that use your Talk action. Use this for light relationship changes; use free-text Talk/DM in Daily Actions for custom messages, or Enhanced Tag Dialogue for sharper strategy.
+        &lt;/p&gt;
+      &lt;/div&gt;vailableTargets.length === 0) return null;
+
+  return (
     <Card className="p-6">
       <div className="mb-4">
         <h3 className="text-lg font-medium">Basic RPG Conversation</h3>

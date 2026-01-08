@@ -101,8 +101,11 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
     <div className="space-y-6">
       <Card className="p-6 md:p-7 rounded-lg shadow-sm">
         <h2 className="text-xl md:text-2xl font-medium tracking-wide mb-2">Daily Actions</h2>
-        <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-sm text-muted-foreground">
           Use up to {gameState.dailyActionCap} actions per day (optional). Any combination of actions counts toward this total. Used {gameState.dailyActionCount}/{gameState.dailyActionCap}.
+        </p>
+        <p className="text-xs text-muted-foreground mb-6">
+          Conversations come in three flavors: free-text Talk/DM (via Select), Basic RPG Conversation, and Enhanced Tag Dialogue on the right. All of them use the same Talk/DM/Scheme/Activity slots and daily action cap. Forced pull-asides and Emergent Events are extra and do not spend actions.
         </p>
         
         <div className="grid gap-4">

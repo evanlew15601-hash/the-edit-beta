@@ -160,7 +160,10 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
                   <Zap className="w-5 h-5 text-destructive mt-0.5" />
                   <div>
                     <h4 className="font-medium text-destructive mb-2">{emergentEvent.title}</h4>
-                    <p className="text-sm text-foreground mb-3">{emergentEvent.description}</p>
+                    <p className="text-sm text-foreground mb-2">{emergentEvent.description}</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Responding here will not use a daily action; it only shapes how others see you.
+                    </p>
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">
                         <strong>Type:</strong> {emergentEvent.type.replace('_', ' ').toUpperCase()}

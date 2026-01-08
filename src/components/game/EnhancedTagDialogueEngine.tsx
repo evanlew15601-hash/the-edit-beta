@@ -434,7 +434,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
           Enhanced Tag Dialogue
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Advanced conversation strategies with deep consequences
+          Advanced conversation strategies with deep consequences. Uses the interaction you choose (Talk / DM / Scheme / Activity), spending one daily action with more targeted effects than free-text or Basic RPG Conversation.
         </p>
       </div>
 

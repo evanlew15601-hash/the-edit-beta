@@ -76,6 +76,19 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, for
   }, [selectedTarget, tone, content, contestants]);
 
   return (
+    &lt;Dialog open={isOpen} onOpenChange={onClose}&gt;
+      &lt;DialogContent className="max-w-2xl max-h-[90vh]"&gt;
+        &lt;DialogHeader&gt;
+          &lt;DialogTitle&gt;{forced ? 'Pulled Aside' : 'Start a Conversation'}&lt;/DialogTitle&gt;
+          &lt;DialogDescription&gt;
+            {forced
+              ? 'Respond to a houseguest pulling you aside. This reactive moment does not consume one of your daily actions, but it will still be remembered.'
+              : 'Open a strategic or social chat that uses one of your daily Talk actions and may impact relationships.'}
+          &lt;/DialogDescription&gt;
+        &lt;/DialogHeader&gt;
+        
+        &lt;ScrollArea className="max-h-[60vh] pr-4"&gt;
+          &lt;div className="space-y-6"&gt;
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
