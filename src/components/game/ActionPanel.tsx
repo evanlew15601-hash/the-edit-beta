@@ -102,7 +102,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
       <Card className="p-6 md:p-7 rounded-lg shadow-sm">
         <h2 className="text-xl md:text-2xl font-medium tracking-wide mb-2">Daily Actions</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Use up to {gameState.dailyActionCap} actions per day (optional). Used {gameState.dailyActionCount}/{gameState.dailyActionCap}.
+          Use up to {gameState.dailyActionCap} actions per day (optional). Any combination of actions counts toward this total. Used {gameState.dailyActionCount}/{gameState.dailyActionCap}.
         </p>
         
         <div className="grid gap-4">
@@ -128,6 +128,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
                     variant="action"
                     size="sm"
                     onClick={() => handleActionClick(action.type)}
+                    disabled={allActionsUsed}
                   >
                     Select
                   </Button>
