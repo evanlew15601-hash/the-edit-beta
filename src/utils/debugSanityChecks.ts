@@ -59,7 +59,8 @@ export function debugAllianceMeetingVotingPlanScenario(): void {
     memoryEngine.updateVotingPlan(
       name,
       target,
-      'Alliance meeting plan coordinated by Player (debug)'
+      'Alliance meeting plan coordinated by Player (debug)',
+      { source: 'debug', day: 1 }
     );
   });
 

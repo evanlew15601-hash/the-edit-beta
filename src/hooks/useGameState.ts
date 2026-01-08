@@ -153,18 +153,25 @@ export const useGameState = () => {
         ...prev,
         currentDay: newDay
       });
+
+      // Process alliance secrecy/exposure each day so secret alliances can be discovered over time
+      const alliancesWithSecrecy = AllianceManager.processAllianceSecrecy({
+        ...prev,
+        currentDay: newDay,
+        alliances: updatedAlliances
+      });
       
-      debugLog('Updated alliances after cleanup:', updatedAlliances);
+      debugLog('Updated alliances after cleanup + secrecy processing:', alliancesWithSecrecy);
       
       // Check if player is in any alliances
-      const playerAlliances = updatedAlliances.filter(alliance => alliance.members.includes(prev.playerName));
+      const playerAlliances = alliancesWithSecrecy.filter(alliance => alliance.members.includes(prev.playerName));
       debugLog(`Player ${prev.playerName} is in ${playerAlliances.length} alliances:`, playerAlliances);
 
       // Auto-generate intelligence when day advances
       const tempState = {
         ...prev,
         currentDay: newDay,
-        alliances: updatedAlliances
+        alliances: alliancesWithSecrecy
       };
       
       // Process enhanced NPC memory systems
@@ -434,6 +441,17 @@ export const useGameState = () => {
             currentState.contestants.map((c) => c.name)
           );
 
+          // Lightly surface vote-intent conversations into the strategic memory system
+          // so downstream voting logic can treat them as soft plans rather than hard commits.
+          if (intent.topic === 'vote' && intent.voteTarget && target) {
+            memoryEngine.updateVotingPlan(
+              target,
+              intent.voteTarget,
+              `Discussed voting for ${intent.voteTarget} with the player during a ${conversationType} chat.`,
+              { source: 'conversation_hint', day: currentState.currentDay }
+            );
+          }
+
           const interactionEntry = {
             day: currentState.currentDay,
             type: actionType,
@@ -491,16 +509,7 @@ export const useGameState = () => {
           : [prev.playerName, ...memberNames];
         debugLog('Will create alliance with members:', allMembers);
         
-        const newAlliance = {
-          id: Date.now().toString(),
-          name: allianceName,
-          members: allMembers,
-          strength: 75,
-          secret: true,
-          formed: prev.currentDay,
-          lastActivity: prev.currentDay,
-          dissolved: false
-        };
+        const newAlliance = AllianceManager.createAlliance(allMembers, allianceName, prev.currentDay);
         
         return {
           ...prev,
@@ -514,15 +523,37 @@ export const useGameState = () => {
     // Handle adding members to existing alliance
     if (actionType === 'add_alliance_members') {
       const allianceId = target;
-      const newMembers = content ? content.split(',') : [];
-      debugLog('Adding members to alliance:', allianceId, 'new members:', newMembers);
+      const newMembersRaw = content ? content.split(',') : [];
+      debugLog('Adding members to alliance:', allianceId, 'new members:', newMembersRaw);
       
       setGameState(prev => {
+        const targetAlliance = prev.alliances.find(a => a.id === allianceId);
+        if (!targetAlliance) return prev;
+
+        // Avoid duplicating existing members
+        const uniqueNewMembers = newMembersRaw.filter(
+          name => !targetAlliance.members.includes(name)
+        );
+
+        if (uniqueNewMembers.length === 0) {
+          return {
+            ...prev,
+            dailyActionCount: prev.dailyActionCount + 1
+          };
+        }
+
+        // Mirror membership changes into the relationship graph
+        uniqueNewMembers.forEach(newMember => {
+          targetAlliance.members.forEach(existing => {
+            relationshipGraphEngine.formAlliance(existing, newMember, targetAlliance.strength);
+          });
+        });
+
         const updatedAlliances = prev.alliances.map(alliance => 
           alliance.id === allianceId 
             ? {
                 ...alliance,
-                members: [...alliance.members, ...newMembers],
+                members: [...alliance.members, ...uniqueNewMembers],
                 lastActivity: prev.currentDay,
                 strength: Math.min(100, alliance.strength + 10) // Boost strength when expanding
               }
@@ -639,7 +670,8 @@ export const useGameState = () => {
             memoryEngine.updateVotingPlan(
               name,
               proposedTarget,
-              `Alliance meeting plan coordinated by ${prev.playerName}`
+              `Alliance meeting plan coordinated by ${prev.playerName}`,
+              { source: 'alliance_meeting', day: prev.currentDay }
             );
             plannedFor.push(name);
           });

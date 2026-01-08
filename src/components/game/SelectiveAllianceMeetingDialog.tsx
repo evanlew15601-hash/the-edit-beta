@@ -52,15 +52,16 @@ export const SelectiveAllianceMeetingDialog = ({
 
   const getMemberTrustLevel = (memberName: string) => {
     const relationship = relationshipGraphEngine.getRelationship(gameState.playerName, memberName);
-    return relationship?.trust || 0;
+    // Relationship graph trust is on a 0–100 style scale elsewhere in the UI, so default to neutral 50
+    return typeof relationship?.trust === 'number' ? relationship.trust : 50;
   };
 
   const getMemberLoyalty = (memberName: string) => {
     const trust = getMemberTrustLevel(memberName);
-    if (trust >= 8) return { label: 'Loyal', color: 'text-edit-hero' };
-    if (trust >= 6) return { label: 'Trustworthy', color: 'text-foreground' };
-    if (trust >= 4) return { label: 'Neutral', color: 'text-muted-foreground' };
-    if (trust >= 2) return { label: 'Suspicious', color: 'text-edit-villain' };
+    if (trust >= 80) return { label: 'Loyal', color: 'text-edit-hero' };
+    if (trust >= 60) return { label: 'Trustworthy', color: 'text-foreground' };
+    if (trust >= 40) return { label: 'Neutral', color: 'text-muted-foreground' };
+    if (trust >= 20) return { label: 'Wary', color: 'text-edit-villain' };
     return { label: 'Untrustworthy', color: 'text-edit-villain' };
   };
 
@@ -125,15 +126,15 @@ export const SelectiveAllianceMeetingDialog = ({
                           <div>
                             <p className="font-medium">{member}</p>
                             <p className={`text-xs ${loyalty.color}`}>
-                              {loyalty.label} (Trust: {trust}/10)
+                              {loyalty.label} (Trust: {Math.round(trust)})
                             </p>
                           </div>
                         </div>
                         
                         <div className="text-xs text-muted-foreground">
-                          {trust >= 7 ? 'Will likely agree' :
-                           trust >= 5 ? 'May have questions' :
-                           trust >= 3 ? 'Might be hesitant' :
+                          {trust >= 75 ? 'Will likely agree' :
+                           trust >= 55 ? 'May have questions' :
+                           trust >= 35 ? 'Might be hesitant' :
                            'Could be resistant'}
                         </div>
                       </div>

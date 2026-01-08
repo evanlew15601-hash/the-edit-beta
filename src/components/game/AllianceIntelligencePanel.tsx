@@ -49,7 +49,7 @@ export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: Allia
            <Users className="w-5 h-5 text-primary" />
            Alliance Intelligence: {alliance.name || `Alliance ${alliance.id.slice(-4)}`}
          </h3>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mt-1">
           <span>Trust Level: {alliance.strength}%</span>
           <span>•</span>
           <span>{alliance.members.length} members</span>
@@ -60,6 +60,16 @@ export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: Allia
           }>
             {strategicAssessment.stability}
           </span>
+          <span>•</span>
+          {alliance.secret ? (
+            <span className="text-edit-villain text-xs">
+              Secret alliance — exposure risk {Math.round(alliance.exposureRisk ?? 0)}%
+            </span>
+          ) : (
+            <span className="text-xs">
+              Exposed alliance{typeof alliance.exposureRisk === 'number' ? ` (risk logged at ${Math.round(alliance.exposureRisk)}%)` : ''}
+            </span>
+          )}
         </div>
       </div>
 

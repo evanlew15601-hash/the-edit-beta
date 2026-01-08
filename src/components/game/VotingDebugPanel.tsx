@@ -66,6 +66,8 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
         name: a.name,
         strength: a.strength,
         members: a.members.length,
+        secret: a.secret,
+        exposureRisk: typeof a.exposureRisk === 'number' ? a.exposureRisk : undefined,
       })),
     [gameState.alliances]
   );
@@ -73,11 +75,23 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
   const votingPlans = React.useMemo(() => {
     return active
       .map((c) => {
-        const plan = memoryEngine.getVotingPlan(c.name);
+        const plan = memoryEngine.getVotingPlan(c.name, gameState.currentDay);
         if (!plan || !plan.target) return null;
-        return { name: c.name, target: plan.target, reasoning: plan.reasoning };
+        return {
+          name: c.name,
+          target: plan.target,
+          reasoning: plan.reasoning,
+          source: plan.source,
+          day: plan.day,
+        };
       })
-      .filter(Boolean) as { name: string; target: string; reasoning?: string }[];
+      .filter(Boolean) as {
+        name: string;
+        target: string;
+        reasoning?: string;
+        source?: string;
+        day?: number;
+      }[];
   }, [active, gameState.currentDay]);
 
   return (
@@ -248,9 +262,21 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
               <div className="font-semibold text-[11px]">Alliances</div>
               {allianceSummary.map((a) => (
                 <div key={a.id} className="flex justify-between">
-                  <span>{a.name || a.id}</span>
                   <span>
+                    {a.name || a.id}
+                    {a.secret && (
+                      <span className="ml-1 text-[10px] text-edit-villain/80">
+                        (secret)
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-right">
                     Str {a.strength} • {a.members} members
+                    {typeof a.exposureRisk === 'number' && (
+                      <span className="ml-1 text-[10px] text-muted-foreground">
+                        • Exposure {a.exposureRisk.toFixed(0)}%
+                      </span>
+                    )}
                   </span>
                 </div>
               ))}
@@ -263,6 +289,18 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
               {votingPlans.map((p) => (
                 <div key={p.name}>
                   <span className="font-medium">{p.name}</span> → <span>{p.target}</span>
+                  {p.source && (
+                    <span className="ml-1 text-[10px] text-muted-foreground">
+                      ({p.source}
+                      {typeof p.day === 'number'
+                        ? ` • d${p.day}, age ${Math.max(
+                            0,
+                            gameState.currentDay - p.day
+                          )}d`
+                        : ''}
+                      )
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

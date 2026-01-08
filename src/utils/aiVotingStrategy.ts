@@ -26,7 +26,10 @@ export class AIVotingStrategy {
       plans.set(contestant.name, plan);
       
       // Store in memory for consistency
-      memoryEngine.updateVotingPlan(contestant.name, plan.target, plan.reasoning);
+      memoryEngine.updateVotingPlan(contestant.name, plan.target, plan.reasoning, {
+        source: 'weekly_plan',
+        day: gameState.currentDay,
+      });
     });
     
     return plans;
@@ -281,7 +284,12 @@ export class AIVotingStrategy {
     // If success, set voting plan in memory for downstream systems to consult
     const chosenTarget = success ? desiredTarget : desiredTarget; // still surface what you asked for
     if (success) {
-      memoryEngine.updateVotingPlan(contestant.name, desiredTarget, `Committed due to ${opts?.context === 'alliance' ? 'alliance meeting' : 'direct pressure'} by ${gameState.playerName}`);
+      memoryEngine.updateVotingPlan(
+        contestant.name,
+        desiredTarget,
+        `Committed due to ${opts?.context === 'alliance' ? 'alliance meeting' : 'direct pressure'} by ${gameState.playerName}`,
+        { source: opts?.context === 'alliance' ? 'alliance_meeting' : 'vote_pressure', day: gameState.currentDay }
+      );
     }
 
     const notes = success
@@ -295,7 +303,15 @@ export class AIVotingStrategy {
 // Extend memory engine to store voting plans
 declare module '@/utils/memoryEngine' {
   interface MemoryEngine {
-    updateVotingPlan(contestantId: string, target: string, reasoning: string): void;
-    getVotingPlan(contestantId: string): { target: string; reasoning: string } | null;
+    updateVotingPlan(
+      contestantId: string,
+      target: string,
+      reasoning: string,
+      meta?: { source?: string; day?: number }
+    ): void;
+    getVotingPlan(
+      contestantId: string,
+      currentDay?: number
+    ): { target: string; reasoning: string; source?: string; day?: number } | null;
   }
 }

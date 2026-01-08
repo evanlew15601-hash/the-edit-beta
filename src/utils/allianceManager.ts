@@ -1,5 +1,6 @@
 
 import { Alliance, GameState } from '@/types/game';
+import { relationshipGraphEngine } from './relationshipGraphEngine';
 
 export class AllianceManager {
   /**
@@ -26,6 +27,16 @@ export class AllianceManager {
       // Auto-dissolve if only one or no active members
       if (activeMembers.length <= 1) {
         console.log('Alliance dissolved - insufficient members');
+
+        // Keep relationship graph in sync when alliances fall apart
+        if (alliance.members.length >= 2) {
+          for (let i = 0; i < alliance.members.length; i++) {
+            for (let j = i + 1; j < alliance.members.length; j++) {
+              relationshipGraphEngine.breakAlliance(alliance.members[i], alliance.members[j], 40);
+            }
+          }
+        }
+
         return {
           ...alliance,
           members: activeMembers,
@@ -301,7 +312,7 @@ export class AllianceManager {
    */
   static createAlliance(members: string[], name?: string, currentDay: number = 1): Alliance {
     const allianceName = name || this.generateAllianceName(members);
-    return {
+    const alliance: Alliance = {
       id: `alliance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       members,
       strength: 75, // Start with good trust
@@ -312,6 +323,15 @@ export class AllianceManager {
       dissolved: false,
       exposureRisk: 0
     };
+
+    // Mirror alliance creation into the relationship graph so social power metrics see it
+    for (let i = 0; i < members.length; i++) {
+      for (let j = i + 1; j < members.length; j++) {
+        relationshipGraphEngine.formAlliance(members[i], members[j], alliance.strength);
+      }
+    }
+
+    return alliance;
   }
 }
 
