@@ -83,30 +83,39 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   const finalQuote = featuredConfessional?.content?.slice(0, 160) || 
     generateDynamicQuote(gameState, week, playerEvents) || finalSelectedQuote;
 
-  // Build event montage from real events
+  // Build event montage from real events, framed like a \"previously on\" package
   const eventMontage: string[] = [];
   
   // Process player-involved events
   playerEvents.forEach(event => {
+    const others = event.participants.filter(p => p !== playerName);
     switch (event.type) {
       case 'alliance_form':
-        eventMontage.push(`New alliance formed with ${event.participants.filter(p => p !== playerName).join(', ')}`);
+        eventMontage.push(
+          `A quiet conversation turned into a new voting bloc with ${others.join(', ')}.`
+        );
         break;
       case 'betrayal':
-        eventMontage.push(`Trust broken - ${event.content.slice(0, 60)}...`);
+        eventMontage.push(
+          `Trust snapped when a deal broke in the open: ${event.content.slice(0, 60)}...`
+        );
         break;
       case 'scheme':
         if (event.emotionalImpact > 5) {
-          eventMontage.push(`Strategic move against ${event.participants.filter(p => p !== playerName).join(', ')}`);
+          eventMontage.push(
+            `A late-night plan against ${others.join(', ')} put your name deeper in The Edit's strategy notes.`
+          );
         }
         break;
       case 'conversation':
         if (event.emotionalImpact >= 4) {
-          eventMontage.push(`Intense discussion with ${event.participants.filter(p => p !== playerName).join(', ')}`);
+          eventMontage.push(
+            `A conversation with ${others.join(', ')} changed how the house read your game.`
+          );
         }
         break;
       case 'vote':
-        eventMontage.push(`Elimination vote cast`);
+        eventMontage.push(`The vote locked in, and another key turned in the front door.`);
         break;
     }
   });
@@ -189,12 +198,12 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   const shownEvents = eventMontage.length;
   
   const whatHappened = actualEvents > 0 
-    ? `You were involved in ${actualEvents} strategic moments this week`
-    : `Quiet week focused on relationship building`;
+    ? `In reality, you touched ${actualEvents} high-impact moments this week.`
+    : `In the house, it was a quieter week focused on relationship building.`;
     
   const whatWasShown = shownEvents > 0
-    ? `Edit highlighted ${shownEvents} key moments, framing you as ${editPerception.persona.toLowerCase()}`
-    : `Limited screen time this week - edit focused elsewhere`;
+    ? `In the episodes, the edit zoomed in on ${shownEvents} of those beats and kept pushing you as ${editPerception.persona.toLowerCase()}.`
+    : `On The Edit, your screen time dipped as the story shifted to other players.`;
 
   return {
     week,

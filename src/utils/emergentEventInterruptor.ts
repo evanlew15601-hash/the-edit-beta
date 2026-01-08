@@ -40,12 +40,12 @@ export class EmergentEventInterruptor {
         id: 'heated_argument',
         type: 'drama',
         title: 'Explosive Confrontation',
-        description: `${targetA.name} and ${targetB.name} are having a heated argument in the common room. ${targetC.name} is trying to mediate, but tensions are escalating. Your involvement could change everything.`,
+        description: `${targetA.name} and ${targetB.name} are mid-argument in the common room, voices already high enough to make the edit. ${targetC.name} is trying to calm things down while cameras swing closer. If you step in, the scene changes.`,
         involvedContestants: [targetA.name, targetB.name, targetC.name],
         requiresPlayerAction: true,
         impact: {
-          immediate: 'Relationships shift dramatically based on your intervention',
-          longTerm: 'Your choice here will be remembered and could affect future alliances'
+          immediate: 'Relationships tilt sharply based on how you handle the moment',
+          longTerm: 'This will sit in people’s memories and in the recap package'
         }
       });
     }
@@ -60,12 +60,12 @@ export class EmergentEventInterruptor {
           id: 'alliance_betrayal',
           type: 'alliance_betrayal',
           title: 'Alliance in Crisis',
-          description: `Your alliance with ${alliance.members.filter(m => m !== gameState.playerName).join(' and ')} is falling apart. ${betrayer.name} is secretly meeting with others, planning to break your trust. You need to act fast.`,
+          description: `The alliance with ${alliance.members.filter(m => m !== gameState.playerName).join(' and ')} is starting to crack. ${betrayer.name} has been spotted in side conversations, testing new numbers and rewriting the next vote without you. If you do nothing, the bloc that kept you safe may break on live night.`,
           involvedContestants: alliance.members,
           requiresPlayerAction: true,
           impact: {
             immediate: 'Alliance stability hangs in the balance',
-            longTerm: 'This could reshape the entire game dynamic'
+            longTerm: 'This could reshape the entire game and the way your loyalty is remembered'
           }
         });
       }
@@ -78,12 +78,12 @@ export class EmergentEventInterruptor {
         id: `npc_check_in_${confidant.name}`,
         type: 'npc_check_in',
         title: 'Pulled Aside',
-        description: `${confidant.name} catches you in the hallway for a quick check-in. They want to feel you out without making a scene.`,
+        description: `${confidant.name} waits until the room thins out, then pulls you aside for a quiet read on where your head is. It is the kind of soft conversation that never looks big until the recap reminds everyone where it started.`,
         involvedContestants: [confidant.name],
         requiresPlayerAction: true,
         impact: {
           immediate: 'Your tone will affect trust and closeness with them',
-          longTerm: 'Sets the tone for future one-on-one conversations'
+          longTerm: 'Sets the tone for how one-on-one strategy talks with them play on The Edit'
         }
       });
     }
@@ -97,12 +97,12 @@ export class EmergentEventInterruptor {
           id: 'pre_elimination_panic',
           type: 'drama',
           title: 'Pre-Elimination Scramble',
-          description: `With elimination approaching, ${suspectedTarget.name} is desperately trying to save themselves. They're making deals, revealing secrets, and causing chaos. Everyone is being forced to pick sides.`,
+          description: `With an eviction episode looming, ${suspectedTarget.name} is in visible panic mode. Deals are being remade in every corner, secrets are leaking, and the house is quietly splitting into “stay” and “go” camps. How you move now is what the audience will remember.`,
           involvedContestants: [suspectedTarget.name, ...contestants.slice(0, 2).map(c => c.name)],
           requiresPlayerAction: true,
           impact: {
             immediate: 'Voting intentions shift rapidly',
-            longTerm: 'Pre-elimination moves often determine the winner'
+            longTerm: 'Pre-elimination moves often determine who wins and how the season is talked about'
           }
         });
       }

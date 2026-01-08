@@ -1,7 +1,7 @@
 import { GameState, CutsceneSlide, NarrativeBeat } from '@/types/game';
 
 function getPlayer(gs: GameState) {
-  return gs.contestants.find(c => c.name === gs.playerName);
+  return gs.contestants.find((c) => c.name === gs.playerName);
 }
 
 function getBackstoryContext(gs: GameState): { summary?: string; line?: string } {
@@ -18,9 +18,7 @@ function getBackstoryContext(gs: GameState): { summary?: string; line?: string }
     ? `Before the show, you worked as ${base.toLowerCase()}.`
     : undefined;
 
-  const line = base
-    ? `${p.name}, ${base}.`
-    : undefined;
+  const line = base ? `${p.name}, ${base}.` : undefined;
 
   return { summary, line };
 }
@@ -35,53 +33,7 @@ function describeMission(gs: GameState, taskId?: string): string | undefined {
   const spec = getPlantedSpec(gs);
   if (!spec) return undefined;
   const tasks = spec.tasks || [];
-  const task = taskId
-    ? tasks.find(t => t.id === taskId)
-    : tasks.find(t => !t.completed);
-  return task?.description;
-}
-</old_code>
-<new_code>
-import { GameState, CutsceneSlide, NarrativeBeat } from '@/types/game';
-
-function getPlayer(gs: GameState) {
-  return gs.contestants.find(c => c.name === gs.playerName);
-}
-
-function getBackstoryContext(gs: GameState): { summary?: string; line?: string } {
-  const p = getPlayer(gs);
-  if (!p) return {};
-  const bgName = p.background;
-
-  const base =
-    bgName === 'Other'
-      ? (p.customBackgroundText && p.customBackgroundText.trim()) || undefined
-      : bgName;
-
-  const summary = base
-    ? `Before the show, you worked as ${base.toLowerCase()}.`
-    : undefined;
-
-  const line = base
-    ? `${p.name}, ${base}.`
-    : undefined;
-
-  return { summary, line };
-}
-
-function getPlantedSpec(gs: GameState) {
-  const p = getPlayer(gs);
-  if (!p || !p.special || p.special.kind !== 'planted_houseguest') return undefined;
-  return p.special;
-}
-
-function describeMission(gs: GameState, taskId?: string): string | undefined {
-  const spec = getPlantedSpec(gs);
-  if (!spec) return undefined;
-  const tasks = spec.tasks || [];
-  const task = taskId
-    ? tasks.find(t => t.id === taskId)
-    : tasks.find(t => !t.completed);
+  const task = taskId ? tasks.find((t) => t.id === taskId) : tasks.find((t) => !t.completed);
   return task?.description;
 }
 
@@ -93,7 +45,7 @@ export function buildTwistIntroCutscene(gs: GameState) {
 
   let title = 'Prologue';
   let slides: CutsceneSlide[] = [];
-  let ctaLabel = 'Enter Week 1';
+  const ctaLabel = 'Enter Week 1';
 
   if (arc === 'hosts_child') {
     title = 'Prologue: The Connection';
@@ -109,19 +61,19 @@ export function buildTwistIntroCutscene(gs: GameState) {
         title: 'Control Room',
         speaker: 'Producer',
         text:
-          '“We keep it quiet until we don\'t,” a producer says to Mars over a stack of rundown cards. “If the season drags, we open that box on air.”',
+          "“We keep it quiet until we do not,” a producer says to Mars over a stack of rundown cards. “If the season drags, we open that box on air.”",
       },
       {
         title: 'Walk-On Instructions',
         speaker: 'Stage Manager',
         text:
-          'At the edge of the stage, a hand adjusts your mic. “On live shows, look at Mars like any other host. No hugs. No jokes about home. We\'ll tell you if that changes.”',
+          "At the edge of the stage, a hand adjusts your mic. “On live shows, look at Mars like any other host. No hugs. No jokes about home. We will tell you if that changes.”",
       },
       {
         title: 'Plan A',
         speaker: name,
         text:
-          'Go in like I\'m just another contestant. Make friends, make votes, pretend the cameras don\'t know my last name.',
+          "Go in like I am just another contestant. Make friends, make votes, pretend the cameras do not know my last name.",
       },
     ];
   } else if (arc === 'planted_houseguest') {
@@ -131,26 +83,26 @@ export function buildTwistIntroCutscene(gs: GameState) {
         title: 'Off-Camera Offer',
         speaker: 'Producer',
         text:
-          '“You\'re not just a player,” they say in a windowless office. “You\'re our plant. Every week, you get a mission the others don\'t see.”',
+          "“You are not just a player,” they say in a windowless office. “You are staff on The Edit. Every week, you get a mission the others do not see.”",
         aside: back.summary,
       },
       {
         title: 'Audience Tease',
         speaker: 'Mars Vega (Host)',
         text:
-          '“This season, someone inside that house will be taking secret orders from us,” Mars tells the cameras. “At home, you\'ll see every mission. The house will see none of it.”',
+          '“This season, someone inside that house will be taking secret orders from us,” Mars tells the cameras. “At home, you will see every mission. The house will see none of it.”',
       },
       {
         title: 'First Card',
         speaker: 'Narrator',
         text:
-          'They slide you a sealed envelope with a glossy logo. Inside: this week\'s instructions, written for viewers to read along as a graphic under your face.',
+          'They slide you a sealed envelope with a glossy logo. Inside: this week’s instructions, written for viewers to read along as a graphic under your face.',
       },
       {
         title: 'Cover Story',
         speaker: name,
         text:
-          'On the call sheet I\'m just another houseguest. On the network schedule I\'m a recurring twist. My job is to make the missions look like my own bad ideas.',
+          "On the call sheet I am just another houseguest. On the network schedule I am a recurring twist. My job is to make the missions look like my own bad ideas.",
       },
     ];
   } else {
@@ -160,7 +112,7 @@ export function buildTwistIntroCutscene(gs: GameState) {
         title: 'Orientation',
         speaker: 'Narrator',
         text:
-          'The house is dressed, the lights are set, and the game is ready. For once, there is no secret twist with your name on it.',
+          'The house is dressed, the lights are set, and the season is ready. For once, there is no secret twist with your name on it.',
         aside: back.summary,
       },
       {
@@ -182,7 +134,7 @@ export function buildTwistIntroCutscene(gs: GameState) {
   return { title, slides, ctaLabel, type: 'twist_intro' as const };
 }
 
-// Mid-game beats are treated as fixed episodes in a small story mode.
+// Mid-game beats are treated as fixed episodes.
 // Gameplay timing decides when they trigger, but the scenes themselves are scripted.
 export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
   const arc = gs.twistNarrative?.arc || 'none';
@@ -191,7 +143,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
   const back = getBackstoryContext(gs);
 
   const slides: CutsceneSlide[] = [];
-  let title = 'Mid-Game Beat';
+  const title = 'Mid-Game Beat';
   const ctaLabel = 'Return to Game';
 
   if (arc === 'hosts_child') {
@@ -208,13 +160,13 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Quiet Notes',
             speaker: 'Producer',
             text:
-              '“Keep them safe for now,” someone says. “We can\'t burn the host\'s kid on week one. Tease it in confessionals, not in votes.”',
+              "“Keep them safe for now,” someone says. “We cannot burn the host’s kid on week one. Tease it in confessionals, not in votes.”",
           },
           {
             title: 'Inside the House',
             speaker: name,
             text:
-              'All I feel is normal first-week nerves. I don\'t hear the part where people in another building are already protecting my screen time.',
+              "All I feel is normal first-week nerves. I do not hear the part where people in another building are already protecting my screen time.",
           },
         );
         break;
@@ -237,7 +189,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Answer on Tape',
             speaker: name,
             text:
-              'I try to talk about strategy instead of childhood. They nod, but I can tell they\'re really listening for the name, not the plan.',
+              'I try to talk about strategy instead of childhood. They nod, but I can tell they are really listening for the name, not the plan.',
           },
         );
         break;
@@ -254,13 +206,13 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Programming Note',
             speaker: 'Producer',
             text:
-              '“We can\'t lose them before we use them,” a producer says. “If the vote gets close, push more confessionals from another target. We need this reveal later in the season.”',
+              '“We cannot lose them before we use them,” a producer says. “If the vote gets close, push more confessionals from another target. We need this reveal later in the season.”',
           },
           {
             title: 'Unseen Help',
             speaker: name,
             text:
-              'Inside the house, I just feel like the tide turned at the last minute. I don\'t know an entire building quietly nudged it away from me.',
+              'Inside the house, I just feel like the tide turned at the last minute. I do not know an entire building quietly nudged it away from me.',
           },
         );
         break;
@@ -271,13 +223,13 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Whiteboard',
             speaker: 'Narrator',
             text:
-              'On a wall in the control room, weeks are written in marker. Under this one, someone has circled your name and written “soft reveal?”',
+              'On a wall in the control room, weeks are written in marker. Under this one, someone has circled your name and written “soft reveal?”.',
           },
           {
             title: 'The Pitch',
             speaker: 'Producer',
             text:
-              '“We build a segment,” they tell Mars. “You ask a question you\'d only ask your own kid. We cut to confessional. If it plays, we lean in. If not, we save the hard reveal for later.”',
+              '“We build a segment,” they tell Mars. “You ask a question you would only ask your own kid. We cut to confessional. If it plays, we lean in. If not, we save the hard reveal for later.”',
           },
           {
             title: 'Rehearsal',
@@ -300,13 +252,13 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'On-Air Reveal',
             speaker: 'Mars Vega (Host)',
             text:
-              '“There\'s something the other houseguests don\'t know about you,” Mars says for millions of viewers and a dozen stunned players. “We have family in the house.”',
+              '“There is something the other houseguests do not know about you,” Mars says for millions of viewers and a dozen stunned players. “We have family in the house.”',
           },
           {
             title: 'Silence',
             speaker: name,
             text:
-              'I hear the crowd before I hear my own heartbeat. Inside the house, people stare at me like I\'ve changed shape. In the control room, someone nods at the ratings monitor.',
+              'I hear the crowd before I hear my own heartbeat. Inside the house, people stare at me like I have changed shape. In the control room, someone nods at the ratings monitor.',
           },
         );
         break;
@@ -329,7 +281,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'In the House',
             speaker: name,
             text:
-              'I spend the week repeating the same sentence: judge me by my votes, not my family. I don\'t know how much of that will actually make air.',
+              'I spend the week repeating the same sentence: judge me by my votes, not my family. I do not know how much of that will actually make air.',
           },
         );
         break;
@@ -346,13 +298,13 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'New Storyline',
             speaker: 'Producer',
             text:
-              '“We sell it as pressure, not privilege,” they decide. “The kid who had to work twice as hard to prove they weren\'t handed anything.”',
+              '“We sell it as pressure, not privilege,” they decide. “The kid who had to work twice as hard to prove they were not handed anything.”',
           },
           {
             title: 'What You Control',
             speaker: name,
             text:
-              'All I can actually control are the people I vote with and the people I look in the eye. Whatever they turn that into later isn\'t really up to me.',
+              'All I can actually control are the people I vote with and the people I look in the eye. Whatever they turn that into later is not really up to me.',
           },
         );
         break;
@@ -375,7 +327,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Preparing Your Words',
             speaker: name,
             text:
-              'If I make it to that last chair, I\'ll have to explain the game I played and the parent I played it in front of. One answer for the jury, another for the cameras.',
+              'If I make it to that last chair, I will have to explain the game I played and the parent I played it in front of. One answer for the jury, another for the cameras.',
           },
         );
         break;
@@ -386,7 +338,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: beat.title,
             speaker: 'Narrator',
             text:
-              'Mid-arc moment: in another building, people decide how much of your real life belongs on TV.',
+              'Mid-arc moment: in another building, people decide how much of your real life belongs on television.',
           },
           {
             title: 'Grounding',
@@ -402,7 +354,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
       case 'phg_current_mission':
         slides.push(
           {
-            title: 'Tonight\'s Gimmick',
+            title: "Tonight's Gimmick",
             speaker: 'Narrator',
             text:
               'In a rundown meeting, a line on the board reads: “Secret mission: plant.” Next to it, your face is printed twice—once for the control room, once for the graphics team.',
@@ -411,7 +363,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Viewer Card',
             speaker: 'Mars Vega (Host)',
             text:
-              '“At home, you\'ll see the mission on your screen,” Mars tells the audience. “Inside the house, they\'ll have no idea one of their own is playing for us.”',
+              '“At home, you will see the mission on your screen,” Mars tells the audience. “Inside the house, they will have no idea one of their own is working for us.”',
           },
           {
             title: 'Envelope in Hand',
@@ -428,19 +380,19 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Suspicion is Content',
             speaker: 'Narrator',
             text:
-              'In the control room, someone rewinds a clip of another player squinting at you. “They\'re onto them,” a voice says, not worried—excited.',
+              'In the control room, someone rewinds a clip of another player squinting at you. “They are onto them,” a voice says, not worried—excited.',
           },
           {
             title: 'House Angle',
             speaker: name,
             text:
-              'Around the kitchen table, they joke about production plants like it\'s a myth. I laugh along and check my face for tells in the reflection of the oven door.',
+              'Around the kitchen table, they joke about production plants like it is a myth. I laugh along and check my face for tells in the reflection of the oven door.',
           },
           {
             title: 'Quiet Decision',
             speaker: 'Producer',
             text:
-              '“Don\'t save them if they get caught,” a producer decides. “If the house sniffs it out, that\'s our episode.”',
+              '“Do not save them if they get caught,” a producer decides. “If the house sniffs it out, that is our episode.”',
           },
         );
         break;
@@ -457,13 +409,13 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Confessional Pressure',
             speaker: 'Producer',
             text:
-              '“The mission only works if you lean into it,” they remind you. “If you sand off the edges to protect your game, there\'s nothing to air.”',
+              '“The mission only works if you lean into it,” they remind you. “If you sand off the edges to protect your game, there is nothing to air.”',
           },
           {
             title: 'Choosing the Hurt',
             speaker: name,
             text:
-              'Every time I push a little too hard on someone, I have to ask which thing I\'m damaging: my chances of winning, or their night of television.',
+              'Every time I push a little too hard on someone, I have to ask which thing I am damaging: my chances of winning, or their night of television.',
           },
         );
         break;
@@ -486,7 +438,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Your Line',
             speaker: name,
             text:
-              'I am still just a contestant trying to not get voted out. But here, away from the house, I\'m also someone being asked how much of my own game I\'m willing to sell for a segment.',
+              'I am still just a contestant trying to not get voted out. But here, away from the house, I am also someone being asked how much of my own game I am willing to sell for a segment.',
           },
         );
         break;
@@ -509,7 +461,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'In the Spotlight',
             speaker: name,
             text:
-              'I stand there while the others count back through moments that didn\'t make sense at the time. Whatever I say now, the edit has already decided what I was.',
+              'I stand there while the others count back through moments that did not make sense at the time. Whatever I say now, the edit has already decided what I was.',
           },
         );
         break;
@@ -520,16 +472,16 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Post-Game Spin',
             speaker: 'Narrator',
             text:
-              'In a network hallway, someone practices the phrase “superfan plant” until it sounds less harsh. The press release will say the twist was about love of the game.',
+              'In a network hallway, someone practices the phrase “superfan plant” until it sounds less harsh. The press release will say the twist was about love of The Edit.',
           },
           {
             title: 'Exit Interview',
             speaker: name,
             text:
-              'Every interviewer asks the same thing: did you feel used? I give them the answer that gets me booked again: I talk about how “fun” it was to be part of the show.',
+              'Every interviewer asks the same thing: did you feel used? I give them the answer that gets me booked again: I talk about how “fun” it was to be part of The Edit.',
           },
           {
-            title: 'What You Don\'t Say',
+            title: "What You Do Not Say",
             speaker: 'Narrator',
             text:
               'Off camera, your throat is hoarse from repeating the same safe story. The parts about pressure and guilt stay between you and the empty hotel room.',
@@ -549,13 +501,13 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Soft Cheating',
             speaker: 'Producer',
             text:
-              '“We\'re not telling you what to do,” they insist between takes. “We\'re just giving you information the audience already has.”',
+              '“We are not telling you what to do,” they insist between takes. “We are just giving you information the audience already has.”',
           },
           {
             title: 'Carrying It Back',
             speaker: name,
             text:
-              'I walk back into the house with knowledge I didn\'t earn, trying to use it without looking like I can see the cameras more clearly than everyone else.',
+              'I walk back into the house with knowledge I did not earn, trying to use it without looking like I can see the cameras more clearly than everyone else.',
           },
         );
         break;
@@ -572,7 +524,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Check Your Cover',
             speaker: name,
             text:
-              back.line || 'I remind myself what version of me the house has seen so far, and I don\'t break character.',
+              back.line || 'I remind myself what version of me the house has seen so far, and I do not break character.',
           },
         );
     }
@@ -582,7 +534,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
         title: beat.title,
         speaker: 'Narrator',
         text:
-          'Mid-game scene: the way you handle this moment will echo in the next vote more than you think.',
+          'Mid-season scene: the way you handle this moment will echo in the next vote more than you think.',
       },
       {
         title: 'Identity Thread',
@@ -670,7 +622,7 @@ export function buildTwistResultCutscene(
           title: 'Carrying the Cost',
           speaker: name,
           text:
-            'Out here, failure doesn\'t feel abstract. It looks like strained eye contact and a week where my moves made less sense to everyone but the viewers who saw the card.',
+            'Out here, failure does not feel abstract. It looks like strained eye contact and a week where my moves made less sense to everyone but the viewers who saw the card.',
         },
       );
     }
@@ -698,7 +650,7 @@ export function buildTwistResultCutscene(
         speaker: name,
         text:
           back.line ||
-          'I can only measure the week in conversations and votes. Somewhere else, people I\'ve never met are deciding whether to call it a comeback or a mistake.',
+          'I can only measure the week in conversations and votes. Somewhere else, people I have never met are deciding whether to call it a comeback or a mistake.',
       },
     );
   } else {
@@ -708,7 +660,7 @@ export function buildTwistResultCutscene(
         speaker: 'Narrator',
         text:
           result === 'success'
-            ? 'It wasn\'t a headline moment, but it nudged the week in your favour.'
+            ? 'It was not a headline moment, but it nudged the week in your favour.'
             : 'It stung, but the game rarely ends on one bad beat.',
       },
       {
@@ -749,7 +701,7 @@ export function buildFinaleCutscene(gs: GameState) {
         title: 'Backstage',
         speaker: 'Producer',
         text:
-          '“We got what we needed,” someone says, nodding at a monitor playing your family montage on loop. “Heart, conflict, a little mess. It\'ll test well.”',
+          '“We got what we needed,” someone says, nodding at a monitor playing your family montage on loop. “Heart, conflict, a little mess. It will test well.”',
       },
       {
         title: 'Who You Were Here',
@@ -771,20 +723,20 @@ export function buildFinaleCutscene(gs: GameState) {
         title: 'Green Room Debrief',
         speaker: 'Producer',
         text:
-          '“The plant landed,” they tell a network exec. “We can sell the format again next year.” On the screen behind them, your face freezes on a smile that looks more tired than triumphant.',
+          '“The plant landed,” they tell a network executive. “We can sell the format again next year.” On the screen behind them, your face freezes on a smile that looks more tired than triumphant.',
       },
       {
         title: 'After the Contract',
         speaker: name,
         text:
           back.line ||
-          'When the lights cool and the mic comes off, all that\'s left is the question I have to live with: did I come here to win, or to give them a better show?',
+          'When the lights cool and the mic comes off, all that is left is the question I have to live with: did I come here to win, or to give them a better show?',
       },
     );
   } else {
     slides.push(
       {
-        title: 'Season\'s End',
+        title: "Season's End",
         speaker: 'Narrator',
         text:
           'The house is smaller, quieter, and full of echoes. All the small choices that felt forgettable now sit in a straight line leading to this moment.',
@@ -800,5 +752,4 @@ export function buildFinaleCutscene(gs: GameState) {
   }
 
   return { title: 'Arc Finale', slides, ctaLabel: 'Proceed', type: 'finale_twist' as const };
-};
 }
