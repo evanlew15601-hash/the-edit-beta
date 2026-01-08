@@ -501,6 +501,11 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                     .filter(c => c.special?.kind === 'planted_houseguest')
                     .map(c => {
                       const spec = c.special as any;
+                      const tasks = spec.tasks || [];
+                      const completedCount = tasks.filter((t: any) => t.completed).length;
+                      const totalMissions = tasks.length;
+                      const missedCount = totalMissions - completedCount;
+
                       return (
                         <div key={c.id} className="p-4 border border-border rounded">
                           <div className="flex items-center justify-between">
@@ -514,7 +519,7 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                             </div>
                           </div>
                           <div className="mt-2 space-y-1">
-                            {(spec.tasks || []).map((t: any) => (
+                            {tasks.map((t: any) => (
                               <div key={t.id} className="flex items-center justify-between text-sm">
                                 <div>
                                   <span className="font-medium">{t.description}</span>
@@ -525,8 +530,14 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                                 </Badge>
                               </div>
                             ))}
+                            {totalMissions > 0 && (
+                              <div className="text-[11px] text-muted-foreground pt-1">
+                                Missions completed: {completedCount} of {totalMissions}
+                                {missedCount > 0 ? ` (missed ${missedCount})` : ''}.
+                              </div>
+                            )}
                             {c.name === gameState.playerName && typeof gameState.playerFunds === 'number' && (
-                              <div className="text-[11px] text-muted-foreground pt-2">
+                              <div className="text-[11px] text-muted-foreground pt-1">
                                 Total mission bonuses earned: ${gameState.playerFunds.toLocaleString()}.
                               </div>
                             )}

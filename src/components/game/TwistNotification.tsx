@@ -51,6 +51,32 @@ export const TwistNotification = ({ gameState }: TwistNotificationProps) => {
     );
   }
 
+  // Mission broadcast banner: the day a mission result cutscene airs
+  const missionBanner = gameState.missionBroadcastBanner;
+  if (missionBanner && missionBanner.day === gameState.currentDay && spec) {
+    const isSuccess = missionBanner.result === 'success';
+    return (
+      <Card className="p-4 border border-border bg-muted/50">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-foreground">
+              {isSuccess ? 'Secret Mission Aired' : 'Mission Fallout Aired'}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              America just watched your secret mission {isSuccess ? 'play out on TV.' : 'fall apart on TV.'} The house
+              only knows the version they lived.
+            </div>
+            {missionBanner.description && (
+              <div className="text-[11px] text-muted-foreground mt-1">
+                This week&apos;s mission: {missionBanner.description}
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   // Other twist banners (optional future handling based on recentTwist)
   if (recentTwist === 'planted_reveal') {
     return (

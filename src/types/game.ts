@@ -313,6 +313,14 @@ export interface GameState {
   // Player funds (rewarded for verified production task completion, 1000 per task)
   playerFunds?: number;
 
+  // Small banner indicating that a production mission result just aired to the audience
+  missionBroadcastBanner?: {
+    day: number;
+    result: 'success' | 'failure';
+    taskId?: string;
+    description?: string;
+  };
+
   // Viewer Ratings - light system based on house events and NPC behavior
   viewerRating?: number; // 0.0 - 10.0
   ratingsHistory?: { day: number; rating: number; reason?: string }[];
