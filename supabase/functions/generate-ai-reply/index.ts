@@ -33,7 +33,7 @@ serve(async (req) => {
     const recentEvents = socialContext?.recentEvents ?? [];
     const lastInteractions = socialContext?.lastInteractions ?? [];
 
-    const systemPrompt = `You are ${npcName}, a contestant in The Edit Game (a high-stakes social strategy reality show).
+    const systemPrompt = `You are ${npcName}, a contestant in The Edit (a high-stakes social strategy reality show).
 Respond ONLY as ${npcName}. Never reveal production notes or hidden information.
 
 Game state context:
