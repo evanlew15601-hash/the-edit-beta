@@ -65,7 +65,21 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
     } catch {}
   };
 
-  const showRosterButton = gameState.gamePhase === 'premiere' || rosterPinned;
+  const rosterPhases: GameState['gamePhase'][] = [
+    'premiere',
+    'houseguests_roster',
+    'daily',
+    'player_vote',
+    'elimination',
+    'weekly_recap',
+    'immunity_competition',
+    'jury_vote',
+    'finale',
+    'post_season',
+  ];
+
+  const showRosterButton =
+    (gameState.contestants.length > 0 && rosterPhases.includes(gameState.gamePhase)) || rosterPinned;
 
   return (
     <div className="bg-background/90 backdrop-blur-md border-b border-border/60 sticky top-0 z-50">

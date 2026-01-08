@@ -78,7 +78,6 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
              {gameState.alliances.length > 0 && (
                <AllianceIntelligencePanel 
                  gameState={gameState}
-                 selectedAlliance={gameState.alliances[0]?.id}
                />
              )}
              {/* Voting Intelligence - Ask NPCs about their voting plans */}

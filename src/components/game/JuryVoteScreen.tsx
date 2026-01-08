@@ -24,6 +24,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
   const [voteStable, setVoteStable] = useState(false); // FIXED: Prevent vote flickering
   const [deliberationProgress, setDeliberationProgress] = useState(0);
   const [rationales, setRationales] = useState<{ [juror: string]: string }>({});
+  const [tieBreakFinalists, setTieBreakFinalists] = useState<string[] | null>(null);
 
   // Pacing controls
   const RESULT_DELAY_MS = 1500;
@@ -265,17 +266,19 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
 
     console.log('[JuryVoteScreen] Final vote counts:', voteCounts);
 
-    // FIXED: Handle tie scenario
+    // FIXED: Handle tie scenario with explicit tie-break narrative
     const sortedByVotes = Object.entries(voteCounts).sort((a, b) => b[1] - a[1]);
     const topVotes = sortedByVotes[0][1];
     const tiedFinalists = sortedByVotes.filter(([_, count]) => count === topVotes);
     
     let winnerName: string;
     if (tiedFinalists.length > 1) {
-      // Tie-break: use random selection (in a real game this would be a special tie-break)
-      console.warn('[JuryVoteScreen] Jury vote tie detected, using random selection');
-      winnerName = tiedFinalists[Math.floor(Math.random() * tiedFinalists.length)][0];
+      const names = tiedFinalists.map(([name]) => name);
+      setTieBreakFinalists(names);
+      console.warn('[JuryVoteScreen] Jury vote tie detected, resolving via tie-break');
+      winnerName = names[Math.floor(Math.random() * names.length)];
     } else {
+      setTieBreakFinalists(null);
       winnerName = sortedByVotes[0][0];
     }
 
@@ -516,12 +519,17 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                 <h2 className="text-2xl font-light mb-2">
                   {winner === gameState.playerName ? 'Congratulations!' : `${winner} Wins!`}
                 </h2>
-                <p className="text-muted-foreground mb-4">
+                <p className="text-muted-foreground mb-2">
                   {winner === gameState.playerName 
                     ? 'You have won the game! Your strategy and social gameplay impressed the jury.'
                     : `${winner} has been crowned the winner by the jury vote.`
                   }
                 </p>
+                {tieBreakFinalists && tieBreakFinalists.length > 1 && (
+                  <p className="text-xs text-muted-foreground mb-4">
+                    The jury was deadlocked between {tieBreakFinalists.join(' and ')}. A final tie-break tipped the win to {winner}.
+                  </p>
+                )}
                 <div className="text-lg font-medium mb-6">
                   Final Score: {getVoteCount(winner, true)} - {getVoteCount(finalTwo.find(f => f.name !== winner)?.name || '', true)}
                 </div>

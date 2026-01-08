@@ -81,48 +81,75 @@ export const ImmunityCompetitionScreen = ({ gameState, onContinue }: ImmunityCom
     intervalRef.current = window.setInterval(() => {
       setParticipants(prev => {
         const updated = prev.map(p => {
-          // BALANCED: Equal starting point for all contestants
-          let progressIncrease = 3 + Math.random() * 6; // Base 3-9 range
+          // Base 3-9 range for everyone
+          let progressIncrease = 3 + Math.random() * 6;
+
+          // Attach stats for both player and NPCs so character creation matters
+          const contestant =
+            p.isPlayer
+              ? activeContestants.find(c => c.name === gameState.playerName)
+              : activeContestants.find(c => c.name === p.name);
+
+          const compType = competition.type;
+
+          if (contestant && contestant.stats) {
+            const { social, strategy, physical, deception } = contestant.stats;
+
+            // Map the relevant stat to a small bonus based on competition type
+            if (compType === 'physical') {
+              const base = typeof physical === 'number' ? physical : 50;
+              progressIncrease += (base - 50) / 12; // ~ -4..+4
+            } else if (compType === 'mental' || compType === 'strategic') {
+              const base = typeof strategy === 'number' ? strategy : 50;
+              progressIncrease += (base - 50) / 15;
+            } else if (compType === 'social') {
+              const base = typeof social === 'number' ? social : 50;
+              progressIncrease += (base - 50) / 15;
+            }
+
+            // Slight deception bonus in any comp where outplaying others helps
+            if ((compType === 'strategic' || compType === 'social') && typeof deception === 'number') {
+              progressIncrease += (deception - 50) / 40;
+            }
+          }
 
           if (p.isPlayer) {
-            // BALANCED: More realistic player strategy bonuses
+            // Player strategy choice still matters, layered on top of stats
             switch (playerChoice) {
               case 'aggressive':
-                progressIncrease += 1; // Further reduced
-                if (Math.random() < 0.2) progressIncrease = Math.max(0.5, progressIncrease - 3); // Higher risk
+                progressIncrease += 1;
+                if (Math.random() < 0.2) {
+                  progressIncrease = Math.max(0.5, progressIncrease - 3);
+                }
                 break;
               case 'steady':
-                progressIncrease += 0.5; // Reduced
+                progressIncrease += 0.5;
                 break;
               case 'conservative':
-                progressIncrease += 0.3; // Slight reduction
+                progressIncrease += 0.3;
                 break;
             }
-          } else {
-            // ENHANCED: NPC competitive advantages
-            const contestant = activeContestants.find(c => c.name === p.name);
-            if (contestant) {
-              // Apply character traits with stronger bonuses
-              const isCompetitive = contestant.psychProfile.disposition.includes('competitive');
-              const isDriven = contestant.psychProfile.disposition.includes('driven');
-              const isStrategic = contestant.psychProfile.disposition.includes('strategic');
-              const isAthletic = contestant.psychProfile.disposition.includes('athletic');
-              
-              let traitBonus = 0;
-              if (isCompetitive) traitBonus += 2; // Increased
-              if (isDriven) traitBonus += 1.5; // Increased
-              if (isStrategic) traitBonus += 1; // Increased
-              if (isAthletic) traitBonus += 1.5; // New trait bonus
-              
-              progressIncrease += traitBonus;
-              
-              // Reduced fatigue impact
-              const fatigue = (gameState.currentDay / 20) * Math.random(); // Less fatigue
-              progressIncrease -= fatigue;
-              
-              // Increased random variance for unpredictability
-              progressIncrease += (Math.random() - 0.5) * 3;
-            }
+          } else if (contestant) {
+            // ENHANCED: NPC competitive advantages from personality
+            const isCompetitive = contestant.psychProfile.disposition.includes('competitive');
+            const isDriven = contestant.psychProfile.disposition.includes('driven');
+            const isStrategic = contestant.psychProfile.disposition.includes('strategic');
+            const isAthletic = contestant.psychProfile.disposition.includes('athletic');
+            
+            let traitBonus = 0;
+            if (isCompetitive) traitBonus += 2;
+            if (isDriven) traitBonus += 1.5;
+            if (isStrategic) traitBonus += 1;
+            if (isAthletic) traitBonus += 1.5;
+            
+            progressIncrease += traitBonus;
+            
+            // Reduced fatigue impact
+            const fatigue = (gameState.currentDay / 20) * Math.random();
+            progressIncrease -= fatigue;
+            
+            // Increased random variance for unpredictability
+            progressIncrease += (Math.random() - 0.5) * 3;
           }
 
           const next = Math.max(0, Math.min(100, p.progress + progressIncrease));

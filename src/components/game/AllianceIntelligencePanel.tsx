@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState, Contestant } from '@/types/game';
+import { GameState } from '@/types/game';
 import { AllianceIntelligenceEngine } from '@/utils/allianceIntelligenceEngine';
 import { Users, Eye, Shield, AlertTriangle, Target, Brain } from 'lucide-react';
 
@@ -14,8 +14,22 @@ interface AllianceIntelligenceProps {
 
 export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: AllianceIntelligenceProps) => {
   const [expandedIntel, setExpandedIntel] = useState<string>('');
+  const [activeAllianceId, setActiveAllianceId] = useState<string>(() => selectedAlliance || gameState.alliances[0]?.id || '');
 
-  const alliance = gameState.alliances.find(a => a.id === selectedAlliance);
+  // Keep local selection in sync with props and changing alliance list
+  useEffect(() => {
+    if (selectedAlliance && selectedAlliance !== activeAllianceId) {
+      setActiveAllianceId(selectedAlliance);
+      return;
+    }
+    if (!selectedAlliance && !gameState.alliances.find(a => a.id === activeAllianceId)) {
+      setActiveAllianceId(gameState.alliances[0]?.id || '');
+    }
+  }, [selectedAlliance, activeAllianceId, gameState.alliances]);
+
+  if (!gameState.alliances.length) return null;
+
+  const alliance = gameState.alliances.find(a => a.id === activeAllianceId) || gameState.alliances[0];
   if (!alliance) return null;
 
   // Use the enhanced intelligence engine
@@ -47,9 +61,28 @@ export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: Allia
       <div className="mb-4">
          <h3 className="text-lg font-medium flex items-center gap-2">
            <Users className="w-5 h-5 text-primary" />
-           Alliance Intelligence: {alliance.name || `Alliance ${alliance.id.slice(-4)}`}
+           Alliance Intelligence
          </h3>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+
+        {gameState.alliances.length > 1 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {gameState.alliances.map(a => (
+              <Button
+                key={a.id}
+                variant={a.id === alliance.id ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setExpandedIntel('');
+                  setActiveAllianceId(a.id);
+                }}
+              >
+                {a.name || `Alliance ${a.id.slice(-4)}`}
+              </Button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-3">
           <span>Trust Level: {alliance.strength}%</span>
           <span>•</span>
           <span>{alliance.members.length} members</span>

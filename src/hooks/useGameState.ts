@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic, InteractionLogEntry } from '@/types/game';
+import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic, InteractionLogEntry, Confessional } from '@/types/game';
 import { houseMeetingEngine } from '@/utils/houseMeetingEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { generateStaticNPCs } from '@/utils/npcGeneration';
@@ -12,7 +12,7 @@ import { gameSystemIntegrator } from '@/utils/gameSystemIntegrator';
 import { processVoting } from '@/utils/votingEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
-import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
+import { getTrustDelta, getSuspicionDelta, calculateSchemeSuccess } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
@@ -349,11 +349,15 @@ export const useGameState = () => {
         }
       }
 
+      // Reset per-day action usage while preserving lifetime counts
+      const resetActions = prev.playerActions.map(a => ({ ...a, used: false }));
+
       return {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
         groupActionsUsedToday: 0,
+        playerActions: resetActions,
         contestants: baseContestants,
         alliances: updatedAlliances,
         juryMembers,
@@ -727,6 +731,398 @@ export const useGameState = () => {
           lastActionType: 'alliance_meeting',
           lastActionTarget: alliance.name || 'Alliance',
           interactionLog: [...(prev.interactionLog || []), interactionEntry],
+        };
+      });
+      return;
+    }
+
+    // Confessional: record diary room entry and immediately update edit + ratings
+    if (actionType === 'confessional') {
+      setGameState(prev => {
+        if (!content || !tone) {
+          debugWarn('useAction(confessional) missing content/tone', {
+            hasContent: !!content,
+            tone,
+          });
+          return prev;
+        }
+
+        const baseId = `conf_${prev.currentDay}_${(prev.confessionals?.length || 0) + 1}`;
+        const newConf: Confessional = {
+          id: `${baseId}_${Date.now()}`,
+          day: prev.currentDay,
+          content,
+          tone,
+          editImpact: 0,
+          audienceScore: undefined,
+          selected: false,
+        };
+
+        const madeEdit = ConfessionalEngine.selectConfessionalForEdit(newConf, prev as GameState);
+        const editImpact = ConfessionalEngine.calculateEditImpact(newConf, prev as GameState, madeEdit);
+        const audienceScore = ConfessionalEngine.generateAudienceScore(newConf, editImpact);
+
+        const finalizedConf: Confessional = {
+          ...newConf,
+          editImpact,
+          audienceScore,
+          selected: madeEdit,
+        };
+
+        const updatedConfessionals = [...prev.confessionals, finalizedConf];
+
+        const updatedEditPerception = calculateLegacyEditPerception(
+          updatedConfessionals,
+          prev.editPerception,
+          prev.currentDay,
+          { ...prev, confessionals: updatedConfessionals }
+        );
+
+        const ratingRes = ratingsEngine.applyConfessional(prev as GameState, finalizedConf);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          {
+            day: prev.currentDay,
+            rating: Math.round(ratingRes.rating * 100) / 100,
+            reason: ratingRes.reason,
+          },
+        ];
+
+        const updatedActions = prev.playerActions.map(a =>
+          a.type === 'confessional'
+            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+            : a
+        );
+
+        const interactionEntry: InteractionLogEntry = {
+          day: prev.currentDay,
+          type: 'confessional',
+          participants: [prev.playerName],
+          content,
+          tone,
+          source: 'player',
+        };
+
+        return {
+          ...prev,
+          confessionals: updatedConfessionals,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'confessional',
+          lastActionTarget: undefined,
+          editPerception: updatedEditPerception,
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
+        };
+      });
+      return;
+    }
+
+    // Observation: log a lightweight observation and add a memory entry for the player
+    if (actionType === 'observe') {
+      setGameState(prev => {
+        if (!prev.playerName) return prev;
+
+        const updatedContestants = prev.contestants.map(c => {
+          if (c.name !== prev.playerName) return c;
+
+          const mem = {
+            day: prev.currentDay,
+            type: 'observation' as const,
+            participants: [prev.playerName],
+            content:
+              content ||
+              'You spent time quietly watching the house, noting subtle shifts in alliances and mood.',
+            emotionalImpact: 2,
+            timestamp: Date.now(),
+          };
+
+          return {
+            ...c,
+            memory: [...c.memory, mem],
+          };
+        });
+
+        const interactionEntry: InteractionLogEntry = {
+          day: prev.currentDay,
+          type: 'observe',
+          participants: [prev.playerName],
+          content:
+            content ||
+            'You observed the house without taking direct action.',
+          source: 'player',
+        };
+
+        const updatedActions = prev.playerActions.map(a =>
+          a.type === 'observe'
+            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+            : a
+        );
+
+        return {
+          ...prev,
+          contestants: updatedContestants,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'observe',
+          lastActionTarget: undefined,
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
+        };
+      });
+      return;
+    }
+
+    // Scheme: free-text strategic pitch that updates relationships and ratings
+    if (actionType === 'scheme') {
+      setGameState(prev => {
+        if (!target || !content || !prev.playerName) {
+          debugWarn('useAction(scheme) missing target/content or playerName', {
+            target,
+            hasContent: !!content,
+            playerName: prev.playerName,
+          });
+          return prev;
+        }
+
+        const targetNPC = prev.contestants.find(c => c.name === target);
+        if (!targetNPC) {
+          debugWarn('useAction(scheme) target not found', { target });
+          return prev;
+        }
+
+        const toneUsed = (tone || 'strategic').toLowerCase();
+        const baseTrust = getTrustDelta(toneUsed, targetNPC.psychProfile.disposition);
+        const baseSusp = getSuspicionDelta(toneUsed, content);
+
+        const success = calculateSchemeSuccess(prev.playerName, targetNPC, content, tone || 'generic');
+
+        let trustDelta = baseTrust;
+        let suspicionDelta = baseSusp;
+
+        if (success) {
+          trustDelta += 4;
+          suspicionDelta = Math.max(0, suspicionDelta - 3);
+        } else {
+          trustDelta -= 6;
+          suspicionDelta += 5;
+        }
+
+        const updatedContestants = prev.contestants.map(c => {
+          if (c.name !== target) return c;
+
+          const newTrustLevel = Math.max(
+            -100,
+            Math.min(100, c.psychProfile.trustLevel + trustDelta)
+          );
+          const newSuspicionLevel = Math.max(
+            0,
+            Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta)
+          );
+
+          const mem = {
+            day: prev.currentDay,
+            type: 'scheme' as const,
+            participants: [prev.playerName, target],
+            content: `[Scheme] ${content}`,
+            emotionalImpact: Math.max(
+              -10,
+              Math.min(10, Math.floor((trustDelta - suspicionDelta) / 5))
+            ),
+            timestamp: Date.now(),
+          };
+
+          return {
+            ...c,
+            psychProfile: {
+              ...c.psychProfile,
+              trustLevel: newTrustLevel,
+              suspicionLevel: newSuspicionLevel,
+            },
+            memory: [...c.memory, mem],
+          };
+        });
+
+        // Mirror into relationship graph so voting engines see the scheme
+        relationshipGraphEngine.updateRelationship(
+          prev.playerName,
+          target,
+          trustDelta,
+          suspicionDelta,
+          0,
+          'scheme',
+          content,
+          prev.currentDay
+        );
+
+        const interactionEntry: InteractionLogEntry = {
+          day: prev.currentDay,
+          type: 'scheme',
+          participants: [prev.playerName, target],
+          content,
+          tone,
+          source: 'player',
+        };
+
+        const updatedActions = prev.playerActions.map(a =>
+          a.type === 'scheme'
+            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+            : a
+        );
+
+        const reactionSummary: ReactionSummary = {
+          take: success ? 'positive' : 'suspicious',
+          context: 'scheme',
+          notes: success
+            ? `${target} cautiously entertains your plan.`
+            : `${target} seems wary of your pitch.`,
+          deltas: {
+            trust: trustDelta,
+            suspicion: suspicionDelta,
+            influence: success ? 3 : -2,
+            entertainment: 2,
+          },
+        };
+
+        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          {
+            day: prev.currentDay,
+            rating: Math.round(ratingRes.rating * 100) / 100,
+            reason: ratingRes.reason,
+          },
+        ];
+
+        return {
+          ...prev,
+          contestants: updatedContestants,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'scheme',
+          lastActionTarget: target,
+          lastAIReaction: reactionSummary,
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
+        };
+      });
+      return;
+    }
+
+    // Activity: low-stakes group action that lightly adjusts house relationships and ratings
+    if (actionType === 'activity') {
+      setGameState(prev => {
+        const kind = content || 'group_task';
+
+        let trustDelta = 2;
+        let suspicionDelta = 0;
+        let entertainment = 2;
+
+        if (kind === 'truth_or_dare') {
+          trustDelta = 1;
+          suspicionDelta = 2;
+          entertainment = 3;
+        } else if (kind === 'workout_session' || kind === 'stretch_session') {
+          trustDelta = 2;
+          suspicionDelta = -1;
+          entertainment = 2;
+        } else if (kind === 'cook_off') {
+          trustDelta = 2;
+          suspicionDelta = 0;
+          entertainment = 3;
+        }
+
+        const updatedContestants = prev.contestants.map(c => {
+          if (c.isEliminated || c.name === prev.playerName) return c;
+
+          const newTrust = Math.max(
+            -100,
+            Math.min(100, c.psychProfile.trustLevel + trustDelta)
+          );
+          const newSusp = Math.max(
+            0,
+            Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta)
+          );
+
+          const mem = {
+            day: prev.currentDay,
+            type: 'event' as const,
+            participants: [prev.playerName, c.name],
+            content: `[Activity:${kind}] Shared low-stakes house activity.`,
+            emotionalImpact: Math.max(
+              -5,
+              Math.min(5, Math.floor((trustDelta - suspicionDelta) / 2))
+            ),
+            timestamp: Date.now(),
+          };
+
+          return {
+            ...c,
+            psychProfile: {
+              ...c.psychProfile,
+              trustLevel: newTrust,
+              suspicionLevel: newSusp,
+            },
+            memory: [...c.memory, mem],
+          };
+        });
+
+        const interactionEntry: InteractionLogEntry = {
+          day: prev.currentDay,
+          type: 'activity',
+          participants: [prev.playerName, 'House'],
+          content: kind,
+          source: 'player',
+        };
+
+        const updatedActions = prev.playerActions.map(a =>
+          a.type === 'activity'
+            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+            : a
+        );
+
+        const reactionSummary: ReactionSummary = {
+          take:
+            suspicionDelta > 0
+              ? 'suspicious'
+              : trustDelta > 0
+              ? 'positive'
+              : 'neutral',
+          context: 'activity',
+          notes:
+            kind === 'truth_or_dare'
+              ? 'The game sparks light drama and reveals.'
+              : 'The shared activity quietly builds rapport.',
+          deltas: {
+            trust: trustDelta,
+            suspicion: suspicionDelta,
+            influence: 1,
+            entertainment,
+          },
+        };
+
+        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          {
+            day: prev.currentDay,
+            rating: Math.round(ratingRes.rating * 100) / 100,
+            reason: ratingRes.reason,
+          },
+        ];
+
+        return {
+          ...prev,
+          contestants: updatedContestants,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'activity',
+          lastActionTarget: 'House',
+          lastAIReaction: reactionSummary,
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
         };
       });
       return;
