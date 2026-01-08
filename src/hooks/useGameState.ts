@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic, InteractionLogEntry } from '@/types/game';
 import { houseMeetingEngine } from '@/utils/houseMeetingEngine';
@@ -86,6 +86,12 @@ export const useGameState = () => {
       debugMode: false,
     } as GameState;
   });
+
+  // Keep a ref to always access the latest gameState in async callbacks
+  const gameStateRef = useRef(gameState);
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   const startGame = useCallback((playerName?: string) => {
     console.log('Starting game, proceeding to character creation.', playerName ? `Provided name (ignored here): ${playerName}` : '');
@@ -386,8 +392,8 @@ export const useGameState = () => {
     // - A minimal ReactionSummary is surfaced for the UI
     // - Optionally, a local free LLM paraphrases the internal plan into an in-character line
     if (actionType === 'talk' || actionType === 'dm') {
-      // Capture current state for async processing
-      const currentState = gameState;
+      // Use ref to get current state to avoid stale closure issue
+      const currentState = gameStateRef.current;
       const playerNameForLog = (currentState.playerName || '').trim() || 'Player';
 
       if (!target || !content) {
@@ -421,7 +427,9 @@ export const useGameState = () => {
       // Process async AI response
       (async () => {
         try {
-          const response = await gameSystemIntegrator.processPlayerAction(playerAction, currentState);
+          // Get fresh state again at execution time
+          const freshState = gameStateRef.current;
+          const response = await gameSystemIntegrator.processPlayerAction(playerAction, freshState);
 
           // Aggregate rule-based consequences into a lightweight reaction summary
           let trustDelta = 0;
