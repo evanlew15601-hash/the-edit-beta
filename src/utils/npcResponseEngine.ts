@@ -1,5 +1,5 @@
 import { Contestant, GameState, GameMemory } from '@/types/game';
-import { PerceivedIntent } from '@/types/interpretation';
+import { PerceivedIntent, GlobalToneProfile, NPCSpecificToneProfile } from '@/types/interpretation';
 import { speechActClassifier, SpeechAct } from './speechActClassifier';
 import { relationshipGraphEngine, Relationship } from './relationshipGraphEngine';
 import { npcAutonomyEngine, NPCPersonalityProfile } from './npcAutonomyEngine';
@@ -25,6 +25,11 @@ export type NPCResponseContext = {
   recentMemories: GameMemory[];
   socialContext: SocialContext;
   conversationType: 'public' | 'private' | 'confessional';
+};
+
+type ToneProfileSnapshot = {
+  globalTone: GlobalToneProfile;
+  npcTone?: NPCSpecificToneProfile;
 };
 
 export type ResponseConsequence = {
@@ -210,8 +215,27 @@ class NPCResponseEngine {
     }
 
     const emotionalSubtext = this.calculateEmotionalSubtext(speechAct, personality);
-    const consequences = this.calculateConsequences(speechAct, emotionalSubtext);
-    const followUpAction = this.determineFollowUpAction(speechAct, context, tone, consequences);
+
+    const interpretationState = socialInterpretationEngine.getState();
+    const toneProfiles: ToneProfileSnapshot = {
+      globalTone: interpretationState.globalTone,
+      npcTone: interpretationState.npcTone.get(npc.name),
+    };
+
+    const consequences = this.calculateConsequences(
+      speechAct,
+      emotionalSubtext,
+      socialReading,
+      toneProfiles
+    );
+    const followUpAction = this.determineFollowUpAction(
+      speechAct,
+      context,
+      tone,
+      consequences,
+      socialReading,
+      toneProfiles
+    );
     const memoryImpact = this.calculateMemoryImpact(speechAct, emotionalSubtext);
 
     this.processResponseConsequences(npc, context.playerName, consequences, gameState);
@@ -599,31 +623,130 @@ class NPCResponseEngine {
 
   private calculateConsequences(
     speechAct: SpeechAct,
-    emotionalSubtext: NPCResponse['emotionalSubtext']
+    emotionalSubtext: NPCResponse['emotionalSubtext'],
+    socialReading?: PerceivedIntent,
+    toneProfiles?: ToneProfileSnapshot
   ): ResponseConsequence[] {
     const consequences: ResponseConsequence[] = [];
 
+    let trustDelta = 0;
+    let suspicionDelta = 0;
+    const trustReasons: string[] = [];
+    const suspicionReasons: string[] = [];
+
+    // Baseline from explicit trust-building and manipulation signals
     if (speechAct.trustBuilding && emotionalSubtext.sincerity > 40) {
-      consequences.push({
-        type: 'trust_change',
-        value: 5 + emotionalSubtext.sincerity * 0.1,
-        description: 'Player seems genuinely invested in trust',
-      });
+      const baseTrust = 5 + emotionalSubtext.sincerity * 0.1;
+      trustDelta += baseTrust;
+      trustReasons.push('Player seems genuinely invested in trust');
     }
 
     if (speechAct.manipulationLevel > 50) {
-      consequences.push({
-        type: 'suspicion_change',
-        value: speechAct.manipulationLevel * 0.2,
-        description: 'Player is coming off as manipulative',
-      });
+      const baseSuspicion = speechAct.manipulationLevel * 0.2;
+      suspicionDelta += baseSuspicion;
+      suspicionReasons.push('Player is coming off as manipulative');
     }
 
+    // Strongly emotional / threatening moments are still memorable on their own
     if (speechAct.threatLevel > 40 || emotionalSubtext.anger > 40) {
       consequences.push({
         type: 'memory_creation',
         value: Math.max(speechAct.threatLevel, emotionalSubtext.anger),
         description: 'Confrontational or tense interaction',
+      });
+    }
+
+    // Fold in NPC-specific social interpretation
+    if (socialReading) {
+      const warmth = socialReading.perceivedWarmth;
+      const hostility = socialReading.perceivedHostility;
+      const certainty = socialReading.certainty;
+      const certaintyScale = 0.5 + certainty * 0.5; // 0.5..1
+
+      // Warmth can amplify trust when things feel genuinely connective
+      if (warmth > 55 && hostility < 50) {
+        const warmthBoost = ((warmth - 55) / 45) * 6; // up to ~6 at warmth 100
+        trustDelta += warmthBoost * certaintyScale;
+        trustReasons.push('NPC reads the player as warm and connective');
+      }
+
+      // Hostility pushes toward suspicion
+      if (hostility > 55) {
+        const hostilityBoost = ((hostility - 55) / 45) * 8; // up to ~8
+        suspicionDelta += hostilityBoost * certaintyScale;
+        suspicionReasons.push('NPC reads the player as hostile or adversarial');
+      }
+
+      // Social strategy and motive shading
+      if (socialReading.perceivedSocialStrategy === 'bonding') {
+        trustDelta += 2 * certaintyScale;
+        trustReasons.push('Social strategy feels bonding');
+      } else if (
+        socialReading.perceivedSocialStrategy === 'distancing' ||
+        socialReading.perceivedSocialStrategy === 'dominance'
+      ) {
+        suspicionDelta += 2 * certaintyScale;
+        suspicionReasons.push('Social strategy feels distancing or dominant');
+      }
+
+      if (socialReading.perceivedGameMotive === 'reputation_management') {
+        suspicionDelta += 3 * certaintyScale;
+        suspicionReasons.push('Conversation feels like reputation management');
+      }
+
+      if (socialReading.divergenceScore > 60) {
+        suspicionDelta += 2 * certaintyScale;
+        suspicionReasons.push('Player behavior feels inconsistent with prior pattern');
+      }
+    }
+
+    // Tone profiles capture slower-moving impressions over many messages
+    if (toneProfiles) {
+      const { globalTone, npcTone } = toneProfiles;
+
+      // Globally volatile tone creates a small ongoing suspicion tax
+      if (globalTone.emotionalVolatility > 65) {
+        suspicionDelta += 1.5;
+        suspicionReasons.push('Player has been emotionally volatile overall');
+      }
+
+      if (npcTone) {
+        if (npcTone.perceivedFakeness > 55) {
+          if (trustDelta > 0) {
+            trustDelta *= 0.6; // dampen trust gains when the player feels fake
+            trustReasons.push('Perceived fakeness dampens trust gains');
+          }
+          suspicionDelta += 2;
+          suspicionReasons.push('NPC suspects the player is being fake');
+        }
+
+        if (npcTone.perceivedConsistency > 65 && suspicionDelta > 0) {
+          // Consistent behavior can soften some suspicion
+          suspicionDelta *= 0.8;
+          suspicionReasons.push('Consistent behavior tempers suspicion slightly');
+        }
+      }
+    }
+
+    if (trustDelta !== 0) {
+      const clampedTrust = Math.max(-10, Math.min(20, trustDelta));
+      consequences.push({
+        type: 'trust_change',
+        value: clampedTrust,
+        description:
+          trustReasons.join('; ') ||
+          'Trust shifts based on how the player comes across',
+      });
+    }
+
+    if (suspicionDelta !== 0) {
+      const clampedSuspicion = Math.max(0, Math.min(25, suspicionDelta));
+      consequences.push({
+        type: 'suspicion_change',
+        value: clampedSuspicion,
+        description:
+          suspicionReasons.join('; ') ||
+          'Suspicion shifts based on how the player comes across',
       });
     }
 
@@ -634,30 +757,84 @@ class NPCResponseEngine {
     speechAct: SpeechAct,
     context: NPCResponseContext,
     tone: NPCResponse['tone'],
-    consequences: ResponseConsequence[]
+    consequences: ResponseConsequence[],
+    socialReading?: PerceivedIntent,
+    toneProfiles?: ToneProfileSnapshot
   ): NPCResponse['followUpAction'] | undefined {
-    if (speechAct.informationSeeking && tone === 'strategic') {
-      return 'dm_player';
-    }
+    const drama = context.socialContext.currentDramaTension;
+    const rel = context.relationship;
+    const suspicionShift = consequences.find(
+      c => c.type === 'suspicion_change' && c.value > 0
+    );
 
+    const npcTone = toneProfiles?.npcTone;
+    const globalTone = toneProfiles?.globalTone;
+    const warmth = socialReading?.perceivedWarmth ?? 0;
+    const hostility = socialReading?.perceivedHostility ?? 0;
+    const certainty = socialReading?.certainty ?? 0;
+
+    const hasSuspicion = !!suspicionShift && suspicionShift.value > 0;
+    const highWarm = warmth > 65;
+    const highHostile = hostility > 65;
+    const conflictAvoidantPlayer = globalTone ? globalTone.conflictAvoidance > 60 : false;
+    const playerFeelsFake = npcTone ? npcTone.perceivedFakeness > 60 : false;
+
+    // Alliance formation: explicit proposal OR clear alliance-signaling motive
     if (
-      speechAct.primary === 'alliance_proposal' &&
-      context.relationship &&
-      context.relationship.trust > 60
+      rel &&
+      rel.trust > 60 &&
+      (rel.suspicion ?? 0) < 55 &&
+      (speechAct.primary === 'alliance_proposal' ||
+        socialReading?.perceivedGameMotive === 'alliance_signaling')
     ) {
       return 'form_alliance';
     }
 
-    const suspicionShift = consequences.find(
-      c => c.type === 'suspicion_change' && c.value > 0
-    );
-    if (
-      suspicionShift &&
-      (context.socialContext.currentDramaTension > 65 || tone === 'aggressive')
-    ) {
-      return 'spread_rumor';
+    // Strategic information-seeking often invites a DM follow-up rather than public chatter
+    if (speechAct.informationSeeking && tone === 'strategic') {
+      if (hasSuspicion && (playerFeelsFake || highHostile) && drama > 55) {
+        // If this info-fishing feels shady in a hot house, treat it as rumor fuel
+        return 'spread_rumor';
+      }
+      return 'dm_player';
     }
 
+    // Warm, public bonding with solid trust can move to a private check-in
+    if (
+      context.conversationType === 'public' &&
+      rel &&
+      rel.trust > 55 &&
+      (rel.suspicion ?? 0) < 50 &&
+      highWarm &&
+      !hasSuspicion &&
+      (conflictAvoidantPlayer || tone === 'friendly')
+    ) {
+      return 'dm_player';
+    }
+
+    // Decide when this turns into rumor fuel vs private scheming
+    if (hasSuspicion) {
+      const suspicionIntensity = suspicionShift!.value;
+      const baseThreshold = 65;
+      const fakenessBias = playerFeelsFake ? -10 : 0;
+      const volatilityBias = globalTone && globalTone.emotionalVolatility > 70 ? -5 : 0;
+      const rumorThreshold = baseThreshold + fakenessBias + volatilityBias;
+
+      if (
+        (drama > rumorThreshold || tone === 'aggressive' || highHostile) &&
+        certainty > 0.4 &&
+        suspicionIntensity > 0
+      ) {
+        return 'spread_rumor';
+      }
+
+      // If suspicion is present but not explosive, this leans toward quiet scheming
+      if (tone === 'aggressive' || hostility > 55) {
+        return 'scheme';
+      }
+    }
+
+    // Fallback: aggressive tone without clear suspicion still pushes toward scheming
     if (tone === 'aggressive') {
       return 'scheme';
     }
