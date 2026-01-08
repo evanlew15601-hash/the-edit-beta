@@ -28,7 +28,7 @@ export const EliminationEpisode = ({ gameState, onContinue }: EliminationEpisode
       title: 'Previously This Week',
       speaker: 'Narrator',
       text:
-        'Whispers turned into plans, plans turned into votes, and somewhere between the kitchen and the backyard, a name started to stick.',
+        'Whispers in the bedroom turned into plans at the kitchen table. Tonight we see which name made it onto the ballot.',
     },
     {
       title: 'On the Block',

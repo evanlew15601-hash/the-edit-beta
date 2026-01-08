@@ -61,19 +61,19 @@ export function buildTwistIntroCutscene(gs: GameState) {
         title: 'Control Room',
         speaker: 'Producer',
         text:
-          "“We keep it quiet until we do not,” a producer says to Mars over a stack of rundown cards. “If the season drags, we open that box on air.”",
+          '“We park it for now,” a producer says, tapping the rundown. “Flag it around Week 4 in case we need heat.”',
       },
       {
         title: 'Walk-On Instructions',
         speaker: 'Stage Manager',
         text:
-          "At the edge of the stage, a hand adjusts your mic. “On live shows, look at Mars like any other host. No hugs. No jokes about home. We will tell you if that changes.”",
+          'At the edge of the stage, a hand adjusts your mic. “On live shows, look at Mars like any other host. No hugs. No jokes about home. We will tell you if that changes.”',
       },
       {
         title: 'Plan A',
         speaker: name,
         text:
-          "Go in like I am just another contestant. Make friends, make votes, pretend the cameras do not know my last name.",
+          'I tell myself I am just another contestant. Then I remember who is reading off the cue cards. I focus on breathing and on whoever opens the door first instead.',
       },
     ];
   } else if (arc === 'planted_houseguest') {
@@ -102,7 +102,7 @@ export function buildTwistIntroCutscene(gs: GameState) {
         title: 'Cover Story',
         speaker: name,
         text:
-          "On the call sheet I am just another houseguest. On the network schedule I am a recurring twist. My job is to make the missions look like my own bad ideas.",
+          'On the call sheet I am just another houseguest. In the control room notes, my initials sit next to three dates. My job is to make the missions look like my own bad ideas.',
       },
     ];
   } else {
@@ -206,7 +206,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Programming Note',
             speaker: 'Producer',
             text:
-              '“We cannot lose them before we use them,” a producer says. “If the vote gets close, push more confessionals from another target. We need this reveal later in the season.”',
+              '“If their name comes up early, push more confessionals from the other side,” a producer says. “We need them on the board later.”',
           },
           {
             title: 'Unseen Help',
@@ -478,7 +478,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: 'Exit Interview',
             speaker: name,
             text:
-              'Every interviewer asks the same thing: did you feel used? I give them the answer that gets me booked again: I talk about how “fun” it was to be part of The Edit.',
+              'Every interviewer asks if I felt used. I smile, talk about how “fun” it was to be part of The Edit, and drink lukewarm coffee from a paper cup with my name spelled wrong.',
           },
           {
             title: "What You Do Not Say",
@@ -541,7 +541,7 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
         speaker: name,
         text:
           back.line ||
-          'I try to play in a consistent way so people understand my moves and notice when I change direction.',
+          'I tell myself I am being consistent. Some days that means sticking to a plan. Other days it means pretending the last plan never existed.',
       },
     );
   }
@@ -746,7 +746,7 @@ export function buildFinaleCutscene(gs: GameState) {
         speaker: name,
         text:
           back.line ||
-          'When people talk about my game after this, I want them to describe clear decisions from the first week through the finale.',
+          'When they argue about this season later, I want someone to be able to say, “That vote was theirs,” more than once.',
       },
     );
   }

@@ -44,8 +44,8 @@ export class EmergentEventInterruptor {
         involvedContestants: [targetA.name, targetB.name, targetC.name],
         requiresPlayerAction: true,
         impact: {
-          immediate: 'Relationships between the people involved and you will change based on what you do',
-          longTerm: 'This argument and your response will be visible in recaps and in how players remember the week'
+          immediate: 'If you support one side, the other will treat you as aligned with them in the next vote. If you stay out of it, both sides will remember that you watched and did nothing.',
+          longTerm: 'People involved in this argument will remember your choice here when they talk about the week and when they decide who to trust later.'
         }
       });
     }
@@ -78,12 +78,12 @@ export class EmergentEventInterruptor {
         id: `npc_check_in_${confidant.name}`,
         type: 'npc_check_in',
         title: 'Pulled Aside',
-        description: `${confidant.name} waits until the room is quieter, then pulls you aside to ask directly where your head is. It is a small conversation that will matter later when viewers see it again in a recap.`,
+        description: `${confidant.name} waits until the room is quieter, then pulls you aside to ask directly where your head is. If you give a clear answer, they will repeat it later as “what you said you wanted.”`,
         involvedContestants: [confidant.name],
         requiresPlayerAction: true,
         impact: {
           immediate: 'Your tone will affect trust and closeness with them',
-          longTerm: 'Sets the tone for how one-on-one strategy talks with them appear on The Edit'
+          longTerm: 'They will use what you say here later when they justify their own votes and alliances.'
         }
       });
     }
