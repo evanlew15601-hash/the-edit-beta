@@ -1,9 +1,14 @@
 import { Contestant, GameState, GameMemory } from '@/types/game';
+import { PerceivedIntent } from '@/types/interpretation';
 import { speechActClassifier, SpeechAct } from './speechActClassifier';
 import { relationshipGraphEngine, Relationship } from './relationshipGraphEngine';
 import { npcAutonomyEngine, NPCPersonalityProfile } from './npcAutonomyEngine';
 import { generateLocalAIReply } from './localLLM';
 import { logInteractionToCloud, fetchRecentInteractions } from './interactionLogger';
+import { analyzeSurface } from './textSurfaceAnalyzer';
+import { conversationIntentEngine } from './conversationIntentEngine';
+import { buildIntentHypotheses } from './intentHypothesisEngine';
+import { socialInterpretationEngine } from './socialInterpretationEngine';
 
 export type SocialContext = {
   alliances: string[];
@@ -93,11 +98,57 @@ class NPCResponseEngine {
       return this.generateMetaResponse(targetNPC, playerMessage);
     }
 
+    // Layer 1: surface analysis (shape only, no meaning)
+    const surface = analyzeSurface(playerMessage);
+
     const context = this.buildResponseContext(npc, gameState, speechAct, conversationType);
     const personality = npcAutonomyEngine.getNPCPersonality(npc.name);
     const perception = this.updateNPCPerception(npc.name, context, speechAct);
 
-    const tone = this.determineTone(speechAct, context, personality, perception);
+    // Layer 2 & 3: intent hypotheses and NPC-specific interpretation
+    let socialReading: PerceivedIntent | undefined;
+    try {
+      const conversationIntent = conversationIntentEngine.parse(
+        playerMessage,
+        speechAct,
+        gameState.contestants.map(c => c.name)
+      );
+
+      const intents = buildIntentHypotheses({
+        message: playerMessage,
+        speechAct,
+        conversationIntent,
+        surface,
+        playerProfile: speechActClassifier.getPlayerProfile(),
+      });
+
+      const fallbackPersonality: NPCPersonalityProfile = personality || {
+        aggressiveness: 50,
+        manipulation: 50,
+        loyalty: 50,
+        paranoia: 50,
+        charisma: 50,
+        intelligence: 50,
+        emotionality: 50,
+        risk_tolerance: 50,
+      };
+
+      socialReading = socialInterpretationEngine.interpretForNPC({
+        npcName: npc.name,
+        intents,
+        surface,
+        personality: fallbackPersonality,
+        npcContext: context,
+      });
+    } catch (e) {
+      // Keep failures non-fatal; fall back to existing behavior
+      console.warn('Social interpretation failed, falling back to base tone logic:', e);
+    }
+
+    const baseTone = this.determineTone(speechAct, context, personality, perception);
+    const tone = socialReading
+      ? this.adjustToneWithSocialReading(baseTone, socialReading, personality)
+      : baseTone;
 
     // Pull recent cloud interactions between this NPC and the player
     let recentCloudInteractions:
@@ -383,6 +434,45 @@ class NPCResponseEngine {
       tone = 'suspicious';
     } else if (context.socialContext.currentDramaTension < 30 && tone === 'suspicious') {
       tone = 'neutral';
+    }
+
+    return tone;
+  }
+
+  /**
+   * Adjust the base tone using NPC-specific social interpretation.
+   * This is intentionally conservative: it nudges, not overrides.
+   */
+  private adjustToneWithSocialReading(
+    baseTone: NPCResponse['tone'],
+    socialReading: PerceivedIntent,
+    personality?: NPCPersonalityProfile
+  ): NPCResponse['tone'] {
+    let tone = baseTone;
+
+    // If interpretation is very uncertain, keep base tone
+    if (socialReading.certainty < 0.35) {
+      return tone;
+    }
+
+    const hostile = socialReading.perceivedHostility;
+    const warm = socialReading.perceivedWarmth;
+
+    // High perceived warmth can soften neutral/suspicious tones
+    if (warm > 70 && hostile < 40) {
+      if (tone === 'neutral' || tone === 'suspicious') {
+        tone = 'friendly';
+      }
+    }
+
+    // High perceived hostility can sharpen neutral/friendly tones
+    if (hostile > 70) {
+      const aggressiveBias = personality?.aggressiveness ?? 50;
+      if (tone === 'neutral' && aggressiveBias > 60) {
+        tone = 'aggressive';
+      } else if (tone === 'friendly') {
+        tone = 'suspicious';
+      }
     }
 
     return tone;
