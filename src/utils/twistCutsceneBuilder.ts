@@ -9,19 +9,18 @@ function getBackstoryContext(gs: GameState): { summary?: string; line?: string }
   const p = getPlayer(gs);
   if (!p) return {};
   const bgName = p.background;
-  const meta = bgName ? BACKGROUND_META.find(m => m.name === bgName) : undefined;
 
   const base =
     bgName === 'Other'
-      ? p.customBackgroundText || undefined
+      ? (p.customBackgroundText && p.customBackgroundText.trim()) || undefined
       : bgName;
 
   const summary = base
-    ? `Before the show you were ${bgName === 'Other' ? base.toLowerCase() : `a ${base.toLowerCase()}`}. Some of that still leaks into every room you walk into.`
+    ? `Before the show, you worked as ${base.toLowerCase()}.`
     : undefined;
 
   const line = base
-    ? `${p.name} — ${base}${meta?.personaHint ? ` (${meta.personaHint.toLowerCase()})` : ''}.`
+    ? `${p.name}, ${base}.`
     : undefined;
 
   return { summary, line };
@@ -302,7 +301,6 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: beat.title,
             speaker: 'Narrator',
             text:
-              beat.summary ||
               'Mid-arc moment: the secret sits just under the surface of every conversation.',
           },
           {
@@ -449,7 +447,6 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             title: beat.title,
             speaker: 'Narrator',
             text:
-              beat.summary ||
               'Mid-arc moment: you are still balancing the mission against the relationships that will decide your fate.',
           },
           {
@@ -457,8 +454,8 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
             speaker: name,
             text:
               mission
-                ? `Whatever else happens this week, I can\'t let “${mission}” be the thing that exposes me.`
-                : back.line || 'I remind myself what version of me the house has seen so far, and I don\'t break character.',
+                ? `Whatever else happens this week, I can\\'t let “${mission}” be the thing that exposes me.`
+                : back.line || 'I remind myself what version of me the house has seen so far, and I don\\'t break character.',
           },
         );
         break;
@@ -470,7 +467,6 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
         title: beat.title,
         speaker: 'Narrator',
         text:
-          beat.summary ||
           'Mid-game scene: the way you handle this moment will echo in the next vote more than you think.',
       },
       {
@@ -489,7 +485,6 @@ export function buildMidGameCutscene(gs: GameState, beat: NarrativeBeat) {
         title: beat.title,
         speaker: 'Narrator',
         text:
-          beat.summary ||
           'The week tilts a little. You feel the twist underneath your conversations.',
       },
       {
@@ -646,11 +641,11 @@ export function buildFinaleCutscene(gs: GameState) {
           'I didn\'t get to choose the twist, but I did get to choose what to do with it. Judge me by the alliances I built and the votes I survived, not by the name on my birth certificate.',
       },
       {
-        title: 'Final Frame',
+        title: 'Final Moment',
         speaker: 'Narrator',
         text:
           back.line ||
-          'In the edit, your backstory becomes context. At the jury table, your moves are the only evidence that matters.',
+          'Whatever people thought about you before this show, they will have to talk about what you did inside this house.',
       },
     );
   } else if (arc === 'planted_houseguest') {
