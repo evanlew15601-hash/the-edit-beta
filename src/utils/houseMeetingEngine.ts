@@ -118,70 +118,92 @@ export const houseMeetingEngine = {
 
     switch (choice) {
       case 'persuasive':
-        // Trust up slightly for initiator with social types, suspicion down mildly
+        // Trust up more strongly when you frame a coherent case; social types are especially swayed.
         forAll(0, 0, 0);
         participants.forEach(n => {
           const c = gameState.contestants.find(x => x.name === n);
           if (!c) return;
-          const isSocial = (c.psychProfile.disposition || []).some(d => ['diplomatic', 'agreeable'].includes(d));
-          const trustBump = isSocial ? 4 : 2;
-          const suspDrop = isSocial ? -3 : -1;
+          const isSocial = (c.psychProfile.disposition || []).some(d =>
+            ['diplomatic', 'agreeable'].includes(d)
+          );
+          const trustBump = isSocial ? 6 : 3;
+          const suspDrop = isSocial ? -4 : -2;
           addDelta(n, trustBump, suspDrop, 0);
         });
         if (target) {
-          // If nominating target, their allies lose trust in initiator, others gain
+          // If nominating target, their allies lose trust in initiator and alliances become more exposed
           gameState.alliances.forEach(a => {
             if (a.members.includes(target)) {
-              a.exposureRisk = clamp((a.exposureRisk || 20) + 8, 0, 100);
+              a.exposureRisk = clamp((a.exposureRisk || 20) + 10, 0, 100);
             }
           });
         }
         break;
 
       case 'defensive':
-        // Mostly affects perception of initiator; others reduce suspicion a bit
+        // Stronger impact on how your defense lands: you can either calm the room or look like you're spinning.
         participants.forEach(n => {
           const isInitiator = n === initiator;
-          addDelta(n, isInitiator ? 3 : 1, isInitiator ? -5 : -1, isInitiator ? 2 : 0);
+          addDelta(
+            n,
+            isInitiator ? 5 : 2,   // bigger trust swing on your own defense
+            isInitiator ? -7 : -2, // clearer suspicion drop if you come off credible
+            isInitiator ? 3 : 0
+          );
         });
         break;
 
       case 'aggressive':
-        // Raises drama; trust down for many; suspicion up sharply for target and initiator
-        forAll(-2, 2, -1);
+        // Raises drama; trust down sharply; suspicion spikes especially around the target and their allies.
+        forAll(-3, 3, -1);
         if (target) {
           participants.forEach(n => {
-            const inTargetAlliance = gameState.alliances.some(a => a.members.includes(n) && a.members.includes(target));
-            if (inTargetAlliance) addDelta(n, -4, 5, -2);
-            else addDelta(n, -1, 2, -1);
+            const inTargetAlliance = gameState.alliances.some(
+              a => a.members.includes(n) && a.members.includes(target)
+            );
+            if (inTargetAlliance) addDelta(n, -6, 7, -3);
+            else addDelta(n, -2, 3, -1);
           });
         }
         // Argument chain: 1-2 random joiners next round (simulated escalation)
-        const others = gameState.contestants.filter(c => !c.isEliminated && !participants.includes(c.name));
-        joinedParticipants = others.sort(() => 0.5 - Math.random()).slice(0, Math.min(2, others.length)).map(c => c.name);
+        const others = gameState.contestants.filter(
+          c => !c.isEliminated && !participants.includes(c.name)
+        );
+        joinedParticipants = others
+          .sort(() => 0.5 - Math.random())
+          .slice(0, Math.min(2, others.length))
+          .map(c => c.name);
         break;
 
       case 'manipulative':
-        // Mixed outcomes: some buy it, paranoid amplify suspicion; alliances exposure increases if topic is expose_alliance
+        // Mixed outcomes: some buy the spin, paranoid players amplify suspicion; bigger exposure when you drag alliances into it.
         participants.forEach(n => {
           const c = gameState.contestants.find(x => x.name === n);
           if (!c) return;
           const paranoid = (c.psychProfile.disposition || []).includes('paranoid');
-          addDelta(n, paranoid ? -3 : 2, paranoid ? 6 : 1, paranoid ? -1 : 0);
+          addDelta(
+            n,
+            paranoid ? -4 : 3,
+            paranoid ? 8 : 2,
+            paranoid ? -1 : 0
+          );
         });
         if (state.topic === 'expose_alliance') {
-          allianceExposureBoost = gameState.alliances.map(a => ({ allianceId: a.id, delta: 6 }));
+          allianceExposureBoost = gameState.alliances.map(a => ({
+            allianceId: a.id,
+            delta: 8
+          }));
         }
         break;
 
       case 'silent':
-        // Nuanced: in heated mood, seen as shady; in calm mood, can be strategic
+        // Nuanced: in heated mood, silence now looks more damning; in calm mood, it can be a stronger strategic choice.
         if (mood === 'heated') {
-          forAll(-2, 4, -1);
+          forAll(-3, 5, -1);
         } else if (mood === 'tense') {
-          forAll(-1, 2, 0);
+          forAll(-2, 3, 0);
         } else {
-          forAll(2, -2, 1);
+          forAll(3, -3, 1);
         }
         break;
     }
@@ -197,7 +219,12 @@ export const houseMeetingEngine = {
         avgSusp > 0 ? 'suspicious' : 'neutral',
       context: 'public',
       notes: `House Meeting (${state.topic}) - ${choice}`,
-      deltas: { trust: Math.round(avgTrust), suspicion: Math.round(avgSusp), influence: 2, entertainment: choice === 'aggressive' ? 4 : choice === 'silent' ? 1 : 3 }
+      deltas: {
+        trust: Math.round(avgTrust),
+        suspicion: Math.round(avgSusp),
+        influence: 4,
+        entertainment: choice === 'aggressive' ? 7 : choice === 'silent' ? 2 : 5
+      }
     };
 
     const nextRound = Math.min(state.currentRound + 1, state.maxRounds);
@@ -244,7 +271,7 @@ export const houseMeetingEngine = {
       isAIInitiated: true,
       participants,
       currentRound: 0,
-      maxRounds: 3,
+      maxRounds: 4,
       mood: this.getMood(gameState),
       conversationLog: [{ speaker: initiator, text: `Call House Meeting: ${topic.replace('_', ' ')}` }],
       currentOptions: this.buildOptions(topic),
