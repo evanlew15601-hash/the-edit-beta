@@ -1,5 +1,4 @@
 import { GameState, Contestant } from '@/types/game';
-import { verifyAndUpdateTasks } from './taskEngine';
 
 // Lightweight helpers to handle special backgrounds effects.
 // These functions are deterministic per call and should be invoked by the game loop once per day or at key events.
@@ -56,9 +55,6 @@ export function applyDailySpecialBackgroundLogic(gs: GameState): GameState {
       }
     }
   });
-
-  // Verify and award production task progress (safe to call daily; rewards gated by 'rewarded' flag)
-  next = verifyAndUpdateTasks(next);
 
   return next;
 }

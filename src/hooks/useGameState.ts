@@ -1346,12 +1346,46 @@ export const useGameState = () => {
         nextTwistNarrative = { ...prev.twistNarrative, beats: updatedBeats, currentBeatId: undefined };
       }
 
-      return {
+      let nextState: GameState = {
         ...prev,
         currentCutscene: undefined,
         gamePhase: nextPhase,
         twistNarrative: nextTwistNarrative,
       };
+
+      // Sync key twist state to the scripted story moments
+      if (type === 'mid_game' && prev.twistNarrative?.currentBeatId && prev.twistNarrative.arc !== 'none') {
+        const beatId = prev.twistNarrative.currentBeatId;
+        const arc = prev.twistNarrative.arc;
+
+        // When the Host's Child live reveal episode plays, mark the secret as revealed in state.
+        if (arc === 'hosts_child' && beatId === 'hc_immediate_fallout') {
+          nextState = revealHostChild(nextState, nextState.playerName);
+        }
+
+        // When the Planted Houseguest exposure episode airs, mark the secret as revealed if it wasn't already.
+        if (arc === 'planted_houseguest' && beatId === 'phg_exposed') {
+          const player = nextState.contestants.find(c => c.name === nextState.playerName);
+          if (player && player.special && player.special.kind === 'planted_houseguest') {
+            const updatedContestants = nextState.contestants.map(c => {
+              if (c.name !== nextState.playerName) return c;
+              const spec: any = c.special;
+              if (spec.secretRevealed) return c;
+              return {
+                ...c,
+                special: {
+                  ...spec,
+                  secretRevealed: true,
+                  revealDay: nextState.currentDay,
+                },
+              };
+            });
+            nextState = { ...nextState, contestants: updatedContestants };
+          }
+        }
+      }
+
+      return nextState;
     });
   }, []);
 

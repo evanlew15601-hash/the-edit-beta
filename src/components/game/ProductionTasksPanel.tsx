@@ -25,7 +25,7 @@ export const ProductionTasksPanel = ({ gameState }: ProductionTasksPanelProps) =
         </div>
       </div>
       <p className="text-sm text-muted-foreground mb-4">
-        Complete weekly tasks for subtle edit boosts. Verified tasks award $1,000 each.
+        Production gives you secret weekly missions the audience sees on screen. Completing them quietly awards $1,000 each.
       </p>
 
       {tasks.length === 0 ? (
