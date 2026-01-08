@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { generateAIResponse } from "./aiResponseEngine";
 
-// AI reply generation using Lovable AI (cloud-based via edge function)
+// AI reply generation via Supabase edge function backed by Gemini (through Lovable AI gateway)
 // Falls back to rule-based response if cloud fails
 
 // Simple LRU cache for short prompts
@@ -123,7 +123,7 @@ type GenOpts = {
   signal?: AbortSignal;
 };
 
-// Main API - calls Lovable AI edge function
+// Main API - calls Supabase edge function (Gemini via Lovable AI gateway)
 export async function generateLocalAIReply(
   payload: {
     playerMessage: string;

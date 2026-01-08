@@ -43,55 +43,6 @@ const debugWarn = (...args: any[]) => {
   if (isDevEnv) console.warn(...args);
 };
 
-const USE_REMOTE_AI = false; // Set to true when remote backends are working
-
-function buildLocalLLMSocialContext(gameState: GameState, npcName: string) {
-  const npc = gameState.contestants.find((c) => c.name === npcName);
-  if (!npc) return {};
-
-  const alliancesForNPC = gameState.alliances.filter((a) => a.members.includes(npcName));
-  const alliancePartners = Array.from(
-    new Set(
-      alliancesForNPC
-        .flatMap((a) => a.members)
-        .filter((name) => name !== npcName)
-    )
-  );
-
-  const activeOthers = gameState.contestants.filter(
-    (c) => !c.isEliminated && c.name !== npcName
-  );
-  const threats = activeOthers
-    .filter((c) => {
-      const rel = relationshipGraphEngine.getRelationship(npcName, c.name);
-      return rel ? rel.suspicion > 60 : false;
-    })
-    .map((c) => c.name);
-
-  const recentEvents = (npc.memory || [])
-    .filter((m) => m.day >= gameState.currentDay - 2)
-    .slice(-4)
-    .map((m) => m.content);
-
-  const allowedPeople = Array.from(
-    new Set(
-      [
-        ...alliancePartners,
-        ...threats,
-        npcName,
-        gameState.playerName,
-      ].filter(Boolean)
-    )
-  );
-
-  return {
-    alliances: alliancePartners,
-    threats,
-    recentEvents,
-    allowedPeople,
-  };
-}
-
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
     // Fresh start every load; manual save/load only
