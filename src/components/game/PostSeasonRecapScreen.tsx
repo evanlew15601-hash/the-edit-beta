@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { buildContestantMemoryRecap } from '@/utils/enhancedMemoryRecap';
-import { GameState } from '@/types/game';
+import { GameState, Contestant } from '@/types/game';
 import { Crown, Trophy, Target, Heart, TrendingUp, Calendar, Users, Zap } from 'lucide-react';
 
 interface PostSeasonRecapScreenProps {
@@ -41,6 +41,7 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
   const playerStats = calculatePlayerStats(gameState);
   const seasonHighlights = generateSeasonHighlights(gameState);
   const awards = calculateSeasonAwards(gameState);
+  const juryStyleSummary = calculateJuryStyleSummary(gameState);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -331,28 +332,72 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                   Jury votes not available.
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {Object.entries(finalVotes).map(([juror, vote]) => (
-                    <div key={juror} className={`p-2 border rounded ${juror === gameState.playerName ? 'border-primary/20 bg-primary/10' : 'border-border'}`}>
-                      <div className="flex items-center justify-between">
-                        <div className={`font-medium ${juror === gameState.playerName ? 'text-primary' : ''}`}>
-                          {juror}{juror === gameState.playerName ? ' (You)' : ''}
-                        </div>
-                        <div className="text-sm">
-                          {vote ? (
-                            <>voted for <span className="font-medium">{vote}</span></>
-                          ) : (
-                            <span className="text-muted-foreground">{juror === gameState.playerName ? 'did not vote' : 'vote pending'}</span>
-                          )}
-                        </div>
-                      </div>
-                      {gameState.juryRationales?.[juror] && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {gameState.juryRationales[juror]}
-                        </div>
-                      )}
+                <div className="space-y-3">
+                  {gameState.juryMembers && gameState.juryMembers.length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      Jury composition:{' '}
+                      {juryStyleSummary.social} social-leaning,{' '}
+                      {juryStyleSummary.resume} game-resume,{' '}
+                      {juryStyleSummary.balanced} mixed-criteria jurors.
                     </div>
-                  ))}
+                  )}
+                  {Object.entries(finalVotes).map(([juror, vote]) => {
+                    const jurorContestant = gameState.contestants.find(c => c.name === juror);
+                    const style = classifyJurorStyle(jurorContestant);
+                    const styleLabel =
+                      style === 'social'
+                        ? 'Social-leaning juror'
+                        : style === 'resume'
+                        ? 'Game-resume juror'
+                        : 'Mixed-criteria juror';
+                    const styleBlurb =
+                      style === 'social'
+                        ? 'tended to weigh how they were treated and long-term loyalty heavily in their vote.'
+                        : style === 'resume'
+                        ? 'focused on big moves, control of the game, and a coherent strategic story.'
+                        : 'balanced social bonds and strategic respect when casting their vote.';
+
+                    return (
+                      <div
+                        key={juror}
+                        className={`p-2 border rounded ${
+                          juror === gameState.playerName ? 'border-primary/20 bg-primary/10' : 'border-border'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={`font-medium ${
+                              juror === gameState.playerName ? 'text-primary' : ''
+                            }`}
+                          >
+                            {juror}
+                            {juror === gameState.playerName ? ' (You)' : ''}
+                          </div>
+                          <div className="text-sm">
+                            {vote ? (
+                              <>
+                                voted for <span className="font-medium">{vote}</span>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {juror === gameState.playerName ? 'did not vote' : 'vote pending'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {gameState.juryRationales?.[juror] && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {gameState.juryRationales[juror]}
+                          </div>
+                        )}
+                        {vote && (
+                          <div className="text-[11px] text-muted-foreground mt-1">
+                            {styleLabel}: {styleBlurb}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </Card>
@@ -739,6 +784,56 @@ function generateSeasonHighlights(gameState: GameState) {
   return highlights
     .sort((a, b) => a.day - b.day)
     .slice(0, 8); // Show top 8 moments
+}
+
+function classifyJurorStyle(contestant: Contestant | undefined): 'social' | 'resume' | 'balanced' {
+  if (!contestant || !Array.isArray(contestant.psychProfile?.disposition)) {
+    return 'balanced';
+  }
+
+  const disposition = contestant.psychProfile.disposition;
+  const socialKeywords = [
+    'trusting',
+    'optimistic',
+    'loyal',
+    'reliable',
+    'diplomatic',
+    'cautious',
+    'conformist',
+    'agreeable',
+    'emotional',
+    'impulsive',
+  ];
+  const resumeKeywords = [
+    'strategic',
+    'competitive',
+    'driven',
+    'analytical',
+    'calculating',
+    'independent',
+  ];
+
+  const hasSocial = disposition.some(d => socialKeywords.includes(d));
+  const hasResume = disposition.some(d => resumeKeywords.includes(d));
+
+  if (hasSocial && !hasResume) return 'social';
+  if (hasResume && !hasSocial) return 'resume';
+  return 'balanced';
+}
+
+function calculateJuryStyleSummary(gameState: GameState): { social: number; resume: number; balanced: number } {
+  const juryMembers = gameState.juryMembers || [];
+  const summary = { social: 0, resume: 0, balanced: 0 };
+
+  juryMembers.forEach(name => {
+    const c = gameState.contestants.find(contestant => contestant.name === name);
+    const style = classifyJurorStyle(c);
+    if (style === 'social') summary.social += 1;
+    else if (style === 'resume') summary.resume += 1;
+    else summary.balanced += 1;
+  });
+
+  return summary;
 }
 
 function calculateSeasonAwards(gameState: GameState) {
