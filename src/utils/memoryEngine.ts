@@ -18,6 +18,8 @@ export class MemoryEngine {
         shortTermGoals: this.generateInitialGoals(contestant, 'short'),
         longTermGoals: this.generateInitialGoals(contestant, 'long'),
         votingPlan: '',
+        votingPlanSource: undefined,
+        votingPlanDay: undefined,
         allianceNotes: {},
         threatAssessment: {},
         personalBonds: {},
@@ -274,14 +276,22 @@ export class MemoryEngine {
     return notes.slice(0, 5); // Limit to most important notes
   }
 
-  updateVotingPlan(contestantId: string, target: string, reasoning: string): void {
+  updateVotingPlan(
+    contestantId: string,
+    target: string,
+    reasoning: string,
+    meta?: { source?: string; day?: number }
+  ): void {
     const journal = this.memory.privateJournals[contestantId];
     if (journal) {
+      const day = typeof meta?.day === 'number' ? meta.day : this.getCurrentDay();
       journal.votingPlan = target;
-      
+      journal.votingPlanSource = meta?.source || journal.votingPlanSource || undefined;
+      journal.votingPlanDay = day;
+
       // Record the reasoning as a memory event
       this.recordEvent({
-        day: this.getCurrentDay(),
+        day,
         type: 'vote',
         participants: [contestantId],
         content: `Planning to vote for ${target}: ${reasoning}`,
@@ -292,14 +302,33 @@ export class MemoryEngine {
     }
   }
 
-  getVotingPlan(contestantId: string): { target: string; reasoning: string } | null {
+  getVotingPlan(
+    contestantId: string,
+    currentDay?: number
+  ): { target: string; reasoning: string; source?: string; day?: number } | null {
     const journal = this.memory.privateJournals[contestantId];
     if (!journal || !journal.votingPlan) return null;
+
+    // Optionally treat very old plans as stale when a current day is provided
+    if (
+      typeof currentDay === 'number' &&
+      typeof journal.votingPlanDay === 'number' &&
+      currentDay - journal.votingPlanDay > 7
+    ) {
+      return null;
+    }
+
     // Find the most recent vote-related memory for reasoning
     const last = [...journal.memoryEvents]
       .filter(e => e.type === 'vote')
       .sort((a, b) => b.day - a.day)[0];
-    return { target: journal.votingPlan, reasoning: last?.content || '' };
+
+    return {
+      target: journal.votingPlan,
+      reasoning: last?.content || '',
+      source: journal.votingPlanSource,
+      day: journal.votingPlanDay
+    };
   }
 
   private getCurrentDay(): number {

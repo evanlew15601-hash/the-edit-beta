@@ -153,19 +153,32 @@ export const useGameState = () => {
         ...prev,
         currentDay: newDay
       });
+
+      // Process alliance secrecy/exposure each day so secret alliances can be discovered over time
+      const alliancesWithSecrecy = AllianceManager.processAllianceSecrecy({
+        ...prev,
+        currentDay: newDay,
+        alliances: updatedAlliances
+      });
       
-      debugLog('Updated alliances after cleanup:', updatedAlliances);
+      debugLog('Updated alliances after cleanup + secrecy processing:', alliancesWithSecrecy);
       
       // Check if player is in any alliances
-      const playerAlliances = updatedAlliances.filter(alliance => alliance.members.includes(prev.playerName));
+      const playerAlliances = alliancesWithSecrecy.filter(alliance => alliance.members.includes(prev.playerName));
       debugLog(`Player ${prev.playerName} is in ${playerAlliances.length} alliances:`, playerAlliances);
 
       // Auto-generate intelligence when day advances
       const tempState = {
         ...prev,
         currentDay: newDay,
-        alliances: updatedAlliances
+        alliances: alliancesWithSecrecy
       };
+
+      // At the start of each new in-game week, let NPCs quietly form fresh voting plans
+      // These plans are stored as 'weekly_plan' in the memory system and treated as soft baselines.
+      if ((newDay - 1) % 7 === 0) {
+        AIVotingStrategy.generateWeeklyVotingPlans(tempState as GameState);
+      }
       
       // Process enhanced NPC memory systems
       const processedContestants = EnhancedNPCMemorySystem.processMemoryPatterns(tempState);
@@ -270,11 +283,14 @@ export const useGameState = () => {
         InformationTradingEngine.autoGenerateIntelligence(tempState);
       }
 
-      // Let long-term relationships gently decay over time
+      // Let long-term relationships gently decay over time (per-contestant memory model)
       const baseContestants = EnhancedNPCMemorySystem.decayLongTermRelationships({
         ...tempState,
         contestants: cleanedContestants,
       });
+
+      // Also gently decay the global relationship graph so extreme trust/suspicion softens between interactions
+      relationshipGraphEngine.decayRelationships(newDay);
 
       // Apply new contextual memories
       baseContestants.forEach(c => {
@@ -434,6 +450,112 @@ export const useGameState = () => {
             currentState.contestants.map((c) => c.name)
           );
 
+          // Lightly surface vote-intent conversations into the strategic memory system
+          // so downstream voting logic can treat them as soft plans rather than hard commits.
+          if (intent.topic === 'vote' && intent.voteTarget && target) {
+            memoryEngine.updateVotingPlan(
+              target,
+              intent.voteTarget,
+              `Discussed voting for ${intent.voteTarget} with the player during a ${conversationType} chat.`,
+              { source: 'conversation_hint', day: currentState.currentDay }
+            );
+          }
+
+          // Subtle relationship nudges based on alliance/vote talk content.
+          // These sit on top of the rule-based trust/suspicion changes coming from gameSystemIntegrator.
+          if (target) {
+            const playerName = (currentState.playerName || '').trim() || 'Player';
+            const day = currentState.currentDay;
+
+            if (intent.topic === 'vote') {
+              // Asking someone to vote with you can slightly shift how tightly they see you as a partner.
+              const trustNudge =
+                reactionSummary.take === 'positive' ? 2 :
+                reactionSummary.take === 'pushback' ? -1 :
+                reactionSummary.take === 'suspicious' ? -3 :
+                0;
+              const suspicionNudge =
+                reactionSummary.take === 'suspicious' ? 4 :
+                reactionSummary.take === 'pushback' ? 2 :
+                0;
+              const emotionalNudge =
+                reactionSummary.take === 'positive' ? 1 :
+                reactionSummary.take === 'pushback' ? -1 :
+                0;
+
+              if (trustNudge !== 0 || suspicionNudge !== 0 || emotionalNudge !== 0) {
+                relationshipGraphEngine.updateRelationship(
+                  target,
+                  playerName,
+                  trustNudge,
+                  suspicionNudge,
+                  emotionalNudge,
+                  'conversation',
+                  `[Vote Talk] Discussed voting for ${intent.voteTarget || 'someone'} with the player via ${conversationType} chat.`,
+                  day
+                );
+              }
+
+              // If the player clearly positions against specific others ("without X"), let that
+              // lightly shape the target's perception of those excluded names as less trusted.
+              if (intent.wantsToExclude && intent.wantsToExclude.length > 0) {
+                intent.wantsToExclude.forEach((excludedName) => {
+                  if (!excludedName || excludedName === target || excludedName === playerName) return;
+                  relationshipGraphEngine.updateRelationship(
+                    target,
+                    excludedName,
+                    -2,
+                    3,
+                    -1,
+                    'conversation',
+                    `[Vote Talk] Player and ${target} talked about not working with ${excludedName}.`,
+                    day
+                  );
+                });
+              }
+            } else if (intent.topic === 'alliance') {
+              // Alliance talk: small trust bumps toward the player and toward named allies.
+              const baseTrust =
+                reactionSummary.take === 'positive' ? 4 :
+                reactionSummary.take === 'neutral' ? 2 :
+                reactionSummary.take === 'suspicious' ? -2 :
+                1;
+              const baseSuspicion = reactionSummary.take === 'suspicious' ? 3 : 0;
+              const baseEmotional = reactionSummary.take === 'positive' ? 2 : 0;
+
+              relationshipGraphEngine.updateRelationship(
+                target,
+                playerName,
+                baseTrust,
+                baseSuspicion,
+                baseEmotional,
+                'conversation',
+                `[Alliance Talk] Talked about working together${
+                  intent.wantsAllianceWith && intent.wantsAllianceWith.length
+                    ? ` with ${intent.wantsAllianceWith.join(', ')}`
+                    : ''
+                }.`,
+                day
+              );
+
+              if (intent.wantsAllianceWith && intent.wantsAllianceWith.length > 0) {
+                intent.wantsAllianceWith.forEach((name) => {
+                  if (!name || name === target || name === playerName) return;
+                  relationshipGraphEngine.updateRelationship(
+                    target,
+                    name,
+                    2,
+                    0,
+                    1,
+                    'conversation',
+                    `[Alliance Talk] ${target} heard player describe ${name} as part of their numbers.`,
+                    day
+                  );
+                });
+              }
+            }
+          }
+
           const interactionEntry = {
             day: currentState.currentDay,
             type: actionType,
@@ -491,16 +613,7 @@ export const useGameState = () => {
           : [prev.playerName, ...memberNames];
         debugLog('Will create alliance with members:', allMembers);
         
-        const newAlliance = {
-          id: Date.now().toString(),
-          name: allianceName,
-          members: allMembers,
-          strength: 75,
-          secret: true,
-          formed: prev.currentDay,
-          lastActivity: prev.currentDay,
-          dissolved: false
-        };
+        const newAlliance = AllianceManager.createAlliance(allMembers, allianceName, prev.currentDay);
         
         return {
           ...prev,
@@ -514,15 +627,37 @@ export const useGameState = () => {
     // Handle adding members to existing alliance
     if (actionType === 'add_alliance_members') {
       const allianceId = target;
-      const newMembers = content ? content.split(',') : [];
-      debugLog('Adding members to alliance:', allianceId, 'new members:', newMembers);
+      const newMembersRaw = content ? content.split(',') : [];
+      debugLog('Adding members to alliance:', allianceId, 'new members:', newMembersRaw);
       
       setGameState(prev => {
+        const targetAlliance = prev.alliances.find(a => a.id === allianceId);
+        if (!targetAlliance) return prev;
+
+        // Avoid duplicating existing members
+        const uniqueNewMembers = newMembersRaw.filter(
+          name => !targetAlliance.members.includes(name)
+        );
+
+        if (uniqueNewMembers.length === 0) {
+          return {
+            ...prev,
+            dailyActionCount: prev.dailyActionCount + 1
+          };
+        }
+
+        // Mirror membership changes into the relationship graph
+        uniqueNewMembers.forEach(newMember => {
+          targetAlliance.members.forEach(existing => {
+            relationshipGraphEngine.formAlliance(existing, newMember, targetAlliance.strength);
+          });
+        });
+
         const updatedAlliances = prev.alliances.map(alliance => 
           alliance.id === allianceId 
             ? {
                 ...alliance,
-                members: [...alliance.members, ...newMembers],
+                members: [...alliance.members, ...uniqueNewMembers],
                 lastActivity: prev.currentDay,
                 strength: Math.min(100, alliance.strength + 10) // Boost strength when expanding
               }
@@ -639,7 +774,8 @@ export const useGameState = () => {
             memoryEngine.updateVotingPlan(
               name,
               proposedTarget,
-              `Alliance meeting plan coordinated by ${prev.playerName}`
+              `Alliance meeting plan coordinated by ${prev.playerName}`,
+              { source: 'alliance_meeting', day: prev.currentDay }
             );
             plannedFor.push(name);
           });

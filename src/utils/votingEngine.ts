@@ -83,10 +83,31 @@ export const processVoting = (
     if (voter.name === playerName) return; // Player votes separately
 
     // ENHANCED: Check for player-influenced voting plan first (pressure/commitment stored in memory)
-    const memPlan = memoryEngine.getVotingPlan(voter.name);
+    const memPlan = memoryEngine.getVotingPlan(voter.name, gameState.currentDay);
     if (memPlan && memPlan.target && memPlan.target !== voter.name && memPlan.target !== immunityWinner) {
+      // Plans from different sources carry different stickiness and decay with age
+      const age =
+        typeof memPlan.day === 'number'
+          ? Math.max(0, gameState.currentDay - memPlan.day)
+          : 0;
+
+      let baseChance = 0.85;
+      if (memPlan.source === 'vote_pressure') {
+        baseChance = 0.95;
+      } else if (memPlan.source === 'alliance_meeting') {
+        baseChance = 0.9;
+      } else if (memPlan.source === 'weekly_plan') {
+        baseChance = 0.75;
+      } else if (memPlan.source === 'conversation_hint') {
+        baseChance = 0.7;
+      }
+
+      // Soften commitment as plans age
+      const decay = Math.min(0.25, (age / 3) * 0.05);
+      const commitChance = Math.max(0.6, Math.min(0.98, baseChance - decay));
+
       // Honor explicit plans most of the time (represents soft/firm commitments)
-      if (Math.random() < 0.9) {
+      if (Math.random() < commitChance) {
         votes[voter.name] = memPlan.target;
         voteCounts.set(memPlan.target, (voteCounts.get(memPlan.target) || 0) + 1);
 
@@ -95,7 +116,7 @@ export const processVoting = (
             voter: voter.name,
             decidedTarget: memPlan.target,
             via: 'memory_plan',
-            notes: memPlan.reasoning
+            notes: `${memPlan.reasoning}${memPlan.source ? ` [source=${memPlan.source}, age=${age}d]` : ''}`
           });
         }
 
@@ -275,7 +296,10 @@ export const processVoting = (
 
       // Record voting reasoning in memory
       const reasoning = `Voting for ${targetName} based on threat level, relationships, and memory`;
-      memoryEngine.updateVotingPlan(voter.name, targetName, reasoning);
+      memoryEngine.updateVotingPlan(voter.name, targetName, reasoning, {
+        source: 'system',
+        day: gameState.currentDay,
+      });
 
       if (debugEnabled) {
         debugVoters.push({
@@ -370,7 +394,8 @@ export const processVoting = (
           score += (100 - person.psychProfile.suspicionLevel) * 0.1;
           score += person.psychProfile.trustLevel * 0.05;
         }
-        score += (Math.random() - 0.5) * 20;
+        // Reduce randomness so stats and relationships carry more weight in sudden-death outcomes
+        score += (Math.random() - 0.5) * 10;
         compScores.set(name, score);
       });
       const suddenWinner = [...compScores.entries()].reduce((p, c) => c[1] > p[1] ? c : p)[0];

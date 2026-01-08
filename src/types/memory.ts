@@ -19,7 +19,10 @@ export interface PrivateJournal {
   currentStrategy: string;
   shortTermGoals: string[];
   longTermGoals: string[];
-  votingPlan: string; // who they plan to vote for next
+  votingPlan: string; // who they plan to vote for next (target name)
+  // Lightweight metadata so we can reason about how and when this plan was formed
+  votingPlanSource?: string; // e.g. 'weekly_plan' | 'alliance_meeting' | 'vote_pressure' | 'conversation_hint' | 'system'
+  votingPlanDay?: number; // game day the plan was last updated
   allianceNotes: Record<string, string>; // notes about each alliance member
   threatAssessment: Record<string, number>; // how much they see each person as a threat (0-10)
   personalBonds: Record<string, number>; // emotional connection to each person (-5 to 5)

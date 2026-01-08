@@ -85,12 +85,29 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       // If the player is in the jury, skip their vote until they choose.
       if (isPlayerInJury && juryMember.name === gameState.playerName) return;
 
+      const disposition = juryMember.psychProfile.disposition || [];
+
+      // Classify how this juror tends to vote: some lean social/jury, others are resume-focused.
+      let jurorStyle: 'social' | 'resume' | 'balanced' = 'balanced';
+      const socialKeywords = ['trusting', 'optimistic', 'loyal', 'reliable', 'diplomatic', 'cautious', 'conformist', 'agreeable', 'emotional', 'impulsive'];
+      const resumeKeywords = ['strategic', 'competitive', 'driven', 'analytical', 'calculating', 'independent'];
+
+      const hasSocial = disposition.some(d => socialKeywords.includes(d));
+      const hasResume = disposition.some(d => resumeKeywords.includes(d));
+
+      if (hasSocial && !hasResume) {
+        jurorStyle = 'social';
+      } else if (hasResume && !hasSocial) {
+        jurorStyle = 'resume';
+      }
+
       // Calculate weighted score for each finalist based on:
       // - Trust / suspicion in the relationship graph
       // - Emotional history (positive vs negative memories)
       // - Betrayal memories from the global memory engine
       // - Perceived strategy / social power
       // - Finale speech impact (for the player)
+      // - Juror personality (some respect big moves more than loyalty)
       const finalTwoScores = finalTwo.map(finalist => {
         let score = 50; // Base score
 
@@ -98,8 +115,18 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
         const trust = rel?.trust ?? 0;
         const suspicion = rel?.suspicion ?? 0;
 
-        const trustComponent = trust * 0.4;
-        const suspicionComponent = -suspicion * 0.3;
+        let trustWeight = 0.4;
+        let suspicionWeight = -0.3;
+        if (jurorStyle === 'social') {
+          trustWeight = 0.55;
+          suspicionWeight = -0.25;
+        } else if (jurorStyle === 'resume') {
+          trustWeight = 0.25;
+          suspicionWeight = -0.35;
+        }
+
+        const trustComponent = trust * trustWeight;
+        const suspicionComponent = suspicion * suspicionWeight;
         score += trustComponent + suspicionComponent;
 
         // Direct memories between juror and finalist (last 21 days)
@@ -117,11 +144,45 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
           0
         );
 
-        // Warm history helps, bad blood hurts more
-        score += positiveEmotion * 3;
-        score += negativeEmotion * 7; // negativeEmotion is negative, so this is a penalty
+        let positiveEmotionWeight = 3;
+        let negativeEmotionWeight = 7;
+        if (jurorStyle === 'social') {
+          positiveEmotionWeight = 4;
+          negativeEmotionWeight = 8;
+        } else if (jurorStyle === 'resume') {
+          positiveEmotionWeight = 2;
+          negativeEmotionWeight = 5;
+        }
 
-        // MemoryEngine-level betrayal events for lingering resentment
+        // Warm history helps, bad blood hurts more
+        score += positiveEmotion * positiveEmotionWeight;
+        score += negativeEmotion * negativeEmotionWeight; // negativeEmotion is negative, so this is a penalty
+
+        // Perceived strategy / resume
+        const socialStanding = relationshipGraphEngine.calculateSocialStanding(finalist.name);
+        const strategyStat = (finalist as any).stats?.strategy ?? 50;
+
+        const rawStrategyComponent =
+          (strategyStat - 50) * 0.3 + (socialStanding.socialPower - 50) * 0.25;
+
+        const jurorPrefersStrategy =
+          jurorStyle === 'resume' ||
+          disposition.includes('strategic') ||
+          disposition.includes('competitive') ||
+          disposition.includes('driven') ||
+          disposition.includes('analytical') ||
+          disposition.includes('calculating') ||
+          disposition.includes('independent');
+
+        const strategyComponent = jurorPrefersStrategy
+          ? rawStrategyComponent * 1.3
+          : rawStrategyComponent * 0.9;
+
+        score += strategyComponent;
+
+        // MemoryEngine-level betrayal events for lingering resentment.
+        // Nuanced: loyalty-driven, emotional jurors hold onto betrayal more;
+        // strategy-respecting jurors may forgive a well-executed move.
         const journal = memoryEngine.queryMemory(juryMember.name, {
           dayRange: { start: 1, end: gameState.currentDay },
           typeFilter: ['betrayal'],
@@ -141,24 +202,43 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
             }
           });
 
+        if (betrayalPenalty < 0) {
+          const valuesLoyalty =
+            disposition.includes('loyal') ||
+            disposition.includes('trusting') ||
+            disposition.includes('emotional') ||
+            disposition.includes('impulsive') ||
+            disposition.includes('paranoid') ||
+            disposition.includes('reactive') ||
+            disposition.includes('conformist') ||
+            disposition.includes('agreeable');
+
+          const valuesBigMoves = jurorPrefersStrategy;
+
+          // Base scale: loyalty-heavy jurors stay closer to full penalty;
+          // big-move jurors soften it significantly.
+          let scale = 1;
+          if (valuesBigMoves && !valuesLoyalty) {
+            scale = 0.4;
+          } else if (valuesBigMoves && valuesLoyalty) {
+            scale = 0.7;
+          } else if (!valuesBigMoves && !valuesLoyalty) {
+            scale = 0.85;
+          }
+
+          // If the finalist clearly played a strong strategic game and the emotional history
+          // isn't deeply negative, treat betrayal more as \"tough but respected\" than pure bitterness.
+          const strongStrategicGame = strategyComponent > 10;
+          const notDeeplyHurt = totalEmotion > -5;
+
+          if (strongStrategicGame && notDeeplyHurt) {
+            scale *= 0.5;
+          }
+
+          betrayalPenalty *= scale;
+        }
+
         score += betrayalPenalty;
-
-        // Perceived strategy / resume
-        const socialStanding = relationshipGraphEngine.calculateSocialStanding(finalist.name);
-        const strategyStat = (finalist as any).stats?.strategy ?? 50;
-
-        const rawStrategyComponent =
-          (strategyStat - 50) * 0.3 + (socialStanding.socialPower - 50) * 0.25;
-
-        const jurorPrefersStrategy =
-          juryMember.psychProfile.disposition.includes('strategic') ||
-          juryMember.psychProfile.disposition.includes('competitive');
-
-        const strategyComponent = jurorPrefersStrategy
-          ? rawStrategyComponent * 1.3
-          : rawStrategyComponent * 0.9;
-
-        score += strategyComponent;
 
         // Speech impact (if it was the player finalist)
         if (finalist.name === gameState.playerName && effectivePlayerSpeech) {
@@ -205,10 +285,22 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
             ? 'a weak or unfocused finale speech'
             : 'a neutral speech with limited impact';
       } else {
-        speechOrGamePhrase =
-          top.strategyComponent > 0
-            ? 'respect for their overall strategic game'
-            : 'their overall social presence in the house';
+        if (jurorStyle === 'resume') {
+          speechOrGamePhrase =
+            top.strategyComponent > 0
+              ? 'respect for how they drove the strategy and closed out the game'
+              : 'their overall game still feeling coherent and intentional';
+        } else if (jurorStyle === 'social') {
+          speechOrGamePhrase =
+            top.totalEmotion > 3
+              ? 'how they treated people and showed up socially'
+              : 'how they balanced relationships with the game';
+        } else {
+          speechOrGamePhrase =
+            top.strategyComponent > 0
+              ? 'respect for their overall strategic game'
+              : 'their overall social presence in the house';
+        }
       }
 
       if (top.betrayalPenalty < 0) {

@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { GameState } from '@/types/game';
 import { Crown, Users, Trophy } from 'lucide-react';
+import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 
 interface Final3VoteScreenProps {
   gameState: GameState;
@@ -100,57 +101,89 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
     if (showingResults && !tieBreakActive) {
       // Simulate AI votes
       const votes: { [name: string]: number } = {};
-      finalThree.forEach(c => votes[c.name] = 0);
+      finalThree.forEach(c => {
+        votes[c.name] = 0;
+      });
 
       // Add player vote
       if (choice) {
-        votes[choice]++;
+        votes[choice] += 1;
       }
 
-      // BALANCED: Generate AI votes with less player bias
-      finalThree.filter(c => c.name !== gameState.playerName).forEach(voter => {
-        const targets = finalThree.filter(t => t.name !== voter.name);
-        
-        // Score each target based on relationships
-        const scores = targets.map(target => {
-          let score = 50;
-          
-          // Check relationships - reduced impact
-          const memories = voter.memory.filter(m => 
-            m.participants.includes(target.name) && m.day >= gameState.currentDay - 14
+      // Refined: Generate AI votes using relationship graph, recent memories, and strategic threat.
+      // This reduces raw randomness so stats/relationships carry more weight.
+      finalThree
+        .filter(c => c.name !== gameState.playerName)
+        .forEach(voter => {
+          const targets = finalThree.filter(t => t.name !== voter.name);
+
+          const scoredTargets = targets.map(target => {
+            let score = 0;
+
+            // Relationship graph: low trust / high suspicion makes a target more expendable.
+            const rel = relationshipGraphEngine.getRelationship(voter.name, target.name);
+            if (rel) {
+              const trustComponent = (100 - rel.trust) * 0.35;
+              const suspicionComponent = rel.suspicion * 0.5;
+              const closenessComponent = (50 - rel.emotionalCloseness) * 0.1;
+              score += trustComponent + suspicionComponent + closenessComponent;
+            }
+
+            // Recent direct memories to capture betrayals and last impressions.
+            const memories = voter.memory.filter(m =>
+              m.participants.includes(target.name) &&
+              m.day >= gameState.currentDay - 21
+            );
+            const emotionalSum = memories.reduce(
+              (sum, memory) => sum + (memory.emotionalImpact || 0),
+              0
+            );
+            // Negative emotions increase desire to cut; positive emotions reduce it.
+            score += -emotionalSum * 3;
+
+            const betrayalHits = memories.filter(m =>
+              typeof m.content === 'string' &&
+              m.content.toLowerCase().includes('betrayal')
+            ).length;
+            if (betrayalHits > 0) {
+              score += betrayalHits * 15;
+            }
+
+            // Strategic threat: stronger social power and strategy mean worse to sit next to at Final 2.
+            const standing = relationshipGraphEngine.calculateSocialStanding(target.name);
+            const socialThreat = Math.max(0, standing.socialPower - 50);
+            const strategyStat =
+              typeof target.stats?.strategy === 'number' ? target.stats.strategy : 50;
+            const competitionThreat = Math.max(0, strategyStat - 50);
+
+            score += socialThreat * 0.7;
+            score += competitionThreat * 0.6;
+
+            // Very small player mitigation: don't over-focus on sniping the human unless they are clearly dominant.
+            if (target.name === gameState.playerName) {
+              score -= 8;
+            }
+
+            // Controlled randomness so the outcome isn't fully deterministic.
+            score += (Math.random() - 0.5) * 15;
+
+            return { name: target.name, score };
+          });
+
+          // Vote to eliminate the highest-scoring (most threatening / least liked) target.
+          const chosen = scoredTargets.reduce((prev, current) =>
+            current.score > prev.score ? current : prev
           );
-          
-          const relationshipScore = memories.reduce((sum, memory) => {
-            return sum + (memory.emotionalImpact * (memory.content.includes('betrayal') ? -1.5 : 0.5));
-          }, 0);
-          
-          score += relationshipScore * 2; // Reduced from 3
-          
-          // REDUCED bias against player
-          if (target.name === gameState.playerName) {
-            score += 15; // Boost player score to reduce elimination bias
-          }
-          
-          // Add randomness - increased for more unpredictability
-          score += (Math.random() - 0.5) * 40;
-          
-          return { name: target.name, score };
+
+          votes[chosen.name] += 1;
         });
-        
-        // Vote for lowest score (want to eliminate)
-        const target = scores.reduce((prev, current) => 
-          current.score < prev.score ? current : prev
-        );
-        
-        votes[target.name]++;
-      });
 
       setVoteResults(votes);
 
       // Check for 1-1-1 tie (Final 3 event only)
       const voteValues = Object.values(votes);
       const maxVotes = Math.max(...voteValues);
-      const playersWithMaxVotes = Object.entries(votes).filter(([_, v]) => v === maxVotes);
+      const playersWithMaxVotes = Object.entries(votes).filter(([, v]) => v === maxVotes);
 
       if (playersWithMaxVotes.length > 1 && voteValues.every(v => v === 1)) {
         // 1-1-1 tie: let the group decide the route to resolve it
@@ -170,29 +203,92 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
       'manual';
 
     if (tieBreakMethod === 'challenge') {
-      const results = finalThree.map(contestant => ({
-        name: contestant.name,
-        time: Math.random() * 300 + 180 // 3-8 minute times
-      })).sort((a, b) => a.time - b.time);
-      
+      // Obstacle challenge times now lean on physical/strategic stats with modest randomness.
+      const results = finalThree
+        .map(contestant => {
+          const physical = contestant.stats?.physical ?? 50;
+          const strategy = contestant.stats?.strategy ?? 50;
+          const disposition = contestant.psychProfile.disposition || [];
+          let time = 240; // 4 minutes baseline
+
+          // Random variation (±60s)
+          time += (Math.random() - 0.5) * 120;
+
+          // Stronger physical/strategic players finish faster
+          time -= (physical - 50) * 1.0;
+          time -= (strategy - 50) * 0.5;
+
+          // Competitive/driven personalities tend to perform a bit better under pressure
+          if (disposition.includes('competitive') || disposition.includes('driven')) {
+            time -= 15;
+          }
+          // Very anxious/nervous players can falter slightly
+          if (disposition.includes('nervous') || disposition.includes('anxious')) {
+            time += 10;
+          }
+
+          // Clamp to a reasonable range (2–7 minutes)
+          time = Math.max(120, Math.min(420, time));
+
+          return { name: contestant.name, time };
+        })
+        .sort((a, b) => a.time - b.time);
+
       setChallengeResults(results);
-      
+
       setTimeout(() => {
-        onTieBreakResult(results[2].name, results[0].name, results[1].name, 'challenge', results, selectionReason);
+        onTieBreakResult(
+          results[2].name,
+          results[0].name,
+          results[1].name,
+          'challenge',
+          results,
+          selectionReason
+        );
       }, 4000);
     }
 
     if (tieBreakMethod === 'fire_making') {
-      // Simulate fire-making times (lower is faster)
-      const results = finalThree.map(contestant => ({
-        name: contestant.name,
-        time: Math.random() * 240 + 120 // 2-6 minute times
-      })).sort((a, b) => a.time - b.time);
+      // Fire-making times lean on a mix of strategy and physical composure, with reduced randomness.
+      const results = finalThree
+        .map(contestant => {
+          const physical = contestant.stats?.physical ?? 50;
+          const strategy = contestant.stats?.strategy ?? 50;
+          const disposition = contestant.psychProfile.disposition || [];
+          let time = 210; // 3.5 minutes baseline
+
+          // Random variation (±60s)
+          time += (Math.random() - 0.5) * 120;
+
+          // Balanced dependence on physical and strategic ability
+          time -= (physical - 50) * 0.6;
+          time -= (strategy - 50) * 0.7;
+
+          if (disposition.includes('strategic') || disposition.includes('calm')) {
+            time -= 10;
+          }
+          if (disposition.includes('nervous') || disposition.includes('anxious')) {
+            time += 10;
+          }
+
+          // Clamp to a reasonable range (2–7 minutes)
+          time = Math.max(120, Math.min(420, time));
+
+          return { name: contestant.name, time };
+        })
+        .sort((a, b) => a.time - b.time);
 
       setChallengeResults(results);
 
       setTimeout(() => {
-        onTieBreakResult(results[2].name, results[0].name, results[1].name, 'fire_making', results, selectionReason);
+        onTieBreakResult(
+          results[2].name,
+          results[0].name,
+          results[1].name,
+          'fire_making',
+          results,
+          selectionReason
+        );
       }, 4000);
     }
 
@@ -205,7 +301,14 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
       setChallengeResults([]);
 
       setTimeout(() => {
-        onTieBreakResult(eliminated, remaining[0], remaining[1], 'random_draw', [], selectionReason);
+        onTieBreakResult(
+          eliminated,
+          remaining[0],
+          remaining[1],
+          'random_draw',
+          [],
+          selectionReason
+        );
       }, 2000);
     }
   }, [tieBreakActive, tieBreakMethod, finalThree, onTieBreakResult, persuasionOutcome]);
