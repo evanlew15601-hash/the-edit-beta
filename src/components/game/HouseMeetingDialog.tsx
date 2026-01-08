@@ -65,7 +65,7 @@ export const HouseMeetingDialog = ({ isOpen, onClose, gameState, onStart, onChoi
             House Meeting
           </DialogTitle>
           <DialogDescription>
-            Public, multi-round discussion with ripple effects on trust, alliances, and votes.
+            Rare, high-stakes public argument that can reshape trust, expose alliances, and redefine the vote.
           </DialogDescription>
         </DialogHeader>
 
@@ -152,7 +152,12 @@ export const HouseMeetingDialog = ({ isOpen, onClose, gameState, onStart, onChoi
 
               {/* Options */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Your Response</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Your Response</label>
+                  <p className="text-[11px] text-muted-foreground">
+                    5 rounds total · each choice now has major, lasting fallout.
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {options.map(opt => (
                     <button
@@ -165,7 +170,7 @@ export const HouseMeetingDialog = ({ isOpen, onClose, gameState, onStart, onChoi
                         <span className="text-sm">{opt.text}</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Effects vary by mood and house personalities
+                        Effects vary by mood and house personalities and can shift alliances, trust, and your edit.
                       </p>
                     </button>
                   ))}

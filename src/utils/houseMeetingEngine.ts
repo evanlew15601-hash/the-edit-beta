@@ -271,7 +271,7 @@ export const houseMeetingEngine = {
       isAIInitiated: true,
       participants,
       currentRound: 0,
-      maxRounds: 4,
+      maxRounds: 5,
       mood: this.getMood(gameState),
       conversationLog: [{ speaker: initiator, text: `Call House Meeting: ${topic.replace('_', ' ')}` }],
       currentOptions: this.buildOptions(topic),
