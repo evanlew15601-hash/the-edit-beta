@@ -59,38 +59,6 @@ export function applyDailySpecialBackgroundLogic(gs: GameState): GameState {
   return next;
 }
 
-// Call when the player completes or fails a production task.
-export function setProductionTaskStatus(gs: GameState, contestantName: string, taskId: string, completed: boolean): GameState {
-  let next = sanitizeNPCSpecials(gs);
-  if (contestantName !== next.playerName) return next;
-
-  const c = next.contestants.find(x => x.name === contestantName);
-  if (!c?.special || c.special.kind !== 'planted_houseguest') return next;
-
-  const task = c.special.tasks.find(t => t.id === taskId);
-  if (task) task.completed = completed;
-
-  if (completed) {
-    c.psychProfile.editBias = Math.min(50, c.psychProfile.editBias + 3);
-    c.psychProfile.trustLevel = Math.min(100, c.psychProfile.trustLevel + 2);
-    if (!task?.rewarded) {
-      next.playerFunds = (next.playerFunds ?? 0) + (task?.reward ?? 1000);
-      if (task) task.rewarded = true;
-    }
-  } else {
-    c.psychProfile.suspicionLevel = Math.min(100, c.psychProfile.suspicionLevel + 4);
-  }
-
-  next.productionTaskLog = next.productionTaskLog || {};
-  next.productionTaskLog[contestantName] = next.productionTaskLog[contestantName] || [];
-  const existing = next.productionTaskLog[contestantName].find(t => t.id === taskId);
-  if (!existing && task) {
-    next.productionTaskLog[contestantName].push({ ...task });
-  }
-
-  return next;
-}
-
 // Finalize planted HG contract (after contractWeeks)
 // If reveal=true: set secretRevealed and apply consequences/benefits.
 // If reveal=false: mark contract ended, keep secret, slight suspicion relief.

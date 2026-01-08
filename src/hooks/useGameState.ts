@@ -13,7 +13,7 @@ import { processVoting } from '@/utils/votingEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
-import { TwistEngine } from '@/utils/twistEngine';
+import { TwistEngine } from '@/utils/TwistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
 import { getReactionProfileForNPC } from '@/utils/tagDialogueEngine';
@@ -21,11 +21,12 @@ import { TAG_CHOICES } from '@/data/tagChoices';
 import { evaluateChoice, reactionText, getCooldownKey } from '@/utils/tagDialogueEngine';
 import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
-import { applyDailySpecialBackgroundLogic, setProductionTaskStatus, revealHostChild, finalizePlantedContract } from '@/utils/specialBackgrounds';
+import { applyDailySpecialBackgroundLogic, revealHostChild, finalizePlantedContract } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
+import { getCurrentWeek } from '@/utils/taskEngine';
 
 type GameActionType =
   PlayerAction['type']
@@ -192,11 +193,56 @@ export const useGameState = () => {
         twistNarrative: specialApplied.twistNarrative || initializeTwistNarrative(specialApplied),
       });
 
-      // Detect newly activated narrative beat to trigger a lite mid-game cutscene
+      // Mission result cutscenes for planted houseguest specials
       let nextCutscene: GameState['currentCutscene'] | undefined = undefined;
+      const prevPlayer = prev.contestants.find(c => c.name === prev.playerName);
+      const nextPlayer = narrativeApplied.contestants.find(c => c.name === prev.playerName);
+
+      if (
+        prevPlayer &&
+        nextPlayer &&
+        prevPlayer.special &&
+        nextPlayer.special &&
+        prevPlayer.special.kind === 'planted_houseguest' &&
+        nextPlayer.special.kind === 'planted_houseguest'
+      ) {
+        const prevTasks = (prevPlayer.special as any).tasks || [];
+        const nextTasks = (nextPlayer.special as any).tasks || [];
+
+        // Detect newly completed mission this day
+        const newlyCompleted = nextTasks.find((nextTask: any) => {
+          const prevTask = prevTasks.find((t: any) => t.id === nextTask.id);
+          return nextTask.completed && !prevTask?.completed;
+        });
+
+        if (newlyCompleted) {
+          nextCutscene = buildTwistResultCutscene(
+            narrativeApplied as GameState,
+            'success',
+            { taskId: newlyCompleted.id },
+          );
+        } else {
+          // On week rollover, treat last week's unfinished mission as failed
+          const prevWeek = getCurrentWeek(prev.currentDay);
+          const newWeek = getCurrentWeek(newDay);
+          if (newWeek > prevWeek) {
+            const failedTask = prevTasks.find((t: any) => (t.week ?? prevWeek) === prevWeek && !t.completed);
+            if (failedTask) {
+              nextCutscene = buildTwistResultCutscene(
+                narrativeApplied as GameState,
+                'failure',
+                { taskId: failedTask.id },
+              );
+            }
+          }
+        }
+      }
+
+      // Detect newly activated narrative beat to trigger a lite mid-game cutscene,
+      // but only if a mission result cutscene isn't already queued.
       const prevBeatId = prev.twistNarrative?.currentBeatId;
       const newBeatId = narrativeApplied.twistNarrative?.currentBeatId;
-      if (newBeatId && newBeatId !== prevBeatId) {
+      if (!nextCutscene && newBeatId && newBeatId !== prevBeatId) {
         const beat = narrativeApplied.twistNarrative!.beats.find(b => b.id === newBeatId);
         if (beat) {
           nextCutscene = buildMidGameCutscene(narrativeApplied as GameState, beat);
@@ -2345,23 +2391,7 @@ export const useGameState = () => {
     }
   }, []);
 
-  // Listen for planted task updates from UI
-  useEffect(() => {
-    const handler = (e: any) => {
-      const { contestantName, taskId, completed } = e.detail || {};
-      setGameState(prev => {
-        const updated = setProductionTaskStatus(prev, contestantName || prev.playerName, taskId, !!completed);
-        const nextCutscene = buildTwistResultCutscene(updated as GameState, completed ? 'success' : 'failure', { taskId });
-        return {
-          ...updated,
-          gamePhase: 'cutscene' as const,
-          currentCutscene: nextCutscene,
-        };
-      });
-    };
-    window.addEventListener('plantedTaskUpdate', handler);
-    return () => window.removeEventListener('plantedTaskUpdate', handler);
-  }, []);
+  
 
   // Listen for planted contract decision (reveal or keep secret)
   useEffect(() => {

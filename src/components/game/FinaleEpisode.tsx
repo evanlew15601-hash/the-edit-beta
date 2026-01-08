@@ -16,12 +16,12 @@ export const FinaleEpisode = ({ gameState, onSubmitSpeech, onAFPVote, onContinue
   const slides: CutsceneSlide[] = [
     {
       title: 'Final Montage',
-      text: 'Two stories left in the edit. Every vote is a sentence, together they write the ending.',
+      text: 'Two houseguests left. One walks out with the grand prize, one walks out with a keychain.',
     },
     {
       title: 'The Room',
-      text: 'The jury watches. You can feel history waiting for your words.',
-      aside: 'Tip: your speech won’t invent facts. It frames the truth they already saw.',
+      text: 'The jury files in and takes their seats. They’re not just picking a winner, they’re deciding who played the better game.',
+      aside: 'Tip: talk about your moves, your loyalty, and why you beat the person next to you.',
     },
   ];
 

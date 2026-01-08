@@ -1,5 +1,48 @@
 import { GameState, CutsceneSlide, NarrativeBeat } from '@/types/game';
-import { BACKGROUND_META } from '@/data/backgrounds';
+
+function getPlayer(gs: GameState) {
+  return gs.contestants.find(c => c.name === gs.playerName);
+}
+
+function getBackstoryContext(gs: GameState): { summary?: string; line?: string } {
+  const p = getPlayer(gs);
+  if (!p) return {};
+  const bgName = p.background;
+
+  const base =
+    bgName === 'Other'
+      ? (p.customBackgroundText && p.customBackgroundText.trim()) || undefined
+      : bgName;
+
+  const summary = base
+    ? `Before the show, you worked as ${base.toLowerCase()}.`
+    : undefined;
+
+  const line = base
+    ? `${p.name}, ${base}.`
+    : undefined;
+
+  return { summary, line };
+}
+
+function getPlantedSpec(gs: GameState) {
+  const p = getPlayer(gs);
+  if (!p || !p.special || p.special.kind !== 'planted_houseguest') return undefined;
+  return p.special;
+}
+
+function describeMission(gs: GameState, taskId?: string): string | undefined {
+  const spec = getPlantedSpec(gs);
+  if (!spec) return undefined;
+  const tasks = spec.tasks || [];
+  const task = taskId
+    ? tasks.find(t => t.id === taskId)
+    : tasks.find(t => !t.completed);
+  return task?.description;
+}
+</old_code>
+<new_code>
+import { GameState, CutsceneSlide, NarrativeBeat } from '@/types/game';
 
 function getPlayer(gs: GameState) {
   return gs.contestants.find(c => c.name === gs.playerName);

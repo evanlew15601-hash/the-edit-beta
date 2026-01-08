@@ -24,6 +24,8 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
     winner !== 'Unknown' &&
     !!gameState.contestants.find(c => c.name === winner);
 
+  const missionWinnings = gameState.playerFunds ?? 0;
+
   // Guard: Validate winner exists when we expect one
   if (!hasWinner && winner && winner !== 'Unknown') {
     console.error('[PostSeasonRecap] Invalid winner:', winner);
@@ -56,10 +58,15 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
               </h2>
               <p className="text-muted-foreground">
                 {winner === gameState.playerName 
-                  ? 'Congratulations! You played the perfect game and won the jury vote.'
-                  : `${winner} outplayed, outwitted, and outlasted everyone to claim victory.`
+                  ? 'Congratulations. You won the jury vote and walk out with the grand prize.'
+                  : `${winner} outplayed, outwitted, and outlasted everyone to claim the grand prize.`
                 }
               </p>
+              {missionWinnings > 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  You also banked ${missionWinnings.toLocaleString()} in secret production mission bonuses along the way.
+                </p>
+              )}
             </>
           ) : (
             <p className="text-muted-foreground">
@@ -518,6 +525,11 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
                                 </Badge>
                               </div>
                             ))}
+                            {c.name === gameState.playerName && typeof gameState.playerFunds === 'number' && (
+                              <div className="text-[11px] text-muted-foreground pt-2">
+                                Total mission bonuses earned: ${gameState.playerFunds.toLocaleString()}.
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

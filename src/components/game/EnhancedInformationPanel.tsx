@@ -163,33 +163,9 @@ export const EnhancedInformationPanel = ({ gameState }: EnhancedInformationPanel
                       <div className="font-medium">{task.description}</div>
                       <div className="text-[10px] text-muted-foreground">Assigned Day {task.dayAssigned}</div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={task.completed ? 'secondary' : 'outline'} className="text-[10px]">
-                        {task.completed ? 'Completed' : 'Pending'}
-                      </Badge>
-                      {!task.completed && (
-                        <>
-                          <Button
-                            variant="action"
-                            size="sm"
-                            onClick={() => {
-                              window.dispatchEvent(new CustomEvent('plantedTaskUpdate', { detail: { taskId: task.id, completed: true } }));
-                            }}
-                          >
-                            Complete
-                          </Button>
-                          <Button
-                            variant="surveillance"
-                            size="sm"
-                            onClick={() => {
-                              window.dispatchEvent(new CustomEvent('plantedTaskUpdate', { detail: { taskId: task.id, completed: false } }));
-                            }}
-                          >
-                            Fail
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                    <Badge variant={task.completed ? 'secondary' : 'outline'} className="text-[10px]">
+                      {task.completed ? 'Completed' : 'Pending'}
+                    </Badge>
                   </div>
                 </div>
               ))}

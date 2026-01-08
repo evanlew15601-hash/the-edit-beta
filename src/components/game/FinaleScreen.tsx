@@ -108,7 +108,9 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
             <Crown className="w-8 h-8 text-primary" />
             <div>
               <h1 className="text-3xl font-light">Finale Night</h1>
-              <p className="text-muted-foreground">Final speeches before the jury vote</p>
+              <p className="text-muted-foreground">
+                Final speeches before the jury votes on who should win the season and the grand prize.
+              </p>
             </div>
           </div>
 
@@ -165,8 +167,8 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
                 <h3 className="font-medium">Your Final Speech</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                This is your final chance to convince the jury why you deserve to win. 
-                Your speech will be remembered and could sway votes in your favor.
+                This is your final chance to convince the jury why you deserve to win the season and the cash prize. 
+                A clear story about your game can still flip votes your way.
               </p>
               <Textarea
                 value={playerSpeech}
