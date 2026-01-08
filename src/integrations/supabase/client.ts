@@ -2,29 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL ?? "https://shhkkzftifisqocehhwa.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNoaGtremZ0aWZpc3FvY2VoaHdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODM5OTcsImV4cCI6MjA3MDI1OTk5N30.UcAp5GcgUswRNq1vxRzEfuJ8uBpMfSRhpV_4laTZnWk";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-// In non-browser environments (SSR/build), window.localStorage is not available.
-// Guard its usage so the bundle can build successfully.
-const authOptions =
-  typeof window !== 'undefined'
-    ? {
-        storage: window.localStorage,
-        persistSession: true,
-        autoRefreshToken: true,
-      }
-    : {
-        persistSession: true,
-        autoRefreshToken: true,
-      };
-
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: authOptions,
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  }
 });
