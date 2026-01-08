@@ -1,4 +1,4 @@
-// Speech Act Classification Engine for The Edit Game
+// Speech Act Classification Engine for The Edit
 export type SpeechAct = {
   primary: SpeechActType;
   secondary?: SpeechActType;

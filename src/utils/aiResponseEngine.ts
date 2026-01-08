@@ -1,4 +1,4 @@
-// AI-Driven Response Engine for The Edit Game
+// AI-Driven Response Engine for The Edit
 import { Contestant } from '@/types/game';
 import { SpeechAct } from './speechActClassifier';
 
