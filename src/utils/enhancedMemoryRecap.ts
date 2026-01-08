@@ -83,30 +83,39 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   const finalQuote = featuredConfessional?.content?.slice(0, 160) || 
     generateDynamicQuote(gameState, week, playerEvents) || finalSelectedQuote;
 
-  // Build event montage from real events
+  // Build event montage from real events, framed like a \"previously on\" package
   const eventMontage: string[] = [];
   
   // Process player-involved events
   playerEvents.forEach(event => {
+    const others = event.participants.filter(p => p !== playerName);
     switch (event.type) {
       case 'alliance_form':
-        eventMontage.push(`New alliance formed with ${event.participants.filter(p => p !== playerName).join(', ')}`);
+        eventMontage.push(
+          `A quiet conversation turned into a new voting bloc with ${others.join(', ')}.`
+        );
         break;
       case 'betrayal':
-        eventMontage.push(`Trust broken - ${event.content.slice(0, 60)}...`);
+        eventMontage.push(
+          `Trust snapped when a deal broke in the open: ${event.content.slice(0, 60)}...`
+        );
         break;
       case 'scheme':
         if (event.emotionalImpact > 5) {
-          eventMontage.push(`Strategic move against ${event.participants.filter(p => p !== playerName).join(', ')}`);
+          eventMontage.push(
+            `A late-night plan against ${others.join(', ')} put your name deeper in The Edit's strategy notes.`
+          );
         }
         break;
       case 'conversation':
         if (event.emotionalImpact >= 4) {
-          eventMontage.push(`Intense discussion with ${event.participants.filter(p => p !== playerName).join(', ')}`);
+          eventMontage.push(
+            `A conversation with ${others.join(', ')} changed how the house read your game.`
+          );
         }
         break;
       case 'vote':
-        eventMontage.push(`Elimination vote cast`);
+        eventMontage.push(`The vote locked in, and another key turned in the front door.`);
         break;
     }
   });
@@ -187,14 +196,38 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
   // Reality vs Edit comparison
   const actualEvents = playerEvents.length;
   const shownEvents = eventMontage.length;
-  
-  const whatHappened = actualEvents > 0 
-    ? `You were involved in ${actualEvents} strategic moments this week`
-    : `Quiet week focused on relationship building`;
-    
+
+  let sceneFocus: 'conflict' | 'support' | 'late_game' | null = null;
+  if (playerEvents.some(e => e.type === 'betrayal' || (e.type === 'scheme' && e.emotionalImpact > 5))) {
+    sceneFocus = 'conflict';
+  } else if (
+    playerEvents.some(
+      e =>
+        (e.type === 'alliance_form' || e.type === 'conversation') &&
+        e.emotionalImpact >= 4,
+    )
+  ) {
+    sceneFocus = 'support';
+  } else if (week >= 5) {
+    sceneFocus = 'late_game';
+  }
+
+  const whatHappened = actualEvents > 0
+    ? `This week you were directly involved in ${actualEvents} important moments.`
+    : `This week you focused mainly on maintaining relationships rather than big moves.`;
+
+  const focusText =
+    sceneFocus === 'conflict'
+      ? ' with most of your screen time coming in conflict scenes.'
+      : sceneFocus === 'support'
+      ? ' with most of your screen time coming in alliance and relationship scenes.'
+      : sceneFocus === 'late_game'
+      ? ' with most of your screen time coming later in the season.'
+      : '';
+
   const whatWasShown = shownEvents > 0
-    ? `Edit highlighted ${shownEvents} key moments, framing you as ${editPerception.persona.toLowerCase()}`
-    : `Limited screen time this week - edit focused elsewhere`;
+    ? `The episodes highlighted ${shownEvents} of those moments and presented you as ${editPerception.persona.toLowerCase()}${focusText}`
+    : `This week the episodes gave more attention to other players than to you.`;
 
   return {
     week,
@@ -211,33 +244,42 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
 }
 
 function generateDynamicQuote(gameState: GameState, week: number, playerEvents: any[]): string {
-  const { editPerception, alliances, contestants } = gameState;
-  const activeCount = contestants.filter(c => !c.isEliminated).length;
-  
-  // Base quotes on persona and week activity
+  const { editPerception } = gameState;
+  const dayNumber = week * 7;
+
+  // Active week: lean into instability and rationalisation
   if (playerEvents.length > 3) {
-    // Active week quotes
     const quotes = [
-      `This week has been intense. I've had to make some difficult decisions but I think I'm positioning myself well.`,
-      `A lot is happening right now and I need to stay focused on my long-term strategy while handling the immediate threats.`,
-      `I'm playing multiple angles this week. Sometimes you have to create chaos to find opportunity.`,
-      `The game is accelerating and I'm ready for it. This is where the real players separate from the followers.`
+      'This week I made calls I would not admit to back home, but they keep me here.',
+      'I told two different people two different stories about the same vote. I am hoping they never compare them.',
+      'I called it “strategy” in the moment. If it backfires, I will call it a mistake and move on.',
+      'I did less talking this week and learned more by watching who walked away from whom.',
     ];
     return quotes[Math.floor(Math.random() * quotes.length)];
   }
-  
-  // Persona-based quotes
+
+  // Persona-based quotes, written in a direct, concrete style
   switch (editPerception.persona) {
     case 'Hero':
-      return `I'm trying to play with integrity while still making the moves I need to make. It's a fine line to walk.`;
+      return 'I want to make moves I can explain clearly and still keep myself in the game.';
     case 'Villain':
-      return `I know people see me as ruthless, but this is a game and I'm here to win. I'll do what's necessary.`;
-    case 'Underedited':
-      return `I may not be getting much screen time, but I'm observing everything and my moment will come.`;
-    case 'Dark Horse':
-      return `People are starting to notice my game, which means I need to be even more strategic about my next moves.`;
+      return 'I am willing to make moves that hurt people in the short term if they keep me in the game.';
+    case 'Underedited': {
+      const underEditedQuotes = [
+        'I am not in every scene, but I am in the ones where people quietly decide what to do next.',
+        'Most of what I do happens off to the side of the big moments, but I know where they start.',
+      ];
+      return underEditedQuotes[Math.floor(Math.random() * underEditedQuotes.length)];
+    }
+    case 'Dark Horse': {
+      const darkHorseQuotes = [
+        'More people are starting to notice my game, so I need tighter control over who hears my plans.',
+        'I was in the background early. Now every move I make has more eyes on it.',
+      ];
+      return darkHorseQuotes[Math.floor(Math.random() * darkHorseQuotes.length)];
+    }
     default:
-      return `Day ${week * 7} and I'm still here. Every day is a victory and I'm not taking anything for granted.`;
+      return `It is Day ${dayNumber} and I am still in the house, planning my next move.`;
   }
 }
 

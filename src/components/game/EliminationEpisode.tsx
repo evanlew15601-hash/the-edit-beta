@@ -12,20 +12,36 @@ interface EliminationEpisodeProps {
 export const EliminationEpisode = ({ gameState, onContinue }: EliminationEpisodeProps) => {
   const [cutsceneDone, setDone] = useState(false);
 
+  const active = gameState.contestants.filter((c) => !c.isEliminated);
+  const nominees = active.filter((c) => c.isNominated);
+  const nomineeNames = nominees.map((c) => c.name);
+  const hasNominees = nomineeNames.length > 0;
+
   const slides: CutsceneSlide[] = [
     {
-      title: 'The Call',
-      speaker: 'Narrator',
-      text: 'Lights dip. Housemates line up. There is a hush the cameras love. Someone is about to become backstory.',
+      title: 'Tonight on The Edit',
+      speaker: 'Mars Vega (Host)',
+      text:
+        'The lights are down, the house is lined up, and for one of you this is the last time you stand here as a houseguest.',
     },
     {
-      title: 'Whispers',
-      text: 'Eyes dart. Deals echo in muscle memory. You catch a glance that says more than a paragraph.',
+      title: 'Previously This Week',
+      speaker: 'Narrator',
+      text:
+        'Whispers in the bedroom turned into plans at the kitchen table. Tonight we see which name made it onto the ballot.',
+    },
+    {
+      title: 'On the Block',
+      speaker: 'Narrator',
+      text: hasNominees
+        ? `Facing the vote: ${nomineeNames.join(' and ')}. One of them will leave the house tonight.`
+        : 'The house has made up its mind. Someone is about to find out the vote did not break their way.',
     },
     {
       title: 'The Read',
-      speaker: 'Host',
-      text: 'It’s time. When I say your name, you are out of the game.',
+      speaker: 'Mars Vega (Host)',
+      text:
+        'It is time. When I say your name, your game on The Edit is over and your story becomes part of the season.',
     },
   ];
 

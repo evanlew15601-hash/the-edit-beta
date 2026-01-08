@@ -23,7 +23,8 @@ export const TwistNotification = ({ gameState }: TwistNotificationProps) => {
           <div>
             <div className="text-sm font-medium text-foreground">Production Contract Ended</div>
             <div className="text-xs text-muted-foreground">
-              Weekly missions concluded (Week {week - 1}). Choose: reveal the twist or keep it secret.
+              Your missions for The Edit have wrapped as of Week {week - 1}. Decide whether to expose the twist or walk
+              back into the house as just another player.
             </div>
           </div>
           <div className="flex gap-2">
@@ -34,7 +35,7 @@ export const TwistNotification = ({ gameState }: TwistNotificationProps) => {
                 window.dispatchEvent(new CustomEvent('plantedContractDecision', { detail: { reveal: true } }));
               }}
             >
-              Reveal Twist
+              Reveal Twist On-Air
             </Button>
             <Button
               variant="action"
@@ -43,7 +44,7 @@ export const TwistNotification = ({ gameState }: TwistNotificationProps) => {
                 window.dispatchEvent(new CustomEvent('plantedContractDecision', { detail: { reveal: false } }));
               }}
             >
-              Keep Secret
+              Keep Secret In-House
             </Button>
           </div>
         </div>
@@ -63,8 +64,8 @@ export const TwistNotification = ({ gameState }: TwistNotificationProps) => {
               {isSuccess ? 'Secret Mission Aired' : 'Mission Fallout Aired'}
             </div>
             <div className="text-xs text-muted-foreground">
-              America just watched your secret mission {isSuccess ? 'play out on TV.' : 'fall apart on TV.'} The house
-              only knows the version they lived.
+              Viewers just watched your secret mission {isSuccess ? 'land on The Edit.' : 'fall apart on The Edit.'}{' '}
+              Inside the house, they only know the version they lived.
             </div>
             {missionBanner.description && (
               <div className="text-[11px] text-muted-foreground mt-1">
