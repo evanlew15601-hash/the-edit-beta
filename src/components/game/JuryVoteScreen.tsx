@@ -91,6 +91,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
       // - Betrayal memories from the global memory engine
       // - Perceived strategy / social power
       // - Finale speech impact (for the player)
+      // - Juror personality (some respect big moves more than loyalty)
       const finalTwoScores = finalTwo.map(finalist => {
         let score = 50; // Base score
 
@@ -121,7 +122,31 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
         score += positiveEmotion * 3;
         score += negativeEmotion * 7; // negativeEmotion is negative, so this is a penalty
 
-        // MemoryEngine-level betrayal events for lingering resentment
+        // Perceived strategy / resume
+        const socialStanding = relationshipGraphEngine.calculateSocialStanding(finalist.name);
+        const strategyStat = (finalist as any).stats?.strategy ?? 50;
+
+        const rawStrategyComponent =
+          (strategyStat - 50) * 0.3 + (socialStanding.socialPower - 50) * 0.25;
+
+        const disposition = juryMember.psychProfile.disposition || [];
+        const jurorPrefersStrategy =
+          disposition.includes('strategic') ||
+          disposition.includes('competitive') ||
+          disposition.includes('driven') ||
+          disposition.includes('analytical') ||
+          disposition.includes('calculating') ||
+          disposition.includes('independent');
+
+        const strategyComponent = jurorPrefersStrategy
+          ? rawStrategyComponent * 1.3
+          : rawStrategyComponent * 0.9;
+
+        score += strategyComponent;
+
+        // MemoryEngine-level betrayal events for lingering resentment.
+        // Nuanced: loyalty-driven, emotional jurors hold onto betrayal more;
+        // strategy-respecting jurors may forgive a well-executed move.
         const journal = memoryEngine.queryMemory(juryMember.name, {
           dayRange: { start: 1, end: gameState.currentDay },
           typeFilter: ['betrayal'],
@@ -141,24 +166,43 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
             }
           });
 
+        if (betrayalPenalty < 0) {
+          const valuesLoyalty =
+            disposition.includes('loyal') ||
+            disposition.includes('trusting') ||
+            disposition.includes('emotional') ||
+            disposition.includes('impulsive') ||
+            disposition.includes('paranoid') ||
+            disposition.includes('reactive') ||
+            disposition.includes('conformist') ||
+            disposition.includes('agreeable');
+
+          const valuesBigMoves = jurorPrefersStrategy;
+
+          // Base scale: loyalty-heavy jurors stay closer to full penalty;
+          // big-move jurors soften it significantly.
+          let scale = 1;
+          if (valuesBigMoves && !valuesLoyalty) {
+            scale = 0.4;
+          } else if (valuesBigMoves && valuesLoyalty) {
+            scale = 0.7;
+          } else if (!valuesBigMoves && !valuesLoyalty) {
+            scale = 0.85;
+          }
+
+          // If the finalist clearly played a strong strategic game and the emotional history
+          // isn't deeply negative, treat betrayal more as \"tough but respected\" than pure bitterness.
+          const strongStrategicGame = strategyComponent > 10;
+          const notDeeplyHurt = totalEmotion > -5;
+
+          if (strongStrategicGame && notDeeplyHurt) {
+            scale *= 0.5;
+          }
+
+          betrayalPenalty *= scale;
+        }
+
         score += betrayalPenalty;
-
-        // Perceived strategy / resume
-        const socialStanding = relationshipGraphEngine.calculateSocialStanding(finalist.name);
-        const strategyStat = (finalist as any).stats?.strategy ?? 50;
-
-        const rawStrategyComponent =
-          (strategyStat - 50) * 0.3 + (socialStanding.socialPower - 50) * 0.25;
-
-        const jurorPrefersStrategy =
-          juryMember.psychProfile.disposition.includes('strategic') ||
-          juryMember.psychProfile.disposition.includes('competitive');
-
-        const strategyComponent = jurorPrefersStrategy
-          ? rawStrategyComponent * 1.3
-          : rawStrategyComponent * 0.9;
-
-        score += strategyComponent;
 
         // Speech impact (if it was the player finalist)
         if (finalist.name === gameState.playerName && effectivePlayerSpeech) {
