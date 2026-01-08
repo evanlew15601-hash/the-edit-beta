@@ -173,6 +173,12 @@ export const useGameState = () => {
         currentDay: newDay,
         alliances: alliancesWithSecrecy
       };
+
+      // At the start of each new in-game week, let NPCs quietly form fresh voting plans
+      // These plans are stored as 'weekly_plan' in the memory system and treated as soft baselines.
+      if ((newDay - 1) % 7 === 0) {
+        AIVotingStrategy.generateWeeklyVotingPlans(tempState as GameState);
+      }
       
       // Process enhanced NPC memory systems
       const processedContestants = EnhancedNPCMemorySystem.processMemoryPatterns(tempState);
@@ -277,11 +283,14 @@ export const useGameState = () => {
         InformationTradingEngine.autoGenerateIntelligence(tempState);
       }
 
-      // Let long-term relationships gently decay over time
+      // Let long-term relationships gently decay over time (per-contestant memory model)
       const baseContestants = EnhancedNPCMemorySystem.decayLongTermRelationships({
         ...tempState,
         contestants: cleanedContestants,
       });
+
+      // Also gently decay the global relationship graph so extreme trust/suspicion softens between interactions
+      relationshipGraphEngine.decayRelationships(newDay);
 
       // Apply new contextual memories
       baseContestants.forEach(c => {
