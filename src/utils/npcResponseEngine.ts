@@ -3,6 +3,7 @@ import { speechActClassifier, SpeechAct } from './speechActClassifier';
 import { relationshipGraphEngine, Relationship } from './relationshipGraphEngine';
 import { npcAutonomyEngine, NPCPersonalityProfile } from './npcAutonomyEngine';
 import { generateLocalAIReply } from './localLLM';
+import { logInteractionToCloud, fetchRecentInteractions } from './interactionLogger';
 
 export type SocialContext = {
   alliances: string[];
@@ -97,8 +98,35 @@ class NPCResponseEngine {
     const perception = this.updateNPCPerception(npc.name, context, speechAct);
 
     const tone = this.determineTone(speechAct, context, personality, perception);
-    
-    // Use Lovable AI for content generation
+
+    // Pull recent cloud interactions between this NPC and the player
+    let recentCloudInteractions:
+      | {
+          playerMessage: string;
+          aiResponse: string;
+          createdAt: string;
+          type: string;
+        }[]
+      = [];
+    if (gameState.playerName) {
+      recentCloudInteractions = await fetchRecentInteractions({
+        npcName: npc.name,
+        playerName: gameState.playerName,
+        limit: 6,
+      });
+    }
+
+    const lastInteractionsFromCloud = recentCloudInteractions
+      .slice(0, 3)
+      .map(i => i.playerMessage || i.aiResponse)
+      .filter(Boolean);
+
+    const recentEventsFromCloud = recentCloudInteractions
+      .slice(0, 5)
+      .map(i => i.playerMessage || i.aiResponse)
+      .filter(Boolean);
+
+    // Use Lovable Cloud-backed memory for content generation
     let content: string;
     try {
       content = await generateLocalAIReply({
@@ -114,8 +142,14 @@ class NPCResponseEngine {
         socialContext: {
           alliances: context.socialContext.alliances,
           threats: context.socialContext.threats,
-          recentEvents: context.socialContext.recentEvents,
-          lastInteractions: context.recentMemories.slice(-3).map(m => m.content),
+          recentEvents: [
+            ...recentEventsFromCloud,
+            ...context.socialContext.recentEvents,
+          ].slice(0, 8),
+          lastInteractions: [
+            ...lastInteractionsFromCloud,
+            ...context.recentMemories.slice(-3).map(m => m.content),
+          ].slice(0, 3),
         },
         playerName: gameState.playerName,
       });
@@ -131,6 +165,22 @@ class NPCResponseEngine {
 
     this.processResponseConsequences(npc, context.playerName, consequences, gameState);
     this.updateConversationHistory(npc.name, playerMessage, content);
+
+    void logInteractionToCloud({
+      day: gameState.currentDay,
+      type:
+        conversationType === 'confessional'
+          ? 'confessional'
+          : conversationType === 'private'
+          ? 'dm'
+          : 'conversation',
+      participants: [gameState.playerName, npc.name].filter(Boolean),
+      npcName: npc.name,
+      playerName: gameState.playerName,
+      playerMessage,
+      aiResponse: content,
+      tone,
+    });
 
     return {
       content,
