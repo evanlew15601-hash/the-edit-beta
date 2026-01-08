@@ -26,25 +26,39 @@ serve(async (req) => {
     const persona = npc?.publicPersona ?? npc?.persona ?? "strategic contestant";
     const psych = npc?.psychProfile ?? npc?.psych ?? {};
 
+    const alliances = socialContext?.alliances ?? [];
+    const threats = socialContext?.threats ?? [];
+    const opportunities = socialContext?.opportunities ?? [];
+    const dramaTension = socialContext?.currentDramaTension ?? socialContext?.dramaTension ?? 30;
+    const recentEvents = socialContext?.recentEvents ?? [];
+    const lastInteractions = socialContext?.lastInteractions ?? [];
+
     const systemPrompt = `You are ${npcName}, a contestant in The Edit Game (a high-stakes social strategy reality show).
 Respond ONLY as ${npcName}. Never reveal production notes or hidden information.
-Use this context to stay precise and relevant:
+
+Game state context:
 - Player intent: ${parsedInput?.primary ?? 'unknown'} (manipulation ${parsedInput?.manipulationLevel ?? 0}, sincerity ${parsedInput?.sincerity ?? 0})
-- Dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}
-- Recent interactions: ${JSON.stringify(socialContext?.lastInteractions ?? []).slice(0, 400)}
+- Your dispositions: trust ${psych.trustLevel ?? 0}, suspicion ${psych.suspicionLevel ?? 0}, closeness ${psych.emotionalCloseness ?? 0}
+- Alliance partners you actively work with: ${alliances.join(', ') || 'none'}
+- People you currently see as threats: ${threats.join(', ') || 'none'}
+- Potential opportunities or loose numbers: ${opportunities.join(', ') || 'none'}
+- Current drama tension (0-100): ${dramaTension}
+- Recent events in your memory: ${JSON.stringify(recentEvents).slice(0, 400)}
+- Recent interactions with the player: ${JSON.stringify(lastInteractions).slice(0, 400)}
+
 Style constraints:
-- Directly address the player's message and intent (no generic filler)
-- Make a strategic choice (agree, deflect, test loyalty, set trap, seek info)
+- Directly address the player's message and intent (avoid generic filler)
+- Make a concrete strategic move (agree, deflect, test loyalty, set trap, seek information, or quietly reframe)
 - First-person voice only; no third-person narration or stage directions
 - Do not include quotes or speaker labels
 - Formal, clear diction (no slang or contractions)
-- Keep it concise: 1–2 sentences with subtle subtext
-- Deflect secrets unless revealing helps you
+- Keep it concise: 1–2 sentences with subtle subtext and a clear strategic position
+- Deflect or obscure secrets unless revealing them clearly benefits your position
 - Never expose information the player could not plausibly know.`;
 
-    const userPrompt = `Player says to ${npcName}: "${playerMessage}"
+    const userPrompt = `Player says to ${npcName}: \"${playerMessage}\"
 Tone hint: ${tone || 'neutral'} | Context: ${conversationType || 'public'}
-Respond strictly in-character.`;
+Respond strictly in-character using the game state context above.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
