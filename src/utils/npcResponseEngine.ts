@@ -3,6 +3,7 @@ import { speechActClassifier, SpeechAct } from './speechActClassifier';
 import { relationshipGraphEngine, Relationship } from './relationshipGraphEngine';
 import { npcAutonomyEngine, NPCPersonalityProfile } from './npcAutonomyEngine';
 import { generateLocalAIReply } from './localLLM';
+import { logInteractionToCloud } from './interactionLogger';
 
 export type SocialContext = {
   alliances: string[];
@@ -131,6 +132,22 @@ class NPCResponseEngine {
 
     this.processResponseConsequences(npc, context.playerName, consequences, gameState);
     this.updateConversationHistory(npc.name, playerMessage, content);
+
+    void logInteractionToCloud({
+      day: gameState.currentDay,
+      type:
+        conversationType === 'confessional'
+          ? 'confessional'
+          : conversationType === 'private'
+          ? 'dm'
+          : 'conversation',
+      participants: [gameState.playerName, npc.name].filter(Boolean),
+      npcName: npc.name,
+      playerName: gameState.playerName,
+      playerMessage,
+      aiResponse: content,
+      tone,
+    });
 
     return {
       content,
