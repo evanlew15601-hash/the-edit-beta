@@ -64,8 +64,13 @@ class NPCResponseEngine {
   ): Promise<NPCResponse> {
     const npc = gameState.contestants.find(c => c.name === targetNPC);
     if (!npc) {
+      console.error('NPC not found:', {
+        targetNPC,
+        availableContestants: gameState.contestants.map(c => c.name),
+        totalContestants: gameState.contestants.length,
+      });
       return {
-        content: "I'm not sure who you're talking to.",
+        content: `💭 I'm not sure who you're talking to. (Debug: Looking for "${targetNPC}" but found ${gameState.contestants.length} contestants)`,
         tone: 'neutral',
         consequences: [],
         emotionalSubtext: {
