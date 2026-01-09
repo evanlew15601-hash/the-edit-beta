@@ -81,18 +81,25 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   const notableMoments: string[] = [];
   const viralMoments: string[] = [];
   
-  // Micro-event tags aggregation (rumor/correction/trap)
+  // Micro-event tags aggregation (rumor/correction/trap/background_conversation)
   let rumorCount = 0;
   let correctionCount = 0;
   let trapCount = 0;
+  let backgroundConvoCount = 0;
+  let backgroundVoteTalkCount = 0;
 
   // Scan contestant memories
   for (const c of contestants) {
     for (const m of c.memory || []) {
       if (m.day < weekStartDay || m.day > weekEndDay) continue;
+
       if (m.tags?.includes('rumor')) rumorCount++;
       if (m.tags?.includes('correction')) correctionCount++;
       if (m.tags?.includes('trap')) trapCount++;
+      if (m.tags?.includes('background_conversation')) backgroundConvoCount++;
+      if (m.tags?.includes('vote_plan') && m.tags?.includes('background_conversation')) {
+        backgroundVoteTalkCount++;
+      }
 
       if (m.type === 'scheme' && m.emotionalImpact >= 3) {
         const line = `A scheme brews involving ${m.participants.join(', ')}.`;
@@ -140,8 +147,8 @@ export function buildWeeklyEdit(gameState: GameState): WeeklyEdit {
   const eventMontageRaw = personalizedMontage.filter(Boolean) as string[];
 
   // Add micro-event tag summary to montage when present
-  const microSummary = (rumorCount || correctionCount || trapCount)
-    ? `Whisper network activity: ${rumorCount} rumor${rumorCount !== 1 ? 's' : ''}, ${correctionCount} correction${correctionCount !== 1 ? 's' : ''}, ${trapCount} trap${trapCount !== 1 ? 's' : ''}.`
+  const microSummary = (rumorCount || correctionCount || trapCount || backgroundConvoCount)
+    ? `Whisper network activity: ${rumorCount} rumor${rumorCount !== 1 ? 's' : ''}, ${correctionCount} correction${correctionCount !== 1 ? 's' : ''}, ${trapCount} trap${trapCount !== 1 ? 's' : ''}${backgroundConvoCount ? `, ${backgroundConvoCount} off-camera conversation${backgroundConvoCount !== 1 ? 's' : ''}${backgroundVoteTalkCount ? ` (${backgroundVoteTalkCount} about the vote)` : ''}` : ''}.`
     : undefined;
 
   const eventMontage = [...eventMontageRaw, microSummary].filter(Boolean) as string[];

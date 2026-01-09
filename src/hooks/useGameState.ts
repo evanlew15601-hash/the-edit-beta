@@ -1562,6 +1562,31 @@ export const useGameState = () => {
         afpRanking,
       };
     });
+
+    // If no rationales were provided, asynchronously generate LLM-backed jury
+    // rationales based on juror memory and finalist gameplay. This is purely
+    // narrative and does not affect the outcome.
+    if (!rationales) {
+      (async () => {
+        try {
+          const state = gameStateRef.current;
+          if (!state.juryMembers || state.juryMembers.length === 0) return;
+
+          const { generateJuryRationales } = await import('@/utils/juryRationaleEngine');
+          const generated = await generateJuryRationales(state, winner, votes);
+          if (!generated || Object.keys(generated).length === 0) return;
+
+          setGameState(prev => {
+            // Do not overwrite any rationales that might have been set explicitly
+            const merged = { ...(prev.juryRationales || {}), ...generated };
+            return { ...prev, juryRationales: merged };
+          });
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to generate LLM jury rationales:', e);
+        }
+      })();
+    }
   }, []);
 
   const continueFromElimination = useCallback((forcePlayerElimination = false) => {
