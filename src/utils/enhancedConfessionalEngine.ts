@@ -45,6 +45,20 @@ export class EnhancedConfessionalEngine {
       specialPrompts.forEach(p => { if (!existingIds.has(p.id)) prompts.push(p); });
     }
 
+    // End of weekly safety competition / immunity era – make it a narrative beat.
+    const twists = gameState.twistsActivated || [];
+    const hasRetiredSafetyComp = twists.includes('immunity_retired');
+    if (hasRetiredSafetyComp && activeContestants.length <= 4) {
+      prompts.push({
+        id: 'immunity-era-ends',
+        category: 'strategy',
+        prompt: `The weekly safety comp is gone and only ${activeContestants.length} players remain. How does that change your endgame?`,
+        followUp: 'Who becomes most dangerous now that there are no automatic safety nets?',
+        suggestedTones: ['strategic', 'dramatic', 'vulnerable'],
+        editPotential: 10,
+      });
+    }
+
     // Strategy prompts - context-aware based on game stage
     if (activeContestants.length <= 8 && activeContestants.length > 5) {
       prompts.push({

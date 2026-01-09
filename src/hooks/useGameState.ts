@@ -24,7 +24,7 @@ import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
 import { applyDailySpecialBackgroundLogic, revealHostChild, finalizePlantedContract } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
-import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
+import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene, buildImmunityRetiredCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
 import { getCurrentWeek } from '@/utils/taskEngine';
@@ -308,11 +308,40 @@ export const useGameState = () => {
         ? Math.max(0, prev.daysUntilJury - 1)
         : prev.daysUntilJury;
 
-      // Decide whether to show a cutscene, weekly recap, or stay in daily mode
+      // Remaining active players after narrative/special updates
+      const remainingCount = baseContestants.filter(c => !c.isEliminated).length;
+
+      // Carry forward any twist flags produced by special/narrative systems
+      let twistsActivated = narrativeApplied.twistsActivated || specialApplied.twistsActivated || prev.twistsActivated || [];
+
+      // From final 4 onward, retire weekly immunity competitions and surface it as a twist.
+      const allowImmunityPhase = remainingCount > 4;
+      const hadImmunityRetired = twistsActivated.includes('immunity_retired');
+      if (!allowImmunityPhase && !hadImmunityRetired) {
+        twistsActivated = [...twistsActivated, 'immunity_retired'];
+
+        // Short host VO cutscene when the safety net is pulled, if nothing else is already queued.
+        if (!nextCutscene) {
+          nextCutscene = buildImmunityRetiredCutscene({
+            ...(narrativeApplied as GameState),
+            contestants: baseContestants,
+            twistsActivated,
+          });
+        }
+      }
+
+      // Decide whether to show a cutscene, immunity competition, weekly recap, or stay in daily mode
       let gamePhase: GameState['gamePhase'] = prev.gamePhase;
       const isWeeklyRecapDay = newDay % 7 === 0;
+
+      // On or after an elimination day, run an immunity competition first (if none set),
+      // then proceed to the player vote once a winner exists.
       if (newDay >= prev.nextEliminationDay) {
-        gamePhase = 'player_vote';
+        if (allowImmunityPhase && !prev.immunityWinner) {
+          gamePhase = 'immunity_competition';
+        } else {
+          gamePhase = 'player_vote';
+        }
       } else if (isWeeklyRecapDay) {
         gamePhase = 'weekly_recap';
       } else {
@@ -330,6 +359,7 @@ export const useGameState = () => {
           ...(narrativeApplied as GameState),
           currentDay: newDay,
           editPerception: prev.editPerception,
+          twistsActivated,
         };
 
         const episode = computeWeeklyEpisodeRating(ratingSource);
@@ -372,6 +402,7 @@ export const useGameState = () => {
         hostChildName: specialApplied.hostChildName || prev.hostChildName,
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
+        twistsActivated,
         ongoingHouseMeeting: prev.ongoingHouseMeeting,
         forcedConversationsQueue: nextForcedQueue,
         missionBroadcastBanner: missionBanner,
@@ -910,11 +941,29 @@ export const useGameState = () => {
   }, []);
 
   const setImmunityWinner = useCallback((winner: string) => {
-    setGameState(prev => ({
-      ...prev,
-      immunityWinner: winner,
-      gamePhase: 'daily' as const // Return to daily gameplay after immunity
-    }));
+    setGameState(prev => {
+      // Idempotency: if this winner is already recorded, avoid duplicating history
+      if (prev.immunityWinner === winner) {
+        return prev;
+      }
+
+      // Log a lightweight ratings history entry so weekly tasks can detect immunity wins.
+      const baseRating = prev.viewerRating ?? ratingsEngine.getInitial();
+      const immunityReason = `immunity win: ${winner}`;
+      const nextHistory = [
+        ...(prev.ratingsHistory || []),
+        { day: prev.currentDay, rating: Math.round(baseRating * 100) / 100, reason: immunityReason },
+      ];
+
+      return {
+        ...prev,
+        immunityWinner: winner,
+        // After an immunity competition, move directly into the eviction vote.
+        gamePhase: 'player_vote' as const,
+        viewerRating: baseRating,
+        ratingsHistory: nextHistory,
+      };
+    });
   }, []);
 
   const submitFinaleSpeech = useCallback((speech?: string) => {

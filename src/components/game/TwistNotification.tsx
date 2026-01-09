@@ -97,5 +97,24 @@ export const TwistNotification = ({ gameState }: TwistNotificationProps) => {
     );
   }
 
+  if (recentTwist === 'immunity_retired') {
+    return (
+      <Card className="p-4 border border-border bg-muted/50">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-foreground">Immunity Era Ends</div>
+            <div className="text-xs text-muted-foreground">
+              With only a few houseguests left, weekly immunity challenges are over. From here on out, every vote is
+              straight to the block with no safety net.
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => { /* passive banner */ }}>
+            Got it
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
   return null;
 };
