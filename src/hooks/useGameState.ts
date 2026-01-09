@@ -24,7 +24,7 @@ import { ConfessionalEngine } from '@/utils/confessionalEngine';
 import { ratingsEngine } from '@/utils/ratingsEngine';
 import { applyDailySpecialBackgroundLogic, revealHostChild, finalizePlantedContract } from '@/utils/specialBackgrounds';
 import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarrativeEngine';
-import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene } from '@/utils/twistCutsceneBuilder';
+import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene, buildImmunityRetiredCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
 import { getCurrentWeek } from '@/utils/taskEngine';
@@ -316,8 +316,18 @@ export const useGameState = () => {
 
       // From final 4 onward, retire weekly immunity competitions and surface it as a twist.
       const allowImmunityPhase = remainingCount > 4;
-      if (!allowImmunityPhase && !twistsActivated.includes('immunity_retired')) {
+      const hadImmunityRetired = twistsActivated.includes('immunity_retired');
+      if (!allowImmunityPhase && !hadImmunityRetired) {
         twistsActivated = [...twistsActivated, 'immunity_retired'];
+
+        // Short host VO cutscene when the safety net is pulled, if nothing else is already queued.
+        if (!nextCutscene) {
+          nextCutscene = buildImmunityRetiredCutscene({
+            ...(narrativeApplied as GameState),
+            contestants: baseContestants,
+            twistsActivated,
+          });
+        }
       }
 
       // Decide whether to show a cutscene, immunity competition, weekly recap, or stay in daily mode
@@ -349,6 +359,7 @@ export const useGameState = () => {
           ...(narrativeApplied as GameState),
           currentDay: newDay,
           editPerception: prev.editPerception,
+          twistsActivated,
         };
 
         const episode = computeWeeklyEpisodeRating(ratingSource);

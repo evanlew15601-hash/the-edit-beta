@@ -761,3 +761,32 @@ export function buildFinaleCutscene(gs: GameState) {
 
   return { title: 'Arc Finale', slides, ctaLabel: 'Proceed', type: 'finale_twist' as const };
 }
+
+export function buildImmunityRetiredCutscene(gs: GameState) {
+  const active = gs.contestants.filter(c => !c.isEliminated);
+  const count = active.length;
+
+  const slides: CutsceneSlide[] = [
+    {
+      title: 'Studio Voiceover',
+      speaker: 'Mars Vega (Host)',
+      text:
+        `With only ${count} players left, the era of weekly immunity competitions is over. ` +
+        'From here on out, every eviction is straight to the block with no automatic safety.',
+    },
+    {
+      title: 'Pressure Shift',
+      speaker: 'Narrator',
+      text:
+        'Inside the house, the only shields left are relationships and numbers. ' +
+        'Every vote from this point on lands at full weight.',
+    },
+  ];
+
+  return {
+    title: 'Safety Net Pulled',
+    slides,
+    ctaLabel: 'Return to the House',
+    type: 'mid_game' as const,
+  };
+}
