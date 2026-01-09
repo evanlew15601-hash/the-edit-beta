@@ -308,11 +308,18 @@ export const useGameState = () => {
         ? Math.max(0, prev.daysUntilJury - 1)
         : prev.daysUntilJury;
 
-      // Decide whether to show a cutscene, weekly recap, or stay in daily mode
+      // Decide whether to show a cutscene, immunity competition, weekly recap, or stay in daily mode
       let gamePhase: GameState['gamePhase'] = prev.gamePhase;
       const isWeeklyRecapDay = newDay % 7 === 0;
+
+      // On or after an elimination day, run an immunity competition first (if none set),
+      // then proceed to the player vote once a winner exists.
       if (newDay >= prev.nextEliminationDay) {
-        gamePhase = 'player_vote';
+        if (!prev.immunityWinner) {
+          gamePhase = 'immunity_competition';
+        } else {
+          gamePhase = 'player_vote';
+        }
       } else if (isWeeklyRecapDay) {
         gamePhase = 'weekly_recap';
       } else {
@@ -910,11 +917,24 @@ export const useGameState = () => {
   }, []);
 
   const setImmunityWinner = useCallback((winner: string) => {
-    setGameState(prev => ({
-      ...prev,
-      immunityWinner: winner,
-      gamePhase: 'daily' as const // Return to daily gameplay after immunity
-    }));
+    setGameState(prev => {
+      // Log a lightweight ratings history entry so weekly tasks can detect immunity wins.
+      const baseRating = prev.viewerRating ?? ratingsEngine.getInitial();
+      const immunityReason = `immunity win: ${winner}`;
+      const nextHistory = [
+        ...(prev.ratingsHistory || []),
+        { day: prev.currentDay, rating: Math.round(baseRating * 100) / 100, reason: immunityReason },
+      ];
+
+      return {
+        ...prev,
+        immunityWinner: winner,
+        // After an immunity competition, move directly into the eviction vote.
+        gamePhase: 'player_vote' as const,
+        viewerRating: baseRating,
+        ratingsHistory: nextHistory,
+      };
+    });
   }, []);
 
   const submitFinaleSpeech = useCallback((speech?: string) => {
