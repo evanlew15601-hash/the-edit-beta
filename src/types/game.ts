@@ -453,6 +453,70 @@ export interface WeeklyEdit {
   };
 }
 
+// Episode-level audience breakdown for weekly ratings
+export interface EpisodeRatingDimensions {
+  drama: { raw: number; normalized: number };
+  strategy: { raw: number; normalized: number };
+  heart: { raw: number; normalized: number };
+  chaos: { raw: number; normalized: number };
+}
+
+export type AudienceMood = 'loved' | 'mixed' | 'hated';
+
+export interface EpisodeRatingLabels {
+  intensity: 'quiet' | 'balanced' | 'high_drama';
+  strategicDepth: 'low' | 'medium' | 'high';
+  emotionalTone: 'cold' | 'mixed' | 'warm';
+  chaosType: 'stable' | 'spicy' | 'unfair';
+  audienceMood: AudienceMood;
+  weekSummaryTag:
+    | 'under_the_radar'
+    | 'messy_but_entertaining'
+    | 'strategic_masterclass'
+    | 'emotional_episode'
+    | 'twist_fallout'
+    | 'slow_burn';
+}
+
+export interface EpisodeRatingResult {
+  week: number;
+  window: { startDay: number; endDay: number };
+  dimensions: EpisodeRatingDimensions;
+  events: {
+    betrayals: number;
+    highImpactSchemes: number;
+    quietSchemes: number;
+    intenseConversations: number;
+    allianceForms: number;
+    allianceMeetings: number;
+    emotionalConfessionals: number;
+    strategicConfessionals: number;
+    vulnerableConfessionals: number;
+    eliminationThisWeek?: VotingRecord;
+    twistsActivated: string[];
+    tieBreakUsed: boolean;
+    blindsides: number;
+    viralMomentsCount: number;
+  };
+  rating: {
+    base: number;
+    dramaComponent: number;
+    strategyComponent: number;
+    heartComponent: number;
+    chaosPenalty: number;
+    approvalAdjustment: number;
+    viralAdjustment: number;
+    noise: number;
+    total: number;
+  };
+  trend: {
+    previousWeeklyRating?: number;
+    delta?: number;
+  };
+  labels: EpisodeRatingLabels;
+  narrativeReason: string;
+}
+
 export interface AISettings {
   depth: 'brief' | 'standard' | 'deep';
   additions: {

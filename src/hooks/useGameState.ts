@@ -29,6 +29,7 @@ import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
 import { getCurrentWeek } from '@/utils/taskEngine';
 import { BackgroundConversationEngine } from '@/utils/backgroundConversationEngine';
+import { computeWeeklyEpisodeRating } from '@/utils/audienceEpisodeRating';
 
 type GameActionType =
   PlayerAction['type']
@@ -319,9 +320,32 @@ export const useGameState = () => {
         gamePhase = 'daily';
       }
 
-      // Update viewer ratings lightly based on the day change
-      const nextViewerRating = prev.viewerRating ?? ratingsEngine.getInitial();
-      const nextRatingsHistory = prev.ratingsHistory || [];
+      // Viewer ratings:
+      // - On normal days, carry the existing rating forward
+      // - On weekly recap days, compute a structured episode rating and append it to history
+      let nextViewerRating = prev.viewerRating ?? ratingsEngine.getInitial();
+      let nextRatingsHistory = prev.ratingsHistory || [];
+
+      if (isWeeklyRecapDay) {
+        const ratingSource: GameState = {
+          ...(narrativeApplied as GameState),
+          currentDay: newDay,
+          editPerception: updatedEditPerception,
+        };
+
+        const episode = computeWeeklyEpisodeRating(ratingSource);
+        const weeklyRating = episode.rating.total;
+
+        nextViewerRating = weeklyRating;
+
+        const weeklyReason = 'weekly: ' + episode.narrativeReason;
+        const entry = {
+          day: newDay,
+          rating: Math.round(weeklyRating * 100) / 100,
+          reason: weeklyReason,
+        };
+        nextRatingsHistory = [...nextRatingsHistory, entry];
+      }
 
       // Clear forced conversations that are too old; keep up to 2 queued
       const nextForcedQueue = (prev.forcedConversationsQueue || []).filter(fc => newDay - fc.day <= 2).slice(0, 2);
