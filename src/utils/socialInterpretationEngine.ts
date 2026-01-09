@@ -184,16 +184,17 @@ class SocialInterpretationEngine {
   }
 
   private sampleAxis<T extends string>(
-    axis: { options: { label: T; weight: number }[]; confidence: number },
+    axis: { options: { label: T; weight: number }[]; confidence: number; axis?: string },
     personality: NPCPersonalityProfile
   ): T {
     // Use argmax most of the time; add small noise for emotional NPCs
     if (!axis.options.length) {
-      return axis.axis === 'socialStrategy'
+      const axisName = (axis as any).axis;
+      return axisName === 'socialStrategy'
         ? ('bonding' as T)
-        : axis.axis === 'riskTolerance'
+        : axisName === 'riskTolerance'
         ? ('cautious' as T)
-        : axis.options[0]?.label;
+        : ('neutral' as T);
     }
 
     const sorted = [...axis.options].sort((a, b) => b.weight - a.weight);

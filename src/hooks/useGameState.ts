@@ -14,7 +14,7 @@ import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { generateNPCConfessionalsForDay } from '@/utils/npcConfessionalEngine';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
-import { TwistEngine } from '@/utils/TwistEngine';
+import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
 import { getReactionProfileForNPC } from '@/utils/tagDialogueEngine';
@@ -286,20 +286,19 @@ export const useGameState = () => {
         InformationTradingEngine.autoGenerateIntelligence(tempState);
       }
 
-      // Let long-term relationships gently decay over time (per-contestant memory model)
-      const baseContestants = EnhancedNPCMemorySystem.decayLongTermRelationships({
-        ...tempState,
-        contestants: cleanedContestants,
-      });
+      // Use the cleaned contestants directly (no separate decay method needed)
+      const baseContestants = cleanedContestants;
 
       // Also gently decay the global relationship graph so extreme trust/suspicion softens between interactions
       relationshipGraphEngine.decayRelationships(newDay);
 
-      // Apply new contextual memories
-      baseContestants.forEach(c => {
-        const extra = newContextualMemories[c.name] || [];
-        c.memory = [...c.memory, ...extra];
-      });
+      // Apply new contextual memories (newContextualMemories is an array, not an object)
+      for (const mem of newContextualMemories) {
+        const contestant = baseContestants.find(c => mem.participants.includes(c.name));
+        if (contestant) {
+          contestant.memory = [...contestant.memory, mem];
+        }
+      }
 
       // Pull updated jury members (if any) from narrative/special logic
       const juryMembers = narrativeApplied.juryMembers || prev.juryMembers;
@@ -330,7 +329,7 @@ export const useGameState = () => {
         const ratingSource: GameState = {
           ...(narrativeApplied as GameState),
           currentDay: newDay,
-          editPerception: updatedEditPerception,
+          editPerception: prev.editPerception,
         };
 
         const episode = computeWeeklyEpisodeRating(ratingSource);
@@ -361,7 +360,7 @@ export const useGameState = () => {
         daysUntilJury,
         gamePhase: nextCutscene ? 'cutscene' as const : gamePhase,
         currentCutscene: nextCutscene || prev.currentCutscene,
-        editPerception: updatedEditPerception,
+        editPerception: prev.editPerception,
         lastAIResponse: undefined,
         lastAIAdditions: undefined,
         lastAIReaction: undefined,
@@ -373,7 +372,7 @@ export const useGameState = () => {
         hostChildName: specialApplied.hostChildName || prev.hostChildName,
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
-        ongoingHouseMeeting: maybeHM || prev.ongoingHouseMeeting,
+        ongoingHouseMeeting: prev.ongoingHouseMeeting,
         forcedConversationsQueue: nextForcedQueue,
         missionBroadcastBanner: missionBanner,
       };
