@@ -12,6 +12,7 @@ import { gameSystemIntegrator } from '@/utils/gameSystemIntegrator';
 import { processVoting } from '@/utils/votingEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
+import { generateNPCConfessionalsForDay } from '@/utils/npcConfessionalEngine';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/TwistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
@@ -27,6 +28,7 @@ import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
 import { getCurrentWeek } from '@/utils/taskEngine';
+import { BackgroundConversationEngine } from '@/utils/backgroundConversationEngine';
 
 type GameActionType =
   PlayerAction['type']
@@ -308,9 +310,10 @@ export const useGameState = () => {
 
       // Decide whether to show a cutscene, weekly recap, or stay in daily mode
       let gamePhase: GameState['gamePhase'] = prev.gamePhase;
+      const isWeeklyRecapDay = newDay % 7 === 0;
       if (newDay >= prev.nextEliminationDay) {
         gamePhase = 'player_vote';
-      } else if (newDay % 7 === 0) {
+      } else if (isWeeklyRecapDay) {
         gamePhase = 'weekly_recap';
       } else {
         gamePhase = 'daily';
@@ -351,6 +354,55 @@ export const useGameState = () => {
         missionBroadcastBanner: missionBanner,
       };
     });
+
+    // After the synchronous day-advance state update, trigger background
+    // NPC conversations asynchronously using the latest gameStateRef.
+    (async () => {
+      try {
+        const stateAfterAdvance = gameStateRef.current;
+        const outcomes = await BackgroundConversationEngine.generateDailyBackgroundConversations(stateAfterAdvance);
+        if (outcomes && outcomes.length > 0) {
+          setGameState(prev => {
+            if (prev.currentDay !== stateAfterAdvance.currentDay) {
+              return prev;
+            }
+            return BackgroundConversationEngine.applyOutcomes(prev, outcomes);
+          });
+        }
+
+        // On weekly recap days, also generate a small set of NPC confessionals
+        // so that recap/edit systems have in-character reasoning from key NPCs.
+        if (stateAfterAdvance.currentDay % 7 === 0) {
+          await generateNPCConfessionalsForDay(stateAfterAdvance);
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to run background NPC social simulation:', e);
+      }
+    })();
+
+    // After the synchronous day-advance state update, trigger background
+    // NPC conversations asynchronously using the latest gameStateRef.
+    (async () => {
+      try {
+        const stateAfterAdvance = gameStateRef.current;
+        const outcomes = await BackgroundConversationEngine.generateDailyBackgroundConversations(stateAfterAdvance);
+        if (!outcomes || outcomes.length === 0) {
+          return;
+        }
+
+        setGameState(prev => {
+          // Avoid applying stale outcomes if the day has already moved on.
+          if (prev.currentDay !== stateAfterAdvance.currentDay) {
+            return prev;
+          }
+          return BackgroundConversationEngine.applyOutcomes(prev, outcomes);
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to generate/apply background NPC conversations:', e);
+      }
+    })();
   }, []);
 
   const useAction = useCallback((actionType: GameActionType, target?: string, content?: string, tone?: string) => {
@@ -1538,6 +1590,31 @@ export const useGameState = () => {
         afpRanking,
       };
     });
+
+    // If no rationales were provided, asynchronously generate LLM-backed jury
+    // rationales based on juror memory and finalist gameplay. This is purely
+    // narrative and does not affect the outcome.
+    if (!rationales) {
+      (async () => {
+        try {
+          const state = gameStateRef.current;
+          if (!state.juryMembers || state.juryMembers.length === 0) return;
+
+          const { generateJuryRationales } = await import('@/utils/juryRationaleEngine');
+          const generated = await generateJuryRationales(state, winner, votes);
+          if (!generated || Object.keys(generated).length === 0) return;
+
+          setGameState(prev => {
+            // Do not overwrite any rationales that might have been set explicitly
+            const merged = { ...(prev.juryRationales || {}), ...generated };
+            return { ...prev, juryRationales: merged };
+          });
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to generate LLM jury rationales:', e);
+        }
+      })();
+    }
   }, []);
 
   const continueFromElimination = useCallback((forcePlayerElimination = false) => {

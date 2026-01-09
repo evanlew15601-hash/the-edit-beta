@@ -30,13 +30,103 @@ export const AmbientNPCActivity = ({ contestants, currentDay, playerName }: Ambi
     }, Math.random() * 30000 + 30000); // 30-60 seconds
 
     return () => clearInterval(interval);
-  }, [contestants, currentDay]);
+  }, [contestants, currentDay, playerName]);
 
   const generateAmbientActivity = () => {
     const activeContestants = contestants.filter(c => !c.isEliminated && c.name !== playerName);
     if (activeContestants.length < 2) return;
 
-    // Pick random contestants for the activity
+    // First, see if there are any background conversations flagged as "overheard_possible"
+    // in the contestants' memory. These come from the BackgroundConversationEngine and
+    // represent real strategic talks the player might plausibly glimpse.
+    const overheardMap = new Map<string, { participants: string[]; topicTag?: string }>();
+
+    activeContestants.forEach(c => {
+      (c.memory || []).forEach(m => {
+        if (m.day !== currentDay) return;
+        if (!m.tags || !m.tags.includes('background_conversation') || !m.tags.includes('overheard_possible')) return;
+
+        const names = (m.participants || []).filter(n => n && n !== playerName);
+        if (names.length < 2) return;
+
+        const key = names.slice(0, 2).sort().join('|');
+        if (!overheardMap.has(key)) {
+          const topicTag = (m.tags || []).find(t =>
+            t === 'gossip' ||
+            t === 'vote_plan' ||
+            t === 'alliance_talk' ||
+            t === 'revenge_talk'
+          );
+          overheardMap.set(key, { participants: names.slice(0, 2), topicTag });
+        }
+      });
+    });
+
+    const overheardCandidates = Array.from(overheardMap.values());
+
+    // With some probability, surface a real background conversation instead of a fully random ambient one
+    if (overheardCandidates.length > 0 && Math.random() > 0.4) {
+      const candidate = overheardCandidates[Math.floor(Math.random() * overheardCandidates.length)];
+      const [p1, p2] = candidate.participants;
+
+      let type: NPCActivity['type'] = 'conversation';
+      let visibility: NPCActivity['visibility'] = 'private';
+      let actions: string[] = [];
+
+      switch (candidate.topicTag) {
+        case 'gossip':
+        case 'revenge_talk':
+        case 'vote_plan':
+          type = 'scheme';
+          visibility = 'hidden';
+          actions = [
+            'are whispering about something urgent',
+            'keep glancing around while talking in low voices',
+            'are having an intense private conversation',
+          ];
+          break;
+        case 'alliance_talk':
+          type = 'alliance';
+          visibility = 'private';
+          actions = [
+            'are huddled together whispering',
+            'are making plans together away from the others',
+            'are quietly coordinating their next move',
+          ];
+          break;
+        default:
+          type = 'conversation';
+          visibility = 'private';
+          actions = [
+            'are having a quiet conversation away from the group',
+            'are chatting softly in the corner',
+            'are talking in low tones by the hallway',
+          ];
+          break;
+      }
+
+      const action = actions[Math.floor(Math.random() * actions.length)];
+
+      const newActivity: NPCActivity = {
+        id: `${Date.now()}-${Math.random()}`,
+        participants: [p1, p2],
+        action,
+        type,
+        timestamp: Date.now(),
+        visibility,
+      };
+
+      setActivities(prev => [newActivity, ...prev].slice(0, 8)); // Keep only last 8 activities
+
+      // Auto-remove after 2 minutes
+      setTimeout(() => {
+        setActivities(prev => prev.filter(a => a.id !== newActivity.id));
+      }, 120000);
+
+      return;
+    }
+
+    // Fallback: generate a generic ambient activity not tied to specific background conversations
     const participant1 = activeContestants[Math.floor(Math.random() * activeContestants.length)];
     const participant2 = activeContestants.find(c => c.id !== participant1.id) || participant1;
 
