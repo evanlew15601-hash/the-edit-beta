@@ -114,6 +114,11 @@ const TEMPLATES: Record<string, string[]> = {
     'I need an endgame where my resume reads decisions, not accidents.',
     'I pick partners I beat on perception and performance.'
   ],
+  'immunity-era-ends': [
+    'With the weekly safety comp gone at {ACTIVE_COUNT}, every vote is naked math and relationships.',
+    'No more automatic safety. If you misread the house now, you go home.',
+    'Endgame without a safety net forces people to show where they really stand.'
+  ],
 
   // Edit-awareness prompts
   'edit-shaping': [
