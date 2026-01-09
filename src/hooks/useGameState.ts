@@ -308,6 +308,18 @@ export const useGameState = () => {
         ? Math.max(0, prev.daysUntilJury - 1)
         : prev.daysUntilJury;
 
+      // Remaining active players after narrative/special updates
+      const remainingCount = baseContestants.filter(c => !c.isEliminated).length;
+
+      // Carry forward any twist flags produced by special/narrative systems
+      let twistsActivated = narrativeApplied.twistsActivated || specialApplied.twistsActivated || prev.twistsActivated || [];
+
+      // From final 4 onward, retire weekly immunity competitions and surface it as a twist.
+      const allowImmunityPhase = remainingCount > 4;
+      if (!allowImmunityPhase && !twistsActivated.includes('immunity_retired')) {
+        twistsActivated = [...twistsActivated, 'immunity_retired'];
+      }
+
       // Decide whether to show a cutscene, immunity competition, weekly recap, or stay in daily mode
       let gamePhase: GameState['gamePhase'] = prev.gamePhase;
       const isWeeklyRecapDay = newDay % 7 === 0;
@@ -315,7 +327,7 @@ export const useGameState = () => {
       // On or after an elimination day, run an immunity competition first (if none set),
       // then proceed to the player vote once a winner exists.
       if (newDay >= prev.nextEliminationDay) {
-        if (!prev.immunityWinner) {
+        if (allowImmunityPhase && !prev.immunityWinner) {
           gamePhase = 'immunity_competition';
         } else {
           gamePhase = 'player_vote';
@@ -379,6 +391,7 @@ export const useGameState = () => {
         hostChildName: specialApplied.hostChildName || prev.hostChildName,
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
+        twistsActivated,
         ongoingHouseMeeting: prev.ongoingHouseMeeting,
         forcedConversationsQueue: nextForcedQueue,
         missionBroadcastBanner: missionBanner,
