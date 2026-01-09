@@ -62,7 +62,7 @@ export function buildTwistIntroCutscene(gs: GameState) {
         title: 'Legal Line',
         speaker: 'Narrator',
         text:
-          'Weeks before move-in, someone in a quiet office added one sentence to a contract: you are related to Mars Vega.',
+          'Weeks before move-in, someone in a quiet office added one sentence to your contract, for internal use only: "Contestant is related to Mars Vega." The house will never see that line unless production decides to make it a story.',
         aside: back.summary,
       },
       {
