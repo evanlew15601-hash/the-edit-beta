@@ -918,6 +918,11 @@ export const useGameState = () => {
 
   const setImmunityWinner = useCallback((winner: string) => {
     setGameState(prev => {
+      // Idempotency: if this winner is already recorded, avoid duplicating history
+      if (prev.immunityWinner === winner) {
+        return prev;
+      }
+
       // Log a lightweight ratings history entry so weekly tasks can detect immunity wins.
       const baseRating = prev.viewerRating ?? ratingsEngine.getInitial();
       const immunityReason = `immunity win: ${winner}`;
