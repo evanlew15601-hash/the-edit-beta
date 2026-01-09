@@ -95,12 +95,23 @@ async function buildConfessionalForNPC(npc: Contestant, gameState: GameState): P
     recentEvents,
   };
 
-  const playerMessage = [
+  const twists = gameState.twistsActivated || [];
+  const immunityEraRetired = twists.includes('immunity_retired') && activeCount <= 4;
+
+  const playerMessageLines: string[] = [
     `It is day ${gameState.currentDay} with ${activeCount} people left.`,
     `You are alone in the diary room giving a confessional about your game.`,
     `Talk about how you see your position, the people you worry about, and any moves you made recently.`,
     `Be specific and grounded in relationships and votes rather than dramatic monologue.`,
-  ].join(' ');
+  ];
+
+  if (immunityEraRetired) {
+    playerMessageLines.push(
+      `Weekly safety competitions have ended. Reflect briefly on how losing that safety net changes your endgame and who feels most dangerous now.`
+    );
+  }
+
+  const playerMessage = playerMessageLines.join(' ');
 
   const parsedInput = {
     primary: 'npc_confessional',
