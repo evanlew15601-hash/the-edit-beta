@@ -13,8 +13,9 @@ export const EliminationEpisode = ({ gameState, onContinue }: EliminationEpisode
   const [cutsceneDone, setDone] = useState(false);
 
   const active = gameState.contestants.filter((c) => !c.isEliminated);
-  const nominees = active.filter((c) => c.isNominated);
-  const nomineeNames = nominees.map((c) => c.name);
+  // Use voting history from this week to determine who was on the block
+  const recentVote = gameState.votingHistory.find(v => v.day === gameState.currentDay || v.day === gameState.currentDay - 1);
+  const nomineeNames = recentVote ? [...new Set(Object.values(recentVote.votes))] : [];
   const hasNominees = nomineeNames.length > 0;
 
   const slides: CutsceneSlide[] = [

@@ -278,12 +278,11 @@ export function getSpecialConfessionalPrompts(gs: GameState): ConfPrompt[] {
   const beatId = gs.twistNarrative?.currentBeatId;
 
   if (arc === 'hosts_child') {
-    const tagged = base.map((p) => {
+    const tagged = base.map((p): ConfPrompt => {
       if (beatId === 'hc_immediate_fallout' || beatId === 'hc_rebuild_trust') {
         return {
           ...p,
           context: {
-            ...(p.context || {}),
             twistContext: 'host_child_reveal_fallout',
           },
           suggestedTones: p.suggestedTones?.length ? p.suggestedTones : ['reflective', 'careful'],
@@ -293,7 +292,6 @@ export function getSpecialConfessionalPrompts(gs: GameState): ConfPrompt[] {
         return {
           ...p,
           context: {
-            ...(p.context || {}),
             twistContext: 'host_child_debate_reveal',
           },
           suggestedTones: p.suggestedTones?.length ? p.suggestedTones : ['strategic', 'guarded'],
@@ -305,12 +303,11 @@ export function getSpecialConfessionalPrompts(gs: GameState): ConfPrompt[] {
   }
 
   if (arc === 'planted_houseguest') {
-    const tagged = base.map((p) => {
+    const tagged = base.map((p): ConfPrompt => {
       if (beatId === 'phg_current_mission' || beatId === 'phg_balance_act') {
         return {
           ...p,
           context: {
-            ...(p.context || {}),
             twistContext: 'planted_mission_vs_game',
           },
           suggestedTones: p.suggestedTones?.length ? p.suggestedTones : ['strategic', 'measured'],
@@ -320,7 +317,6 @@ export function getSpecialConfessionalPrompts(gs: GameState): ConfPrompt[] {
         return {
           ...p,
           context: {
-            ...(p.context || {}),
             twistContext: 'planted_reveal_pressure',
           },
           suggestedTones: p.suggestedTones?.length ? p.suggestedTones : ['honest', 'defensive'],

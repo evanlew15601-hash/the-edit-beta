@@ -58,7 +58,8 @@ export function computeWeeklyEpisodeRating(gs: GameState): EpisodeRatingResult {
       strategyRaw += 1.5;
     }
 
-    if (e.type === 'alliance_meeting') {
+    // Check for alliance_meeting via content since type doesn't include it
+    if ((e as any).type === 'alliance_meeting' || (e.content && e.content.includes('alliance meeting'))) {
       allianceMeetings += 1;
       strategyRaw += 1.2;
     }
@@ -101,7 +102,8 @@ export function computeWeeklyEpisodeRating(gs: GameState): EpisodeRatingResult {
     if (v.tieBreak) {
       tieBreakUsed = true;
       dramaRaw += 1.5;
-      if (v.tieBreak.method === 'random_draw') {
+      // Check for random_draw via cast since type is narrower
+      if ((v.tieBreak.method as string) === 'random_draw') {
         chaosRaw += 3;
       }
     }
