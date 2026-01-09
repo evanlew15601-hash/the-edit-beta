@@ -5,7 +5,7 @@ import { GameState } from '@/types/game';
 
 interface EliminationScreenProps {
   gameState: GameState;
-  onContinue: () => void;
+  onContinue: (forcePlayerElimination?: boolean) => void;
 }
 
 export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenProps) => {
@@ -183,7 +183,7 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
           <Button 
             variant="surveillance" 
             size="wide" 
-            onClick={onContinue}
+            onClick={() => onContinue()}
           >
             {isPlayerEliminated
               ? (gameState.juryMembers && gameState.juryMembers.length > 0
