@@ -1,6 +1,15 @@
 import { Cutscene } from './cutscenes/Cutscene';
 import { GameState, CutsceneSlide } from '@/types/game';
 
+const describeBackground = (label?: string) => {
+  if (!label) return '';
+  const trimmed = label.trim();
+  if (!trimmed) return '';
+  const firstChar = trimmed[0].toLowerCase();
+  const useAn = ['a', 'e', 'i', 'o', 'u'].includes(firstChar);
+  return `${useAn ? 'an' : 'a'} ${trimmed.toLowerCase()}`;
+};
+
 interface PremiereCutsceneProps {
   onComplete: () => void;
   gameState?: GameState;
@@ -35,7 +44,7 @@ export const PremiereCutscene = ({ onComplete, gameState }: PremiereCutsceneProp
       speaker: playerName,
       text:
         backgroundLabel
-          ? `Back home you\'re ${backgroundLabel.toLowerCase()}. Tonight you\'re the person about to walk into a house full of strangers and cameras.`
+          ? `Back home you\'re ${describeBackground(backgroundLabel)}. Tonight you\'re the person about to walk into a house full of strangers and cameras.`
           : 'Back home you had a normal life. Tonight you\'re the person about to walk into a house full of strangers and cameras.',
       aside:
         primary
@@ -70,9 +79,11 @@ export const PremiereCutscene = ({ onComplete, gameState }: PremiereCutsceneProp
       title: 'First Impressions',
       speaker: c.name,
       text: [
-        bg ? `${c.name} laughs as they cross the threshold, talking about life as ${bg.toLowerCase()}.` : `${c.name} fills the doorway with an easy grin.`,
+        bg
+          ? `${c.name} laughs as they cross the threshold, talking about life as ${describeBackground(bg)}.`
+          : `${c.name} fills the doorway with an easy grin.`,
         c.publicPersona
-          ? `Casting called them \"${c.publicPersona}\". You watch to see if the room believes it.`
+          ? `Casting calls them "${c.publicPersona}". You watch to see whether the room believes it.`
           : 'They take in the room quickly, eyes bouncing from camera to faces and back again.',
       ].join(' '),
     });
