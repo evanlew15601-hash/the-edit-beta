@@ -1,5 +1,13 @@
 import { GameState, CutsceneSlide, NarrativeBeat } from '@/types/game';
 
+function withIndefiniteArticle(phrase: string) {
+  const trimmed = phrase.trim();
+  if (!trimmed) return phrase;
+  const firstChar = trimmed[0].toLowerCase();
+  const useAn = ['a', 'e', 'i', 'o', 'u'].includes(firstChar);
+  return `${useAn ? 'an' : 'a'} ${trimmed}`;
+}
+
 function getPlayer(gs: GameState) {
   return gs.contestants.find((c) => c.name === gs.playerName);
 }
@@ -15,10 +23,10 @@ function getBackstoryContext(gs: GameState): { summary?: string; line?: string }
       : bgName;
 
   const summary = base
-    ? `Before the show, you worked as ${base.toLowerCase()}.`
+    ? `Before the show, you worked as ${withIndefiniteArticle(base.toLowerCase())}.`
     : undefined;
 
-  const line = base ? `${p.name}, ${base}.` : undefined;
+  const line = base ? `${p.name}, ${withIndefiniteArticle(base)}.` : undefined;
 
   return { summary, line };
 }

@@ -57,7 +57,7 @@ export function getGameplayConfessionalPrompts(gs: GameState, player: Contestant
       prompts.push({
         id: 'hc_post_reveal',
         category: 'reflection',
-        prompt: `The house knows you're Mars Vega's child. ${strongestAlly ? `Did ${strongestAlly} handle it well?` : 'How did people react?'}`,
+        prompt: `The house knows about your connection to Mars Vega now. ${strongestAlly ? `Did ${strongestAlly} handle it well?` : 'How did people react?'}`,
         followUp: 'Are you playing your own game or living down the connection?',
         suggestedTones: ['vulnerable', 'defiant'],
         editPotential: 9
