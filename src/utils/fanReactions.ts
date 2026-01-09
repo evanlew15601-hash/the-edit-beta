@@ -5,6 +5,30 @@ import { memoryEngine } from './memoryEngine';
 const shownPosts = new Set<string>();
 const shownContextualPosts = new Set<string>();
 
+type AudienceSummary = {
+  latestWeeklyRating?: number;
+  prevWeeklyRating?: number;
+  ratingDelta?: number;
+};
+
+function getAudienceSummary(gameState: GameState): AudienceSummary {
+  const history = gameState.ratingsHistory || [];
+  const weeklyEntries = history.filter(
+    h => typeof h.reason === 'string' && h.reason.toLowerCase().startsWith('weekly')
+  );
+  const latest = weeklyEntries[weeklyEntries.length - 1];
+  const prev = weeklyEntries[weeklyEntries.length - 2];
+
+  return {
+    latestWeeklyRating: latest?.rating,
+    prevWeeklyRating: prev?.rating,
+    ratingDelta:
+      latest && prev
+        ? Math.round((latest.rating - prev.rating) * 100) / 100
+        : undefined,
+  };
+}
+
 export const generateFanReaction = (gameState: GameState): string => {
   // Generate unique reactions based on current game state
   const recentEvents = gameState.interactionLog
@@ -109,7 +133,7 @@ export function generateFanReactions(gameState: GameState): string[] {
   // Enhanced strategic gameplay reactions
   recentActions.forEach(action => {
     switch (action.type) {
-      case 'scheme':
+      case 'scheme': {
         const schemeCount = recentActions.filter(a => a.type === 'scheme').length;
         const target = action.participants.find(p => p !== playerName);
         if (schemeCount > 2) {
@@ -118,15 +142,17 @@ export function generateFanReactions(gameState: GameState): string[] {
           reactions.push(`Strategic move against ${target} has fans analyzing every angle - some love it, some think it's too risky`);
         }
         break;
-      case 'alliance_meeting':
-        const playerAlliances = alliances.filter(a => a.members.includes(playerName));
-        if (playerAlliances.length > 1) {
+      }
+      case 'alliance_meeting': {
+        const playerAlliancesForAction = alliances.filter(a => a.members.includes(playerName));
+        if (playerAlliancesForAction.length > 1) {
           reactions.push(`${playerName} managing multiple alliances has superfans making theory charts - genius or dangerous?`);
         } else {
           reactions.push(`Solid alliance strategy from ${playerName} - building the foundation for a deep run`);
         }
         break;
-      case 'talk':
+      }
+      case 'talk': {
         if (action.tone === 'aggressive') {
           const opponent = action.participants.find(p => p !== playerName);
           reactions.push(`The tension between ${playerName} and ${opponent} has been building for DAYS - this confrontation was inevitable`);
@@ -140,7 +166,8 @@ export function generateFanReactions(gameState: GameState): string[] {
           }
         }
         break;
-      case 'dm':
+      }
+      case 'dm': {
         const dmCount = recentActions.filter(a => a.type === 'dm').length;
         if (dmCount >= 3) {
           reactions.push(`${playerName} in full information mode - fans speculating about who knows what intel`);
@@ -148,10 +175,12 @@ export function generateFanReactions(gameState: GameState): string[] {
           reactions.push(`Strategic private conversation has fans wondering what crucial info was shared`);
         }
         break;
-      case 'activity':
+      }
+      case 'activity': {
         const partner = action.participants.find(p => p !== playerName);
         reactions.push(`Smart of ${playerName} to bond with ${partner} outside pure strategy - building real trust`);
         break;
+      }
     }
   });
 
@@ -200,6 +229,40 @@ export function generateFanReactions(gameState: GameState): string[] {
   // Jury phase countdown reactions
   if (gameState.daysUntilJury !== undefined && gameState.daysUntilJury <= 7) {
     reactions.push(`Only ${gameState.daysUntilJury} days until jury! Every ${playerName} move is crucial now`);
+  }
+
+  // Ratings-aware reactions
+  const { latestWeeklyRating: latest, ratingDelta: delta } = getAudienceSummary(gameState);
+  const approval = editPerception.audienceApproval;
+
+  if (typeof latest === 'number') {
+    if (latest >= 7.5 && (delta ?? 0) > 0) {
+      reactions.push(
+        `Episode rating climbs to ${latest.toFixed(1)} – fans calling this week some of the best TV of the season.`
+      );
+    } else if (latest <= 4.5 && (delta ?? 0) < 0) {
+      reactions.push(
+        `Ratings dip to ${latest.toFixed(1)} – viewers saying the week felt light on big moves and strategy.`
+      );
+    }
+
+    if (latest >= 7.5 && approval < 0) {
+      reactions.push(
+        `${latest.toFixed(1)} rating but a split fandom – people can't stop watching ${playerName} even as they drag their choices.`
+      );
+    }
+  }
+
+  if (editPerception.persona === 'Hero' && approval > 20 && typeof latest === 'number' && latest >= 7.0) {
+    reactions.push(
+      `The ${playerName} winner edit is in full swing – strong ratings and solid support from both casuals and superfans.`
+    );
+  }
+
+  if (editPerception.persona === 'Villain' && typeof latest === 'number' && latest >= 7.0) {
+    reactions.push(
+      `${playerName} is carrying the season as the chaos engine – ratings are high even as half the fandom swears they can't stand them.`
+    );
   }
 
   // Filter out duplicates and return varied reactions
@@ -267,6 +330,14 @@ export function generateContextualFanReactions(
     reactions.push(`${playerName} making selective strategic moves - focused gameplay approach`);
   } else {
     reactions.push(`${playerName} keeping quiet has fans divided - strategic patience or dangerous invisibility?`);
+  }
+
+  // Ratings-aware context
+  const { latestWeeklyRating: latest } = getAudienceSummary(gameState);
+  if (typeof latest === 'number' && actionType === 'scheme') {
+    reactions.push(
+      `With the season sitting at a ${latest.toFixed(1)} average, fans are saying this latest scheme from ${playerName} might be exactly what the show needed.`
+    );
   }
 
   // Filter against contextual posts history
