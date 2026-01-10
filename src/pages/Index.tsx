@@ -28,6 +28,7 @@ const Index = () => {
     submitFinaleSpeech,
     submitPlayerVote,
     submitFinal3Vote,
+    continueFromFinal3Results,
     respondToForcedConversation,
     submitAFPVote,
     endGame,
@@ -182,6 +183,7 @@ const Index = () => {
             gameState={gameState}
             onSubmitVote={submitFinal3Vote}
             onTieBreakResult={handleTieBreakResult}
+            onContinueFromResults={continueFromFinal3Results}
           />
         );
       
@@ -247,7 +249,10 @@ const Index = () => {
         // New phase-specific quick actions
         onSubmitPlayerVote={submitPlayerVote}
         onSubmitFinal3Vote={submitFinal3Vote}
-        onTieBreakResult={(eliminated, w1, w2, method) => handleTieBreakResult(eliminated, w1, w2, method)}
+        onFinalizeFinal3Results={continueFromFinal3Results}
+        onTieBreakResult={(eliminated, w1, w2, method) =>
+          handleTieBreakResult(eliminated, w1, w2, method)
+        }
         onEndGame={(winner, votes, rationales) => endGame(winner, votes, rationales)}
       />
     </ErrorBoundary>

@@ -23,6 +23,10 @@ export const processVoting = (
     };
   }
 
+  // Special-case: Final 3 vote context (used to detect 1-1-1 ties)
+  const isFinalThreeVote =
+    gameState.gamePhase === 'final_3_vote' && activeContestants.length === 3;
+
   const debugEnabled = !!gameState.debugMode;
   const debugVoters: VotingDebugVoterEntry[] = [];
 
@@ -333,102 +337,116 @@ export const processVoting = (
   let tieBreak: VotingRecord['tieBreak'] | undefined = undefined;
 
   if (tiedAtMax.length > 1) {
-    // 1) Revote among tied only
-    const revoteCandidates = new Set(tiedAtMax);
-    const revoteVotes: { [voter: string]: string } = {};
-    const revoteCounts: { [name: string]: number } = {} as any;
+    // Special-case: pure 1-1-1 tie in the Final 3.
+    // In this context we surface the tie to the UI and let a dedicated tie-break route resolve it,
+    // rather than auto-resolving via revote/sudden-death here.
+    const isPureFinalThreeTie =
+      isFinalThreeVote &&
+      entries.length === 3 &&
+      maxVotes === 1 &&
+      tiedAtMax.length === 3;
 
-    activeContestants.forEach(voter => {
-      if (voter.name === playerName) return; // Player not simulated here
-      if (revoteCandidates.has(voter.name)) return; // Tied players abstain
+    if (!isPureFinalThreeTie) {
+      // 1) Revote among tied only
+      const revoteCandidates = new Set(tiedAtMax);
+      const revoteVotes: { [voter: string]: string } = {};
+      const revoteCounts: { [name: string]: number } = {} as any;
 
-      // Choose among tied based on threat + relationships
-      let choice = '';
-      let bestScore = -Infinity;
-      tiedAtMax.forEach(candidate => {
-        if (candidate === immunityWinner) return; // still cannot target immune, though unlikely
-        let score = (threatLevels.get(candidate) || 0);
-        const relationship = voter.memory.filter(m => 
-          m.participants.includes(candidate) && m.type === 'conversation'
-        ).reduce((sum, m) => sum + m.emotionalImpact, 0);
-        score += -relationship * 5;
-        // Small random factor
-        score += (Math.random() - 0.5) * 5;
-        if (score > bestScore) { bestScore = score; choice = candidate; }
-      });
+      activeContestants.forEach(voter => {
+        if (voter.name === playerName) return; // Player not simulated here
+        if (revoteCandidates.has(voter.name)) return; // Tied players abstain
 
-      if (choice) {
-        revoteVotes[voter.name] = choice;
-        revoteCounts[choice] = (revoteCounts[choice] || 0) + 1;
-      }
-    });
+        // Choose among tied based on threat + relationships
+        let choice = '';
+        let bestScore = -Infinity;
+        tiedAtMax.forEach(candidate => {
+          if (candidate === immunityWinner) return; // still cannot target immune, though unlikely
+          let score = (threatLevels.get(candidate) || 0);
+          const relationship = voter.memory.filter(m => 
+            m.participants.includes(candidate) && m.type === 'conversation'
+          ).reduce((sum, m) => sum + m.emotionalImpact, 0);
+          score += -relationship * 5;
+          // Small random factor
+          score += (Math.random() - 0.5) * 5;
+          if (score > bestScore) { bestScore = score; choice = candidate; }
+        });
 
-    // Determine revote winner/loser
-    const topRevote = Object.entries(revoteCounts).reduce((prev, cur) => cur[1] > prev[1] ? cur : prev, ['', -Infinity as any]);
-    const revoteMax = topRevote[1] as number;
-    const revoteTied = Object.entries(revoteCounts).filter(([, c]) => c === revoteMax).map(([n]) => n);
-
-    if (revoteTied.length === 1) {
-      eliminated = revoteTied[0];
-      tieBreak = {
-        tied: tiedAtMax,
-        method: 'revote',
-        revote: { votes: revoteVotes, counts: revoteCounts },
-        log: [
-          `Tie detected between ${tiedAtMax.join(', ')}. Conducted a revote among housemates (excluding tied).`,
-          `Revote result: ${revoteTied[0]} received the most votes in the tie-break.`
-        ]
-      };
-    } else {
-      // 2) Sudden-death mini-competition among revoteTied
-      const compScores = new Map<string, number>();
-      revoteTied.forEach(name => {
-        const person = activeContestants.find(c => c.name === name) || contestants.find(c => c.name === name);
-        let score = 50;
-        if (person) {
-          // Use disposition hints as lightweight ability weights
-          const disp = person.psychProfile.disposition;
-          if (disp.includes('competitive')) score += 15;
-          if (disp.includes('driven')) score += 10;
-          if (disp.includes('strategic')) score += 5;
-          score += (100 - person.psychProfile.suspicionLevel) * 0.1;
-          score += person.psychProfile.trustLevel * 0.05;
+        if (choice) {
+          revoteVotes[voter.name] = choice;
+          revoteCounts[choice] = (revoteCounts[choice] || 0) + 1;
         }
-        // Reduce randomness so stats and relationships carry more weight in sudden-death outcomes
-        score += (Math.random() - 0.5) * 10;
-        compScores.set(name, score);
       });
-      const suddenWinner = [...compScores.entries()].reduce((p, c) => c[1] > p[1] ? c : p)[0];
-      const suddenLoser = revoteTied.find(n => n !== suddenWinner) || revoteTied[0];
-      eliminated = suddenLoser;
-      tieBreak = {
-        tied: tiedAtMax,
-        method: 'sudden_death',
-        revote: { votes: revoteVotes, counts: revoteCounts },
-        suddenDeathWinner: suddenWinner,
-        suddenDeathLoser: suddenLoser,
-        log: [
-          `Tie persisted after revote between ${revoteTied.join(', ')}.`,
-          `A sudden-death mini-competition was held. ${suddenWinner} won; ${suddenLoser} was eliminated.`
-        ]
-      };
+
+      // Determine revote winner/loser
+      const topRevote = Object.entries(revoteCounts).reduce((prev, cur) => cur[1] > prev[1] ? cur : prev, ['', -Infinity as any]);
+      const revoteMax = topRevote[1] as number;
+      const revoteTied = Object.entries(revoteCounts).filter(([, c]) => c === revoteMax).map(([n]) => n);
+
+      if (revoteTied.length === 1) {
+        eliminated = revoteTied[0];
+        tieBreak = {
+          tied: tiedAtMax,
+          method: 'revote',
+          revote: { votes: revoteVotes, counts: revoteCounts },
+          log: [
+            `Tie detected between ${tiedAtMax.join(', ')}. Conducted a revote among housemates (excluding tied).`,
+            `Revote result: ${revoteTied[0]} received the most votes in the tie-break.`
+          ]
+        };
+      } else {
+        // 2) Sudden-death mini-competition among revoteTied
+        const compScores = new Map<string, number>();
+        revoteTied.forEach(name => {
+          const person = activeContestants.find(c => c.name === name) || contestants.find(c => c.name === name);
+          let score = 50;
+          if (person) {
+            // Use disposition hints as lightweight ability weights
+            const disp = person.psychProfile.disposition;
+            if (disp.includes('competitive')) score += 15;
+            if (disp.includes('driven')) score += 10;
+            if (disp.includes('strategic')) score += 5;
+            score += (100 - person.psychProfile.suspicionLevel) * 0.1;
+            score += person.psychProfile.trustLevel * 0.05;
+          }
+          // Reduce randomness so stats and relationships carry more weight in sudden-death outcomes
+          score += (Math.random() - 0.5) * 10;
+          compScores.set(name, score);
+        });
+        const suddenWinner = [...compScores.entries()].reduce((p, c) => c[1] > p[1] ? c : p)[0];
+        const suddenLoser = revoteTied.find(n => n !== suddenWinner) || revoteTied[0];
+        eliminated = suddenLoser;
+        tieBreak = {
+          tied: tiedAtMax,
+          method: 'sudden_death',
+          revote: { votes: revoteVotes, counts: revoteCounts },
+          suddenDeathWinner: suddenWinner,
+          suddenDeathLoser: suddenLoser,
+          log: [
+            `Tie persisted after revote between ${revoteTied.join(', ')}.`,
+            `A sudden-death mini-competition was held. ${suddenWinner} won; ${suddenLoser} was eliminated.`
+          ]
+        };
+      }
     }
   }
 
-  // If still no eliminated (e.g., single winner path), pick the sole max target
-  if (!eliminated) {
+  // If still no eliminated (e.g., single winner path or surfaced Final 3 tie), pick the sole max target
+  if (!eliminated && !(isFinalThreeVote && tiedAtMax.length > 1 && maxVotes === 1)) {
     const sole = entries.find(([, c]) => c === maxVotes)?.[0];
     if (sole) eliminated = sole;
   }
 
   // Reason line
-  const reason = eliminated === playerName 
-    ? 'You have been eliminated by the other contestants'
-    : tieBreak
-      ? (tieBreak.method === 'revote'
-          ? `${eliminated} lost the tie-break revote and was eliminated`
-          : `${eliminated} lost the sudden-death tie-break and was eliminated`)
-      : `${eliminated} was seen as the biggest threat and received ${maxVotes} votes`;
+  const reason =
+    !eliminated && isFinalThreeVote && tiedAtMax.length > 1 && maxVotes === 1
+      ? 'Final 3 vote resulted in a 1-1-1 tie; tie-break will be decided.'
+      : eliminated === playerName 
+        ? 'You have been eliminated by the other contestants'
+        : tieBreak
+          ? (tieBreak.method === 'revote'
+              ? `${eliminated} lost the tie-break revote and was eliminated`
+              : `${eliminated} lost the sudden-death tie-break and was eliminated`)
+          : `${eliminated} was seen as the biggest threat and received ${maxVotes} votes`;
 
   // Optional debug payload for developer tooling
   let debug: VotingRecord['debug'] | undefined;

@@ -971,7 +971,6 @@ export const useGameState = () => {
       ...prev,
       finaleSpeechesGiven: true,
       finaleSpeech: (speech || '').trim(),
-      gamePhase: 'jury_vote' as const
     }));
   }, []);
 
@@ -1326,49 +1325,94 @@ export const useGameState = () => {
           suddenDeathWinner: tieBreakResult.winner,
           log: [`Tie-break challenge determined ${tieBreakResult.winner} advances to Final 2`]
         };
-        votingResult.eliminated = active.find(c => c.name !== tieBreakResult.winner && c.name !== prev.playerName)?.name || '';
+        votingResult.eliminated = active.find(
+          c => c.name !== tieBreakResult.winner && c.name !== prev.playerName
+        )?.name || '';
       }
       
       votingResult.day = prev.currentDay;
       votingResult.playerVote = choice;
 
-      // Update relationship graph based on this critical Final 3 vote
-      if (votingResult.eliminated) {
-        relationshipGraphEngine.updateVotingRelationships(
-          votingResult.votes,
-          votingResult.eliminated,
-          prev.currentDay
-        );
+      // Detect a pure 1-1-1 Final 3 tie from the recorded votes.
+      const tally: { [name: string]: number } = {};
+      Object.values(votingResult.votes || {}).forEach(target => {
+        if (!target) return;
+        tally[target] = (tally[target] || 0) + 1;
+      });
+      const counts = Object.values(tally);
+      const isPureFinalThreeTie =
+        prev.gamePhase === 'final_3_vote' &&
+        active.length === 3 &&
+        counts.length === 3 &&
+        counts.every(v => v === 1);
+
+      // Always append the Final 3 vote to history so the UI can show results.
+      // In a pure 1-1-1 tie, we keep all three active and let the tie-break route handle eliminations.
+      if (isPureFinalThreeTie && !votingResult.eliminated) {
+        return {
+          ...prev,
+          votingHistory: [...prev.votingHistory, votingResult],
+        };
       }
-      
-      const updatedContestants = prev.contestants.map(c => 
-        c.name === votingResult.eliminated 
+
+      // Non-tie Final 3: record the vote only. Elimination and phase change are handled
+      // by continueFromFinal3Results so the results screen can show the breakdown first.
+      return {
+        ...prev,
+        votingHistory: [...prev.votingHistory, votingResult],
+      };
+    });
+  }, []);
+
+  const continueFromFinal3Results = useCallback(() => {
+    setGameState(prev => {
+      // Only resolve from the dedicated Final 3 phase
+      if (prev.gamePhase !== 'final_3_vote') {
+        return prev;
+      }
+
+      const lastVote = prev.votingHistory[prev.votingHistory.length - 1];
+      if (!lastVote || !lastVote.eliminated) {
+        return prev;
+      }
+
+      const eliminatedName = lastVote.eliminated;
+      const active = prev.contestants.filter(c => !c.isEliminated);
+      // Guard: only apply when we truly had a Final 3 (non-tie) situation
+      if (active.length !== 3) {
+        return prev;
+      }
+
+      // Apply elimination now that the results have been shown
+      const updatedContestants = prev.contestants.map(c =>
+        c.name === eliminatedName
           ? { ...c, isEliminated: true, eliminationDay: prev.currentDay }
           : c
       );
-      
-      // Only add to jury if not in jury voting phase yet
+
+      // Ensure eliminated joins the jury (up to 7 members)
       let updatedJuryMembers = [...(prev.juryMembers || [])];
-      if (prev.gamePhase !== 'jury_vote' && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
-        updatedJuryMembers.push(votingResult.eliminated);
+      if (
+        eliminatedName &&
+        !updatedJuryMembers.includes(eliminatedName) &&
+        updatedJuryMembers.length < 7
+      ) {
+        updatedJuryMembers.push(eliminatedName);
       }
-      
+
       const remainingCount = updatedContestants.filter(c => !c.isEliminated).length;
-      
-      console.log('Final3Vote submitted - Remaining count:', remainingCount);
-      console.log('Final3Vote submitted - Going to:', remainingCount === 2 ? 'finale' : 'elimination');
-      
       const goingFinale = remainingCount === 2;
-      const finaleCutscene = goingFinale ? buildFinaleCutscene({ ...prev, contestants: updatedContestants } as GameState) : undefined;
+      const finaleCutscene = goingFinale
+        ? buildFinaleCutscene({ ...prev, contestants: updatedContestants } as GameState)
+        : undefined;
 
       return {
         ...prev,
         contestants: updatedContestants,
         juryMembers: updatedJuryMembers,
-        votingHistory: [...prev.votingHistory, votingResult],
         gamePhase: goingFinale ? 'cutscene' as const : 'elimination',
         currentCutscene: finaleCutscene || prev.currentCutscene,
-        isPlayerEliminated: votingResult.eliminated === prev.playerName || prev.isPlayerEliminated,
+        isPlayerEliminated: eliminatedName === prev.playerName || prev.isPlayerEliminated,
       };
     });
   }, []);
@@ -1757,6 +1801,15 @@ export const useGameState = () => {
 
           debugLog(`Simulated elimination: ${eliminationTarget.name}`);
         }
+
+        // After simulating down to a Final 2, rebuild the jury from all eliminated houseguests (up to 7)
+        updatedJuryMembers = updatedContestants
+          .filter(c => c.isEliminated)
+          .sort((a, b) => (b.eliminationDay || prev.currentDay) - (a.eliminationDay || prev.currentDay))
+          .slice(0, 7)
+          .map(c => c.name);
+
+        debugLog('continueFromElimination - Final simulated jury members:', updatedJuryMembers);
 
         return {
           ...prev,
@@ -2540,7 +2593,8 @@ export const useGameState = () => {
           winners: [winner1, winner2],
           selectionReason,
         },
-        votingHistory: [...prev.votingHistory.slice(0, -1), tieBreakRecord],
+        // Append a dedicated Final 3 tie-break record without dropping the previous elimination.
+        votingHistory: [...prev.votingHistory, tieBreakRecord],
         currentCutscene: undefined,
         gamePhase: 'cutscene' as const,
       };
@@ -2706,6 +2760,7 @@ export const useGameState = () => {
     submitFinaleSpeech,
     submitPlayerVote,
     submitFinal3Vote,
+    continueFromFinal3Results,
     respondToForcedConversation,
     submitAFPVote,
     completePremiere,

@@ -3,7 +3,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { GameState } from '@/types/game';
 import { Crown, Users, Trophy } from 'lucide-react';
-import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 
 interface Final3VoteScreenProps {
   gameState: GameState;
@@ -16,9 +15,15 @@ interface Final3VoteScreenProps {
     results?: { name: string; time: number }[],
     selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual'
   ) => void;
+  onContinueFromResults: () => void;
 }
 
-export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: Final3VoteScreenProps) => {
+export const Final3VoteScreen = ({
+  gameState,
+  onSubmitVote,
+  onTieBreakResult,
+  onContinueFromResults,
+}: Final3VoteScreenProps) => {
   const [choice, setChoice] = useState<string>('');
   const [showingResults, setShowingResults] = useState(false);
   const [voteResults, setVoteResults] = useState<{ [name: string]: number }>({});
@@ -98,100 +103,37 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
   }
 
   useEffect(() => {
-    if (showingResults && !tieBreakActive) {
-      // Simulate AI votes
-      const votes: { [name: string]: number } = {};
-      finalThree.forEach(c => {
-        votes[c.name] = 0;
-      });
+    if (!showingResults || tieBreakActive) return;
 
-      // Add player vote
-      if (choice) {
-        votes[choice] += 1;
-      }
-
-      // Refined: Generate AI votes using relationship graph, recent memories, and strategic threat.
-      // This reduces raw randomness so stats/relationships carry more weight.
-      finalThree
-        .filter(c => c.name !== gameState.playerName)
-        .forEach(voter => {
-          const targets = finalThree.filter(t => t.name !== voter.name);
-
-          const scoredTargets = targets.map(target => {
-            let score = 0;
-
-            // Relationship graph: low trust / high suspicion makes a target more expendable.
-            const rel = relationshipGraphEngine.getRelationship(voter.name, target.name);
-            if (rel) {
-              const trustComponent = (100 - rel.trust) * 0.35;
-              const suspicionComponent = rel.suspicion * 0.5;
-              const closenessComponent = (50 - rel.emotionalCloseness) * 0.1;
-              score += trustComponent + suspicionComponent + closenessComponent;
-            }
-
-            // Recent direct memories to capture betrayals and last impressions.
-            const memories = voter.memory.filter(m =>
-              m.participants.includes(target.name) &&
-              m.day >= gameState.currentDay - 21
-            );
-            const emotionalSum = memories.reduce(
-              (sum, memory) => sum + (memory.emotionalImpact || 0),
-              0
-            );
-            // Negative emotions increase desire to cut; positive emotions reduce it.
-            score += -emotionalSum * 3;
-
-            const betrayalHits = memories.filter(m =>
-              typeof m.content === 'string' &&
-              m.content.toLowerCase().includes('betrayal')
-            ).length;
-            if (betrayalHits > 0) {
-              score += betrayalHits * 15;
-            }
-
-            // Strategic threat: stronger social power and strategy mean worse to sit next to at Final 2.
-            const standing = relationshipGraphEngine.calculateSocialStanding(target.name);
-            const socialThreat = Math.max(0, standing.socialPower - 50);
-            const strategyStat =
-              typeof target.stats?.strategy === 'number' ? target.stats.strategy : 50;
-            const competitionThreat = Math.max(0, strategyStat - 50);
-
-            score += socialThreat * 0.7;
-            score += competitionThreat * 0.6;
-
-            // Very small player mitigation: don't over-focus on sniping the human unless they are clearly dominant.
-            if (target.name === gameState.playerName) {
-              score -= 8;
-            }
-
-            // Controlled randomness so the outcome isn't fully deterministic.
-            score += (Math.random() - 0.5) * 15;
-
-            return { name: target.name, score };
-          });
-
-          // Vote to eliminate the highest-scoring (most threatening / least liked) target.
-          const chosen = scoredTargets.reduce((prev, current) =>
-            current.score > prev.score ? current : prev
-          );
-
-          votes[chosen.name] += 1;
-        });
-
-      setVoteResults(votes);
-
-      // Check for 1-1-1 tie (Final 3 event only)
-      const voteValues = Object.values(votes);
-      const maxVotes = Math.max(...voteValues);
-      const playersWithMaxVotes = Object.entries(votes).filter(([, v]) => v === maxVotes);
-
-      if (playersWithMaxVotes.length > 1 && voteValues.every(v => v === 1)) {
-        // 1-1-1 tie: let the group decide the route to resolve it
+    // If debug forced a synthetic 1-1-1 vote, respect that snapshot.
+    if (Object.keys(voteResults).length > 0) {
+      const values = Object.values(voteResults);
+      if (finalThree.length === 3 && values.length === 3 && values.every(v => v === 1)) {
         setTieBreakActive(true);
         setTieBreakMethod(null);
       }
+      return;
     }
-  }, [showingResults, choice, gameState, finalThree, tieBreakActive]);
+
+    const lastVote = gameState.votingHistory[gameState.votingHistory.length - 1];
+    if (!lastVote || !lastVote.votes || Object.keys(lastVote.votes).length === 0) {
+      return;
+    }
+
+    const counts: { [name: string]: number } = {};
+    Object.values(lastVote.votes).forEach(target => {
+      if (!target) return;
+      counts[target] = (counts[target] || 0) + 1;
+    });
+
+    setVoteResults(counts);
+
+    const voteValues = Object.values(counts);
+    if (finalThree.length === 3 && voteValues.length === 3 && voteValues.every(v => v === 1)) {
+      setTieBreakActive(true);
+      setTieBreakMethod(null);
+    }
+  }, [showingResults, tieBreakActive, voteResults, gameState.votingHistory, finalThree.length]);
 
   // Execute selected tie-break route
   useEffect(() => {
@@ -603,6 +545,15 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
                 ))}
               </div>
             </Card>
+
+            <Button
+              variant="action"
+              size="wide"
+              className="mt-6"
+              onClick={onContinueFromResults}
+            >
+              Continue
+            </Button>
           </Card>
         </div>
       </div>

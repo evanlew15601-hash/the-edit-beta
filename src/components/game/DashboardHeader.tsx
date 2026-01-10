@@ -42,11 +42,22 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
     Math.max(0, gameState.nextEliminationDay - gameState.currentDay) : 0;
   
   const getPhaseSubtitle = () => {
-    if (remainingCount === 3) return "Final Three";
-    if (remainingCount === 2) return "Final Two";
-    if (isJuryPhase) return "Jury Phase";
-    if (weeksUntilJury <= 2) return "Pre-Jury Finale";
-    return "Pre-Jury";
+    // Only show \"Final Three\" label during the dedicated Final 3 phase
+    if (gameState.gamePhase === 'final_3_vote') return \"Final Three\";
+
+    // Final Two label once we're actually in finale / jury / post-season context
+    if (
+      remainingCount === 2 &&
+      (gameState.gamePhase === 'finale' ||
+        gameState.gamePhase === 'jury_vote' ||
+        gameState.gamePhase === 'post_season')
+    ) {
+      return \"Final Two\";
+    }
+
+    if (isJuryPhase) return \"Jury Phase\";
+    if (weeksUntilJury <= 2) return \"Pre-Jury Finale\";
+    return \"Pre-Jury\";
   };
 
   // Roster quick access toggle, persisted

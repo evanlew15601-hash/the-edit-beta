@@ -18,6 +18,7 @@ interface VotingDebugPanelProps {
   // New: phase-specific actions
   onSubmitPlayerVote?: (choice: string) => void;
   onSubmitFinal3Vote?: (choice: string) => void;
+  onFinalizeFinal3Results?: () => void;
   onTieBreakResult?: (eliminated: string, winner1: string, winner2: string, method?: 'challenge' | 'fire_making' | 'random_draw') => void;
   onEndGame?: (winner: string, votes: { [juryMember: string]: string }, rationales?: { [juryMember: string]: string }) => void;
 }
@@ -35,6 +36,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
   // Include optional handlers so they are in scope when used below
   onSubmitPlayerVote,
   onSubmitFinal3Vote,
+  onFinalizeFinal3Results,
   onTieBreakResult,
   onEndGame,
 }) => {
@@ -200,6 +202,16 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
                   Vote Out: {c.name}
                 </Button>
               ))}
+              {onFinalizeFinal3Results && (
+                <Button
+                  variant="action"
+                  size="sm"
+                  onClick={onFinalizeFinal3Results}
+                  className="w-full mb-1"
+                >
+                  Apply Final 3 Results → Finale/Elimination
+                </Button>
+              )}
               {/* Simple tie-break helpers: pick a winner among non-player actives */}
               {onTieBreakResult && nonPlayerActive.length >= 2 && (
                 <div className="mt-2">
@@ -209,7 +221,9 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
                     size="sm"
                     onClick={() => {
                       const winners = nonPlayerActive.slice(0, 2).map(c => c.name);
-                      const eliminated = active.find(c => c.name !== gameState.playerName && !winners.includes(c.name))?.name || nonPlayerActive[2]?.name || '';
+                      const eliminated = active.find(
+                        c => c.name !== gameState.playerName && !winners.includes(c.name)
+                      )?.name || nonPlayerActive[2]?.name || '';
                       onTieBreakResult(eliminated || '', winners[0], winners[1], 'challenge');
                     }}
                     className="w-full"
