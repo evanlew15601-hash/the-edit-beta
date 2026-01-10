@@ -15,9 +15,15 @@ interface Final3VoteScreenProps {
     results?: { name: string; time: number }[],
     selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual'
   ) => void;
+  onContinueFromResults: () => void;
 }
 
-export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: Final3VoteScreenProps) => {
+export const Final3VoteScreen = ({
+  gameState,
+  onSubmitVote,
+  onTieBreakResult,
+  onContinueFromResults,
+}: Final3VoteScreenProps) => {
   const [choice, setChoice] = useState<string>('');
   const [showingResults, setShowingResults] = useState(false);
   const [voteResults, setVoteResults] = useState<{ [name: string]: number }>({});
@@ -539,6 +545,15 @@ export const Final3VoteScreen = ({ gameState, onSubmitVote, onTieBreakResult }: 
                 ))}
               </div>
             </Card>
+
+            <Button
+              variant="action"
+              size="wide"
+              className="mt-6"
+              onClick={onContinueFromResults}
+            >
+              Continue
+            </Button>
           </Card>
         </div>
       </div>
