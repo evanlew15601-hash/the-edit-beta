@@ -1331,6 +1331,28 @@ export const useGameState = () => {
       votingResult.day = prev.currentDay;
       votingResult.playerVote = choice;
 
+      // Detect a pure 1-1-1 Final 3 tie from the recorded votes.
+      const tally: { [name: string]: number } = {};
+      Object.values(votingResult.votes || {}).forEach(target => {
+        if (!target) return;
+        tally[target] = (tally[target] || 0) + 1;
+      });
+      const counts = Object.values(tally);
+      const isPureFinalThreeTie =
+        prev.gamePhase === 'final_3_vote' &&
+        active.length === 3 &&
+        counts.length === 3 &&
+        counts.every(v => v === 1);
+
+      // If we surfaced a 1-1-1 Final 3 tie, record the vote and keep all three active.
+      // Final3VoteScreen will now show the breakdown and drive the tie-break route via onTieBreakResult.
+      if (isPureFinalThreeTie && !votingResult.eliminated) {
+        return {
+          ...prev,
+          votingHistory: [...prev.votingHistory, votingResult],
+        };
+      }
+
       // Update relationship graph based on this critical Final 3 vote
       if (votingResult.eliminated) {
         relationshipGraphEngine.updateVotingRelationships(
@@ -1348,7 +1370,7 @@ export const useGameState = () => {
       
       // Only add to jury if not in jury voting phase yet
       let updatedJuryMembers = [...(prev.juryMembers || [])];
-      if (prev.gamePhase !== 'jury_vote' && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
+      if (prev.gamePhase !== 'jury_vote' && votingResult.eliminated && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
         updatedJuryMembers.push(votingResult.eliminated);
       }
       
