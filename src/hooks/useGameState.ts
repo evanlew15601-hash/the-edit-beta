@@ -971,7 +971,6 @@ export const useGameState = () => {
       ...prev,
       finaleSpeechesGiven: true,
       finaleSpeech: (speech || '').trim(),
-      gamePhase: 'jury_vote' as const
     }));
   }, []);
 
@@ -1758,6 +1757,15 @@ export const useGameState = () => {
           debugLog(`Simulated elimination: ${eliminationTarget.name}`);
         }
 
+        // After simulating down to a Final 2, rebuild the jury from all eliminated houseguests (up to 7)
+        updatedJuryMembers = updatedContestants
+          .filter(c => c.isEliminated)
+          .sort((a, b) => (b.eliminationDay || prev.currentDay) - (a.eliminationDay || prev.currentDay))
+          .slice(0, 7)
+          .map(c => c.name);
+
+        debugLog('continueFromElimination - Final simulated jury members:', updatedJuryMembers);
+
         return {
           ...prev,
           contestants: updatedContestants,
@@ -2540,7 +2548,8 @@ export const useGameState = () => {
           winners: [winner1, winner2],
           selectionReason,
         },
-        votingHistory: [...prev.votingHistory.slice(0, -1), tieBreakRecord],
+        // Append a dedicated Final 3 tie-break record without dropping the previous elimination.
+        votingHistory: [...prev.votingHistory, tieBreakRecord],
         currentCutscene: undefined,
         gamePhase: 'cutscene' as const,
       };
