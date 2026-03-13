@@ -54,7 +54,7 @@ export function applyDailySpecialBackgroundLogic(gs: GameState): GameState {
         const taskWeek = t.week ?? getCurrentWeek(t.dayAssigned);
         if (currentWeek <= taskWeek) return false;
         const { end } = getWeekBounds(taskWeek);
-        return next.currentDay >= end + GRACE_DAYS;
+        return next.currentDay > end + GRACE_DAYS;
       });
 
       // Hard consequence only after multiple missed weekly tasks, with a grace period.

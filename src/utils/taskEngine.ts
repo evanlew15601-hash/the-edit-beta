@@ -32,9 +32,13 @@ function distinctOthers(entries: { participants?: string[] }[], playerName: stri
   return set.size;
 }
 
+const GRACE_DAYS = 2;
+
 export function computeObjectiveProgress(gs: GameState, objective: ProductionTaskObjective, week: number): number {
   const { start, end } = getWeekBounds(week);
-  const logs = (gs.interactionLog || []).filter(l => l.day >= start && l.day <= end);
+  const currentDay = typeof gs.currentDay === 'number' ? gs.currentDay : end;
+  const endWithGrace = Math.min(end + GRACE_DAYS, currentDay);
+  const logs = (gs.interactionLog || []).filter(l => l.day >= start && l.day <= endWithGrace);
   switch (objective.kind) {
     case 'talk_count': {
       const talks = logs.filter(l => l.type === 'talk' && l.source === 'player');
@@ -54,7 +58,7 @@ export function computeObjectiveProgress(gs: GameState, objective: ProductionTas
       return meets.length;
     }
     case 'confessional_count': {
-      const confs = (gs.confessionals || []).filter(c => c.day >= start && c.day <= end);
+      const confs = (gs.confessionals || []).filter(c => c.day >= start && c.day <= endWithGrace);
       return confs.length;
     }
     case 'observation_count': {
@@ -67,7 +71,7 @@ export function computeObjectiveProgress(gs: GameState, objective: ProductionTas
     }
     case 'immunity_win': {
       // Requires tracking of day for immunity wins; fallback: if immunityWinner is player during this week via ratingsHistory reason
-      const wins = (gs.ratingsHistory || []).filter(r => r.day >= start && r.day <= end && (gs.immunityWinner === gs.playerName || (r.reason || '').toLowerCase().includes('immunity'))).length;
+      const wins = (gs.ratingsHistory || []).filter(r => r.day >= start && r.day <= endWithGrace && (gs.immunityWinner === gs.playerName || (r.reason || '').toLowerCase().includes('immunity'))).length;
       return wins > 0 ? 1 : 0;
     }
     default:

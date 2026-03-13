@@ -27,7 +27,7 @@ import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarr
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene, buildImmunityRetiredCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
-import { getCurrentWeek, verifyAndUpdateTasks } from '@/utils/taskEngine';
+import { getCurrentWeek, getWeekBounds, verifyAndUpdateTasks } from '@/utils/taskEngine';
 import { BackgroundConversationEngine } from '@/utils/backgroundConversationEngine';
 import { computeWeeklyEpisodeRating } from '@/utils/audienceEpisodeRating';
 import { logInteractionToCloud } from '@/utils/interactionLogger';
@@ -39,13 +39,18 @@ type GameActionType =
   | 'house_meeting'
   | 'alliance_meeting';
 
-const isDevEnv = import.meta.env.MODE !== 'production';
+const isDebugEnv = () => {
+  if (import.meta.env.MODE !== 'production') return true;
+  if (typeof window === 'undefined') return false;
+  return !!(window as any).__RTV_DEBUG__;
+};
+
 const debugLog = (...args: any[]) => {
-  if (isDevEnv) console.log(...args);
+  if (import.meta.env.MODE !== 'production') console.log(...args);
 };
 
 const debugWarn = (...args: any[]) => {
-  if (isDevEnv) console.warn(...args);
+  if (isDebugEnv()) console.warn(...args);
 };
 
 function verifyAndUpdateTasksWithMissionCutscene(prev: GameState, baseNext: GameState): GameState {
@@ -135,6 +140,13 @@ export const useGameState = () => {
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // Allow beta builds to emit debug logs when debugMode is enabled.
+  // This is consumed by debugLog/debugWarn via window.__RTV_DEBUG__.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as any).__RTV_DEBUG__ = !!gameState.debugMode;
+  }, [gameState.debugMode]);
 
   const startGame = useCallback((playerName?: string) => {
     debugLog('Starting game, proceeding to character creation.', playerName ? `Provided name (ignored here): ${playerName}` : '');
@@ -284,22 +296,37 @@ export const useGameState = () => {
             description: newlyCompleted.description,
           };
         } else {
-          // On week rollover, treat last week's unfinished mission as failed
-          const prevWeek = getCurrentWeek(prev.currentDay);
-          const newWeek = getCurrentWeek(newDay);
-          if (newWeek > prevWeek) {
-            const failedTask = prevTasks.find((t: any) => (t.week ?? prevWeek) === prevWeek && !t.completed);
-            if (failedTask) {
+          // If a prior week's mission is still incomplete after a small grace window, treat it as failed.
+          const GRACE_DAYS = 2;
+          const currentWeek = getCurrentWeek(newDay);
+          const activeTwists = narrativeApplied.twistsActivated || prev.twistsActivated || [];
+
+          const candidate = nextTasks
+            .filter((t: any) => {
+              if (t.completed) return false;
+              const taskWeek = t.week ?? getCurrentWeek(t.dayAssigned);
+              return taskWeek < currentWeek;
+            })
+            .sort((a: any, b: any) => (b.week ?? 0) - (a.week ?? 0))[0];
+
+          if (candidate) {
+            const taskWeek = candidate.week ?? getCurrentWeek(candidate.dayAssigned);
+            const { end } = getWeekBounds(taskWeek);
+            const failureDay = end + GRACE_DAYS;
+            const failureFlag = `planted_mission_failed_w${taskWeek}`;
+
+            // Allow a full grace window (e.g., week ends on day 7, grace days = 2 => fail starting day 10).
+            if (newDay > failureDay && !activeTwists.includes(failureFlag)) {
               nextCutscene = buildTwistResultCutscene(
                 narrativeApplied as GameState,
                 'failure',
-                { taskId: failedTask.id },
+                { taskId: candidate.id },
               );
               missionBanner = {
                 day: newDay,
                 result: 'failure',
-                taskId: failedTask.id,
-                description: failedTask.description,
+                taskId: candidate.id,
+                description: candidate.description,
               };
 
               // Hard mechanic: failure airs on TV and hits immediately.
@@ -329,16 +356,12 @@ export const useGameState = () => {
                     10,
                     -2,
                     'event',
-                    `[Production] Mission failure aired: ${failedTask.id}`,
+                    `[Production] Mission failure aired: ${candidate.id}`,
                     newDay
                   );
                 });
 
-              const failureFlag = `planted_mission_failed_w${prevWeek}`;
-              const updatedTwists = Array.from(
-                new Set([...(narrativeApplied.twistsActivated || []), failureFlag])
-              );
-
+              const updatedTwists = Array.from(new Set([...(activeTwists || []), failureFlag]));
               narrativeApplied = { ...narrativeApplied, contestants: updatedContestants, twistsActivated: updatedTwists };
             }
           }
@@ -3005,13 +3028,16 @@ export const useGameState = () => {
 
         // Append interaction log with tag metadata to support repetition heuristics
         const tagPattern = `[TAG intent=${choice.intent} topic=${choice.topics[0]}]`;
-        const interactionEntry = {
+        const interactionEntry: InteractionLogEntry = {
           day: prev.currentDay,
           type: interaction,
           participants: [prev.playerName, target],
           content: `${tagPattern} ${choice.choiceId}`,
           tone: choice.tone,
           source: 'player' as const,
+          intent: choice.intent,
+          topic: choice.topics[0],
+          choiceId: choice.choiceId,
         };
 
         // Update actions usage for the specific interaction
@@ -3025,6 +3051,25 @@ export const useGameState = () => {
           ...(prev.ratingsHistory || []),
           { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
         ];
+
+        // Fire-and-forget cloud logging so beta analysis can see tag-based interactions too.
+        void logInteractionToCloud({
+          day: prev.currentDay,
+          type:
+            interaction === 'dm'
+              ? 'dm'
+              : interaction === 'scheme'
+              ? 'scheme'
+              : interaction === 'activity'
+              ? 'event'
+              : 'conversation',
+          participants: [prev.playerName, target],
+          npcName: target,
+          playerName: prev.playerName,
+          playerMessage: `${tagPattern} ${choice.choiceId}`,
+          aiResponse: reactText,
+          tone: choice.tone,
+        });
 
         const newState: GameState = {
           ...prev,
@@ -3214,8 +3259,8 @@ export const useGameState = () => {
       if (!gameStateRef.current.debugMode) return;
       skipToJury();
     };
-    window.addEventListener('skipToJury', handleSkip);
-    return () => window.removeEventListener('skipToJury', handleSkip);
+    window.addEventListener('rtv:test:skipToJury', handleSkip);
+    return () => window.removeEventListener('rtv:test:skipToJury', handleSkip);
   }, [skipToJury]);
 
   const handleTieBreakResult = useCallback((

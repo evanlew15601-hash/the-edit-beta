@@ -39,8 +39,8 @@ const Index = () => {
       continueFromElimination(true); // Force player elimination
     };
 
-    window.addEventListener('testForceElimination', handleTestElimination);
-    return () => window.removeEventListener('testForceElimination', handleTestElimination);
+    window.addEventListener('rtv:test:forceElimination', handleTestElimination);
+    return () => window.removeEventListener('rtv:test:forceElimination', handleTestElimination);
   }, [continueFromElimination, gameState.debugMode]);
 
   const renderScreen = () => {

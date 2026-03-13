@@ -80,6 +80,61 @@ export const VotingDebugPanel: React.FC = () => {
       }[];
   }, [active, gameState.currentDay]);
 
+  const player = React.useMemo(
+    () => gameState.contestants.find(c => c.name === gameState.playerName),
+    [gameState.contestants, gameState.playerName]
+  );
+
+  const planted = player?.special && player.special.kind === 'planted_houseguest' ? player.special : undefined;
+
+  const plantedWeekTasks = React.useMemo(() => {
+    if (!planted) return [];
+    const week = Math.max(1, Math.floor((gameState.currentDay - 1) / 7) + 1);
+    return (planted.tasks || []).filter(t => (t.week ?? week) === week);
+  }, [planted, gameState.currentDay]);
+
+  const confessionalStats = React.useMemo(() => {
+    const confs = gameState.confessionals || [];
+    const day = gameState.currentDay;
+    const week = Math.max(1, Math.floor((day - 1) / 7) + 1);
+    const start = (week - 1) * 7 + 1;
+    const end = week * 7;
+
+    const total = confs.length;
+    const today = confs.filter(c => c.day === day).length;
+    const thisWeek = confs.filter(c => c.day >= start && c.day <= end).length;
+    const selectedTotal = confs.filter((c: any) => !!c.selected).length;
+    const selectedWeek = confs.filter((c: any) => !!c.selected && c.day >= start && c.day <= end).length;
+
+    return { week, start, end, total, today, thisWeek, selectedTotal, selectedWeek };
+  }, [gameState.confessionals, gameState.currentDay]);
+
+  const integrityWarnings = React.useMemo(() => {
+    const warnings: string[] = [];
+
+    if (gameState.twistNarrative?.beats) {
+      const activeBeats = gameState.twistNarrative.beats.filter(b => b.status === 'active');
+      if (activeBeats.length > 1) {
+        warnings.push(`Multiple active beats: ${activeBeats.map(b => b.id).join(', ')}`);
+      }
+    }
+
+    if (planted) {
+      const tasks = planted.tasks || [];
+      if (tasks.length === 0) warnings.push('Planted HG: no tasks found');
+      if (tasks.length > 0 && plantedWeekTasks.length === 0) {
+        warnings.push(`Planted HG: no tasks for week ${confessionalStats.week}`);
+      }
+
+      const unrewarded = tasks.filter(t => t.completed && !t.rewarded);
+      if (unrewarded.length > 0) {
+        warnings.push(`Planted HG: completed but not rewarded: ${unrewarded.map(t => t.id).join(', ')}`);
+      }
+    }
+
+    return warnings;
+  }, [gameState.twistNarrative, planted, plantedWeekTasks.length, confessionalStats.week]);
+
   return (
     <div className="fixed bottom-4 right-4 z-50 w-[340px]">
       <Card className="p-4 shadow-xl border border-border bg-card/95 backdrop-blur-md rounded-lg">
@@ -146,6 +201,53 @@ export const VotingDebugPanel: React.FC = () => {
               Intel leaks: {gameState.productionIntel.leaks.map(l => `${l.npc} → ${l.target}`).join(' • ')}
             </div>
           )}
+          {gameState.missionBroadcastBanner && gameState.missionBroadcastBanner.day === gameState.currentDay && (
+            <div>
+              Mission banner: <span className={gameState.missionBroadcastBanner.result === 'success' ? 'text-primary' : 'text-destructive'}>
+                {gameState.missionBroadcastBanner.result}
+              </span>
+            </div>
+          )}
+
+          {plantedWeekTasks.length > 0 && (
+            <div className="pt-1">
+              <div className="text-muted-foreground">Planted HG • Week {confessionalStats.week}</div>
+              {plantedWeekTasks.slice(0, 2).map(t => (
+                <div key={t.id} className="flex justify-between">
+                  <span className="truncate mr-2">{t.id}</span>
+                  <span>
+                    {t.progress ?? 0}/{t.target ?? 0}{t.completed ? ' ✓' : ''}
+                  </span>
+                </div>
+              ))}
+              {plantedWeekTasks.length > 2 && (
+                <div className="text-muted-foreground">…{plantedWeekTasks.length - 2} more</div>
+              )}
+              {typeof gameState.playerFunds === 'number' && (
+                <div className="text-muted-foreground">Funds: ${gameState.playerFunds}</div>
+              )}
+            </div>
+          )}
+
+          <div className="pt-1">
+            <div className="text-muted-foreground">Confessionals</div>
+            <div>
+              Today: <span className="font-medium">{confessionalStats.today}</span> • Week: <span className="font-medium">{confessionalStats.thisWeek}</span> • Total:{' '}
+              <span className="font-medium">{confessionalStats.total}</span>
+            </div>
+            <div className="text-muted-foreground">
+              Selected: {confessionalStats.selectedWeek}/{confessionalStats.thisWeek} (week) • {confessionalStats.selectedTotal}/{confessionalStats.total} (total)
+            </div>
+          </div>
+
+          {integrityWarnings.length > 0 && (
+            <div className="pt-1 space-y-1">
+              <div className="text-muted-foreground">Integrity</div>
+              {integrityWarnings.map((w) => (
+                <div key={w} className="text-destructive">{w}</div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -172,10 +274,17 @@ export const VotingDebugPanel: React.FC = () => {
           </Button>
           <Button
             variant="critical"
-            onClick={() => window.dispatchEvent(new Event('testForceElimination'))}
+            onClick={() => window.dispatchEvent(new Event('rtv:test:forceElimination'))}
             className="w-full"
           >
             Force Player Elimination (Test)
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => window.dispatchEvent(new Event('rtv:test:skipToJury'))}
+            className="w-full"
+          >
+            Skip to Jury (Test)
           </Button>
 
           {/* Phase-specific quick actions */}

@@ -119,6 +119,10 @@ export interface InteractionLogEntry {
   tone?: string;
   ai_response?: string;
   source: 'player' | 'npc' | 'system' | 'emergent_event';
+  // Optional tag-talk metadata (used by edit/recap systems)
+  intent?: string;
+  topic?: string;
+  choiceId?: string;
 }
 
 export interface PlayerAction {
