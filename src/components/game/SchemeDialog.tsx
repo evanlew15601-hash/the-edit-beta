@@ -4,14 +4,13 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useGame } from '@/contexts/GameContext';
 import { Contestant } from '@/types/game';
 import { Badge } from '@/components/ui/badge';
 
 interface SchemeDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  contestants: Contestant[];
-  onSubmit: (target: string, content: string, tone: string) => void;
 }
 
 const PRESETS = [
@@ -22,17 +21,23 @@ const PRESETS = [
   { label: 'Trade secret', value: 'information_trade', text: (_: string) => `Exchange minor intel for loyalty—keep your core safe.` },
 ];
 
-export const SchemeDialog = ({ isOpen, onClose, contestants, onSubmit }: SchemeDialogProps) => {
+export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
+  const { gameState, useAction } = useGame();
+  const contestants: Contestant[] = useMemo(
+    () => gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName),
+    [gameState.contestants, gameState.playerName]
+  );
   const [schemeType, setSchemeType] = useState<string>('');
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [content, setContent] = useState('');
 
   const handleSubmit = () => {
     if (schemeType && selectedTarget && content) {
-      onSubmit(selectedTarget, content, schemeType);
+      useAction('scheme', selectedTarget, content, schemeType);
       setSchemeType('');
       setSelectedTarget('');
       setContent('');
+      onClose();
     }
   };
 

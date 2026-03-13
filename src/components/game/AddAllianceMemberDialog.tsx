@@ -1,32 +1,40 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Alliance, Contestant } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
-import { Users, UserPlus, Shield } from 'lucide-react';
+import { UserPlus, Shield } from 'lucide-react';
 
 interface AddAllianceMemberDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  alliances: Alliance[];
-  contestants: Contestant[];
-  playerName: string;
-  onSubmit: (allianceId: string, newMembers: string[]) => void;
 }
 
-export const AddAllianceMemberDialog = ({ isOpen, onClose, alliances, contestants, playerName, onSubmit }: AddAllianceMemberDialogProps) => {
+export const AddAllianceMemberDialog = ({ isOpen, onClose }: AddAllianceMemberDialogProps) => {
+  const { gameState, useAction } = useGame();
+  const alliances = useMemo(() => gameState.alliances, [gameState.alliances]);
+  const contestants = useMemo(() => gameState.contestants, [gameState.contestants]);
+  const playerName = gameState.playerName;
   const [selectedAlliance, setSelectedAlliance] = useState<string>('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
-  const handleSubmit = () => {
-    if (selectedAlliance && selectedMembers.length > 0) {
-      onSubmit(selectedAlliance, selectedMembers);
+  useEffect(() => {
+    if (isOpen) {
       setSelectedAlliance('');
       setSelectedMembers([]);
+    }
+  }, [isOpen]);
+
+  const handleSubmit = () => {
+    if (selectedAlliance && selectedMembers.length > 0) {
+      useAction('add_alliance_members', selectedAlliance, selectedMembers.join(','), 'strategic');
+      setSelectedAlliance('');
+      setSelectedMembers([]);
+      onClose();
     }
   };
 

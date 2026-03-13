@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
 import { useGame } from '@/contexts/GameContext';
@@ -28,14 +28,11 @@ type GameActionType =
 export const ActionPanel = () => {
   const {
     gameState,
-    useAction,
     advanceDay,
-    respondToForcedConversation,
   } = useGame();
 
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
-  const [forcedOpen, setForcedOpen] = useState(false);
   const [tagTalkOpen, setTagTalkOpen] = useState(false);
   const [tagTalkType, setTagTalkType] = useState<'talk' | 'dm' | 'scheme' | 'activity'>('talk');
   const [allianceMeetingOpen, setAllianceMeetingOpen] = useState(false);
@@ -77,21 +74,6 @@ export const ActionPanel = () => {
   const handleDialogClose = () => {
     setActiveDialog(null);
   };
-
-  const handleActionSubmit = (actionType: GameActionType, target?: string, content?: string, tone?: string) => {
-    useAction(actionType, target, content, tone);
-    setActiveDialog(null);
-  };
-
-  // Auto-open forced pull-aside if queued
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    if ((gameState.forcedConversationsQueue || []).length > 0) {
-      setForcedOpen(true);
-    } else {
-      setForcedOpen(false);
-    }
-  }, [gameState.forcedConversationsQueue]);
 
   return (
     <div className="space-y-6">
@@ -258,13 +240,8 @@ export const ActionPanel = () => {
       {/* Dialog Components */}
       {/* Forced Conversation */}
       <ConversationDialog
-        isOpen={forcedOpen && !!forcedItem}
+        isOpen={!!forcedItem}
         onClose={() => { /* forced; do not allow closing without reply */ }}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
-        onSubmit={(target, content, tone) => {
-          respondToForcedConversation(target, content, tone);
-          setForcedOpen(false);
-        }}
         forced
         presetTarget={forcedItem?.from}
         forcedTopic={forcedItem?.topic}
@@ -273,15 +250,11 @@ export const ActionPanel = () => {
       <ConversationDialog
         isOpen={activeDialog === 'talk'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
-        onSubmit={(target, content, tone) => handleActionSubmit('talk', target, content, tone)}
       />
       
       <DirectMessageDialog
         isOpen={activeDialog === 'dm'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
-        onSubmit={(target, content, tone) => handleActionSubmit('dm', target, content, tone)}
       />
       
       <ConfessionalDialog
@@ -292,15 +265,11 @@ export const ActionPanel = () => {
       <ObservationDialog
         isOpen={activeDialog === 'observe'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
-        onSubmit={() => handleActionSubmit('observe')}
       />
       
       <SchemeDialog
         isOpen={activeDialog === 'scheme'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
-        onSubmit={(target, content, tone) => handleActionSubmit('scheme', target, content, tone)}
       />
 
       <DaySkipDialog
@@ -311,7 +280,6 @@ export const ActionPanel = () => {
       <ActivityDialog
         isOpen={activeDialog === 'activity'}
         onClose={handleDialogClose}
-        onSubmit={(content) => handleActionSubmit('activity', undefined, content)}
       />
 
       <TagConversationDialog
@@ -323,13 +291,6 @@ export const ActionPanel = () => {
       <AllianceMeetingDialog
         isOpen={allianceMeetingOpen}
         onClose={() => setAllianceMeetingOpen(false)}
-        alliances={gameState.alliances}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
-        playerName={gameState.playerName}
-        onSubmit={(allianceId, agenda, tone) => {
-          useAction('alliance_meeting', allianceId, agenda, tone);
-          setAllianceMeetingOpen(false);
-        }}
       />
 
       {/* House Meeting - public, multi-round */}
@@ -341,24 +302,11 @@ export const ActionPanel = () => {
       <CreateAllianceDialog
         isOpen={createAllianceOpen}
         onClose={() => setCreateAllianceOpen(false)}
-        contestants={gameState.contestants}
-        playerName={gameState.playerName}
-        onSubmit={(name, members) => {
-          useAction('create_alliance', name, members.join(','), 'strategic');
-          setCreateAllianceOpen(false);
-        }}
       />
 
       <AddAllianceMemberDialog
         isOpen={addMemberOpen}
         onClose={() => setAddMemberOpen(false)}
-        alliances={gameState.alliances}
-        contestants={gameState.contestants}
-        playerName={gameState.playerName}
-        onSubmit={(allianceId, newMembers) => {
-          useAction('add_alliance_members', allianceId, newMembers.join(','), 'strategic');
-          setAddMemberOpen(false);
-        }}
       />
     </div>
   );

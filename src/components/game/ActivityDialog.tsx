@@ -3,11 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { useGame } from '@/contexts/GameContext';
 
 interface ActivityDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (content: string) => void;
 }
 
 const ACTIVITIES = [
@@ -33,20 +33,22 @@ const ACTIVITIES = [
   }
 ];
 
-export const ActivityDialog = ({ isOpen, onClose, onSubmit }: ActivityDialogProps) => {
+export const ActivityDialog = ({ isOpen, onClose }: ActivityDialogProps) => {
+  const { useAction } = useGame();
   const [selected, setSelected] = useState<string>('');
 
   const handleSubmit = () => {
     if (selected) {
-      onSubmit(selected);
+      useAction('activity', undefined, selected);
       setSelected('');
+      onClose();
     }
   };
 
   const preview = useMemo(() => {
     if (!selected) return null;
     // Low-stakes deltas
-    const trust = selected === 'group_task' || selected === 'stretch_session' ? 2 : 1;
+    const trust = selected === 'group_task' || selected === 'workout_session' ? 2 : 1;
     const susp = selected === 'truth_or_dare' ? 2 : -1;
     const influence = selected === 'cook_off' ? 2 : 1;
     const entertainment = selected === 'truth_or_dare' || selected === 'cook_off' ? 3 : 2;

@@ -1,17 +1,21 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useGame } from '@/contexts/GameContext';
 import { Contestant } from '@/types/game';
 
 interface ObservationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  contestants: Contestant[];
-  onSubmit: () => void;
 }
 
-export const ObservationDialog = ({ isOpen, onClose, contestants, onSubmit }: ObservationDialogProps) => {
+export const ObservationDialog = ({ isOpen, onClose }: ObservationDialogProps) => {
+  const { gameState, useAction } = useGame();
+  const contestants: Contestant[] = useMemo(
+    () => gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName),
+    [gameState.contestants, gameState.playerName]
+  );
   const [selectedObservation, setSelectedObservation] = useState<string>('');
 
   // Generate dynamic observation scenarios based on contestant relationships
@@ -58,8 +62,9 @@ export const ObservationDialog = ({ isOpen, onClose, contestants, onSubmit }: Ob
 
   const handleSubmit = () => {
     if (selectedObservation) {
-      onSubmit();
+      useAction('observe');
       setSelectedObservation('');
+      onClose();
     }
   };
 
