@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic, InteractionLogEntry } from '@/types/game';
 import { houseMeetingEngine } from '@/utils/houseMeetingEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
@@ -30,7 +29,7 @@ import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
 import { getCurrentWeek, getWeekBounds, verifyAndUpdateTasks } from '@/utils/taskEngine';
 import { BackgroundConversationEngine } from '@/utils/backgroundConversationEngine';
 import { computeWeeklyEpisodeRating } from '@/utils/audienceEpisodeRating';
-import { logInteractionToCloud } from '@/utils/interactionLogger';
+import { clearLocalInteractions, logInteractionToCloud } from '@/utils/interactionLogger';
 import { betaDebugBuildEnabled, canUseDebugUI, isDebugEnabled } from '@/utils/debugEnv';
 
 type GameActionType =
@@ -882,7 +881,7 @@ export const useGameState = () => {
           },
         ];
 
-        // Fire-and-forget cloud logging (maps local type → supabase enum)
+        // Fire-and-forget local logging (IndexedDB)
         void logInteractionToCloud({
           day: prev.currentDay,
           type: 'confessional',
@@ -2658,6 +2657,7 @@ export const useGameState = () => {
     });
     try {
       localStorage.removeItem('rtv_game_state');
+      void clearLocalInteractions();
     } catch (e) {
       debugWarn('Failed to clear saved game state', e);
     }
@@ -3050,7 +3050,7 @@ export const useGameState = () => {
           { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
         ];
 
-        // Fire-and-forget cloud logging so beta analysis can see tag-based interactions too.
+        // Fire-and-forget local logging so tag-based interactions are persisted too.
         void logInteractionToCloud({
           day: prev.currentDay,
           type:
@@ -3386,6 +3386,7 @@ export const useGameState = () => {
   const deleteSavedGame = useCallback(() => {
     try {
       localStorage.removeItem('rtv_game_state');
+      void clearLocalInteractions();
       debugLog('Deleted saved game.');
     } catch (e) {
       debugWarn('Failed to delete saved game state', e);

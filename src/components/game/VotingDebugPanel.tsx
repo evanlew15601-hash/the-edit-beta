@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { useGame } from '@/contexts/GameContext';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
+import { clearLocalInteractions, fetchLatestInteractions } from '@/utils/interactionLogger';
 
 export const VotingDebugPanel: React.FC = () => {
   const {
@@ -22,6 +23,52 @@ export const VotingDebugPanel: React.FC = () => {
     handleTieBreakResult,
     endGame,
   } = useGame();
+
+  const [exporting, setExporting] = React.useState(false);
+  const [clearingLogs, setClearingLogs] = React.useState(false);
+
+  const downloadJson = (filename: string, data: unknown) => {
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportDiagnostics = async () => {
+    setExporting(true);
+    try {
+      const interactions = await fetchLatestInteractions({ limit: 400 });
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        build: {
+          mode: import.meta.env.MODE,
+          betaDebug: import.meta.env.VITE_ENABLE_BETA_DEBUG,
+        },
+        gameState,
+        interactions,
+      };
+
+      const safePlayer = (gameState.playerName || 'player').replace(/[^a-z0-9_-]+/gi, '_');
+      downloadJson(`rtv_diagnostics_${safePlayer}_day${gameState.currentDay}.json`, payload);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const clearDiagnosticsLogs = async () => {
+    setClearingLogs(true);
+    try {
+      await clearLocalInteractions();
+    } finally {
+      setClearingLogs(false);
+    }
+  };
 
   if (!gameState.debugMode) return null;
 
@@ -251,6 +298,23 @@ export const VotingDebugPanel: React.FC = () => {
         </div>
 
         <div className="space-y-2">
+          <Button
+            variant="outline"
+            onClick={exportDiagnostics}
+            className="w-full"
+            disabled={exporting}
+          >
+            {exporting ? 'Exporting…' : 'Export Diagnostics'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={clearDiagnosticsLogs}
+            className="w-full"
+            disabled={clearingLogs}
+          >
+            {clearingLogs ? 'Clearing…' : 'Clear Local Logs'}
+          </Button>
+
           <Button variant="action" onClick={advanceDay} className="w-full">
             Advance Day
           </Button>
