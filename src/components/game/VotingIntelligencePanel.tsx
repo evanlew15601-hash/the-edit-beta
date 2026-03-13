@@ -4,15 +4,12 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { Target, Vote, MessageCircle, Shield } from 'lucide-react';
 
-interface VotingIntelligencePanelProps {
-  gameState: GameState;
-}
-
-export const VotingIntelligencePanel: React.FC<VotingIntelligencePanelProps> = ({ gameState }) => {
+export const VotingIntelligencePanel: React.FC = () => {
+  const { gameState } = useGame();
   const [selectedNPC, setSelectedNPC] = useState<string>('');
   const [desiredTarget, setDesiredTarget] = useState<string>('');
   const [result, setResult] = useState<{

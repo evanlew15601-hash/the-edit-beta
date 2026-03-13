@@ -2,14 +2,10 @@ import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 
-interface AFPCardProps {
-  gameState: GameState;
-  onAFPVote: (choice: string) => void;
-}
-
-export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
+export const AFPCard = () => {
+  const { gameState, submitAFPVote } = useGame();
   const [voted, setVoted] = useState(false);
   // Optional preferences
   const [excludeWinner, setExcludeWinner] = useState(false);
@@ -41,7 +37,7 @@ export const AFPCard = ({ gameState, onAFPVote }: AFPCardProps) => {
   }, [gameState.contestants, gameState.gameWinner, excludeWinner, favorPositive]);
 
   const handleVote = (name: string) => {
-    onAFPVote(name);
+    submitAFPVote(name);
     setVoted(true);
   };
 

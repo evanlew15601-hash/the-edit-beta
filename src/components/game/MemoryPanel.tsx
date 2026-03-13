@@ -1,14 +1,11 @@
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { memoryEngine } from '@/utils/memoryEngine';
 
-interface MemoryPanelProps {
-  gameState: GameState;
-}
-
-export const MemoryPanel = ({ gameState }: MemoryPanelProps) => {
+export const MemoryPanel = () => {
+  const { gameState } = useGame();
   const player = gameState.playerName;
 
   // Get strategic context from memory engine

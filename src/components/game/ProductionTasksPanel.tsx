@@ -1,16 +1,13 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { getCurrentWeek, getWeekBounds } from '@/utils/taskEngine';
 
-interface ProductionTasksPanelProps {
-  gameState: GameState;
-}
-
-export const ProductionTasksPanel = ({ gameState }: ProductionTasksPanelProps) => {
+export const ProductionTasksPanel = () => {
+  const { gameState } = useGame();
   const player = gameState.contestants.find(c => c.name === gameState.playerName);
   const week = getCurrentWeek(gameState.currentDay);
-  const { start, end } = getWeekBounds(week);
+  const { end } = getWeekBounds(week);
 
   if (!player || !player.special || player.special.kind !== 'planted_houseguest') return null;
 

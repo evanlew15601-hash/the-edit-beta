@@ -4,17 +4,11 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Crown, Users, MessageSquare } from 'lucide-react';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { AFPCard } from './AFPCard';
 
-interface FinaleScreenProps {
-  gameState: GameState;
-  onSubmitSpeech: (speech: string) => void;
-  onContinue: () => void;
-  onAFPVote: (choice: string) => void;
-}
-
-export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote }: FinaleScreenProps) => {
+export const FinaleScreen = () => {
+  const { gameState, submitFinaleSpeech, proceedToJuryVote, proceedToJuryVoteAsJuror } = useGame();
   const [playerSpeech, setPlayerSpeech] = useState('');
   const [speechSubmitted, setSpeechSubmitted] = useState(false);
   const [npcSpeeches, setNpcSpeeches] = useState<{ name: string; speech: string }[]>([]);
@@ -25,9 +19,7 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
   const isPlayerEliminated = playerContestant?.isEliminated || gameState.isPlayerEliminated || false;
   const isPlayerInFinale = finalTwo.some(c => c.name === gameState.playerName) && !isPlayerEliminated;
   
-  console.log('[FinaleScreen] Final two:', finalTwo.map(c => c.name));
-  console.log('[FinaleScreen] Player eliminated?', isPlayerEliminated);
-  console.log('[FinaleScreen] Player in finale?', isPlayerInFinale);
+  
 
   // Guard: Must have exactly 2 finalists
   if (finalTwo.length !== 2) {
@@ -56,7 +48,7 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
   );
 
   const handleSubmitSpeech = () => {
-    onSubmitSpeech(playerSpeech);
+    submitFinaleSpeech(playerSpeech);
     setSpeechSubmitted(true);
     
     // Generate NPC speeches
@@ -64,12 +56,12 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
       .filter(c => c.name !== gameState.playerName)
       .map(contestant => ({
         name: contestant.name,
-        speech: generateNPCSpeech(contestant, gameState)
+        speech: generateNPCSpeech(contestant)
       }));
     setNpcSpeeches(speeches);
   };
 
-  const generateNPCSpeech = (contestant: any, gameState: GameState) => {
+  const generateNPCSpeech = (contestant: any) => {
     // Generate contextual speech based on their game journey
     const playerInteractions = contestant.memory.filter(m => 
       m.participants.includes(gameState.playerName)
@@ -99,6 +91,10 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
     const words = (trimmed.match(/\b[\w']+\b/g) || []).length;
     return trimmed.length < 40 || words < 8;
   })();
+
+  // If the player is eliminated and watching as a juror, continue to the juror-specific jury vote flow.
+  // Otherwise, proceed to the standard jury vote where the player is a finalist.
+  const onFinaleContinue = gameState.isPlayerEliminated ? proceedToJuryVoteAsJuror : proceedToJuryVote;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -205,7 +201,7 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
                     // Generate all NPC speeches for final two
                     const speeches = finalTwo.map(contestant => ({
                       name: contestant.name,
-                      speech: generateNPCSpeech(contestant, gameState)
+                      speech: generateNPCSpeech(contestant)
                     }));
                     setNpcSpeeches(speeches);
                   }}
@@ -253,7 +249,7 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
               </Card>
 
               {/* America's Favorite Player */}
-              <AFPCard gameState={gameState} onAFPVote={onAFPVote} />
+              <AFPCard />
 
               <Card className="p-6 text-center">
                 <Crown className="w-12 h-12 text-primary mx-auto mb-4" />
@@ -265,7 +261,7 @@ export const FinaleScreen = ({ gameState, onSubmitSpeech, onContinue, onAFPVote 
                 </p>
                 <Button
                   variant="action"
-                  onClick={onContinue}
+                  onClick={onFinaleContinue}
                   className="w-full"
                 >
                   Proceed to Jury Vote

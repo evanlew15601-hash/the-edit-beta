@@ -1,15 +1,11 @@
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/enhanced-button';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { Clock, Users, AlertCircle, Star, Flame } from 'lucide-react';
 
-interface EnhancedInformationPanelProps {
-  gameState: GameState;
-}
-
-export const EnhancedInformationPanel = ({ gameState }: EnhancedInformationPanelProps) => {
+export const EnhancedInformationPanel = () => {
+  const { gameState } = useGame();
   // Get recent interactions that actually matter
   const recentInteractions = (gameState.interactionLog || [])
     .filter(log => log.day >= gameState.currentDay - 3)

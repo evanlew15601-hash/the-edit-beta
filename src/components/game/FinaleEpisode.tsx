@@ -5,13 +5,7 @@ import { FinaleScreen } from './FinaleScreen';
 import { CutsceneSlide } from '@/types/game';
 
 export const FinaleEpisode = () => {
-  const {
-    gameState,
-    submitFinaleSpeech,
-    submitAFPVote,
-    proceedToJuryVote,
-    proceedToJuryVoteAsJuror,
-  } = useGame();
+  const { gameState } = useGame();
   const [cutsceneDone, setDone] = useState(false);
 
   const finalists = gameState.contestants.filter((c) => !c.isEliminated).map((c) => c.name);
@@ -63,16 +57,5 @@ export const FinaleEpisode = () => {
     return <Cutscene title="Finale Night" slides={slides} onComplete={() => setDone(true)} ctaLabel="Deliver Speeches" />;
   }
 
-  // If the player is eliminated and watching as a juror, continue to the juror-specific jury vote flow.
-  // Otherwise, proceed to the standard jury vote where the player is a finalist.
-  const onFinaleContinue = gameState.isPlayerEliminated ? proceedToJuryVoteAsJuror : proceedToJuryVote;
-
-  return (
-    <FinaleScreen
-      gameState={gameState}
-      onSubmitSpeech={submitFinaleSpeech}
-      onAFPVote={submitAFPVote}
-      onContinue={onFinaleContinue}
-    />
-  );
+  return <FinaleScreen />;
 };

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { Zap, Users, Heart, Target, AlertTriangle, Crown } from 'lucide-react';
 
 interface EmergentEvent {
@@ -23,12 +22,8 @@ interface EmergentEvent {
   autoResolveTime?: number;
 }
 
-interface EnhancedEmergentEventsProps {
-  gameState: GameState;
-  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
-}
-
-export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: EnhancedEmergentEventsProps) => {
+export const EnhancedEmergentEvents = () => {
+  const { gameState, handleEmergentEventChoice } = useGame();
   const [activeEvents, setActiveEvents] = useState<EmergentEvent[]>([]);
   const [eventHistory, setEventHistory] = useState<EmergentEvent[]>([]);
 
@@ -364,7 +359,7 @@ export const EnhancedEmergentEvents = ({ gameState, onEmergentEventChoice }: Enh
     
     if (choiceId !== 'auto') {
       const choice = choiceId as 'pacifist' | 'headfirst';
-      onEmergentEventChoice(event, choice);
+      handleEmergentEventChoice(event, choice);
     }
   };
 
