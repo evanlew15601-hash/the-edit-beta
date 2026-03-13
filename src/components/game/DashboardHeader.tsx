@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { canUseDebugUI } from '@/utils/debugEnv';
 
 export const DashboardHeader = () => {
   const {
@@ -79,7 +80,7 @@ export const DashboardHeader = () => {
   };
 
   const showRosterButton = gameState.gamePhase === 'premiere' || rosterPinned;
-  const canUseDebug = import.meta.env.MODE !== 'production' || import.meta.env.VITE_ENABLE_BETA_DEBUG === '1';
+  const canUseDebug = canUseDebugUI();
 
   return (
     <div className="bg-background/90 backdrop-blur-md border-b border-border/60 sticky top-0 z-50">

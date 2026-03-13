@@ -1,5 +1,6 @@
 
 import { GameState, Contestant } from '@/types/game';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export interface TradableInformation {
   id: string;
@@ -33,10 +34,7 @@ export class InformationTradingEngine {
       return this.informationDatabase;
     }
 
-    if (
-      import.meta.env.MODE !== 'production' ||
-      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-    ) {
+    if (isDebugEnabled()) {
       console.log('Generating tradable information for day', gameState.currentDay);
     }
     this.informationDatabase = [];
@@ -99,10 +97,7 @@ export class InformationTradingEngine {
       });
     });
 
-    if (
-      import.meta.env.MODE !== 'production' ||
-      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-    ) {
+    if (isDebugEnabled()) {
       console.log(`Generated ${this.informationDatabase.length} pieces of information`);
     }
     return this.informationDatabase;
@@ -142,20 +137,14 @@ export class InformationTradingEngine {
     const fromContestant = gameState.contestants.find(c => c.name === from);
     
     if (!fromContestant) {
-      if (
-        import.meta.env.MODE !== 'production' ||
-        (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-      ) {
+      if (isDebugEnabled()) {
         console.log(`Information sharing failed: ${from} not found`);
       }
       return [];
     }
 
     // AUTOMATIC INFORMATION SHARING - No trust requirement needed
-    if (
-      import.meta.env.MODE !== 'production' ||
-      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-    ) {
+    if (isDebugEnabled()) {
       console.log(`Auto-sharing information from ${from} to ${to} via ${context}`);
     }
 
@@ -196,10 +185,7 @@ export class InformationTradingEngine {
         context
       };
       this.informationLog.push(logEntry);
-      if (
-        import.meta.env.MODE !== 'production' ||
-        (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-      ) {
+      if (isDebugEnabled()) {
         console.log('Information automatically shared:', logEntry);
       }
     });
@@ -244,10 +230,7 @@ export class InformationTradingEngine {
       .filter(log => log.to === playerName && log.day >= gameState.currentDay - 5)
       .sort((a, b) => b.day - a.day);
     
-    if (
-      import.meta.env.MODE !== 'production' ||
-      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-    ) {
+    if (isDebugEnabled()) {
       console.log(`Retrieved ${sharedInfo.length} pieces of shared information for ${playerName}`);
     }
     return sharedInfo;

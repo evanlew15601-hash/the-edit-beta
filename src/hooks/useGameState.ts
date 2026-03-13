@@ -31,6 +31,7 @@ import { getCurrentWeek, getWeekBounds, verifyAndUpdateTasks } from '@/utils/tas
 import { BackgroundConversationEngine } from '@/utils/backgroundConversationEngine';
 import { computeWeeklyEpisodeRating } from '@/utils/audienceEpisodeRating';
 import { logInteractionToCloud } from '@/utils/interactionLogger';
+import { betaDebugBuildEnabled, canUseDebugUI, isDebugEnabled } from '@/utils/debugEnv';
 
 type GameActionType =
   PlayerAction['type']
@@ -39,26 +40,15 @@ type GameActionType =
   | 'house_meeting'
   | 'alliance_meeting';
 
-const betaDebugEnabled = () => {
-  return import.meta.env.VITE_ENABLE_BETA_DEBUG === '1';
-};
-
-const isDebugEnv = () => {
-  if (import.meta.env.MODE !== 'production') return true;
-  if (!betaDebugEnabled()) return false;
-  if (typeof window === 'undefined') return false;
-  return !!(window as any).__RTV_DEBUG__;
-};
-
 const debugLog = (...args: any[]) => {
-  if (isDebugEnv()) console.log(...args);
+  if (isDebugEnabled()) console.log(...args);
 };
 
 const debugWarn = (...args: any[]) => {
-  if (isDebugEnv()) console.warn(...args);
+  if (isDebugEnabled()) console.warn(...args);
 };
 
-const defaultDebugMode = import.meta.env.MODE !== 'production' || betaDebugEnabled();
+const defaultDebugMode = import.meta.env.MODE !== 'production' || betaDebugBuildEnabled();
 
 function verifyAndUpdateTasksWithMissionCutscene(prev: GameState, baseNext: GameState): GameState {
   const updated = verifyAndUpdateTasks(baseNext);
@@ -3382,7 +3372,7 @@ export const useGameState = () => {
       if (raw) {
         const parsed = JSON.parse(raw) as GameState;
         const next =
-          import.meta.env.MODE === 'production' && !betaDebugEnabled()
+          import.meta.env.MODE === 'production' && !betaDebugBuildEnabled()
             ? { ...parsed, debugMode: false }
             : parsed;
         setGameState(next);
@@ -3481,7 +3471,7 @@ export const useGameState = () => {
 
   const toggleDebugMode = useCallback(() => {
     // In production builds, only allow the debug HUD when explicitly enabled.
-    if (import.meta.env.MODE === 'production' && !betaDebugEnabled()) {
+    if (!canUseDebugUI()) {
       return;
     }
     setGameState(prev => ({

@@ -1,4 +1,5 @@
 import { Contestant, GameState } from '@/types/game';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export type Relationship = {
   source: string;
@@ -140,10 +141,7 @@ class RelationshipGraphEngine {
       }
     }
 
-    if (
-      import.meta.env.MODE !== 'production' ||
-      (typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-    ) {
+    if (isDebugEnabled()) {
       console.log(`[RelationshipEngine] ${source} -> ${target}: trust ${relationship.trust.toFixed(1)} (${adjustedTrustDelta > 0 ? '+' : ''}${adjustedTrustDelta.toFixed(1)}), suspicion ${relationship.suspicion.toFixed(1)}`);
     }
   }

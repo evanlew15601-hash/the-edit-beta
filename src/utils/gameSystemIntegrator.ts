@@ -4,6 +4,7 @@ import { emergentEventEngine, EmergentEvent } from './emergentEventEngine';
 import { npcResponseEngine, NPCResponse } from './npcResponseEngine';
 import { relationshipGraphEngine } from './relationshipGraphEngine';
 import { speechActClassifier } from './speechActClassifier';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export type GameUpdate = {
   npcDecisions: NPCDecision[];
@@ -50,7 +51,7 @@ class GameSystemIntegrator {
     this.isInitialized = true;
     this.lastUpdateTime = Date.now();
     
-    if (import.meta.env.MODE !== 'production' || this.debugMode) {
+    if (isDebugEnabled()) {
       console.log('AI Systems Initialized:', {
         contestants: gameState.contestants.length,
         debugMode: this.debugMode

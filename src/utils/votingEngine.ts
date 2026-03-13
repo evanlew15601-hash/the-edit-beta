@@ -2,6 +2,7 @@ import { Contestant, Alliance, VotingRecord, GameState, VotingDebugVoterEntry } 
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { AllianceManager } from '@/utils/allianceManager';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export const processVoting = (
   contestants: Contestant[],
@@ -159,7 +160,7 @@ export const processVoting = (
       if (coordTarget && coordTarget !== immunityWinner && (!playerProtected || coordTarget !== playerName)) {
         allianceTarget = coordTarget;
         coordinatingAllianceStrength = alliance.strength;
-        if (debugEnabled && import.meta.env.MODE !== 'production') {
+        if (debugEnabled && isDebugEnabled()) {
           console.log(`${voter.name} following alliance coordination: voting for ${coordTarget}`);
         }
         break;

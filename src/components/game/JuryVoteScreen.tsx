@@ -7,6 +7,7 @@ import { Crown, Gavel, Users } from 'lucide-react';
 import { analyzeFinaleSpeech } from '@/utils/speechQuality';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export const JuryVoteScreen = () => {
   const { gameState, endGame } = useGame();
@@ -43,10 +44,7 @@ export const JuryVoteScreen = () => {
   const playerEliminated = gameState.isPlayerEliminated || playerContestant?.isEliminated || false;
   const isPlayerInJury = playerEliminated && gameState.juryMembers?.includes(gameState.playerName);
   
-  if (
-    import.meta.env.MODE !== 'production' ||
-    (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-  ) {
+  if (isDebugEnabled()) {
     console.log('[JuryVoteScreen] Final two:', finalTwo.map(c => c.name));
     console.log('[JuryVoteScreen] Jury list:', gameState.juryMembers);
     console.log('[JuryVoteScreen] Jury members:', juryMembers.map(j => j.name));
@@ -356,10 +354,7 @@ export const JuryVoteScreen = () => {
       if (voteCounts[vote] !== undefined) voteCounts[vote]++;
     });
 
-    if (
-      import.meta.env.MODE !== 'production' ||
-      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-    ) {
+    if (isDebugEnabled()) {
       console.log('[JuryVoteScreen] Final vote counts:', voteCounts);
     }
 
@@ -371,10 +366,7 @@ export const JuryVoteScreen = () => {
     let winnerName: string;
     if (tiedFinalists.length > 1) {
       // Tie-break: use random selection (in a real game this would be a special tie-break)
-      if (
-        import.meta.env.MODE !== 'production' ||
-        (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
-      ) {
+      if (isDebugEnabled()) {
         console.warn('[JuryVoteScreen] Jury vote tie detected, using random selection');
       }
       winnerName = tiedFinalists[Math.floor(Math.random() * tiedFinalists.length)][0];

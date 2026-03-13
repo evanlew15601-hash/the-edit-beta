@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { canUseDebugUI } from '@/utils/debugEnv';
 
 export const IntroScreen = () => {
   const {
@@ -24,7 +25,7 @@ export const IntroScreen = () => {
   } = useGame();
 
   const hasSave = hasSavedGame();
-  const canUseDebug = import.meta.env.MODE !== 'production' || import.meta.env.VITE_ENABLE_BETA_DEBUG === '1';
+  const canUseDebug = canUseDebugUI();
 
   const handleStart = () => {
     startGame();

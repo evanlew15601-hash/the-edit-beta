@@ -17,13 +17,12 @@ import { VotingDebugPanel } from '@/components/game/VotingDebugPanel';
 import { DashboardHeader } from '@/components/game/DashboardHeader';
 import { ErrorBoundary } from '@/components/game/ErrorBoundary';
 import { MeetHouseguestsScreen } from '@/components/game/MeetHouseguestsScreen';
+import { canUseDebugUI } from '@/utils/debugEnv';
 
 const Index = () => {
   const { gameState, toggleDebugMode, continueFromElimination, completeCutscene } = useGame();
 
-  const canUseDebug =
-    import.meta.env.MODE !== 'production' ||
-    import.meta.env.VITE_ENABLE_BETA_DEBUG === '1';
+  const canUseDebug = canUseDebugUI();
 
   // Keyboard shortcut: Shift+D to toggle debug HUD
   React.useEffect(() => {
