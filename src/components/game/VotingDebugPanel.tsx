@@ -28,6 +28,7 @@ export const VotingDebugPanel: React.FC = () => {
   const active = gameState.contestants.filter(c => !c.isEliminated);
   const eliminated = gameState.contestants.filter(c => c.isEliminated);
   const nonPlayerActive = active.filter(c => c.name !== gameState.playerName);
+  const nonPlayerEligibleForVote = nonPlayerActive.filter(c => c.name !== gameState.immunityWinner);
 
   const lastVote = gameState.votingHistory[gameState.votingHistory.length - 1];
   const lastDebug = lastVote?.debug;
@@ -181,7 +182,7 @@ export const VotingDebugPanel: React.FC = () => {
           {gameState.gamePhase === 'player_vote' && (
             <div className="mt-2 border-t border-border pt-2">
               <div className="text-xs text-muted-foreground mb-1">Quick Player Vote</div>
-              {nonPlayerActive.map(c => (
+              {nonPlayerEligibleForVote.map(c => (
                 <Button
                   key={c.name}
                   variant="outline"

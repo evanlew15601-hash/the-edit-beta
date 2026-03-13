@@ -32,17 +32,16 @@ const Index = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleDebugMode]);
 
-  // Test force elimination event handler (dev-only)
+  // Test force elimination event handler (debug-only)
   React.useEffect(() => {
-    if (!import.meta.env.DEV) return;
-
     const handleTestElimination = () => {
+      if (!gameState.debugMode) return;
       continueFromElimination(true); // Force player elimination
     };
 
     window.addEventListener('testForceElimination', handleTestElimination);
     return () => window.removeEventListener('testForceElimination', handleTestElimination);
-  }, [continueFromElimination]);
+  }, [continueFromElimination, gameState.debugMode]);
 
   const renderScreen = () => {
     switch (gameState.gamePhase) {

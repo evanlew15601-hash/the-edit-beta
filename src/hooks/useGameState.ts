@@ -126,7 +126,7 @@ export const useGameState = () => {
       interactionLog: [],
       tagChoiceCooldowns: {},
       reactionProfiles: {},
-      debugMode: false,
+      debugMode: true,
     } as GameState;
   });
 
@@ -177,7 +177,7 @@ export const useGameState = () => {
       interactionLog: [],
       tagChoiceCooldowns: {},
       reactionProfiles: {},
-      debugMode: false,
+      debugMode: true,
     };
     setGameState(newState);
   }, []);
@@ -1797,17 +1797,17 @@ export const useGameState = () => {
 
   const submitPlayerVote = useCallback((choice: string) => {
     setGameState(prev => {
-      const eligibleTargets = prev.contestants
-        .filter(c => !c.isEliminated)
-        .map(c => c.name)
-        .filter(n => n !== prev.playerName && n !== prev.immunityWinner);
+      const active = prev.contestants.filter(c => !c.isEliminated);
+      const eligible = active
+        .filter(c => c.name !== prev.playerName && c.name !== prev.immunityWinner)
+        .map(c => c.name);
 
-      if (!eligibleTargets.includes(choice)) {
-        debugWarn('submitPlayerVote: invalid vote target', {
+      if (!eligible.includes(choice)) {
+        debugWarn('submitPlayerVote: invalid vote choice', {
           choice,
-          eligibleTargets,
+          eligible,
           immunityWinner: prev.immunityWinner,
-          playerName: prev.playerName,
+          day: prev.currentDay,
         });
         return prev;
       }
@@ -1820,7 +1820,17 @@ export const useGameState = () => {
         prev.immunityWinner,
         choice // Player's vote
       );
-      
+
+      if (!votingResult.eliminated) {
+        debugWarn('submitPlayerVote: voting engine returned no eliminated target', {
+          day: prev.currentDay,
+          choice,
+          votes: votingResult.votes,
+          reason: votingResult.reason,
+        });
+        return prev;
+      }
+
       // Update voting result with current day
       votingResult.day = prev.currentDay;
       votingResult.playerVote = choice;
@@ -1875,6 +1885,20 @@ export const useGameState = () => {
   const submitFinal3Vote = useCallback((choice: string, tieBreakResult?: { winner: string; challengeResults: any }) => {
     setGameState(prev => {
       const active = prev.contestants.filter(c => !c.isEliminated);
+      const eligible = active
+        .filter(c => c.name !== prev.playerName)
+        .map(c => c.name);
+
+      if (active.length !== 3 || !eligible.includes(choice)) {
+        debugWarn('submitFinal3Vote: invalid choice', {
+          choice,
+          eligible,
+          day: prev.currentDay,
+          active: active.map(c => c.name),
+        });
+        return prev;
+      }
+
       const votingResult = processVoting(
         prev.contestants,
         prev.playerName,
@@ -2608,6 +2632,8 @@ export const useGameState = () => {
       favoriteTally: {},
       interactionLog: [],
       tagChoiceCooldowns: {},
+      reactionProfiles: {},
+      debugMode: true,
     });
     try {
       localStorage.removeItem('rtv_game_state');
@@ -3182,10 +3208,12 @@ export const useGameState = () => {
     });
   }, []);
 
-  // Add event listener for skip button (dev-only)
+  // Add event listener for skip button (debug-only)
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    const handleSkip = () => skipToJury();
+    const handleSkip = () => {
+      if (!gameStateRef.current.debugMode) return;
+      skipToJury();
+    };
     window.addEventListener('skipToJury', handleSkip);
     return () => window.removeEventListener('skipToJury', handleSkip);
   }, [skipToJury]);
@@ -3423,6 +3451,50 @@ export const useGameState = () => {
       }));
     }
   }, [gameState.isPlayerEliminated, gameState.gamePhase]);
+
+  // Beta hardening: clamp obviously invalid phases back to a safe state.
+  // This prevents soft-corrupted state from bricking the UI.
+  useEffect(() => {
+    setGameState(prev => {
+      if (prev.gamePhase === 'cutscene' || prev.gamePhase === 'intro' || prev.gamePhase === 'character_creation') {
+        return prev;
+      }
+
+      const active = prev.contestants.filter(c => !c.isEliminated);
+      const activeCount = active.length;
+      const playerActive = active.some(c => c.name === prev.playerName);
+
+      // Elimination screens require a voting record
+      if (prev.gamePhase === 'elimination' && prev.votingHistory.length === 0) {
+        return { ...prev, gamePhase: 'daily' as const };
+      }
+
+      // Voting with <= 2 active is invalid
+      if (prev.gamePhase === 'player_vote' && activeCount <= 2) {
+        return { ...prev, gamePhase: activeCount === 2 ? 'cutscene' as const : 'daily' as const };
+      }
+
+      // Final 3 vote requires exactly 3 active including player
+      if (prev.gamePhase === 'final_3_vote' && (activeCount !== 3 || !playerActive)) {
+        return { ...prev, gamePhase: activeCount === 2 ? 'cutscene' as const : 'daily' as const };
+      }
+
+      // Jury vote requires exactly 2 active finalists
+      if (prev.gamePhase === 'jury_vote' && activeCount !== 2) {
+        return { ...prev, gamePhase: activeCount === 2 ? 'jury_vote' as const : 'daily' as const };
+      }
+
+      // Player vote requires at least one eligible target
+      if (prev.gamePhase === 'player_vote' && playerActive) {
+        const eligible = active.filter(c => c.name !== prev.playerName && c.name !== prev.immunityWinner);
+        if (eligible.length === 0) {
+          return { ...prev, gamePhase: 'daily' as const };
+        }
+      }
+
+      return prev;
+    });
+  }, [gameState.gamePhase, gameState.contestants, gameState.playerName, gameState.immunityWinner, gameState.votingHistory.length]);
 
   return {
     gameState,
