@@ -32,7 +32,7 @@ interface BackgroundConversationOutcome {
  * BackgroundConversationEngine
  *
  * Generates lightweight, off-screen NPC↔NPC strategy conversations that:
- * - Use the existing Gemini + Lovable Cloud pipeline for 1–2 sentence summaries.
+ * - Use a lightweight phrasing engine (local by default; optional cloud when enabled).
  * - Write outcomes back into:
  *   - contestant.memory (GameMemory)
  *   - relationshipGraphEngine (trust/suspicion deltas)
