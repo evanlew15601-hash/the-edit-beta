@@ -54,7 +54,7 @@ export function computeObjectiveProgress(gs: GameState, objective: ProductionTas
       return meets.length;
     }
     case 'confessional_count': {
-      const confs = (gs.confessionals || []).filter(c => c.day >= start && c.day <= end && c.selected !== false);
+      const confs = (gs.confessionals || []).filter(c => c.day >= start && c.day <= end);
       return confs.length;
     }
     case 'observation_count': {

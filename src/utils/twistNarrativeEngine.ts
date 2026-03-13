@@ -257,12 +257,42 @@ export function applyDailyNarrative(gs: GameState): GameState {
     working = verifyAndUpdateTasks(working);
   }
 
+  const inferredStartDay = (() => {
+    if (arc.arc === 'hosts_child') {
+      const first = (arc.beats || []).find(b => b.id === 'hc_first_week');
+      if (first) return first.dayPlanned - 1;
+    }
+    if (arc.arc === 'planted_houseguest') {
+      const first = (arc.beats || []).find(b => b.id === 'phg_current_mission');
+      if (first) return first.dayPlanned - 2;
+    }
+    return gs.currentDay || 1;
+  })();
+
+  const generatedBeats: NarrativeBeat[] =
+    arc.arc === 'hosts_child'
+      ? buildStaticHostChildBeats(inferredStartDay)
+      : arc.arc === 'planted_houseguest'
+      ? buildStaticPlantedHGBeats(inferredStartDay)
+      : (arc.beats || []);
+
   // Advance any planned beats into active status based purely on day
-  const beats = mergeBeats(arc.beats, arc.beats, gs.currentDay);
+  let beats = mergeBeats(arc.beats, generatedBeats, gs.currentDay);
+
+  // Enforce at most one active beat at a time (prevents story stalls if multiple beats get activated).
+  const activeBeats = beats
+    .filter(b => b.status === 'active')
+    .sort((a, b) => a.dayPlanned - b.dayPlanned);
+  const currentBeatId = activeBeats[0]?.id;
+  if (activeBeats.length > 1 && currentBeatId) {
+    beats = beats.map(b =>
+      b.status === 'active' && b.id !== currentBeatId ? { ...b, status: 'planned' as const } : b
+    );
+  }
 
   return {
     ...working,
-    twistNarrative: { ...arc, beats, currentBeatId: beats.find(b => b.status === 'active')?.id },
+    twistNarrative: { ...arc, beats, currentBeatId },
   };
 }
 

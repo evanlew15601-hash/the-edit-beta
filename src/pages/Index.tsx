@@ -32,8 +32,10 @@ const Index = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleDebugMode]);
 
-  // Test force elimination event handler
+  // Test force elimination event handler (dev-only)
   React.useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
     const handleTestElimination = () => {
       continueFromElimination(true); // Force player elimination
     };

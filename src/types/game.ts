@@ -335,6 +335,19 @@ export interface GameState {
   // Narrative arc tracking for player twists
   twistNarrative?: TwistNarrative;
 
+  // Hard twist mechanics: production interference / timed overrides
+  playerCannotBeEliminatedUntilDay?: number;
+  hostChildFalloutUntilDay?: number;
+  productionIntel?: {
+    day: number;
+    leaks: {
+      npc: string;
+      target: string;
+      source?: string;
+      reasoning?: string;
+    }[];
+  };
+
   // Lite story mode current cutscene
   currentCutscene?: CurrentCutscene;
 

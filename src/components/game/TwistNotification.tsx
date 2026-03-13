@@ -49,6 +49,31 @@ export const TwistNotification = () => {
     );
   }
 
+  // Planted Houseguest intel drops (hard twist beat)
+  const intel = gameState.productionIntel;
+  if (intel && intel.day === gameState.currentDay && intel.leaks.length > 0 && spec) {
+    return (
+      <Card className="p-4 border border-border bg-muted/50">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-foreground">Production Intel Drop</div>
+            <div className="text-xs text-muted-foreground">
+              Production slipped you vote intel. Use it carefully.
+            </div>
+            <div className="mt-2 text-[11px] text-muted-foreground space-y-1">
+              {intel.leaks.map((l, idx) => (
+                <div key={`${l.npc}-${idx}`}>
+                  <span className="font-medium">{l.npc}</span> is leaning toward <span className="font-medium">{l.target}</span>
+                  {l.reasoning ? <span> — {l.reasoning}</span> : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   // Mission broadcast banner: the day a mission result cutscene airs
   const missionBanner = gameState.missionBroadcastBanner;
   if (missionBanner && missionBanner.day === gameState.currentDay && spec) {

@@ -1,4 +1,5 @@
 import { GameState, Contestant } from '@/types/game';
+import { getCurrentWeek, getWeekBounds } from '@/utils/taskEngine';
 
 // Lightweight helpers to handle special backgrounds effects.
 // These functions are deterministic per call and should be invoked by the game loop once per day or at key events.
@@ -45,7 +46,18 @@ export function applyDailySpecialBackgroundLogic(gs: GameState): GameState {
     }
 
     if (c.special.kind === 'planted_houseguest') {
-      const overdue = c.special.tasks.filter(t => !t.completed && t.dayAssigned <= (next.currentDay - 2));
+      const currentWeek = getCurrentWeek(next.currentDay);
+      const GRACE_DAYS = 2;
+
+      const overdue = c.special.tasks.filter(t => {
+        if (t.completed) return false;
+        const taskWeek = t.week ?? getCurrentWeek(t.dayAssigned);
+        if (currentWeek <= taskWeek) return false;
+        const { end } = getWeekBounds(taskWeek);
+        return next.currentDay >= end + GRACE_DAYS;
+      });
+
+      // Hard consequence only after multiple missed weekly tasks, with a grace period.
       if (overdue.length >= 2 && !c.special.secretRevealed) {
         c.special.secretRevealed = true;
         c.special.revealDay = next.currentDay;

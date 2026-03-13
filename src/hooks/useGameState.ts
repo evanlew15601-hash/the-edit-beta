@@ -13,7 +13,7 @@ import { processVoting } from '@/utils/votingEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { generateNPCConfessionalsForDay } from '@/utils/npcConfessionalEngine';
-import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
+import { getTrustDelta, getSuspicionDelta, calculateSchemeSuccess } from '@/utils/actionEngine';
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
@@ -27,9 +27,10 @@ import { applyDailyNarrative, initializeTwistNarrative } from '@/utils/twistNarr
 import { buildTwistIntroCutscene, buildMidGameCutscene, buildTwistResultCutscene, buildFinaleCutscene, buildImmunityRetiredCutscene } from '@/utils/twistCutsceneBuilder';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
 import { conversationIntentEngine } from '@/utils/conversationIntentEngine';
-import { getCurrentWeek } from '@/utils/taskEngine';
+import { getCurrentWeek, verifyAndUpdateTasks } from '@/utils/taskEngine';
 import { BackgroundConversationEngine } from '@/utils/backgroundConversationEngine';
 import { computeWeeklyEpisodeRating } from '@/utils/audienceEpisodeRating';
+import { logInteractionToCloud } from '@/utils/interactionLogger';
 
 type GameActionType =
   PlayerAction['type']
@@ -204,7 +205,7 @@ export const useGameState = () => {
       });
 
       // Apply narrative arc tracking for player twists
-      const narrativeApplied = applyDailyNarrative({
+      let narrativeApplied = applyDailyNarrative({
         ...specialApplied,
         twistNarrative: specialApplied.twistNarrative || initializeTwistNarrative(specialApplied),
       });
@@ -262,6 +263,45 @@ export const useGameState = () => {
                 taskId: failedTask.id,
                 description: failedTask.description,
               };
+
+              // Hard mechanic: failure airs on TV and hits immediately.
+              // - Spike player suspicion
+              // - Nudge house relationships against the player
+              // - Set a twist flag for debug / recap surfacing
+              const playerName = narrativeApplied.playerName;
+              const updatedContestants = narrativeApplied.contestants.map(c => {
+                if (c.name !== playerName) return c;
+                return {
+                  ...c,
+                  psychProfile: {
+                    ...c.psychProfile,
+                    suspicionLevel: Math.min(100, c.psychProfile.suspicionLevel + 18),
+                    trustLevel: Math.max(-100, c.psychProfile.trustLevel - 4),
+                  },
+                };
+              });
+
+              updatedContestants
+                .filter(c => !c.isEliminated && c.name !== playerName)
+                .forEach(c => {
+                  relationshipGraphEngine.updateRelationship(
+                    c.name,
+                    playerName,
+                    -6,
+                    10,
+                    -2,
+                    'event',
+                    `[Production] Mission failure aired: ${failedTask.id}`,
+                    newDay
+                  );
+                });
+
+              const failureFlag = `planted_mission_failed_w${prevWeek}`;
+              const updatedTwists = Array.from(
+                new Set([...(narrativeApplied.twistsActivated || []), failureFlag])
+              );
+
+              narrativeApplied = { ...narrativeApplied, contestants: updatedContestants, twistsActivated: updatedTwists };
             }
           }
         }
@@ -269,11 +309,10 @@ export const useGameState = () => {
 
       // Detect newly activated narrative beat to trigger a lite mid-game cutscene,
       // but only if a mission result cutscene isn't already queued.
-      const prevBeatId = prev.twistNarrative?.currentBeatId;
       const newBeatId = narrativeApplied.twistNarrative?.currentBeatId;
-      if (!nextCutscene && newBeatId && newBeatId !== prevBeatId) {
+      if (!nextCutscene && newBeatId) {
         const beat = narrativeApplied.twistNarrative!.beats.find(b => b.id === newBeatId);
-        if (beat) {
+        if (beat && beat.status === 'active') {
           nextCutscene = buildMidGameCutscene(narrativeApplied as GameState, beat);
         }
       }
@@ -286,8 +325,8 @@ export const useGameState = () => {
         InformationTradingEngine.autoGenerateIntelligence(tempState);
       }
 
-      // Use the cleaned contestants directly (no separate decay method needed)
-      const baseContestants = cleanedContestants;
+      // Use the most up-to-date contestants after special + narrative systems (tasks, reveals, etc.)
+      const baseContestants = narrativeApplied.contestants;
 
       // Also gently decay the global relationship graph so extreme trust/suspicion softens between interactions
       relationshipGraphEngine.decayRelationships(newDay);
@@ -385,7 +424,7 @@ export const useGameState = () => {
         dailyActionCount: 0,
         groupActionsUsedToday: 0,
         contestants: baseContestants,
-        alliances: updatedAlliances,
+        alliances: alliancesWithSecrecy,
         juryMembers,
         daysUntilJury,
         gamePhase: nextCutscene ? 'cutscene' as const : gamePhase,
@@ -405,6 +444,16 @@ export const useGameState = () => {
         twistsActivated,
         ongoingHouseMeeting: prev.ongoingHouseMeeting,
         forcedConversationsQueue: nextForcedQueue,
+        playerCannotBeEliminatedUntilDay:
+          typeof prev.playerCannotBeEliminatedUntilDay === 'number' &&
+          newDay > prev.playerCannotBeEliminatedUntilDay
+            ? undefined
+            : prev.playerCannotBeEliminatedUntilDay,
+        hostChildFalloutUntilDay:
+          typeof prev.hostChildFalloutUntilDay === 'number' &&
+          newDay > prev.hostChildFalloutUntilDay
+            ? undefined
+            : prev.hostChildFalloutUntilDay,
         missionBroadcastBanner: missionBanner,
       };
     });
@@ -502,6 +551,24 @@ export const useGameState = () => {
               suspicionDelta += consequence.value;
             }
           });
+
+          // Hard mechanic: after the Host's Child reveal, the house scrutinizes you harder for a few days.
+          if (
+            typeof freshState.hostChildFalloutUntilDay === 'number' &&
+            freshState.currentDay <= freshState.hostChildFalloutUntilDay
+          ) {
+            suspicionDelta += 4;
+            relationshipGraphEngine.updateRelationship(
+              target,
+              (freshState.playerName || '').trim() || 'Player',
+              0,
+              4,
+              0,
+              'event',
+              '[Host’s Child] Fallout scrutiny after reveal',
+              freshState.currentDay
+            );
+          }
 
           const take: ReactionTake =
             trustDelta > 0 && suspicionDelta <= 0
@@ -657,7 +724,17 @@ export const useGameState = () => {
                 : a
             );
 
-            return {
+            const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+            const nextHistory = [
+              ...(prev.ratingsHistory || []),
+              {
+                day: prev.currentDay,
+                rating: Math.round(ratingRes.rating * 100) / 100,
+                reason: ratingRes.reason,
+              },
+            ];
+
+            const baseNext: GameState = {
               ...prev,
               playerActions: updatedActions,
               dailyActionCount: (prev.dailyActionCount || 0) + 1,
@@ -669,7 +746,11 @@ export const useGameState = () => {
               lastAIResponse: response?.content,
               lastAIResponseLoading: false,
               interactionLog: [...(prev.interactionLog || []), interactionEntry],
+              viewerRating: ratingRes.rating,
+              ratingsHistory: nextHistory,
             };
+
+            return verifyAndUpdateTasks(baseNext);
           });
         } catch (e) {
           console.error('AI response generation failed:', e);
@@ -679,6 +760,358 @@ export const useGameState = () => {
           }));
         }
       })();
+
+      return;
+    }
+
+    if (actionType === 'confessional') {
+      if (!content || !tone) return;
+
+      setGameState(prev => {
+        const id = `conf_${prev.currentDay}_${Math.random().toString(36).slice(2)}`;
+        const baseConf = {
+          id,
+          day: prev.currentDay,
+          content,
+          tone,
+          editImpact: 0,
+          selected: true,
+        };
+
+        const selected = ConfessionalEngine.selectConfessionalForEdit(baseConf as any, prev);
+        const editImpact = ConfessionalEngine.calculateEditImpact(baseConf as any, prev, selected);
+        const audienceScore = ConfessionalEngine.generateAudienceScore(baseConf as any, editImpact);
+
+        const conf = {
+          ...baseConf,
+          selected,
+          editImpact,
+          audienceScore,
+        };
+
+        const editApprovalDelta = Math.max(-20, Math.min(20, Math.round((audienceScore - 50) / 4)));
+        const screenDelta = selected ? Math.max(2, Math.min(14, Math.round(editImpact / 2))) : 0;
+
+        const nextEdit = {
+          ...prev.editPerception,
+          screenTimeIndex: Math.max(0, Math.min(100, (prev.editPerception.screenTimeIndex || 0) + screenDelta)),
+          audienceApproval: Math.max(-100, Math.min(100, (prev.editPerception.audienceApproval || 0) + editApprovalDelta)),
+          lastEditShift: screenDelta,
+        };
+
+        const updatedActions = prev.playerActions.map((a) =>
+          a.type === 'confessional'
+            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+            : a
+        );
+
+        const entry: InteractionLogEntry = {
+          day: prev.currentDay,
+          type: 'confessional',
+          participants: [prev.playerName],
+          content,
+          tone,
+          source: 'player',
+        };
+
+        const ratingRes = ratingsEngine.applyConfessional(prev, conf as any);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          {
+            day: prev.currentDay,
+            rating: Math.round(ratingRes.rating * 100) / 100,
+            reason: ratingRes.reason,
+          },
+        ];
+
+        // Fire-and-forget cloud logging (maps local type → supabase enum)
+        void logInteractionToCloud({
+          day: prev.currentDay,
+          type: 'confessional',
+          participants: [prev.playerName],
+          playerName: prev.playerName,
+          playerMessage: content,
+          aiResponse: '',
+          tone,
+        });
+
+        const baseNext: GameState = {
+          ...prev,
+          confessionals: [...(prev.confessionals || []), conf as any],
+          editPerception: nextEdit,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'confessional',
+          lastActionTarget: 'Diary Room',
+          interactionLog: [...(prev.interactionLog || []), entry],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
+        };
+
+        return verifyAndUpdateTasks(baseNext);
+      });
+
+      return;
+    }
+
+    if (actionType === 'observe') {
+      setGameState(prev => {
+        const updatedActions = prev.playerActions.map((a) =>
+          a.type === 'observe'
+            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+            : a
+        );
+
+        const participants = [prev.playerName, ...(target ? target.split(',').map(s => s.trim()).filter(Boolean) : [])];
+
+        const entry: InteractionLogEntry = {
+          day: prev.currentDay,
+          type: 'observe',
+          participants,
+          content: content || '',
+          tone: tone || 'neutral',
+          source: 'player',
+        };
+
+        const reactionSummary: ReactionSummary = {
+          take: 'curious',
+          context: 'public',
+          notes: content || 'You observed quietly and picked up something useful.',
+          deltas: { trust: 0, suspicion: 1, influence: 2, entertainment: 1 },
+        };
+
+        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          {
+            day: prev.currentDay,
+            rating: Math.round(ratingRes.rating * 100) / 100,
+            reason: ratingRes.reason,
+          },
+        ];
+
+        void logInteractionToCloud({
+          day: prev.currentDay,
+          type: 'observation',
+          participants,
+          playerName: prev.playerName,
+          playerMessage: content || '',
+          aiResponse: '',
+          tone: tone || 'neutral',
+        });
+
+        const baseNext: GameState = {
+          ...prev,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'observe',
+          lastActionTarget: target || 'Observation',
+          lastAIReaction: reactionSummary,
+          interactionLog: [...(prev.interactionLog || []), entry],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
+        };
+
+        return verifyAndUpdateTasks(baseNext);
+      });
+      return;
+    }
+
+    if (actionType === 'activity') {
+      if (!content) return;
+
+      setGameState(prev => {
+        const usedGroups = prev.groupActionsUsedToday || 0;
+        if (usedGroups >= 2) return prev;
+
+        const updatedActions = prev.playerActions.map((a) =>
+          a.type === 'activity'
+            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+            : a
+        );
+
+        const activeNPCs = prev.contestants
+          .filter(c => !c.isEliminated && c.name !== prev.playerName)
+          .map(c => c.name);
+
+        const shuffled = [...activeNPCs].sort(() => Math.random() - 0.5);
+        const participants = [prev.playerName, ...shuffled.slice(0, 3)];
+
+        // Small relationship nudges with the participants.
+        participants
+          .filter(n => n !== prev.playerName)
+          .forEach(n => {
+            const trustDelta = content === 'group_task' || content === 'workout_session' ? 2 : 1;
+            const suspicionDelta = content === 'truth_or_dare' ? 2 : -1;
+            relationshipGraphEngine.updateRelationship(
+              n,
+              prev.playerName,
+              trustDelta,
+              Math.max(0, suspicionDelta),
+              1,
+              'event',
+              `[Activity] ${content}`,
+              prev.currentDay
+            );
+          });
+
+        const entry: InteractionLogEntry = {
+          day: prev.currentDay,
+          type: 'activity',
+          participants,
+          content,
+          tone: 'neutral',
+          source: 'player',
+        };
+
+        const reactionSummary: ReactionSummary = {
+          take: 'positive',
+          context: 'activity',
+          notes: `House activity: ${content}`,
+          deltas: {
+            trust: 2,
+            suspicion: content === 'truth_or_dare' ? 2 : 0,
+            influence: content === 'cook_off' ? 2 : 1,
+            entertainment: content === 'truth_or_dare' || content === 'cook_off' ? 3 : 2,
+          },
+        };
+
+        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          {
+            day: prev.currentDay,
+            rating: Math.round(ratingRes.rating * 100) / 100,
+            reason: ratingRes.reason,
+          },
+        ];
+
+        void logInteractionToCloud({
+          day: prev.currentDay,
+          type: 'event',
+          participants,
+          playerName: prev.playerName,
+          playerMessage: `[Activity] ${content}`,
+          aiResponse: '',
+          tone: 'neutral',
+        });
+
+        const baseNext: GameState = {
+          ...prev,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          groupActionsUsedToday: usedGroups + 1,
+          lastActionType: 'activity',
+          lastActionTarget: 'House',
+          lastAIReaction: reactionSummary,
+          interactionLog: [...(prev.interactionLog || []), entry],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
+        };
+
+        return verifyAndUpdateTasks(baseNext);
+      });
+
+      return;
+    }
+
+    if (actionType === 'scheme') {
+      if (!target || !content || !tone) return;
+
+      setGameState(prev => {
+        const targetNPC = prev.contestants.find(c => c.name === target);
+        if (!targetNPC) return prev;
+
+        const success = calculateSchemeSuccess(prev.playerName, targetNPC, content, tone);
+
+        const trustDelta =
+          tone === 'information_trade' ? (success ? 3 : -1) :
+          tone === 'vote_manipulation' ? (success ? 1 : -3) :
+          tone === 'rumor_spread' ? (success ? -1 : -4) :
+          tone === 'fake_alliance' ? (success ? 0 : -6) :
+          tone === 'alliance_break' ? (success ? -1 : -5) :
+          (success ? 1 : -3);
+
+        const suspicionDelta =
+          tone === 'information_trade' ? (success ? 2 : 4) :
+          tone === 'vote_manipulation' ? (success ? 4 : 8) :
+          tone === 'rumor_spread' ? (success ? 6 : 10) :
+          tone === 'fake_alliance' ? (success ? 8 : 14) :
+          tone === 'alliance_break' ? (success ? 7 : 12) :
+          (success ? 4 : 8);
+
+        relationshipGraphEngine.updateRelationship(
+          target,
+          prev.playerName,
+          trustDelta,
+          suspicionDelta,
+          0,
+          'scheme',
+          `[Scheme:${tone}] ${success ? 'Succeeded' : 'Backfired'}: ${content}`,
+          prev.currentDay
+        );
+
+        const updatedActions = prev.playerActions.map((a) =>
+          a.type === 'scheme'
+            ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
+            : a
+        );
+
+        const entry: InteractionLogEntry = {
+          day: prev.currentDay,
+          type: 'scheme',
+          participants: [prev.playerName, target],
+          content,
+          tone,
+          source: 'player',
+        };
+
+        const reactionSummary: ReactionSummary = {
+          take: success ? 'positive' : 'pushback',
+          context: 'scheme',
+          notes: success ? 'Your scheme landed.' : 'Your scheme backfired.',
+          deltas: {
+            trust: trustDelta,
+            suspicion: suspicionDelta,
+            influence: success ? 3 : 0,
+            entertainment: success ? 3 : 2,
+          },
+        };
+
+        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          {
+            day: prev.currentDay,
+            rating: Math.round(ratingRes.rating * 100) / 100,
+            reason: ratingRes.reason,
+          },
+        ];
+
+        void logInteractionToCloud({
+          day: prev.currentDay,
+          type: 'scheme',
+          participants: [prev.playerName, target],
+          playerName: prev.playerName,
+          playerMessage: content,
+          aiResponse: '',
+          tone,
+        });
+
+        const baseNext: GameState = {
+          ...prev,
+          playerActions: updatedActions,
+          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          lastActionType: 'scheme',
+          lastActionTarget: target,
+          lastAIReaction: reactionSummary,
+          interactionLog: [...(prev.interactionLog || []), entry],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
+        };
+
+        return verifyAndUpdateTasks(baseNext);
+      });
 
       return;
     }
@@ -777,17 +1210,64 @@ export const useGameState = () => {
           currentOptions: houseMeetingEngine.buildOptions(topic),
           forcedOpen: true,
         };
+        const usedGroups = prev.groupActionsUsedToday || 0;
+        if (usedGroups >= 2) return prev;
+
         const updatedActions = prev.playerActions.map(a =>
           a.type === 'house_meeting' ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
         );
-        return {
+
+        const interactionEntry: InteractionLogEntry = {
+          day: prev.currentDay,
+          type: 'house_meeting',
+          participants,
+          content: `[House Meeting] ${topic.replace('_', ' ')}`,
+          tone: 'neutral',
+          source: 'player',
+        };
+
+        const reactionSummary: ReactionSummary = {
+          take: 'neutral',
+          context: 'public',
+          notes: 'You called a house meeting. Everyone clocked it.',
+          deltas: { trust: 0, suspicion: 2, influence: 3, entertainment: 2 },
+        };
+
+        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          {
+            day: prev.currentDay,
+            rating: Math.round(ratingRes.rating * 100) / 100,
+            reason: ratingRes.reason,
+          },
+        ];
+
+        void logInteractionToCloud({
+          day: prev.currentDay,
+          type: 'event',
+          participants,
+          playerName: prev.playerName,
+          playerMessage: `[House Meeting] ${topic.replace('_', ' ')}`,
+          aiResponse: '',
+          tone: 'neutral',
+        });
+
+        const baseNext: GameState = {
           ...prev,
           ongoingHouseMeeting: state,
           playerActions: updatedActions,
           dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          groupActionsUsedToday: usedGroups + 1,
           lastActionType: 'house_meeting',
           lastActionTarget: 'Group',
+          lastAIReaction: reactionSummary,
+          interactionLog: [...(prev.interactionLog || []), interactionEntry],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
         };
+
+        return verifyAndUpdateTasks(baseNext);
       });
       return;
     }
@@ -899,25 +1379,74 @@ export const useGameState = () => {
           });
         }
 
-        return {
+        const usedGroups = prev.groupActionsUsedToday || 0;
+        if (usedGroups >= 2) return prev;
+
+        const updatedActions = prev.playerActions.map(a =>
+          a.type === 'alliance_meeting' ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
+        );
+
+        const trustTotal = meetingDeltas.reduce((sum, d) => sum + d.trustDelta, 0);
+        const suspTotal = meetingDeltas.reduce((sum, d) => sum + d.suspicionDelta, 0);
+
+        const reactionSummary: ReactionSummary = {
+          take: trustTotal >= 0 ? 'positive' : 'neutral',
+          context: 'private',
+          notes: 'Alliance meeting held in private; subtle shifts in loyalty and suspicion.',
+          deltas: {
+            trust: Math.round(trustTotal / Math.max(1, meetingDeltas.length)),
+            suspicion: Math.round(suspTotal / Math.max(1, meetingDeltas.length)),
+            influence: 2,
+            entertainment: 1,
+          },
+        };
+
+        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const nextHistory = [
+          ...(prev.ratingsHistory || []),
+          {
+            day: prev.currentDay,
+            rating: Math.round(ratingRes.rating * 100) / 100,
+            reason: ratingRes.reason,
+          },
+        ];
+
+        void logInteractionToCloud({
+          day: prev.currentDay,
+          type: 'event',
+          participants: [prev.playerName, ...members],
+          playerName: prev.playerName,
+          playerMessage: `[Alliance Meeting] ${content || 'discussion'}`,
+          aiResponse: '',
+          tone: tone || 'strategic',
+        });
+
+        const baseNext: GameState = {
           ...prev,
           contestants: updatedContestants,
           alliances: updatedAlliances,
+          playerActions: updatedActions,
           dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          groupActionsUsedToday: usedGroups + 1,
           lastActionType: 'alliance_meeting',
           lastActionTarget: alliance.name || 'Alliance',
+          lastAIReaction: reactionSummary,
           interactionLog: [...(prev.interactionLog || []), interactionEntry],
+          viewerRating: ratingRes.rating,
+          ratingsHistory: nextHistory,
         };
+
+        return verifyAndUpdateTasks(baseNext);
       });
       return;
     }
 
   }, []);
 
-  const submitConfessional = useCallback(() => {
-    // Simplified confessional submission
-    debugLog('Confessional submitted');
-  }, []);
+  const submitConfessional = useCallback((content?: string, tone?: string) => {
+    if (!content || !tone) return;
+    useAction('confessional', undefined, content, tone);
+  }, [useAction]);
 
   const setImmunityWinner = useCallback((winner: string) => {
     setGameState(prev => {
@@ -1230,6 +1759,13 @@ export const useGameState = () => {
 
   const submitPlayerVote = useCallback((choice: string) => {
     setGameState(prev => {
+      const eligibleTargets = prev.contestants
+        .filter(c => !c.isEliminated && c.name !== prev.playerName && c.name !== prev.immunityWinner)
+        .map(c => c.name);
+      if (!eligibleTargets.includes(choice)) {
+        return prev;
+      }
+
       const votingResult = processVoting(
         prev.contestants,
         prev.playerName,
@@ -1281,6 +1817,11 @@ export const useGameState = () => {
         immunityWinner: undefined, // Reset immunity
         juryMembers: updatedJuryMembers.length ? updatedJuryMembers : prev.juryMembers,
         isPlayerEliminated,
+        playerCannotBeEliminatedUntilDay:
+          typeof prev.playerCannotBeEliminatedUntilDay === 'number' &&
+          prev.currentDay >= prev.playerCannotBeEliminatedUntilDay
+            ? undefined
+            : prev.playerCannotBeEliminatedUntilDay,
       };
     });
   }, []);
@@ -1578,6 +2119,15 @@ export const useGameState = () => {
       if (type === 'twist_intro') nextPhase = 'houseguests_roster';
       else if (type === 'finale_twist') nextPhase = 'finale';
 
+      // Cutscenes can trigger on weekly recap days; return to weekly recap so the elimination cycle still runs.
+      if (
+        nextPhase === 'daily' &&
+        prev.currentDay % 7 === 0 &&
+        (type === 'mid_game' || type === 'twist_result_success' || type === 'twist_result_failure')
+      ) {
+        nextPhase = 'weekly_recap';
+      }
+
       // If we just showed a mid-game narrative beat, mark it completed to allow the next beat to activate later
       let nextTwistNarrative = prev.twistNarrative;
       if (type === 'mid_game' && prev.twistNarrative?.currentBeatId) {
@@ -1600,9 +2150,25 @@ export const useGameState = () => {
         const beatId = prev.twistNarrative.currentBeatId;
         const arc = prev.twistNarrative.arc;
 
+        // Host's Child arc hard mechanics
+        // - hc_voting_block: protection week (player cannot be eliminated until the next scheduled vote)
+        // - hc_immediate_fallout: reveal the secret and apply a short scrutiny window
+        if (arc === 'hosts_child' && beatId === 'hc_voting_block') {
+          nextState = {
+            ...nextState,
+            playerCannotBeEliminatedUntilDay: nextState.nextEliminationDay,
+            twistsActivated: Array.from(new Set([...(nextState.twistsActivated || []), 'host_child_protection_week'])),
+          };
+        }
+
         // When the Host's Child live reveal episode plays, mark the secret as revealed in state.
         if (arc === 'hosts_child' && beatId === 'hc_immediate_fallout') {
           nextState = revealHostChild(nextState, nextState.playerName);
+          nextState = {
+            ...nextState,
+            hostChildFalloutUntilDay: nextState.currentDay + 3,
+            twistsActivated: Array.from(new Set([...(nextState.twistsActivated || []), 'host_child_reveal'])),
+          };
         }
 
         // When the Planted Houseguest exposure episode airs, mark the secret as revealed if it wasn't already.
@@ -1622,8 +2188,90 @@ export const useGameState = () => {
                 },
               };
             });
-            nextState = { ...nextState, contestants: updatedContestants };
+            // House fallout: trust collapses and suspicion spikes when the plant is exposed on air.
+            const falloutContestants = updatedContestants.map(c => {
+              if (c.name !== nextState.playerName) return c;
+              return {
+                ...c,
+                psychProfile: {
+                  ...c.psychProfile,
+                  suspicionLevel: Math.min(100, c.psychProfile.suspicionLevel + 25),
+                  trustLevel: Math.max(-100, c.psychProfile.trustLevel - 8),
+                },
+              };
+            });
+
+            falloutContestants
+              .filter(c => !c.isEliminated && c.name !== nextState.playerName)
+              .forEach(c => {
+                relationshipGraphEngine.updateRelationship(
+                  c.name,
+                  nextState.playerName,
+                  -10,
+                  15,
+                  -3,
+                  'event',
+                  '[Planted Houseguest] Exposed on air',
+                  nextState.currentDay
+                );
+              });
+
+            nextState = {
+              ...nextState,
+              contestants: falloutContestants,
+              twistsActivated: Array.from(new Set([...(nextState.twistsActivated || []), 'planted_exposed'])),
+            };
           }
+        }
+
+        if (arc === 'planted_houseguest' && beatId === 'phg_use_intel') {
+          // Ensure NPC plans exist for this week, then leak a couple of them to the player.
+          AIVotingStrategy.generateWeeklyVotingPlans(nextState);
+
+          const candidates = nextState.contestants
+            .filter(c => !c.isEliminated && c.name !== nextState.playerName)
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 2);
+
+          const leaks = candidates
+            .map(c => {
+              const plan = memoryEngine.getVotingPlan(c.name, nextState.currentDay);
+              if (!plan?.target) return null;
+              return {
+                npc: c.name,
+                target: plan.target,
+                source: plan.source,
+                reasoning: plan.reasoning,
+              };
+            })
+            .filter(Boolean) as NonNullable<GameState['productionIntel']>['leaks'];
+
+          if (leaks.length > 0) {
+            nextState = {
+              ...nextState,
+              productionIntel: {
+                day: nextState.currentDay,
+                leaks,
+              },
+              twistsActivated: Array.from(new Set([...(nextState.twistsActivated || []), 'planted_intel_drop'])),
+            };
+          }
+        }
+      }
+
+      // If a mission result cutscene pre-empted a narrative beat cutscene, show the beat immediately after.
+      if (
+        (type === 'twist_result_success' || type === 'twist_result_failure') &&
+        nextState.twistNarrative?.currentBeatId
+      ) {
+        const pendingId = nextState.twistNarrative.currentBeatId;
+        const beat = nextState.twistNarrative.beats?.find(b => b.id === pendingId);
+        if (beat && beat.status === 'active') {
+          nextState = {
+            ...nextState,
+            gamePhase: 'cutscene' as const,
+            currentCutscene: buildMidGameCutscene(nextState, beat),
+          };
         }
       }
 
@@ -2488,8 +3136,9 @@ export const useGameState = () => {
     });
   }, []);
 
-  // Add event listener for skip button
+  // Add event listener for skip button (dev-only)
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
     const handleSkip = () => skipToJury();
     window.addEventListener('skipToJury', handleSkip);
     return () => window.removeEventListener('skipToJury', handleSkip);

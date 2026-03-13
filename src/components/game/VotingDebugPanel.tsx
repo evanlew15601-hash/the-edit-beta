@@ -122,6 +122,31 @@ export const VotingDebugPanel: React.FC = () => {
           </div>
         </div>
 
+        <div className="p-2 border rounded text-xs mb-3 space-y-1">
+          <div className="text-muted-foreground">Twists</div>
+          <div className="font-medium">Arc: {gameState.twistNarrative?.arc || 'none'}</div>
+          {gameState.twistNarrative?.currentBeatId && (
+            <div>
+              Active beat: <span className="font-medium">{gameState.twistNarrative.currentBeatId}</span>
+            </div>
+          )}
+          {typeof gameState.playerCannotBeEliminatedUntilDay === 'number' && (
+            <div className="text-destructive">
+              Protection: player cannot be eliminated until Day {gameState.playerCannotBeEliminatedUntilDay}
+            </div>
+          )}
+          {typeof gameState.hostChildFalloutUntilDay === 'number' && (
+            <div>
+              Host child fallout until Day {gameState.hostChildFalloutUntilDay}
+            </div>
+          )}
+          {gameState.productionIntel && gameState.productionIntel.day === gameState.currentDay && (
+            <div>
+              Intel leaks: {gameState.productionIntel.leaks.map(l => `${l.npc} → ${l.target}`).join(' • ')}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-2">
           <Button variant="action" onClick={advanceDay} className="w-full">
             Advance Day
