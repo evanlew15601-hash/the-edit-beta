@@ -48,6 +48,44 @@ const debugWarn = (...args: any[]) => {
   if (isDevEnv) console.warn(...args);
 };
 
+function verifyAndUpdateTasksWithMissionCutscene(prev: GameState, baseNext: GameState): GameState {
+  const updated = verifyAndUpdateTasks(baseNext);
+
+  const prevPlayer = prev.contestants.find(c => c.name === prev.playerName);
+  const nextPlayer = updated.contestants.find(c => c.name === updated.playerName);
+
+  const prevSpec = prevPlayer?.special && prevPlayer.special.kind === 'planted_houseguest' ? prevPlayer.special : undefined;
+  const nextSpec = nextPlayer?.special && nextPlayer.special.kind === 'planted_houseguest' ? nextPlayer.special : undefined;
+
+  if (!prevSpec || !nextSpec) return updated;
+  if (updated.gamePhase === 'cutscene' || updated.currentCutscene) return updated;
+
+  const prevTasks = prevSpec.tasks || [];
+  const nextTasks = nextSpec.tasks || [];
+
+  const newlyCompleted = nextTasks.find(t => {
+    if (!t.completed) return false;
+    const prevTask = prevTasks.find(p => p.id === t.id);
+    return !prevTask?.completed;
+  });
+
+  if (!newlyCompleted) return updated;
+
+  const nextCutscene = buildTwistResultCutscene(updated, 'success', { taskId: newlyCompleted.id });
+
+  return {
+    ...updated,
+    currentCutscene: nextCutscene,
+    gamePhase: 'cutscene' as const,
+    missionBroadcastBanner: {
+      day: updated.currentDay,
+      result: 'success',
+      taskId: newlyCompleted.id,
+      description: newlyCompleted.description,
+    },
+  };
+}
+
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
     // Fresh start every load; manual save/load only
@@ -750,7 +788,7 @@ export const useGameState = () => {
               ratingsHistory: nextHistory,
             };
 
-            return verifyAndUpdateTasks(baseNext);
+            return verifyAndUpdateTasksWithMissionCutscene(prev, baseNext);
           });
         } catch (e) {
           console.error('AI response generation failed:', e);
@@ -848,7 +886,7 @@ export const useGameState = () => {
           ratingsHistory: nextHistory,
         };
 
-        return verifyAndUpdateTasks(baseNext);
+        return verifyAndUpdateTasksWithMissionCutscene(prev, baseNext);
       });
 
       return;
@@ -912,7 +950,7 @@ export const useGameState = () => {
           ratingsHistory: nextHistory,
         };
 
-        return verifyAndUpdateTasks(baseNext);
+        return verifyAndUpdateTasksWithMissionCutscene(prev, baseNext);
       });
       return;
     }
@@ -1009,7 +1047,7 @@ export const useGameState = () => {
           ratingsHistory: nextHistory,
         };
 
-        return verifyAndUpdateTasks(baseNext);
+        return verifyAndUpdateTasksWithMissionCutscene(prev, baseNext);
       });
 
       return;
@@ -1110,7 +1148,7 @@ export const useGameState = () => {
           ratingsHistory: nextHistory,
         };
 
-        return verifyAndUpdateTasks(baseNext);
+        return verifyAndUpdateTasksWithMissionCutscene(prev, baseNext);
       });
 
       return;
@@ -1267,7 +1305,7 @@ export const useGameState = () => {
           ratingsHistory: nextHistory,
         };
 
-        return verifyAndUpdateTasks(baseNext);
+        return verifyAndUpdateTasksWithMissionCutscene(prev, baseNext);
       });
       return;
     }
@@ -1436,7 +1474,7 @@ export const useGameState = () => {
           ratingsHistory: nextHistory,
         };
 
-        return verifyAndUpdateTasks(baseNext);
+        return verifyAndUpdateTasksWithMissionCutscene(prev, baseNext);
       });
       return;
     }
@@ -1760,9 +1798,17 @@ export const useGameState = () => {
   const submitPlayerVote = useCallback((choice: string) => {
     setGameState(prev => {
       const eligibleTargets = prev.contestants
-        .filter(c => !c.isEliminated && c.name !== prev.playerName && c.name !== prev.immunityWinner)
-        .map(c => c.name);
+        .filter(c => !c.isEliminated)
+        .map(c => c.name)
+        .filter(n => n !== prev.playerName && n !== prev.immunityWinner);
+
       if (!eligibleTargets.includes(choice)) {
+        debugWarn('submitPlayerVote: invalid vote target', {
+          choice,
+          eligibleTargets,
+          immunityWinner: prev.immunityWinner,
+          playerName: prev.playerName,
+        });
         return prev;
       }
 
