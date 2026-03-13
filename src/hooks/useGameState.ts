@@ -98,7 +98,7 @@ export const useGameState = () => {
   }, [gameState]);
 
   const startGame = useCallback((playerName?: string) => {
-    console.log('Starting game, proceeding to character creation.', playerName ? `Provided name (ignored here): ${playerName}` : '');
+    debugLog('Starting game, proceeding to character creation.', playerName ? `Provided name (ignored here): ${playerName}` : '');
 
     const newState: GameState = {
       currentDay: 1,
@@ -435,28 +435,7 @@ export const useGameState = () => {
       }
     })();
 
-    // After the synchronous day-advance state update, trigger background
-    // NPC conversations asynchronously using the latest gameStateRef.
-    (async () => {
-      try {
-        const stateAfterAdvance = gameStateRef.current;
-        const outcomes = await BackgroundConversationEngine.generateDailyBackgroundConversations(stateAfterAdvance);
-        if (!outcomes || outcomes.length === 0) {
-          return;
-        }
-
-        setGameState(prev => {
-          // Avoid applying stale outcomes if the day has already moved on.
-          if (prev.currentDay !== stateAfterAdvance.currentDay) {
-            return prev;
-          }
-          return BackgroundConversationEngine.applyOutcomes(prev, outcomes);
-        });
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('Failed to generate/apply background NPC conversations:', e);
-      }
-    })();
+    
   }, []);
 
   const useAction = useCallback((actionType: GameActionType, target?: string, content?: string, tone?: string) => {
@@ -1735,7 +1714,7 @@ export const useGameState = () => {
 
   const continueFromElimination = useCallback((forcePlayerElimination = false) => {
     debugLog('=== continueFromElimination called ===');
-    console.log('forcePlayerElimination:', forcePlayerElimination);
+    debugLog('forcePlayerElimination:', forcePlayerElimination);
     
     setGameState(prev => {
       const remainingCount = prev.contestants.filter(c => !c.isEliminated).length;
@@ -1766,8 +1745,8 @@ export const useGameState = () => {
           .slice(0, 7)
           .map(c => c.name);
 
-        console.log('Updated jury members (7 max):', updatedJuryMembers);
-        console.log('Player should be included:', updatedJuryMembers.includes(prev.playerName));
+        debugLog('Updated jury members (7 max):', updatedJuryMembers);
+        debugLog('Player should be included:', updatedJuryMembers.includes(prev.playerName));
 
         // Work on a dynamic list of currently active non-player contestants
         let activeNonPlayerContestants = updatedContestants.filter(c => !c.isEliminated && c.name !== prev.playerName);
@@ -1891,7 +1870,7 @@ export const useGameState = () => {
   const createAlliance = useCallback((name: string, members: string[]) => {
     setGameState(prev => {
       const newAlliance = AllianceManager.createAlliance([prev.playerName, ...members], name, prev.currentDay);
-      console.log('Created alliance:', newAlliance);
+      debugLog('Created alliance:', newAlliance);
       return {
         ...prev,
         alliances: [...prev.alliances, newAlliance]
@@ -1944,7 +1923,7 @@ export const useGameState = () => {
   }, []);
 
   const handleEmergentEventChoice = useCallback((event: any, choice: 'pacifist' | 'headfirst') => {
-    console.log('Emergent event choice handled:', event.type, choice);
+    debugLog('Emergent event choice handled:', event.type, choice);
     
     setGameState(prev => {
       const updatedContestants = prev.contestants.map(contestant => {
@@ -2136,8 +2115,8 @@ export const useGameState = () => {
   }, []);
 
   const tagTalk = useCallback((target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => {
-    console.log('=== TAG TALK TRIGGERED ===');
-    console.log('Target:', target, 'Choice:', choiceId, 'Interaction:', interaction);
+    debugLog('=== TAG TALK TRIGGERED ===');
+    debugLog('Target:', target, 'Choice:', choiceId, 'Interaction:', interaction);
 
     // Compute precise outcome using ReactionProfile + choice metadata
     // and surface actual deltas in lastAIReaction. Also apply cooldowns.

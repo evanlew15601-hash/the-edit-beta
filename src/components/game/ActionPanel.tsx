@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
+import { useGame } from '@/contexts/GameContext';
 import { GameState } from '@/types/game';
 import { ConversationDialog } from './ConversationDialog';
 import { DirectMessageDialog } from './DirectMessageDialog';
@@ -24,19 +25,18 @@ type GameActionType =
   | 'house_meeting'
   | 'alliance_meeting';
 
-interface ActionPanelProps {
-  gameState: GameState;
-  onUseAction: (actionType: GameActionType, target?: string, content?: string, tone?: string) => void;
-  onAdvanceDay: () => void;
-  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
-  onForcedConversationReply: (from: string, content: string, tone: string) => void;
-  onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
-  onAllianceMeeting: (allianceId: string, agenda: string, tone: string) => void;
-  onHouseMeetingChoice: (choice: 'persuasive' | 'defensive' | 'aggressive' | 'manipulative' | 'silent') => void;
-  onEndHouseMeeting: () => void;
-}
+export const ActionPanel = () => {
+  const {
+    gameState,
+    useAction,
+    advanceDay,
+    handleEmergentEventChoice,
+    respondToForcedConversation,
+    tagTalk,
+    handleHouseMeetingChoice,
+    endHouseMeeting,
+  } = useGame();
 
-export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk, onAllianceMeeting, onHouseMeetingChoice, onEndHouseMeeting }: ActionPanelProps) => {
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
   const [forcedOpen, setForcedOpen] = useState(false);
@@ -83,7 +83,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
   };
 
   const handleActionSubmit = (actionType: GameActionType, target?: string, content?: string, tone?: string) => {
-    onUseAction(actionType, target, content, tone);
+    useAction(actionType, target, content, tone);
     setActiveDialog(null);
   };
 
@@ -251,7 +251,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
             <Button
               variant={allActionsUsed ? 'surveillance' : 'outline'}
               size="wide"
-              onClick={allActionsUsed ? onAdvanceDay : () => setShowSkipDialog(true)}
+              onClick={allActionsUsed ? advanceDay : () => setShowSkipDialog(true)}
             >
               Proceed to Next Day
             </Button>
@@ -266,7 +266,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onClose={() => { /* forced; do not allow closing without reply */ }}
         contestants={gameState.contestants.filter(c => !c.isEliminated)}
         onSubmit={(target, content, tone) => {
-          onForcedConversationReply(target, content, tone);
+          respondToForcedConversation(target, content, tone);
           setForcedOpen(false);
         }}
         forced
@@ -312,10 +312,10 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
       <DaySkipDialog
          isOpen={showSkipDialog}
          onClose={() => setShowSkipDialog(false)}
-         onConfirmSkip={onAdvanceDay}
+         onConfirmSkip={advanceDay}
          currentDay={gameState.currentDay}
          gameState={gameState}
-         onEventChoice={onEmergentEventChoice}
+         onEventChoice={handleEmergentEventChoice}
        />
 
       <ActivityDialog
@@ -330,7 +330,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         gameState={gameState}
         contestants={gameState.contestants.filter(c => !c.isEliminated)}
         onSubmit={(target, choiceId, interaction) => { 
-          onTagTalk(target, choiceId, tagTalkType); 
+          tagTalk(target, choiceId, tagTalkType); 
           setTagTalkOpen(false); 
         }}
         interactionType={tagTalkType}
@@ -343,7 +343,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         contestants={gameState.contestants.filter(c => !c.isEliminated)}
         playerName={gameState.playerName}
         onSubmit={(allianceId, agenda, tone) => {
-          onAllianceMeeting(allianceId, agenda, tone);
+          useAction('alliance_meeting', allianceId, agenda, tone);
           setAllianceMeetingOpen(false);
         }}
       />
@@ -354,14 +354,14 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         onClose={() => setActiveDialog(null)}
         gameState={gameState}
         onStart={(topic, target) => {
-          onUseAction('house_meeting', target, topic, 'neutral');
+          useAction('house_meeting', target, topic, 'neutral');
           // Keep dialog open to proceed through rounds
         }}
         onChoice={(choice) => {
-          onHouseMeetingChoice(choice);
+          handleHouseMeetingChoice(choice);
         }}
         onEnd={() => {
-          onEndHouseMeeting();
+          endHouseMeeting();
           setActiveDialog(null);
         }}
       />
@@ -372,7 +372,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         contestants={gameState.contestants}
         playerName={gameState.playerName}
         onSubmit={(name, members) => {
-          onUseAction('create_alliance', name, members.join(','), 'strategic');
+          useAction('create_alliance', name, members.join(','), 'strategic');
           setCreateAllianceOpen(false);
         }}
       />
@@ -384,7 +384,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
         contestants={gameState.contestants}
         playerName={gameState.playerName}
         onSubmit={(allianceId, newMembers) => {
-          onUseAction('add_alliance_members', allianceId, newMembers.join(','), 'strategic');
+          useAction('add_alliance_members', allianceId, newMembers.join(','), 'strategic');
           setAddMemberOpen(false);
         }}
       />

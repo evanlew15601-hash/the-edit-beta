@@ -4,12 +4,9 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { useGame } from '@/contexts/GameContext';
 import { BACKGROUND_META, PRESET_BACKGROUNDS } from '@/data/backgrounds';
 import { CharacterStats, Contestant, Background, SpecialBackground, StatInclination } from '@/types/game';
-
-interface CharacterCreationProps {
-  onCreate: (player: Contestant) => void;
-}
 
 const STAT_OPTIONS: {
   key: StatInclination;
@@ -38,9 +35,9 @@ const STAT_OPTIONS: {
   }
 ];
 
-export function CharacterCreation({
-  onCreate
-}: CharacterCreationProps) {
+export function CharacterCreation() {
+  const { finalizeCharacterCreation } = useGame();
+
   const [name, setName] = useState('');
   const [age, setAge] = useState<number | ''>('');
   const [background, setBackground] = useState<Background>('College Athlete');
@@ -141,7 +138,7 @@ export function CharacterCreation({
       memory: [],
       isEliminated: false
     };
-    onCreate(player);
+    finalizeCharacterCreation(player);
   };
 
   return (

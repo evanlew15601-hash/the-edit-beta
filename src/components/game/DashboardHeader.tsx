@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useGame } from '@/contexts/GameContext';
 import { Users, Shield, Crown, Timer, Star } from 'lucide-react';
-import { GameState } from '@/types/game';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,18 +16,20 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-interface DashboardHeaderProps {
-  gameState: GameState;
-  onSave?: () => void;
-  onLoad?: () => void;
-  onDeleteSave?: () => void;
-  onTitle?: () => void;
-  onToggleDebug?: () => void;
-  hasSave?: boolean;
-  onOpenRoster?: () => void;
-}
+export const DashboardHeader = () => {
+  const {
+    gameState,
+    saveGame,
+    loadSavedGame,
+    deleteSavedGame,
+    hasSavedGame,
+    goToTitle,
+    toggleDebugMode,
+    openRoster,
+  } = useGame();
 
-export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTitle, onToggleDebug, hasSave, onOpenRoster }: DashboardHeaderProps) => {
+  const hasSave = hasSavedGame();
+
   const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
   const remainingCount = activeContestants.length;
   
@@ -42,8 +44,8 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
     Math.max(0, gameState.nextEliminationDay - gameState.currentDay) : 0;
   
   const getPhaseSubtitle = () => {
-    // Only show \"Final Three\" label during the dedicated Final 3 phase
-    if (gameState.gamePhase === 'final_3_vote') return \"Final Three\";
+    // Only show "Final Three" label during the dedicated Final 3 phase
+    if (gameState.gamePhase === 'final_3_vote') return "Final Three";
 
     // Final Two label once we're actually in finale / jury / post-season context
     if (
@@ -52,12 +54,12 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
         gameState.gamePhase === 'jury_vote' ||
         gameState.gamePhase === 'post_season')
     ) {
-      return \"Final Two\";
+      return "Final Two";
     }
 
-    if (isJuryPhase) return \"Jury Phase\";
-    if (weeksUntilJury <= 2) return \"Pre-Jury Finale\";
-    return \"Pre-Jury\";
+    if (isJuryPhase) return "Jury Phase";
+    if (weeksUntilJury <= 2) return "Pre-Jury Finale";
+    return "Pre-Jury";
   };
 
   // Roster quick access toggle, persisted
@@ -136,7 +138,7 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
               {/* Roster quick access */}
               {showRosterButton && (
                 <div className="flex items-center gap-1">
-                  <Button variant="secondary" size="sm" onClick={onOpenRoster} aria-label="Meet the Houseguests">
+                  <Button variant="secondary" size="sm" onClick={openRoster} aria-label="Meet the Houseguests">
                     <Users className="w-4 h-4 mr-1" />
                     Roster
                   </Button>
@@ -181,13 +183,13 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
 
             {/* Unified Controls */}
             <div className="flex items-center gap-1 md:gap-2">
-              <Button variant="secondary" size="sm" onClick={onSave} aria-label="Save game">
+              <Button variant="secondary" size="sm" onClick={saveGame} aria-label="Save game">
                 Save
               </Button>
-              <Button variant="secondary" size="sm" onClick={onLoad} aria-label="Load last save" disabled={!hasSave}>
+              <Button variant="secondary" size="sm" onClick={loadSavedGame} aria-label="Load last save" disabled={!hasSave}>
                 Load
               </Button>
-              {hasSave && onDeleteSave ? (
+              {hasSave ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
@@ -207,7 +209,7 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={onDeleteSave}>
+                      <AlertDialogAction onClick={deleteSavedGame}>
                         Delete
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -223,13 +225,13 @@ export const DashboardHeader = ({ gameState, onSave, onLoad, onDeleteSave, onTit
                   Delete
                 </Button>
               )}
-              <Button variant="ghost" size="sm" onClick={onTitle} aria-label="Quit to title">
+              <Button variant="ghost" size="sm" onClick={goToTitle} aria-label="Quit to title">
                 Title
               </Button>
               <Button
                 variant={gameState.debugMode ? 'secondary' : 'outline'}
                 size="sm"
-                onClick={onToggleDebug}
+                onClick={toggleDebugMode}
                 aria-pressed={gameState.debugMode}
                 aria-label="Toggle debug"
               >

@@ -2,31 +2,36 @@
 import { Alliance, GameState } from '@/types/game';
 import { relationshipGraphEngine } from './relationshipGraphEngine';
 
+const isDevEnv = import.meta.env.MODE !== 'production';
+const devLog = (...args: any[]) => {
+  if (isDevEnv) console.log(...args);
+};
+
 export class AllianceManager {
   /**
    * Updates alliance trust based on recent interactions and betrayals
    */
   static updateAllianceTrust(gameState: GameState): Alliance[] {
-    console.log('Updating alliance trust for', gameState.alliances.length, 'alliances');
-    console.log('Current contestants:', gameState.contestants.map(c => c.name));
-    console.log('Player name:', gameState.playerName);
+    devLog('Updating alliance trust for', gameState.alliances.length, 'alliances');
+    devLog('Current contestants:', gameState.contestants.map(c => c.name));
+    devLog('Player name:', gameState.playerName);
     
     return gameState.alliances.map(alliance => {
-      console.log(`Processing alliance with members:`, alliance.members);
+      devLog(`Processing alliance with members:`, alliance.members);
       
       // Remove eliminated members immediately
       const activeMembers = alliance.members.filter(member => {
         const contestant = gameState.contestants.find(c => c.name === member);
         const isActive = contestant && !contestant.isEliminated;
-        console.log(`Member ${member}: found=${!!contestant}, eliminated=${contestant?.isEliminated}, active=${isActive}`);
+        devLog(`Member ${member}: found=${!!contestant}, eliminated=${contestant?.isEliminated}, active=${isActive}`);
         return isActive;
       });
 
-      console.log(`Alliance ${alliance.name || alliance.members.join('&')} has ${activeMembers.length} active members`);
+      devLog(`Alliance ${alliance.name || alliance.members.join('&')} has ${activeMembers.length} active members`);
 
       // Auto-dissolve if only one or no active members
       if (activeMembers.length <= 1) {
-        console.log('Alliance dissolved - insufficient members');
+        devLog('Alliance dissolved - insufficient members');
 
         // Keep relationship graph in sync when alliances fall apart
         if (alliance.members.length >= 2) {
@@ -56,7 +61,7 @@ export class AllianceManager {
         alliance.members.some(member => log.participants.includes(member))
       ) || [];
 
-      console.log(`Found ${recentInteractions.length} recent interactions for alliance`);
+      devLog(`Found ${recentInteractions.length} recent interactions for alliance`);
 
       // Positive trust factors
       recentInteractions.forEach(interaction => {
@@ -98,7 +103,7 @@ export class AllianceManager {
           recentVoting.forEach(vote => {
             if (vote.votes && vote.votes[member] && alliance.members.includes(vote.votes[member])) {
               trustDelta -= 25; // Major trust penalty for voting against ally
-              console.log(`Trust penalty: ${member} voted against ally ${vote.votes[member]}`);
+              devLog(`Trust penalty: ${member} voted against ally ${vote.votes[member]}`);
             }
           });
         }
@@ -114,7 +119,7 @@ export class AllianceManager {
       const currentStrength = alliance.strength || 70; // Default to 70 if not set
       const newStrength = Math.max(10, Math.min(100, currentStrength + trustDelta));
 
-      console.log(`Alliance trust change: ${currentStrength} -> ${newStrength} (delta: ${trustDelta})`);
+      devLog(`Alliance trust change: ${currentStrength} -> ${newStrength} (delta: ${trustDelta})`);
 
       return {
         ...alliance,
@@ -165,19 +170,19 @@ export class AllianceManager {
   static shouldVoteTogether(alliance: Alliance, gameState: GameState): boolean {
     // FIXED: More dynamic voting coordination based on trust and game state
     if (alliance.strength < 30) {
-      console.log(`Alliance ${alliance.name} won't vote together - very low trust (${alliance.strength})`);
+      devLog(`Alliance ${alliance.name} won't vote together - very low trust (${alliance.strength})`);
       return false;
     }
 
     // Strong alliances vote together more often
     if (alliance.strength > 70) {
-      console.log(`Alliance ${alliance.name} will vote together - high trust (${alliance.strength})`);
+      devLog(`Alliance ${alliance.name} will vote together - high trust (${alliance.strength})`);
       return Math.random() > 0.2; // 80% coordination for strong alliances
     }
 
     // Medium trust alliances coordinate sometimes
     if (alliance.strength > 50) {
-      console.log(`Alliance ${alliance.name} might vote together - medium trust (${alliance.strength})`);
+      devLog(`Alliance ${alliance.name} might vote together - medium trust (${alliance.strength})`);
       return Math.random() > 0.5; // 50% coordination for medium alliances
     }
 
@@ -189,7 +194,7 @@ export class AllianceManager {
     ) || [];
 
     if (recentBetrayals.length > 0) {
-      console.log(`Alliance ${alliance.name} won't vote together - recent betrayals detected`);
+      devLog(`Alliance ${alliance.name} won't vote together - recent betrayals detected`);
       return false;
     }
 
@@ -218,7 +223,7 @@ export class AllianceManager {
       const match = recentMeeting.content.match(/(?:vote|target)[:=]\s*([A-Za-z0-9 _-]+)/i);
       const proposed = match ? match[1].trim() : undefined;
       if (proposed && validTargets.includes(proposed)) {
-        console.log(`Alliance ${alliance.name} honoring proposed target from meeting: ${proposed}`);
+        devLog(`Alliance ${alliance.name} honoring proposed target from meeting: ${proposed}`);
         return proposed;
       }
     }
@@ -249,7 +254,7 @@ export class AllianceManager {
       current.threat > prev.threat ? current : prev
     );
 
-    console.log(`Alliance ${alliance.name} coordinating vote against ${topThreat.name} (threat: ${topThreat.threat})`);
+    devLog(`Alliance ${alliance.name} coordinating vote against ${topThreat.name} (threat: ${topThreat.threat})`);
     return topThreat.name;
   }
 
@@ -283,7 +288,7 @@ export class AllianceManager {
       const becomesExposed = wasSecret && exposureRisk > 60 && Math.random() > 0.3;
       
       if (becomesExposed) {
-        console.log(`Alliance ${alliance.name} has been exposed! Risk: ${exposureRisk}`);
+        devLog(`Alliance ${alliance.name} has been exposed! Risk: ${exposureRisk}`);
         // Add exposure memory to non-alliance members
         gameState.contestants.forEach(contestant => {
           if (!alliance.members.includes(contestant.name) && !contestant.isEliminated) {

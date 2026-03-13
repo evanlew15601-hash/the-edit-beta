@@ -1,4 +1,4 @@
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { ActionPanel } from './ActionPanel';
 import { ContestantGrid } from './ContestantGrid';
 import { TwistNotification } from './TwistNotification';
@@ -15,25 +15,14 @@ import { BasicConversationEngine } from './BasicConversationEngine';
 import { VotingIntelligencePanel } from './VotingIntelligencePanel';
 import { ProductionTasksPanel } from './ProductionTasksPanel';
 
-type GameActionType =
-  GameState['playerActions'][number]['type']
-  | 'create_alliance'
-  | 'add_alliance_members'
-  | 'house_meeting'
-  | 'alliance_meeting';
+export const GameplayScreen = () => {
+  const {
+    gameState,
+    useAction,
+    tagTalk,
+    handleEmergentEventChoice,
+  } = useGame();
 
-interface GameplayScreenProps {
-  gameState: GameState;
-  onUseAction: (actionType: GameActionType, target?: string, content?: string, tone?: string) => void;
-  onAdvanceDay: () => void;
-  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
-  onForcedConversationReply: (from: string, content: string, tone: string) => void;
-  onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
-  onHouseMeetingChoice: (choice: 'persuasive' | 'defensive' | 'aggressive' | 'manipulative' | 'silent') => void;
-  onEndHouseMeeting: () => void;
-}
-
-export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk, onHouseMeetingChoice, onEndHouseMeeting }: GameplayScreenProps) => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
@@ -55,19 +44,7 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Action Panel */}
           <div className="lg:col-span-2">
-            <ActionPanel
-              gameState={gameState}
-              onUseAction={onUseAction}
-              onAdvanceDay={onAdvanceDay}
-              onEmergentEventChoice={onEmergentEventChoice}
-              onForcedConversationReply={onForcedConversationReply}
-              onTagTalk={onTagTalk}
-              onAllianceMeeting={(allianceId: string, agenda: string, tone: string) => {
-                onUseAction('alliance_meeting', allianceId, agenda, tone);
-              }}
-              onHouseMeetingChoice={onHouseMeetingChoice}
-              onEndHouseMeeting={onEndHouseMeeting}
-            />
+            <ActionPanel />
           </div>
           
            <div className="lg:col-span-1 space-y-6">
@@ -86,15 +63,15 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
              {/* Basic RPG-style conversation (lightweight set options) */}
              <BasicConversationEngine
                gameState={gameState}
-               onUseAction={onUseAction}
+               onUseAction={useAction}
              />
              <EnhancedTagDialogueEngine
                gameState={gameState}
-               onTagTalk={onTagTalk}
+               onTagTalk={tagTalk}
              />
              <EnhancedEmergentEvents
                gameState={gameState}
-               onEmergentEventChoice={onEmergentEventChoice}
+               onEmergentEventChoice={handleEmergentEventChoice}
              />
              <AmbientNPCActivity 
                contestants={gameState.contestants}

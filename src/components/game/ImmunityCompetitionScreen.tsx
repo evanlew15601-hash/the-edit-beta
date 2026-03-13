@@ -2,13 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Progress } from '@/components/ui/progress';
+import { useGame } from '@/contexts/GameContext';
 import { Trophy, Zap, Clock, Target } from 'lucide-react';
-import { GameState, Contestant } from '@/types/game';
-
-interface ImmunityCompetitionScreenProps {
-  gameState: GameState;
-  onContinue: (winner: string) => void;
-}
+import { Contestant } from '@/types/game';
 
 const competitions = [
   {
@@ -37,7 +33,8 @@ const competitions = [
   }
 ];
 
-export const ImmunityCompetitionScreen = ({ gameState, onContinue }: ImmunityCompetitionScreenProps) => {
+export const ImmunityCompetitionScreen = () => {
+  const { gameState, setImmunityWinner } = useGame();
   const [competition, setCompetition] = useState(() => 
     competitions[Math.floor(Math.random() * competitions.length)]
   );
@@ -276,7 +273,7 @@ export const ImmunityCompetitionScreen = ({ gameState, onContinue }: ImmunityCom
                   </p>
                   <Button
                     variant="action"
-                    onClick={() => onContinue(winner)}
+                    onClick={() => setImmunityWinner(winner)}
                     className="w-full"
                   >
                     Continue to Elimination

@@ -1,14 +1,10 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 
-interface PlayerVoteScreenProps {
-  gameState: GameState;
-  onSubmitVote: (choice: string) => void;
-}
-
-export const PlayerVoteScreen = ({ gameState, onSubmitVote }: PlayerVoteScreenProps) => {
+export const PlayerVoteScreen = () => {
+  const { gameState, submitPlayerVote } = useGame();
   const [choice, setChoice] = useState<string>('');
 
   const active = gameState.contestants.filter(c => !c.isEliminated);
@@ -97,7 +93,7 @@ export const PlayerVoteScreen = ({ gameState, onSubmitVote }: PlayerVoteScreenPr
                 variant="surveillance"
                 size="wide"
                 disabled={!choice}
-                onClick={() => choice && onSubmitVote(choice)}
+                onClick={() => choice && submitPlayerVote(choice)}
                 className="mt-6"
               >
                 Submit Vote

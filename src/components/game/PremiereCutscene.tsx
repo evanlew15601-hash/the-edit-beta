@@ -1,5 +1,6 @@
 import { Cutscene } from './cutscenes/Cutscene';
-import { GameState, CutsceneSlide } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
+import { CutsceneSlide } from '@/types/game';
 
 const describeBackground = (label?: string) => {
   if (!label) return '';
@@ -10,14 +11,11 @@ const describeBackground = (label?: string) => {
   return `${useAn ? 'an' : 'a'} ${trimmed.toLowerCase()}`;
 };
 
-interface PremiereCutsceneProps {
-  onComplete: () => void;
-  gameState?: GameState;
-}
+export const PremiereCutscene = () => {
+  const { gameState, completePremiere } = useGame();
 
-export const PremiereCutscene = ({ onComplete, gameState }: PremiereCutsceneProps) => {
-  const contestants = gameState?.contestants || [];
-  const playerName = gameState?.playerName || 'You';
+  const contestants = gameState.contestants || [];
+  const playerName = gameState.playerName || 'You';
 
   const player = contestants.find(c => c.name === playerName);
   const others = contestants.filter(c => c.name !== playerName && !c.isEliminated);
@@ -118,7 +116,7 @@ export const PremiereCutscene = ({ onComplete, gameState }: PremiereCutsceneProp
     <Cutscene
       title="Premiere Night"
       slides={introSlides}
-      onComplete={onComplete}
+      onComplete={completePremiere}
       ctaLabel="Enter the House"
     />
   );

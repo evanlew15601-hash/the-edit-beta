@@ -1,45 +1,28 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 
-interface VotingDebugPanelProps {
-  gameState: GameState;
-  onAdvanceDay: () => void;
-  onProceedToJuryVote: () => void;
-  onProceedToFinaleAsJuror: () => void;
-  onProceedToJuryVoteAsJuror: () => void;
-  onGoToFinal3Vote: () => void;
-  onGoToFinal3TieBreak?: () => void;
-  onContinueFromElimination: () => void;
-  onToggleDebug: () => void;
-  // New: phase-specific actions
-  onSubmitPlayerVote?: (choice: string) => void;
-  onSubmitFinal3Vote?: (choice: string) => void;
-  onFinalizeFinal3Results?: () => void;
-  onTieBreakResult?: (eliminated: string, winner1: string, winner2: string, method?: 'challenge' | 'fire_making' | 'random_draw') => void;
-  onEndGame?: (winner: string, votes: { [juryMember: string]: string }, rationales?: { [juryMember: string]: string }) => void;
-}
+export const VotingDebugPanel: React.FC = () => {
+  const {
+    gameState,
+    advanceDay,
+    proceedToJuryVote,
+    proceedToFinaleAsJuror,
+    proceedToJuryVoteAsJuror,
+    setupFinal3,
+    setupFinal3TieBreak,
+    continueFromElimination,
+    toggleDebugMode,
+    submitPlayerVote,
+    submitFinal3Vote,
+    continueFromFinal3Results,
+    handleTieBreakResult,
+    endGame,
+  } = useGame();
 
-export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
-  gameState,
-  onAdvanceDay,
-  onProceedToJuryVote,
-  onProceedToFinaleAsJuror,
-  onProceedToJuryVoteAsJuror,
-  onGoToFinal3Vote,
-  onGoToFinal3TieBreak,
-  onContinueFromElimination,
-  onToggleDebug,
-  // Include optional handlers so they are in scope when used below
-  onSubmitPlayerVote,
-  onSubmitFinal3Vote,
-  onFinalizeFinal3Results,
-  onTieBreakResult,
-  onEndGame,
-}) => {
   if (!gameState.debugMode) return null;
 
   const active = gameState.contestants.filter(c => !c.isEliminated);
@@ -105,7 +88,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
             <div className="text-xs text-muted-foreground">Phase</div>
             <div className="text-sm font-medium">{gameState.gamePhase}</div>
           </div>
-          <Button variant="surveillance" size="sm" onClick={onToggleDebug} aria-label="Toggle Debug HUD">
+          <Button variant="surveillance" size="sm" onClick={toggleDebugMode} aria-label="Toggle Debug HUD">
             {gameState.debugMode ? 'Hide Debug' : 'Show Debug'}
           </Button>
         </div>
@@ -140,25 +123,25 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
         </div>
 
         <div className="space-y-2">
-          <Button variant="action" onClick={onAdvanceDay} className="w-full">
+          <Button variant="action" onClick={advanceDay} className="w-full">
             Advance Day
           </Button>
-          <Button variant="action" onClick={onProceedToJuryVote} className="w-full">
+          <Button variant="action" onClick={proceedToJuryVote} className="w-full">
             Proceed to Jury Vote (Player Finalist)
           </Button>
-          <Button variant="secondary" onClick={onProceedToFinaleAsJuror} className="w-full">
+          <Button variant="secondary" onClick={proceedToFinaleAsJuror} className="w-full">
             Proceed to Finale (Player as Juror)
           </Button>
-          <Button variant="secondary" onClick={onProceedToJuryVoteAsJuror} className="w-full">
+          <Button variant="secondary" onClick={proceedToJuryVoteAsJuror} className="w-full">
             Direct to Jury Vote (Player as Juror)
           </Button>
-          <Button variant="outline" onClick={onGoToFinal3Vote} className="w-full">
+          <Button variant="outline" onClick={setupFinal3} className="w-full">
             Go to Final 3 Vote (Test)
           </Button>
-          <Button variant="outline" onClick={() => onGoToFinal3TieBreak && onGoToFinal3TieBreak()} className="w-full">
+          <Button variant="outline" onClick={setupFinal3TieBreak} className="w-full">
             Skip to Final 3 Tie-Break
           </Button>
-          <Button variant="surveillance" onClick={() => onContinueFromElimination()} className="w-full">
+          <Button variant="surveillance" onClick={() => continueFromElimination()} className="w-full">
             Continue From Elimination
           </Button>
           <Button
@@ -170,7 +153,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
           </Button>
 
           {/* Phase-specific quick actions */}
-          {gameState.gamePhase === 'player_vote' && onSubmitPlayerVote && (
+          {gameState.gamePhase === 'player_vote' && (
             <div className="mt-2 border-t border-border pt-2">
               <div className="text-xs text-muted-foreground mb-1">Quick Player Vote</div>
               {nonPlayerActive.map(c => (
@@ -178,7 +161,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
                   key={c.name}
                   variant="outline"
                   size="sm"
-                  onClick={() => onSubmitPlayerVote(c.name)}
+                  onClick={() => submitPlayerVote(c.name)}
                   className="w-full mb-1"
                 >
                   Vote: {c.name}
@@ -187,7 +170,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
             </div>
           )}
 
-          {gameState.gamePhase === 'final_3_vote' && (onSubmitFinal3Vote || onTieBreakResult) && (
+          {gameState.gamePhase === 'final_3_vote' && (
             <div className="mt-2 border-t border-border pt-2">
               <div className="text-xs text-muted-foreground mb-1">Quick Final 3 Vote</div>
               {/* Submit vote against one of the non-player finalists */}
@@ -196,24 +179,22 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
                   key={`f3-${c.name}`}
                   variant="outline"
                   size="sm"
-                  onClick={() => onSubmitFinal3Vote && onSubmitFinal3Vote(c.name)}
+                  onClick={() => submitFinal3Vote(c.name)}
                   className="w-full mb-1"
                 >
                   Vote Out: {c.name}
                 </Button>
               ))}
-              {onFinalizeFinal3Results && (
-                <Button
-                  variant="action"
-                  size="sm"
-                  onClick={onFinalizeFinal3Results}
-                  className="w-full mb-1"
-                >
-                  Apply Final 3 Results → Finale/Elimination
-                </Button>
-              )}
+              <Button
+                variant="action"
+                size="sm"
+                onClick={continueFromFinal3Results}
+                className="w-full mb-1"
+              >
+                Apply Final 3 Results → Finale/Elimination
+              </Button>
               {/* Simple tie-break helpers: pick a winner among non-player actives */}
-              {onTieBreakResult && nonPlayerActive.length >= 2 && (
+              {nonPlayerActive.length >= 2 && (
                 <div className="mt-2">
                   <div className="text-[11px] text-muted-foreground mb-1">Tie-break helpers</div>
                   <Button
@@ -224,7 +205,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
                       const eliminated = active.find(
                         c => c.name !== gameState.playerName && !winners.includes(c.name)
                       )?.name || nonPlayerActive[2]?.name || '';
-                      onTieBreakResult(eliminated || '', winners[0], winners[1], 'challenge');
+                      handleTieBreakResult(eliminated || '', winners[0], winners[1], 'challenge');
                     }}
                     className="w-full"
                   >
@@ -235,7 +216,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
             </div>
           )}
 
-          {gameState.gamePhase === 'jury_vote' && onEndGame && (
+          {gameState.gamePhase === 'jury_vote' && (
             <div className="mt-2 border-t border-border pt-2">
               <div className="text-xs text-muted-foreground mb-1">Quick Jury Result</div>
               {active.map(c => (
@@ -243,7 +224,7 @@ export const VotingDebugPanel: React.FC<VotingDebugPanelProps> = ({
                   key={`jury-${c.name}`}
                   variant="outline"
                   size="sm"
-                  onClick={() => onEndGame && onEndGame(c.name, {}, {})}
+                  onClick={() => endGame(c.name, {}, {})}
                   className="w-full mb-1"
                 >
                   Set Winner: {c.name}
