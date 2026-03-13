@@ -15,7 +15,7 @@ import { TagConversationDialog } from './TagConversationDialog';
 import { CreateAllianceDialog } from './CreateAllianceDialog';
 import { AddAllianceMemberDialog } from './AddAllianceMemberDialog';
 import { AISettingsPanel } from './AISettingsPanel';
-import { Plus, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { HouseMeetingDialog } from './HouseMeetingDialog';
 
 type GameActionType =
@@ -30,11 +30,7 @@ export const ActionPanel = () => {
     gameState,
     useAction,
     advanceDay,
-    handleEmergentEventChoice,
     respondToForcedConversation,
-    tagTalk,
-    handleHouseMeetingChoice,
-    endHouseMeeting,
   } = useGame();
 
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
@@ -291,8 +287,6 @@ export const ActionPanel = () => {
       <ConfessionalDialog
         isOpen={activeDialog === 'confessional'}
         onClose={handleDialogClose}
-        onSubmit={(content, tone) => handleActionSubmit('confessional', undefined, content, tone)}
-        gameState={gameState}
       />
       
       <ObservationDialog
@@ -312,10 +306,6 @@ export const ActionPanel = () => {
       <DaySkipDialog
          isOpen={showSkipDialog}
          onClose={() => setShowSkipDialog(false)}
-         onConfirmSkip={advanceDay}
-         currentDay={gameState.currentDay}
-         gameState={gameState}
-         onEventChoice={handleEmergentEventChoice}
        />
 
       <ActivityDialog
@@ -327,12 +317,6 @@ export const ActionPanel = () => {
       <TagConversationDialog
         isOpen={tagTalkOpen}
         onClose={() => setTagTalkOpen(false)}
-        gameState={gameState}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
-        onSubmit={(target, choiceId, interaction) => { 
-          tagTalk(target, choiceId, tagTalkType); 
-          setTagTalkOpen(false); 
-        }}
         interactionType={tagTalkType}
       />
 
@@ -352,18 +336,6 @@ export const ActionPanel = () => {
       <HouseMeetingDialog
         isOpen={activeDialog === 'house_meeting' || !!gameState.ongoingHouseMeeting}
         onClose={() => setActiveDialog(null)}
-        gameState={gameState}
-        onStart={(topic, target) => {
-          useAction('house_meeting', target, topic, 'neutral');
-          // Keep dialog open to proceed through rounds
-        }}
-        onChoice={(choice) => {
-          handleHouseMeetingChoice(choice);
-        }}
-        onEnd={() => {
-          endHouseMeeting();
-          setActiveDialog(null);
-        }}
       />
 
       <CreateAllianceDialog

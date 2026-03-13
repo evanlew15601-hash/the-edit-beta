@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import { Card } from '@/components/ui/card';
 import { useGame } from '@/contexts/GameContext';
 import { Cutscene } from './cutscenes/Cutscene';
 import { EliminationScreen } from './EliminationScreen';
 import { CutsceneSlide } from '@/types/game';
 
 export const EliminationEpisode = () => {
-  const { gameState, continueFromElimination } = useGame();
+  const { gameState } = useGame();
   const [cutsceneDone, setDone] = useState(false);
 
-  const active = gameState.contestants.filter((c) => !c.isEliminated);
   // Use voting history from this week to determine who was on the block
   const recentVote = gameState.votingHistory.find(v => v.day === gameState.currentDay || v.day === gameState.currentDay - 1);
   const nomineeNames = recentVote ? [...new Set(Object.values(recentVote.votes))] : [];
@@ -47,5 +45,5 @@ export const EliminationEpisode = () => {
     return <Cutscene title="Elimination Night" slides={slides} onComplete={() => setDone(true)} ctaLabel="Reveal" />;
   }
 
-  return <EliminationScreen gameState={gameState} onContinue={continueFromElimination} />;
+  return <EliminationScreen />;
 };

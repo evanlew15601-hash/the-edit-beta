@@ -2,23 +2,19 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alliance, Contestant, GameState } from '@/types/game';
-import { Users, MessageSquare, Target, AlertTriangle } from 'lucide-react';
+import { useGame } from '@/contexts/GameContext';
+import { Users, MessageSquare, Target } from 'lucide-react';
 
 interface AllianceMeetingScreenProps {
-  gameState: GameState;
-  onSubmitMeeting: (allianceId: string, agenda: string, tone: string) => void;
   onBack: () => void;
 }
 
 export const AllianceMeetingScreen: React.FC<AllianceMeetingScreenProps> = ({
-  gameState,
-  onSubmitMeeting,
   onBack
 }) => {
+  const { gameState, useAction } = useGame();
   const [selectedAlliance, setSelectedAlliance] = useState<string>('');
   const [agenda, setAgenda] = useState<string>('');
   const [tone, setTone] = useState<string>('');
@@ -36,7 +32,7 @@ export const AllianceMeetingScreen: React.FC<AllianceMeetingScreenProps> = ({
 
   const handleSubmit = () => {
     if (selectedAlliance && agenda.trim() && tone) {
-      onSubmitMeeting(selectedAlliance, agenda.trim(), tone);
+      useAction('alliance_meeting', selectedAlliance, agenda.trim(), tone);
     }
   };
 
