@@ -140,7 +140,12 @@ class RelationshipGraphEngine {
       }
     }
 
-    console.log(`[RelationshipEngine] ${source} -> ${target}: trust ${relationship.trust.toFixed(1)} (${adjustedTrustDelta > 0 ? '+' : ''}${adjustedTrustDelta.toFixed(1)}), suspicion ${relationship.suspicion.toFixed(1)}`);
+    if (
+      import.meta.env.MODE !== 'production' ||
+      (typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+    ) {
+      console.log(`[RelationshipEngine] ${source} -> ${target}: trust ${relationship.trust.toFixed(1)} (${adjustedTrustDelta > 0 ? '+' : ''}${adjustedTrustDelta.toFixed(1)}), suspicion ${relationship.suspicion.toFixed(1)}`);
+    }
   }
 
   // Form alliance between contestants

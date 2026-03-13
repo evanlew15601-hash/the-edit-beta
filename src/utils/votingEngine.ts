@@ -159,7 +159,9 @@ export const processVoting = (
       if (coordTarget && coordTarget !== immunityWinner && (!playerProtected || coordTarget !== playerName)) {
         allianceTarget = coordTarget;
         coordinatingAllianceStrength = alliance.strength;
-        console.log(`${voter.name} following alliance coordination: voting for ${coordTarget}`);
+        if (debugEnabled && import.meta.env.MODE !== 'production') {
+          console.log(`${voter.name} following alliance coordination: voting for ${coordTarget}`);
+        }
         break;
       }
     }

@@ -24,6 +24,7 @@ export const IntroScreen = () => {
   } = useGame();
 
   const hasSave = hasSavedGame();
+  const canUseDebug = import.meta.env.MODE !== 'production' || import.meta.env.VITE_ENABLE_BETA_DEBUG === '1';
 
   const handleStart = () => {
     startGame();
@@ -87,15 +88,17 @@ export const IntroScreen = () => {
               </TopButton>
             )}
 
-            <TopButton
-              variant={gameState.debugMode ? 'secondary' : 'outline'}
-              size="sm"
-              onClick={toggleDebugMode}
-              aria-pressed={!!gameState.debugMode}
-              aria-label="Toggle debug"
-            >
-              Debug: {gameState.debugMode ? 'ON' : 'OFF'}
-            </TopButton>
+            {canUseDebug && (
+              <TopButton
+                variant={gameState.debugMode ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={toggleDebugMode}
+                aria-pressed={!!gameState.debugMode}
+                aria-label="Toggle debug"
+              >
+                Debug: {gameState.debugMode ? 'ON' : 'OFF'}
+              </TopButton>
+            )}
           </div>
         </div>
       </div>

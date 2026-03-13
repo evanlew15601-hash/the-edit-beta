@@ -39,19 +39,26 @@ type GameActionType =
   | 'house_meeting'
   | 'alliance_meeting';
 
+const betaDebugEnabled = () => {
+  return import.meta.env.VITE_ENABLE_BETA_DEBUG === '1';
+};
+
 const isDebugEnv = () => {
   if (import.meta.env.MODE !== 'production') return true;
+  if (!betaDebugEnabled()) return false;
   if (typeof window === 'undefined') return false;
   return !!(window as any).__RTV_DEBUG__;
 };
 
 const debugLog = (...args: any[]) => {
-  if (import.meta.env.MODE !== 'production') console.log(...args);
+  if (isDebugEnv()) console.log(...args);
 };
 
 const debugWarn = (...args: any[]) => {
   if (isDebugEnv()) console.warn(...args);
 };
+
+const defaultDebugMode = import.meta.env.MODE !== 'production' || betaDebugEnabled();
 
 function verifyAndUpdateTasksWithMissionCutscene(prev: GameState, baseNext: GameState): GameState {
   const updated = verifyAndUpdateTasks(baseNext);
@@ -131,7 +138,7 @@ export const useGameState = () => {
       interactionLog: [],
       tagChoiceCooldowns: {},
       reactionProfiles: {},
-      debugMode: true,
+      debugMode: defaultDebugMode,
     } as GameState;
   });
 
@@ -189,7 +196,7 @@ export const useGameState = () => {
       interactionLog: [],
       tagChoiceCooldowns: {},
       reactionProfiles: {},
-      debugMode: true,
+      debugMode: defaultDebugMode,
     };
     setGameState(newState);
   }, []);
@@ -2647,6 +2654,7 @@ export const useGameState = () => {
       daysUntilJury: 28,
       dailyActionCount: 0,
       dailyActionCap: 10,
+      groupActionsUsedToday: 0,
       aiSettings: {
         depth: 'standard',
         additions: { strategyHint: true, followUp: true, riskEstimate: true, memoryImpact: true },
@@ -2656,7 +2664,7 @@ export const useGameState = () => {
       interactionLog: [],
       tagChoiceCooldowns: {},
       reactionProfiles: {},
-      debugMode: true,
+      debugMode: defaultDebugMode,
     });
     try {
       localStorage.removeItem('rtv_game_state');
@@ -3468,6 +3476,10 @@ export const useGameState = () => {
   }, []);
 
   const toggleDebugMode = useCallback(() => {
+    // In production builds, only allow the debug HUD when explicitly enabled.
+    if (import.meta.env.MODE === 'production' && !betaDebugEnabled()) {
+      return;
+    }
     setGameState(prev => ({
       ...prev,
       debugMode: !prev.debugMode,
@@ -3478,7 +3490,7 @@ export const useGameState = () => {
   // If some component accidentally sets `intro` while a playerName exists, revert to daily.
   useEffect(() => {
     if (gameState.gamePhase === 'intro' && gameState.playerName) {
-      console.warn('Phase watchdog: Blocking unintended transition to intro while player is active');
+      debugWarn('Phase watchdog: Blocking unintended transition to intro while player is active');
       setGameState(prev => ({
         ...prev,
         gamePhase: prev.gamePhase && prev.gamePhase !== 'intro' ? prev.gamePhase : 'daily',
@@ -3489,7 +3501,7 @@ export const useGameState = () => {
   // Watchdog: if the player has been eliminated, never drop them back into daily gameplay.
   useEffect(() => {
     if (gameState.isPlayerEliminated && gameState.gamePhase === 'daily') {
-      console.warn('Phase watchdog: Player is eliminated; redirecting to post-season recap');
+      debugWarn('Phase watchdog: Player is eliminated; redirecting to post-season recap');
       setGameState(prev => ({
         ...prev,
         gamePhase: 'post_season' as const,

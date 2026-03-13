@@ -50,10 +50,12 @@ class GameSystemIntegrator {
     this.isInitialized = true;
     this.lastUpdateTime = Date.now();
     
-    console.log('🤖 AI Systems Initialized:', {
-      contestants: gameState.contestants.length,
-      debugMode: this.debugMode
-    });
+    if (import.meta.env.MODE !== 'production' || this.debugMode) {
+      console.log('AI Systems Initialized:', {
+        contestants: gameState.contestants.length,
+        debugMode: this.debugMode
+      });
+    }
   }
 
   // Main system update - called periodically
