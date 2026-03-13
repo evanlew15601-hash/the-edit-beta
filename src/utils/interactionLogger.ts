@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export type InteractionType =
   | 'conversation'
@@ -45,11 +46,13 @@ export async function logInteractionToCloud(args: LogInteractionArgs): Promise<v
       tone: tone ?? null,
     });
 
-    if (error) {
+    if (error && isDebugEnabled()) {
       console.warn('Failed to log interaction to Lovable Cloud:', error);
     }
   } catch (e) {
-    console.warn('Error logging interaction to Lovable Cloud:', e);
+    if (isDebugEnabled()) {
+      console.warn('Error logging interaction to Lovable Cloud:', e);
+    }
   }
 }
 
@@ -78,7 +81,7 @@ export async function fetchRecentInteractions(args: {
       .limit(limit);
 
     if (error || !Array.isArray(data)) {
-      if (error) {
+      if (error && isDebugEnabled()) {
         console.warn('Failed to fetch interactions from Lovable Cloud:', error);
       }
       return [];
@@ -91,7 +94,9 @@ export async function fetchRecentInteractions(args: {
       type: row.type as InteractionType,
     }));
   } catch (e) {
-    console.warn('Error fetching interactions from Lovable Cloud:', e);
+    if (isDebugEnabled()) {
+      console.warn('Error fetching interactions from Lovable Cloud:', e);
+    }
     return [];
   }
 }
