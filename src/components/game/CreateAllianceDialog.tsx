@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Input } from '@/components/ui/input';
@@ -6,21 +6,28 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Contestant } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { Users, Shield, Plus } from 'lucide-react';
 
 interface CreateAllianceDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  contestants: Contestant[];
-  playerName: string;
-  onSubmit: (name: string, members: string[]) => void;
 }
 
-export const CreateAllianceDialog = ({ isOpen, onClose, contestants, playerName, onSubmit }: CreateAllianceDialogProps) => {
+export const CreateAllianceDialog = ({ isOpen, onClose }: CreateAllianceDialogProps) => {
+  const { gameState, useAction } = useGame();
+  const playerName = gameState.playerName;
+  const contestants = useMemo(() => gameState.contestants, [gameState.contestants]);
   const [allianceName, setAllianceName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([playerName]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setAllianceName('');
+      setSelectedMembers([playerName]);
+    }
+  }, [isOpen, playerName]);
 
   const availableContestants = contestants.filter(c => 
     !c.isEliminated && c.name !== playerName
@@ -36,7 +43,7 @@ export const CreateAllianceDialog = ({ isOpen, onClose, contestants, playerName,
 
   const handleSubmit = () => {
     if (allianceName.trim() && selectedMembers.length >= 2) {
-      onSubmit(allianceName.trim(), selectedMembers);
+      useAction('create_alliance', allianceName.trim(), selectedMembers.join(','), 'strategic');
       setAllianceName('');
       setSelectedMembers([playerName]);
       onClose();

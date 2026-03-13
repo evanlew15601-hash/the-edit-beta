@@ -3,7 +3,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState, Contestant } from '@/types/game';
+import { Contestant } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
 
 type BasicTone = 'friendly' | 'strategic' | 'aggressive' | 'flirty' | 'suspicious' | 'neutral' | 'apologetic';
@@ -213,12 +214,8 @@ const BASIC_OPTIONS: BasicOption[] = [
   },
 ];
 
-interface BasicConversationEngineProps {
-  gameState: GameState;
-  onUseAction: (actionType: string, target?: string, content?: string, tone?: string) => void;
-}
-
-export const BasicConversationEngine = ({ gameState, onUseAction }: BasicConversationEngineProps) => {
+export const BasicConversationEngine = () => {
+  const { gameState, useAction } = useGame();
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [targetMode, setTargetMode] = useState<TargetMode>('person');
@@ -282,7 +279,7 @@ export const BasicConversationEngine = ({ gameState, onUseAction }: BasicConvers
     const nameForText = isGroup ? 'everyone' : targetName;
     const content = `${labelPrefix} ${option.label}: ${option.text(nameForText)}`;
 
-    onUseAction('talk', targetName, content, option.tone);
+    useAction('talk', targetName, content, option.tone);
     setSelectedOption('');
     setSelectedTarget('');
   };

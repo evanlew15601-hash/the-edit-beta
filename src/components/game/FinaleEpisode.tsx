@@ -1,16 +1,11 @@
 import { useState } from 'react';
+import { useGame } from '@/contexts/GameContext';
 import { Cutscene } from './cutscenes/Cutscene';
 import { FinaleScreen } from './FinaleScreen';
-import { GameState, CutsceneSlide } from '@/types/game';
+import { CutsceneSlide } from '@/types/game';
 
-interface FinaleEpisodeProps {
-  gameState: GameState;
-  onSubmitSpeech: (speech: string) => void;
-  onAFPVote: (choice: string) => void;
-  onContinue: () => void;
-}
-
-export const FinaleEpisode = ({ gameState, onSubmitSpeech, onAFPVote, onContinue }: FinaleEpisodeProps) => {
+export const FinaleEpisode = () => {
+  const { gameState } = useGame();
   const [cutsceneDone, setDone] = useState(false);
 
   const finalists = gameState.contestants.filter((c) => !c.isEliminated).map((c) => c.name);
@@ -62,12 +57,5 @@ export const FinaleEpisode = ({ gameState, onSubmitSpeech, onAFPVote, onContinue
     return <Cutscene title="Finale Night" slides={slides} onComplete={() => setDone(true)} ctaLabel="Deliver Speeches" />;
   }
 
-  return (
-    <FinaleScreen
-      gameState={gameState}
-      onSubmitSpeech={onSubmitSpeech}
-      onAFPVote={onAFPVote}
-      onContinue={onContinue}
-    />
-  );
+  return <FinaleScreen />;
 };

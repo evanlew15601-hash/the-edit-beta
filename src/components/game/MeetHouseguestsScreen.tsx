@@ -2,15 +2,13 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/enhanced-button';
-import { GameState, Contestant } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
+import { Contestant } from '@/types/game';
 import { Users, Star, IdCard, Heart, Flame } from 'lucide-react';
 
-interface MeetHouseguestsScreenProps {
-  gameState: GameState;
-  onContinue: () => void;
-}
+export const MeetHouseguestsScreen = () => {
+  const { gameState, completeRoster } = useGame();
 
-export const MeetHouseguestsScreen = ({ gameState, onContinue }: MeetHouseguestsScreenProps) => {
   const contestants = gameState.contestants;
 
   const renderContestantCard = (c: Contestant) => {
@@ -97,7 +95,7 @@ export const MeetHouseguestsScreen = ({ gameState, onContinue }: MeetHouseguests
               {contestants.map(renderContestantCard)}
             </div>
           </ScrollArea>
-          <Button variant="action" size="wide" className="mt-6" onClick={onContinue}>
+          <Button variant="action" size="wide" className="mt-6" onClick={completeRoster}>
             Begin Week 1
           </Button>
         </Card>

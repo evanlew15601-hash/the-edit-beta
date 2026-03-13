@@ -2,16 +2,14 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Contestant } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { Heart, Shield, Eye, Zap, AlertTriangle, Star } from 'lucide-react';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
-interface ContestantGridProps {
-  contestants: Contestant[];
-  playerName?: string;
-}
-
-export const ContestantGrid = ({ contestants, playerName }: ContestantGridProps) => {
+export const ContestantGrid = () => {
+  const { gameState } = useGame();
+  const { contestants, playerName } = gameState;
   const activeContestants = contestants.filter(c => !c.isEliminated);
   
   const getRelationshipData = (contestant: Contestant) => {

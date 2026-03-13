@@ -3,10 +3,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { Brain, Heart, Zap, Shield, Target, Clock } from 'lucide-react';
-import type { Choice, IntentTag, ToneTag, TopicTag } from '@/types/tagDialogue';
+import type { Choice, IntentTag } from '@/types/tagDialogue';
 
 interface TagChoice {
   id: string;
@@ -16,12 +16,8 @@ interface TagChoice {
   cooldown?: number;
 }
 
-interface EnhancedTagDialogueEngineProps {
-  gameState: GameState;
-  onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
-}
-
-export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagDialogueEngineProps) => {
+export const EnhancedTagDialogueEngine = () => {
+  const { gameState, tagTalk } = useGame();
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [interactionType, setInteractionType] = useState<'talk' | 'dm' | 'scheme' | 'activity'>('talk');
   const [availableChoices, setAvailableChoices] = useState<TagChoice[]>([]);
@@ -556,7 +552,7 @@ export const EnhancedTagDialogueEngine = ({ gameState, onTagTalk }: EnhancedTagD
               disabled={!selectedChoice}
               onClick={() => {
                 if (selectedChoice && selectedTarget) {
-                  onTagTalk(selectedTarget, selectedChoice, interactionType);
+                  tagTalk(selectedTarget, selectedChoice, interactionType);
                   setSelectedChoice('');
                   setSelectedTarget('');
                 }

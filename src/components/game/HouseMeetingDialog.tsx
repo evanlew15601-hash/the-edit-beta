@@ -2,21 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { GameState, Contestant, HouseMeetingTopic, HouseMeetingToneChoice } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
+import { HouseMeetingTopic, HouseMeetingToneChoice } from '@/types/game';
 import { houseMeetingEngine } from '@/utils/houseMeetingEngine';
 import { Users, Megaphone, AlertTriangle } from 'lucide-react';
 
 interface HouseMeetingDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  gameState: GameState;
-  onStart: (topic: HouseMeetingTopic, target?: string) => void;
-  onChoice: (choice: HouseMeetingToneChoice) => void;
-  onEnd: () => void;
 }
 
 const TOPIC_OPTIONS: { value: HouseMeetingTopic; label: string }[] = [
@@ -26,7 +22,8 @@ const TOPIC_OPTIONS: { value: HouseMeetingTopic; label: string }[] = [
   { value: 'expose_alliance', label: 'Expose alliance' },
 ];
 
-export const HouseMeetingDialog = ({ isOpen, onClose, gameState, onStart, onChoice, onEnd }: HouseMeetingDialogProps) => {
+export const HouseMeetingDialog = ({ isOpen, onClose }: HouseMeetingDialogProps) => {
+  const { gameState, useAction, handleHouseMeetingChoice, endHouseMeeting } = useGame();
   const hm = gameState.ongoingHouseMeeting;
   const [topic, setTopic] = useState<HouseMeetingTopic>('nominate_target');
   const [target, setTarget] = useState<string>('');
@@ -47,11 +44,11 @@ export const HouseMeetingDialog = ({ isOpen, onClose, gameState, onStart, onChoi
   const options = hm?.currentOptions || houseMeetingEngine.buildOptions(topic);
 
   const handleStart = () => {
-    onStart(topic, target || undefined);
+    useAction('house_meeting', target || undefined, topic, 'neutral');
   };
 
   const handleChoice = (choice: HouseMeetingToneChoice) => {
-    onChoice(choice);
+    handleHouseMeetingChoice(choice);
   };
 
   const roundCount = hm ? `${hm.currentRound + 1} / ${hm.maxRounds}` : '—';
@@ -197,7 +194,10 @@ export const HouseMeetingDialog = ({ isOpen, onClose, gameState, onStart, onChoi
                   variant="action"
                   className="flex-1"
                   disabled={hm.currentRound + 1 < hm.maxRounds}
-                  onClick={onEnd}
+                  onClick={() => {
+                    endHouseMeeting();
+                    onClose();
+                  }}
                 >
                   End Meeting
                 </Button>

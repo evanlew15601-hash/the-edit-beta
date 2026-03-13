@@ -1,4 +1,4 @@
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { ActionPanel } from './ActionPanel';
 import { ContestantGrid } from './ContestantGrid';
 import { TwistNotification } from './TwistNotification';
@@ -15,30 +15,14 @@ import { BasicConversationEngine } from './BasicConversationEngine';
 import { VotingIntelligencePanel } from './VotingIntelligencePanel';
 import { ProductionTasksPanel } from './ProductionTasksPanel';
 
-type GameActionType =
-  GameState['playerActions'][number]['type']
-  | 'create_alliance'
-  | 'add_alliance_members'
-  | 'house_meeting'
-  | 'alliance_meeting';
+export const GameplayScreen = () => {
+  const { gameState } = useGame();
 
-interface GameplayScreenProps {
-  gameState: GameState;
-  onUseAction: (actionType: GameActionType, target?: string, content?: string, tone?: string) => void;
-  onAdvanceDay: () => void;
-  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
-  onForcedConversationReply: (from: string, content: string, tone: string) => void;
-  onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
-  onHouseMeetingChoice: (choice: 'persuasive' | 'defensive' | 'aggressive' | 'manipulative' | 'silent') => void;
-  onEndHouseMeeting: () => void;
-}
-
-export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk, onHouseMeetingChoice, onEndHouseMeeting }: GameplayScreenProps) => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Twist Notification */}
-        <TwistNotification gameState={gameState} />
+        <TwistNotification />
         
         {/* AI Response Display */}
         <AIResponseDisplay 
@@ -50,58 +34,30 @@ export const GameplayScreen = ({ gameState, onUseAction, onAdvanceDay, onEmergen
         />
 
         {/* Debug surface for verifying Tag Dialogue integration (hidden unless debugMode) */}
-        {gameState.debugMode && <AIOutcomeDebug gameState={gameState} />}
+        {gameState.debugMode && <AIOutcomeDebug />}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Action Panel */}
           <div className="lg:col-span-2">
-            <ActionPanel
-              gameState={gameState}
-              onUseAction={onUseAction}
-              onAdvanceDay={onAdvanceDay}
-              onEmergentEventChoice={onEmergentEventChoice}
-              onForcedConversationReply={onForcedConversationReply}
-              onTagTalk={onTagTalk}
-              onAllianceMeeting={(allianceId: string, agenda: string, tone: string) => {
-                onUseAction('alliance_meeting', allianceId, agenda, tone);
-              }}
-              onHouseMeetingChoice={onHouseMeetingChoice}
-              onEndHouseMeeting={onEndHouseMeeting}
-            />
+            <ActionPanel />
           </div>
           
            <div className="lg:col-span-1 space-y-6">
-             <RatingsPanel gameState={gameState} />
-             <MemoryPanel gameState={gameState} />
-             <EnhancedInformationPanel gameState={gameState} />
-             <ProductionTasksPanel gameState={gameState} />
+             <RatingsPanel />
+             <MemoryPanel />
+             <EnhancedInformationPanel />
+             <ProductionTasksPanel />
              {gameState.alliances.length > 0 && (
-               <AllianceIntelligencePanel 
-                 gameState={gameState}
-                 selectedAlliance={gameState.alliances[0]?.id}
-               />
+               <AllianceIntelligencePanel />
              )}
              {/* Voting Intelligence - Ask NPCs about their voting plans */}
-             <VotingIntelligencePanel gameState={gameState} />
+             <VotingIntelligencePanel />
              {/* Basic RPG-style conversation (lightweight set options) */}
-             <BasicConversationEngine
-               gameState={gameState}
-               onUseAction={onUseAction}
-             />
-             <EnhancedTagDialogueEngine
-               gameState={gameState}
-               onTagTalk={onTagTalk}
-             />
-             <EnhancedEmergentEvents
-               gameState={gameState}
-               onEmergentEventChoice={onEmergentEventChoice}
-             />
-             <AmbientNPCActivity 
-               contestants={gameState.contestants}
-               currentDay={gameState.currentDay}
-               playerName={gameState.playerName}
-             />
-             <ContestantGrid contestants={gameState.contestants} playerName={gameState.playerName} />
+             <BasicConversationEngine />
+             <EnhancedTagDialogueEngine />
+             <EnhancedEmergentEvents />
+             <AmbientNPCActivity />
+             <ContestantGrid />
            </div>
         </div>
       </div>

@@ -3,19 +3,20 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState, Contestant } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { AllianceIntelligenceEngine } from '@/utils/allianceIntelligenceEngine';
 import { Users, Eye, Shield, AlertTriangle, Target, Brain } from 'lucide-react';
 
 interface AllianceIntelligenceProps {
-  gameState: GameState;
   selectedAlliance?: string;
 }
 
-export const AllianceIntelligencePanel = ({ gameState, selectedAlliance }: AllianceIntelligenceProps) => {
+export const AllianceIntelligencePanel = ({ selectedAlliance }: AllianceIntelligenceProps) => {
+  const { gameState } = useGame();
   const [expandedIntel, setExpandedIntel] = useState<string>('');
 
-  const alliance = gameState.alliances.find(a => a.id === selectedAlliance);
+  const allianceId = selectedAlliance || gameState.alliances[0]?.id;
+  const alliance = gameState.alliances.find(a => a.id === allianceId);
   if (!alliance) return null;
 
   // Use the enhanced intelligence engine

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
+import { useGame } from '@/contexts/GameContext';
 import { GameState } from '@/types/game';
 import { ConversationDialog } from './ConversationDialog';
 import { DirectMessageDialog } from './DirectMessageDialog';
@@ -14,7 +15,7 @@ import { TagConversationDialog } from './TagConversationDialog';
 import { CreateAllianceDialog } from './CreateAllianceDialog';
 import { AddAllianceMemberDialog } from './AddAllianceMemberDialog';
 import { AISettingsPanel } from './AISettingsPanel';
-import { Plus, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { HouseMeetingDialog } from './HouseMeetingDialog';
 
 type GameActionType =
@@ -24,22 +25,14 @@ type GameActionType =
   | 'house_meeting'
   | 'alliance_meeting';
 
-interface ActionPanelProps {
-  gameState: GameState;
-  onUseAction: (actionType: GameActionType, target?: string, content?: string, tone?: string) => void;
-  onAdvanceDay: () => void;
-  onEmergentEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
-  onForcedConversationReply: (from: string, content: string, tone: string) => void;
-  onTagTalk: (target: string, choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => void;
-  onAllianceMeeting: (allianceId: string, agenda: string, tone: string) => void;
-  onHouseMeetingChoice: (choice: 'persuasive' | 'defensive' | 'aggressive' | 'manipulative' | 'silent') => void;
-  onEndHouseMeeting: () => void;
-}
+export const ActionPanel = () => {
+  const {
+    gameState,
+    advanceDay,
+  } = useGame();
 
-export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEventChoice, onForcedConversationReply, onTagTalk, onAllianceMeeting, onHouseMeetingChoice, onEndHouseMeeting }: ActionPanelProps) => {
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [showSkipDialog, setShowSkipDialog] = useState(false);
-  const [forcedOpen, setForcedOpen] = useState(false);
   const [tagTalkOpen, setTagTalkOpen] = useState(false);
   const [tagTalkType, setTagTalkType] = useState<'talk' | 'dm' | 'scheme' | 'activity'>('talk');
   const [allianceMeetingOpen, setAllianceMeetingOpen] = useState(false);
@@ -81,21 +74,6 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
   const handleDialogClose = () => {
     setActiveDialog(null);
   };
-
-  const handleActionSubmit = (actionType: GameActionType, target?: string, content?: string, tone?: string) => {
-    onUseAction(actionType, target, content, tone);
-    setActiveDialog(null);
-  };
-
-  // Auto-open forced pull-aside if queued
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    if ((gameState.forcedConversationsQueue || []).length > 0) {
-      setForcedOpen(true);
-    } else {
-      setForcedOpen(false);
-    }
-  }, [gameState.forcedConversationsQueue]);
 
   return (
     <div className="space-y-6">
@@ -251,7 +229,7 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
             <Button
               variant={allActionsUsed ? 'surveillance' : 'outline'}
               size="wide"
-              onClick={allActionsUsed ? onAdvanceDay : () => setShowSkipDialog(true)}
+              onClick={allActionsUsed ? advanceDay : () => setShowSkipDialog(true)}
             >
               Proceed to Next Day
             </Button>
@@ -262,13 +240,8 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
       {/* Dialog Components */}
       {/* Forced Conversation */}
       <ConversationDialog
-        isOpen={forcedOpen && !!forcedItem}
+        isOpen={!!forcedItem}
         onClose={() => { /* forced; do not allow closing without reply */ }}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
-        onSubmit={(target, content, tone) => {
-          onForcedConversationReply(target, content, tone);
-          setForcedOpen(false);
-        }}
         forced
         presetTarget={forcedItem?.from}
         forcedTopic={forcedItem?.topic}
@@ -277,116 +250,63 @@ export const ActionPanel = ({ gameState, onUseAction, onAdvanceDay, onEmergentEv
       <ConversationDialog
         isOpen={activeDialog === 'talk'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
-        onSubmit={(target, content, tone) => handleActionSubmit('talk', target, content, tone)}
       />
       
       <DirectMessageDialog
         isOpen={activeDialog === 'dm'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
-        onSubmit={(target, content, tone) => handleActionSubmit('dm', target, content, tone)}
       />
       
       <ConfessionalDialog
         isOpen={activeDialog === 'confessional'}
         onClose={handleDialogClose}
-        onSubmit={(content, tone) => handleActionSubmit('confessional', undefined, content, tone)}
-        gameState={gameState}
       />
       
       <ObservationDialog
         isOpen={activeDialog === 'observe'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
-        onSubmit={() => handleActionSubmit('observe')}
       />
       
       <SchemeDialog
         isOpen={activeDialog === 'scheme'}
         onClose={handleDialogClose}
-        contestants={gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName)}
-        onSubmit={(target, content, tone) => handleActionSubmit('scheme', target, content, tone)}
       />
 
       <DaySkipDialog
          isOpen={showSkipDialog}
          onClose={() => setShowSkipDialog(false)}
-         onConfirmSkip={onAdvanceDay}
-         currentDay={gameState.currentDay}
-         gameState={gameState}
-         onEventChoice={onEmergentEventChoice}
        />
 
       <ActivityDialog
         isOpen={activeDialog === 'activity'}
         onClose={handleDialogClose}
-        onSubmit={(content) => handleActionSubmit('activity', undefined, content)}
       />
 
       <TagConversationDialog
         isOpen={tagTalkOpen}
         onClose={() => setTagTalkOpen(false)}
-        gameState={gameState}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
-        onSubmit={(target, choiceId, interaction) => { 
-          onTagTalk(target, choiceId, tagTalkType); 
-          setTagTalkOpen(false); 
-        }}
         interactionType={tagTalkType}
       />
 
       <AllianceMeetingDialog
         isOpen={allianceMeetingOpen}
         onClose={() => setAllianceMeetingOpen(false)}
-        alliances={gameState.alliances}
-        contestants={gameState.contestants.filter(c => !c.isEliminated)}
-        playerName={gameState.playerName}
-        onSubmit={(allianceId, agenda, tone) => {
-          onAllianceMeeting(allianceId, agenda, tone);
-          setAllianceMeetingOpen(false);
-        }}
       />
 
       {/* House Meeting - public, multi-round */}
       <HouseMeetingDialog
         isOpen={activeDialog === 'house_meeting' || !!gameState.ongoingHouseMeeting}
         onClose={() => setActiveDialog(null)}
-        gameState={gameState}
-        onStart={(topic, target) => {
-          onUseAction('house_meeting', target, topic, 'neutral');
-          // Keep dialog open to proceed through rounds
-        }}
-        onChoice={(choice) => {
-          onHouseMeetingChoice(choice);
-        }}
-        onEnd={() => {
-          onEndHouseMeeting();
-          setActiveDialog(null);
-        }}
       />
 
       <CreateAllianceDialog
         isOpen={createAllianceOpen}
         onClose={() => setCreateAllianceOpen(false)}
-        contestants={gameState.contestants}
-        playerName={gameState.playerName}
-        onSubmit={(name, members) => {
-          onUseAction('create_alliance', name, members.join(','), 'strategic');
-          setCreateAllianceOpen(false);
-        }}
       />
 
       <AddAllianceMemberDialog
         isOpen={addMemberOpen}
         onClose={() => setAddMemberOpen(false)}
-        alliances={gameState.alliances}
-        contestants={gameState.contestants}
-        playerName={gameState.playerName}
-        onSubmit={(allianceId, newMembers) => {
-          onUseAction('add_alliance_members', allianceId, newMembers.join(','), 'strategic');
-          setAddMemberOpen(false);
-        }}
       />
     </div>
   );

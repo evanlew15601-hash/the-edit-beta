@@ -1,29 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { Crown, Users, Trophy } from 'lucide-react';
 
-interface Final3VoteScreenProps {
-  gameState: GameState;
-  onSubmitVote: (choice: string) => void;
-  onTieBreakResult: (
-    eliminated: string,
-    winner1: string,
-    winner2: string,
-    method?: 'challenge' | 'fire_making' | 'random_draw',
-    results?: { name: string; time: number }[],
-    selectionReason?: 'player_persuasion' | 'npc_choice' | 'manual'
-  ) => void;
-  onContinueFromResults: () => void;
-}
-
-export const Final3VoteScreen = ({
-  gameState,
-  onSubmitVote,
-  onTieBreakResult,
-  onContinueFromResults,
-}: Final3VoteScreenProps) => {
+export const Final3VoteScreen = () => {
+  const {
+    gameState,
+    submitFinal3Vote,
+    handleTieBreakResult,
+    continueFromFinal3Results,
+  } = useGame();
   const [choice, setChoice] = useState<string>('');
   const [showingResults, setShowingResults] = useState(false);
   const [voteResults, setVoteResults] = useState<{ [name: string]: number }>({});
@@ -56,9 +43,11 @@ export const Final3VoteScreen = ({
   const playerStillActive = finalThree.some(c => c.name === gameState.playerName);
   const eligible = finalThree.filter(c => c.name !== gameState.playerName);
   
-  console.log('[Final3VoteScreen] Final three:', finalThree.map(c => c.name));
-  console.log('[Final3VoteScreen] Player active?', playerStillActive);
-  console.log('[Final3VoteScreen] Eligible targets:', eligible.map(c => c.name));
+  if (import.meta.env.MODE !== 'production') {
+    console.log('[Final3VoteScreen] Final three:', finalThree.map(c => c.name));
+    console.log('[Final3VoteScreen] Player active?', playerStillActive);
+    console.log('[Final3VoteScreen] Eligible targets:', eligible.map(c => c.name));
+  }
 
   // Guard: Must have exactly 3 contestants
   if (finalThree.length !== 3) {
@@ -179,7 +168,7 @@ export const Final3VoteScreen = ({
       setChallengeResults(results);
 
       setTimeout(() => {
-        onTieBreakResult(
+        handleTieBreakResult(
           results[2].name,
           results[0].name,
           results[1].name,
@@ -223,7 +212,7 @@ export const Final3VoteScreen = ({
       setChallengeResults(results);
 
       setTimeout(() => {
-        onTieBreakResult(
+        handleTieBreakResult(
           results[2].name,
           results[0].name,
           results[1].name,
@@ -243,7 +232,7 @@ export const Final3VoteScreen = ({
       setChallengeResults([]);
 
       setTimeout(() => {
-        onTieBreakResult(
+        handleTieBreakResult(
           eliminated,
           remaining[0],
           remaining[1],
@@ -253,11 +242,11 @@ export const Final3VoteScreen = ({
         );
       }, 2000);
     }
-  }, [tieBreakActive, tieBreakMethod, finalThree, onTieBreakResult, persuasionOutcome]);
+  }, [tieBreakActive, tieBreakMethod, finalThree, handleTieBreakResult, persuasionOutcome]);
 
   const handleSubmitVote = () => {
     if (choice) {
-      onSubmitVote(choice);
+      submitFinal3Vote(choice);
       setShowingResults(true);
     }
   };
@@ -550,7 +539,7 @@ export const Final3VoteScreen = ({
               variant="action"
               size="wide"
               className="mt-6"
-              onClick={onContinueFromResults}
+              onClick={continueFromFinal3Results}
             >
               Continue
             </Button>

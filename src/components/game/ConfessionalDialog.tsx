@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { EnhancedConfessionalEngine, DynamicConfessionalPrompt } from '@/utils/enhancedConfessionalEngine';
 import { generateResponseOptions } from '@/utils/confessionalResponseGenerator';
 import { RefreshCw, Zap, Camera } from 'lucide-react';
@@ -11,11 +11,10 @@ import { RefreshCw, Zap, Camera } from 'lucide-react';
 interface ConfessionalDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (content: string, tone: string) => void;
-  gameState: GameState;
 }
 
-export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: ConfessionalDialogProps) => {
+export const ConfessionalDialog = ({ isOpen, onClose }: ConfessionalDialogProps) => {
+  const { gameState, useAction } = useGame();
   const [content, setContent] = useState('');
   const [tone, setTone] = useState<string>('');
   const [selectedPrompt, setSelectedPrompt] = useState<DynamicConfessionalPrompt | null>(null);
@@ -26,9 +25,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
   // Initialize prompts when dialog opens
   useEffect(() => {
     if (isOpen && gameState) {
-      console.log('Generating confessional prompts for game state:', gameState);
       const prompts = EnhancedConfessionalEngine.generateDynamicPrompts(gameState);
-      console.log('Generated prompts:', prompts);
       
       setAvailablePrompts(prompts);
       
@@ -37,7 +34,6 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
         setSelectedPrompt(firstPrompt);
         
         const responses = generateResponseOptions(firstPrompt, gameState);
-        console.log('Generated response options:', responses);
         setResponseOptions(responses);
         setResponseDisplayCount(Math.min(3, responses.length));
       }
@@ -93,9 +89,10 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
 
   const handleSubmit = () => {
     if (content && tone) {
-      onSubmit(content, tone);
+      useAction('confessional', undefined, content, tone);
       setContent('');
       setTone('');
+      onClose();
     }
   };
 
@@ -108,15 +105,7 @@ export const ConfessionalDialog = ({ isOpen, onClose, onSubmit, gameState }: Con
     { value: 'evasive', label: 'Evasive', description: 'Avoid revealing too much information', impact: '-Screen Time, Mysterious edit' }
   ];
 
-  // Debug logging
-  console.log('ConfessionalDialog state:', {
-    isOpen,
-    availablePrompts: availablePrompts.length,
-    selectedPrompt: selectedPrompt?.id,
-    responseOptions: responseOptions.length,
-    content,
-    tone
-  });
+  
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>

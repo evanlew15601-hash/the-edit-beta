@@ -1,5 +1,5 @@
 import React from 'react';
-import { useGameState } from '@/hooks/useGameState';
+import { useGame } from '@/contexts/GameContext';
 import { IntroScreen } from '@/components/game/IntroScreen';
 import { GameplayScreen } from '@/components/game/GameplayScreen';
 import { WeeklyRecapScreen } from '@/components/game/WeeklyRecapScreen';
@@ -19,45 +19,7 @@ import { ErrorBoundary } from '@/components/game/ErrorBoundary';
 import { MeetHouseguestsScreen } from '@/components/game/MeetHouseguestsScreen';
 
 const Index = () => {
-  const {
-    gameState,
-    startGame,
-    useAction,
-    advanceDay,
-    setImmunityWinner,
-    submitFinaleSpeech,
-    submitPlayerVote,
-    submitFinal3Vote,
-    continueFromFinal3Results,
-    respondToForcedConversation,
-    submitAFPVote,
-    endGame,
-    continueFromElimination,
-    continueFromWeeklyRecap,
-    resetGame,
-    handleEmergentEventChoice,
-    completePremiere,
-    completeRoster,
-    openRoster,
-    tagTalk,
-    handleTieBreakResult,
-    proceedToJuryVote,
-    // New debug/test helpers
-    proceedToFinaleAsJuror,
-    proceedToJuryVoteAsJuror,
-    setupFinal3,
-    setupFinal3TieBreak,
-    toggleDebugMode,
-    saveGame,
-    loadSavedGame,
-    deleteSavedGame,
-    hasSavedGame,
-    goToTitle,
-    finalizeCharacterCreation,
-    handleHouseMeetingChoice,
-    endHouseMeeting,
-    completeCutscene,
-  } = useGameState();
+  const { gameState, toggleDebugMode, continueFromElimination, completeCutscene } = useGame();
 
   // Keyboard shortcut: Shift+D to toggle debug HUD
   React.useEffect(() => {
@@ -73,62 +35,25 @@ const Index = () => {
   // Test force elimination event handler
   React.useEffect(() => {
     const handleTestElimination = () => {
-      // Force player elimination during jury phase for testing
-      console.log('Testing force elimination...');
-      console.log('Current game state before elimination:', {
-        phase: gameState.gamePhase,
-        contestants: gameState.contestants.map(c => ({ name: c.name, eliminated: c.isEliminated })),
-        juryMembers: gameState.juryMembers,
-        isPlayerEliminated: gameState.isPlayerEliminated
-      });
       continueFromElimination(true); // Force player elimination
     };
 
     window.addEventListener('testForceElimination', handleTestElimination);
     return () => window.removeEventListener('testForceElimination', handleTestElimination);
-  }, [continueFromElimination, gameState]);
+  }, [continueFromElimination]);
 
   const renderScreen = () => {
     switch (gameState.gamePhase) {
       case 'intro':
-        return (
-          <IntroScreen 
-            onStartGame={startGame}
-            onContinue={loadSavedGame}
-            onDeleteSave={deleteSavedGame}
-            debugMode={gameState.debugMode}
-            onToggleDebug={toggleDebugMode}
-            hasSave={hasSavedGame()}
-          />
-        );
+        return <IntroScreen />;
       case 'character_creation':
-        return (
-          <CharacterCreation
-            onCreate={finalizeCharacterCreation}
-          />
-        );
+        return <CharacterCreation />;
       case 'premiere':
-        return <PremiereCutscene onComplete={completePremiere} gameState={gameState} />;
+        return <PremiereCutscene />;
       case 'houseguests_roster':
-        return (
-          <MeetHouseguestsScreen
-            gameState={gameState}
-            onContinue={completeRoster}
-          />
-        );
+        return <MeetHouseguestsScreen />;
       case 'daily':
-        return (
-           <GameplayScreen
-              gameState={gameState}
-              onUseAction={useAction}
-              onAdvanceDay={advanceDay}
-              onEmergentEventChoice={handleEmergentEventChoice}
-              onForcedConversationReply={respondToForcedConversation}
-              onTagTalk={tagTalk}
-              onHouseMeetingChoice={handleHouseMeetingChoice}
-              onEndHouseMeeting={endHouseMeeting}
-            />
-        );
+        return <GameplayScreen />;
 
       case 'cutscene':
         return (
@@ -139,83 +64,33 @@ const Index = () => {
             ctaLabel={gameState.currentCutscene?.ctaLabel || 'Continue'}
           />
         );
-      
+
       case 'elimination':
-        return (
-          <EliminationEpisode
-            gameState={gameState}
-            onContinue={continueFromElimination}
-          />
-        );
-      
+        return <EliminationEpisode />;
+
       case 'weekly_recap':
-        return (
-          <WeeklyRecapScreen
-            gameState={gameState}
-            onContinue={continueFromWeeklyRecap}
-          />
-        );
-      
+        return <WeeklyRecapScreen />;
+
       case 'immunity_competition':
-        return (
-          <ImmunityCompetitionScreen
-            gameState={gameState}
-            onContinue={setImmunityWinner}
-          />
-        );
-      
+        return <ImmunityCompetitionScreen />;
+
       case 'finale':
-        // If the player is eliminated and watching as a juror, continue to the juror-specific jury vote flow.
-        // Otherwise, proceed to the standard jury vote where the player is a finalist.
-        const onFinaleContinue = gameState.isPlayerEliminated ? proceedToJuryVoteAsJuror : proceedToJuryVote;
-        return (
-          <FinaleEpisode
-            gameState={gameState}
-            onSubmitSpeech={submitFinaleSpeech}
-            onAFPVote={submitAFPVote}
-            onContinue={onFinaleContinue}
-          />
-        );
-      
+        return <FinaleEpisode />;
+
       case 'final_3_vote':
-        return (
-          <Final3VoteScreen
-            gameState={gameState}
-            onSubmitVote={submitFinal3Vote}
-            onTieBreakResult={handleTieBreakResult}
-            onContinueFromResults={continueFromFinal3Results}
-          />
-        );
-      
+        return <Final3VoteScreen />;
+
       case 'jury_vote':
-        return (
-          <JuryVoteScreen
-            gameState={gameState}
-            playerSpeech={gameState.finaleSpeech}
-            onGameEnd={endGame}
-          />
-        );
+        return <JuryVoteScreen />;
 
       case 'player_vote':
-        return (
-          <PlayerVoteScreen
-            gameState={gameState}
-            onSubmitVote={submitPlayerVote}
-          />
-        );
-      
+        return <PlayerVoteScreen />;
+
       case 'post_season':
-        return (
-          <PostSeasonRecapScreen
-            gameState={gameState}
-            winner={gameState.gameWinner || 'Unknown'}
-            finalVotes={gameState.finalJuryVotes || {}}
-            onRestart={resetGame}
-          />
-        );
-      
+        return <PostSeasonRecapScreen />;
+
       default:
-        return <IntroScreen onStartGame={startGame} />;
+        return <IntroScreen />;
     }
   };
 
@@ -223,38 +98,9 @@ const Index = () => {
 
   return (
     <ErrorBoundary>
-      {showHeader && (
-        <DashboardHeader 
-          gameState={gameState}
-          onSave={saveGame}
-          onLoad={loadSavedGame}
-          onDeleteSave={deleteSavedGame}
-          onTitle={goToTitle}
-          onToggleDebug={toggleDebugMode}
-          hasSave={hasSavedGame()}
-          onOpenRoster={openRoster}
-        />
-      )}
+      {showHeader && <DashboardHeader />}
       {renderScreen()}
-      <VotingDebugPanel
-        gameState={gameState}
-        onAdvanceDay={advanceDay}
-        onProceedToJuryVote={proceedToJuryVote}
-        onProceedToFinaleAsJuror={proceedToFinaleAsJuror}
-        onProceedToJuryVoteAsJuror={proceedToJuryVoteAsJuror}
-        onGoToFinal3Vote={setupFinal3}
-        onGoToFinal3TieBreak={setupFinal3TieBreak}
-        onContinueFromElimination={() => continueFromElimination()}
-        onToggleDebug={toggleDebugMode}
-        // New phase-specific quick actions
-        onSubmitPlayerVote={submitPlayerVote}
-        onSubmitFinal3Vote={submitFinal3Vote}
-        onFinalizeFinal3Results={continueFromFinal3Results}
-        onTieBreakResult={(eliminated, w1, w2, method) =>
-          handleTieBreakResult(eliminated, w1, w2, method)
-        }
-        onEndGame={(winner, votes, rationales) => endGame(winner, votes, rationales)}
-      />
+      <VotingDebugPanel />
     </ErrorBoundary>
   );
 };

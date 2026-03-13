@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState, WeeklyEdit } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
+import { WeeklyEdit } from '@/types/game';
 import { generateFanReactions } from '@/utils/fanReactions';
 import { buildWeeklyEdit } from '@/utils/weeklyEditBuilder';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
@@ -9,12 +10,8 @@ import { buildEnhancedWeeklyEdit } from '@/utils/enhancedMemoryRecap';
 import { Badge } from '@/components/ui/badge';
 import { Tv, TrendingUp, TrendingDown, Activity } from 'lucide-react';
 
-interface WeeklyRecapScreenProps {
-  gameState: GameState;
-  onContinue: () => void;
-}
-
-export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenProps) => {
+export const WeeklyRecapScreen = () => {
+  const { gameState, continueFromWeeklyRecap } = useGame();
   const currentWeek = Math.floor((gameState.currentDay - 1) / 7) + 1;
   const weekStartDay = (currentWeek - 1) * 7 + 1;
   const weekEndDay = currentWeek * 7;
@@ -271,7 +268,7 @@ export const WeeklyRecapScreen = ({ gameState, onContinue }: WeeklyRecapScreenPr
           <Button 
             variant="surveillance" 
             size="wide" 
-            onClick={onContinue}
+            onClick={continueFromWeeklyRecap}
           >
             Continue to Next Week
           </Button>

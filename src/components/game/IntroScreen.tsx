@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/enhanced-button';
 import { Button as TopButton } from '@/components/ui/button';
+import { useGame } from '@/contexts/GameContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,28 +13,21 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-interface IntroScreenProps {
-  onStartGame: (playerName?: string) => void;
-  onContinue?: () => void;
-  onDeleteSave?: () => void;
-  debugMode?: boolean;
-  onToggleDebug?: () => void;
-  hasSave?: boolean;
-}
+export const IntroScreen = () => {
+  const {
+    gameState,
+    startGame,
+    loadSavedGame,
+    deleteSavedGame,
+    hasSavedGame,
+    toggleDebugMode,
+  } = useGame();
 
-export const IntroScreen = ({
-  onStartGame,
-  onContinue,
-  onDeleteSave,
-  debugMode,
-  onToggleDebug,
-  hasSave,
-}: IntroScreenProps) => {
+  const hasSave = hasSavedGame();
+
   const handleStart = () => {
-    onStartGame();
+    startGame();
   };
-
-  const hasDeletableSave = !!hasSave && !!onDeleteSave;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -45,14 +39,14 @@ export const IntroScreen = ({
             <TopButton
               variant="secondary"
               size="sm"
-              onClick={onContinue}
+              onClick={loadSavedGame}
               disabled={!hasSave}
               aria-label="Continue"
             >
               Continue
             </TopButton>
 
-            {hasDeletableSave ? (
+            {hasSave ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <TopButton
@@ -74,7 +68,7 @@ export const IntroScreen = ({
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => {
-                        onDeleteSave?.();
+                        deleteSavedGame();
                       }}
                     >
                       Delete
@@ -94,13 +88,13 @@ export const IntroScreen = ({
             )}
 
             <TopButton
-              variant={debugMode ? 'secondary' : 'outline'}
+              variant={gameState.debugMode ? 'secondary' : 'outline'}
               size="sm"
-              onClick={onToggleDebug}
-              aria-pressed={!!debugMode}
+              onClick={toggleDebugMode}
+              aria-pressed={!!gameState.debugMode}
               aria-label="Toggle debug"
             >
-              Debug: {debugMode ? 'ON' : 'OFF'}
+              Debug: {gameState.debugMode ? 'ON' : 'OFF'}
             </TopButton>
           </div>
         </div>

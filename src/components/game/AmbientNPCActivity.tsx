@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Contestant } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { MessageCircle, Users, Eye, Zap } from 'lucide-react';
 
 interface NPCActivity {
@@ -14,13 +14,9 @@ interface NPCActivity {
   visibility: 'public' | 'private' | 'hidden';
 }
 
-interface AmbientNPCActivityProps {
-  contestants: Contestant[];
-  currentDay: number;
-  playerName: string;
-}
-
-export const AmbientNPCActivity = ({ contestants, currentDay, playerName }: AmbientNPCActivityProps) => {
+export const AmbientNPCActivity = () => {
+  const { gameState } = useGame();
+  const { contestants, currentDay, playerName } = gameState;
   const [activities, setActivities] = useState<NPCActivity[]>([]);
 
   useEffect(() => {

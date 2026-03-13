@@ -1,14 +1,11 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { TrendingUp, TrendingDown, Activity, Tv } from 'lucide-react';
 
-interface RatingsPanelProps {
-  gameState: GameState;
-}
-
-export const RatingsPanel = ({ gameState }: RatingsPanelProps) => {
+export const RatingsPanel = () => {
+  const { gameState } = useGame();
   const rating = typeof gameState.viewerRating === 'number' ? gameState.viewerRating : 3.8;
   const history = gameState.ratingsHistory || [];
 

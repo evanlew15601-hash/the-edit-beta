@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useGame } from '@/contexts/GameContext';
 import { Contestant } from '@/types/game';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +12,6 @@ import { Badge } from '@/components/ui/badge';
 interface ConversationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  contestants: Contestant[];
-  onSubmit: (target: string, content: string, tone: string) => void;
   // Forced pull-aside support
   forced?: boolean;
   presetTarget?: string;
@@ -32,7 +31,12 @@ const PRESETS = [
   { label: 'Make a joke', tone: 'friendly', text: (_: string) => `If the house had a thermostat, it'd be set to 'subtle chaos'.` },
 ];
 
-export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, forced, presetTarget, forcedTopic }: ConversationDialogProps) => {
+export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forcedTopic }: ConversationDialogProps) => {
+  const { gameState, useAction, respondToForcedConversation } = useGame();
+  const contestants: Contestant[] = useMemo(
+    () => gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName),
+    [gameState.contestants, gameState.playerName]
+  );
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [content, setContent] = useState('');
   const [tone, setTone] = useState<string>('');
@@ -48,10 +52,15 @@ export const ConversationDialog = ({ isOpen, onClose, contestants, onSubmit, for
 
   const handleSubmit = () => {
     if (selectedTarget && content && tone) {
-      onSubmit(selectedTarget, content, tone);
+      if (forced) {
+        respondToForcedConversation(selectedTarget, content, tone);
+      } else {
+        useAction('talk', selectedTarget, content, tone);
+      }
       setSelectedTarget('');
       setContent('');
       setTone('');
+      onClose();
     }
   };
 

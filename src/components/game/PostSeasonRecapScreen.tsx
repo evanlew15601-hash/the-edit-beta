@@ -6,17 +6,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { buildContestantMemoryRecap } from '@/utils/enhancedMemoryRecap';
+import { useGame } from '@/contexts/GameContext';
 import { GameState, Contestant } from '@/types/game';
 import { Crown, Trophy, Target, Heart, TrendingUp, Calendar, Users, Zap } from 'lucide-react';
 
-interface PostSeasonRecapScreenProps {
-  gameState: GameState;
-  winner: string;
-  finalVotes: { [juryMember: string]: string };
-  onRestart: () => void;
-}
+export const PostSeasonRecapScreen = () => {
+  const { gameState, resetGame } = useGame();
+  const winner = gameState.gameWinner || 'Unknown';
+  const finalVotes = gameState.finalJuryVotes || {};
 
-export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart }: PostSeasonRecapScreenProps) => {
   const [activeTab, setActiveTab] = useState('overview');
 
   const hasWinner =
@@ -704,7 +702,7 @@ export const PostSeasonRecapScreen = ({ gameState, winner, finalVotes, onRestart
 
         {/* Restart Button */}
         <div className="text-center pt-6">
-          <Button variant="action" onClick={onRestart} size="wide">
+          <Button variant="action" onClick={resetGame} size="wide">
             Start New Season
           </Button>
         </div>

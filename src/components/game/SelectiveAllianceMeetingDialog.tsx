@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GameState, Alliance } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { Users, MessageSquare } from 'lucide-react';
 
@@ -12,15 +12,14 @@ interface SelectiveAllianceMeetingDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (allianceId: string, attendees: string[], agenda: string, tone: string) => void;
-  gameState: GameState;
 }
 
 export const SelectiveAllianceMeetingDialog = ({ 
   isOpen, 
   onClose, 
-  onSubmit, 
-  gameState 
+  onSubmit
 }: SelectiveAllianceMeetingDialogProps) => {
+  const { gameState } = useGame();
   const [selectedAlliance, setSelectedAlliance] = useState<string>('');
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
   const [agenda, setAgenda] = useState('');

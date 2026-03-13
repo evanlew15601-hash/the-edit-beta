@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
-import { GameState, Alliance } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
+import { Alliance } from '@/types/game';
 import { AlliancePlanEngine, AlliancePlan, MemberResponse } from '@/utils/alliancePlanEngine';
 import { 
   Brain, 
@@ -22,7 +23,6 @@ interface AlliancePlanningDialogProps {
   isOpen: boolean;
   onClose: () => void;
   alliance: Alliance;
-  gameState: GameState;
   onSubmitPlan: (plan: AlliancePlan, responses: Record<string, MemberResponse>) => void;
 }
 
@@ -30,9 +30,9 @@ export const AlliancePlanningDialog = ({
   isOpen, 
   onClose, 
   alliance, 
-  gameState, 
   onSubmitPlan 
 }: AlliancePlanningDialogProps) => {
+  const { gameState } = useGame();
   const [availablePlans, setAvailablePlans] = useState<AlliancePlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<AlliancePlan | null>(null);
   const [memberResponses, setMemberResponses] = useState<Record<string, MemberResponse>>({});

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Contestant, GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { Choice, IntentTag, ToneTag, TopicTag, TargetType, InteractionType } from '@/types/tagDialogue';
 import { formatTag, isChoiceAvailable, pickVariant } from '@/utils/tagDialogueEngine';
@@ -12,13 +12,12 @@ import { formatTag, isChoiceAvailable, pickVariant } from '@/utils/tagDialogueEn
 interface TagConversationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  gameState: GameState;
-  contestants: Contestant[];
-  onSubmit: (target: string, choiceId: string, interaction: InteractionType) => void;
   interactionType?: InteractionType; // New prop to set the interaction type
 }
 
-export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants, onSubmit, interactionType }: TagConversationDialogProps) => {
+export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagConversationDialogProps) => {
+  const { gameState, tagTalk } = useGame();
+  const contestants = useMemo(() => gameState.contestants.filter((c) => !c.isEliminated), [gameState.contestants]);
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [selectedChoiceId, setSelectedChoiceId] = useState<string>('');
   const [intent, setIntent] = useState<IntentTag | ''>('');
@@ -60,9 +59,10 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
   const handleSubmit = () => {
     const target = targetType === 'Person' ? selectedTarget : targetType.toLowerCase();
     if (selectedChoiceId && (targetType !== 'Person' || target)) {
-      onSubmit(target, selectedChoiceId, interaction);
+      tagTalk(target, selectedChoiceId, interaction);
       setSelectedTarget('');
       setSelectedChoiceId('');
+      onClose();
     }
   };
 
@@ -70,7 +70,6 @@ export const TagConversationDialog = ({ isOpen, onClose, gameState, contestants,
   const tones: ToneTag[] = ['Sincere','Sarcastic','Flirty','Aggressive','Playful','Dismissive','Apologetic','Neutral'];
   const topics: TopicTag[] = ['Game','Strategy','Romance','Food','Sleep','Challenge','Eviction','Rumor','PersonalHistory','Production'];
   const targetTypes: TargetType[] = ['Person','Group','Self','Object','Audience'];
-  const interactions: InteractionType[] = ['talk','dm','scheme','activity'];
 
   const targetOptions = targetType === 'Person'
     ? contestants.filter((c) => c.name !== gameState.playerName)

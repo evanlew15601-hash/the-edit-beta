@@ -3,19 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/enhanced-button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, Clock, Zap } from 'lucide-react';
+import { useGame } from '@/contexts/GameContext';
 import { EnhancedEmergentEvents } from '@/utils/enhancedEmergentEvents';
-import { GameState } from '@/types/game';
 
 interface DaySkipDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirmSkip: () => void;
-  currentDay: number;
-  gameState: GameState;
-  onEventChoice: (event: any, choice: 'pacifist' | 'headfirst') => void;
 }
 
-export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, gameState, onEventChoice }: DaySkipDialogProps) => {
+export const DaySkipDialog = ({ isOpen, onClose }: DaySkipDialogProps) => {
+  const { gameState, advanceDay, handleEmergentEventChoice } = useGame();
+  const currentDay = gameState.currentDay;
   const [isSkipping, setIsSkipping] = useState(false);
   const [emergentEvent, setEmergentEvent] = useState<any>(null);
   const [selectedReason, setSelectedReason] = useState<string>('');
@@ -35,16 +33,16 @@ export const DaySkipDialog = ({ isOpen, onClose, onConfirmSkip, currentDay, game
       return;
     }
 
-    onConfirmSkip();
+    advanceDay();
     setIsSkipping(false);
   };
 
   const handleChoice = (choice: 'pacifist' | 'headfirst') => {
     if (emergentEvent) {
-      onEventChoice(emergentEvent, choice);
+      handleEmergentEventChoice(emergentEvent, choice);
       // After handling emergent event, proceed with day skip
       setTimeout(() => {
-        onConfirmSkip();
+        advanceDay();
       }, 100);
     }
     setEmergentEvent(null);

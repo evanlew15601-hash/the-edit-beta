@@ -2,22 +2,18 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Progress } from '@/components/ui/progress';
+import { useGame } from '@/contexts/GameContext';
 import { Crown, Gavel, Users } from 'lucide-react';
-import { GameState } from '@/types/game';
 import { analyzeFinaleSpeech } from '@/utils/speechQuality';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 
-interface JuryVoteScreenProps {
-  gameState: GameState;
-  playerSpeech?: string;
-  onGameEnd: (winner: string, votes: { [juryMember: string]: string }, rationales?: { [juryMember: string]: string }) => void;
-}
+export const JuryVoteScreen = () => {
+  const { gameState, endGame } = useGame();
 
-export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteScreenProps) => {
   const [votes, setVotes] = useState<{ [juryMember: string]: string }>({});
   // Use stored finale speech if provided via game state
-  const effectivePlayerSpeech = (playerSpeech && playerSpeech.trim()) || gameState.finaleSpeech || '';
+  const effectivePlayerSpeech = gameState.finaleSpeech || '';
   const speechEval = analyzeFinaleSpeech(effectivePlayerSpeech);
   const [winner, setWinner] = useState<string>('');
   const [showResults, setShowResults] = useState(false);
@@ -317,7 +313,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
     if (!isPlayerInJury && Object.keys(juryVotes).length === juryMembers.length) {
       setVoteStable(true);
     }
-  }, [finalTwo, juryMembers, gameState.playerName, playerSpeech, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier]);
+  }, [finalTwo, juryMembers, gameState.playerName, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier]);
 
   // Visual deliberation progress indicator
   useEffect(() => {
@@ -619,7 +615,7 @@ export const JuryVoteScreen = ({ gameState, playerSpeech, onGameEnd }: JuryVoteS
                 </div>
                 <Button
                   variant="action"
-                  onClick={() => onGameEnd(winner, votes, rationales)}
+                  onClick={() => endGame(winner, votes, rationales)}
                   className="w-full"
                   disabled={revealedCount < juryMembers.length}
                 >

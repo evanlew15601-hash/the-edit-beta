@@ -5,15 +5,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { GameState, Contestant } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
+import { Contestant } from '@/types/game';
 import { TruthVoteCard } from './TruthVoteCard';
 import { getTruthVote } from '@/utils/truthVoteEngine';
 
-interface TruthVoteRequestPanelProps {
-  gameState: GameState;
-}
-
-export const TruthVoteRequestPanel: React.FC<TruthVoteRequestPanelProps> = ({ gameState }) => {
+export const TruthVoteRequestPanel: React.FC = () => {
+  const { gameState } = useGame();
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [statement, setStatement] = useState('');
   const [result, setResult] = useState<{ name: string; vote: 'truth' | 'lie' | 'maybe'; rationale?: string } | null>(null);

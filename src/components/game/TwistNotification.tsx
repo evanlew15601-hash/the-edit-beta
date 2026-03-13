@@ -1,12 +1,9 @@
 import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 
-interface TwistNotificationProps {
-  gameState: GameState;
-}
-
-export const TwistNotification = ({ gameState }: TwistNotificationProps) => {
+export const TwistNotification = () => {
+  const { gameState } = useGame();
   const twists = gameState.twistsActivated || [];
   const recentTwist = twists[twists.length - 1];
   const player = gameState.contestants.find(c => c.name === gameState.playerName);

@@ -1,12 +1,9 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 
-interface Props {
-  gameState: GameState;
-}
-
-export const AIOutcomeDebug = ({ gameState }: Props) => {
+export const AIOutcomeDebug = () => {
+  const { gameState } = useGame();
   const o = gameState.lastTagOutcome;
   if (!o) return null;
 

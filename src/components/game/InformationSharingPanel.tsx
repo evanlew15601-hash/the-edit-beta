@@ -3,15 +3,12 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 import { InformationTradingEngine, InformationLog } from '@/utils/informationTradingEngine';
 import { Eye, EyeOff, MessageSquare, AlertTriangle, Users } from 'lucide-react';
 
-interface InformationSharingPanelProps {
-  gameState: GameState;
-}
-
-export const InformationSharingPanel = ({ gameState }: InformationSharingPanelProps) => {
+export const InformationSharingPanel = () => {
+  const { gameState } = useGame();
   const [sharedInfo, setSharedInfo] = useState<InformationLog[]>([]);
 
   useEffect(() => {
@@ -23,7 +20,7 @@ export const InformationSharingPanel = ({ gameState }: InformationSharingPanelPr
       const playerInfo = InformationTradingEngine.getSharedInformation(gameState.playerName, gameState);
       setSharedInfo(playerInfo);
       
-      console.log('Information panel loaded with', playerInfo.length, 'items');
+      
     }
   }, [gameState]);
 

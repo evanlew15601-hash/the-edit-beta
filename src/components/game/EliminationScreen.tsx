@@ -1,20 +1,15 @@
 import { Button } from '@/components/ui/enhanced-button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GameState } from '@/types/game';
+import { useGame } from '@/contexts/GameContext';
 
-interface EliminationScreenProps {
-  gameState: GameState;
-  onContinue: (forcePlayerElimination?: boolean) => void;
-}
-
-export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenProps) => {
+export const EliminationScreen = () => {
+  const { gameState, continueFromElimination } = useGame();
   const latestElimination = gameState.votingHistory[gameState.votingHistory.length - 1];
   const eliminatedContestant = gameState.contestants.find(c => c.name === latestElimination?.eliminated);
   const remainingCount = gameState.contestants.filter(c => !c.isEliminated).length;
 
-  console.log('[EliminationScreen] Latest elimination:', latestElimination?.eliminated);
-  console.log('[EliminationScreen] Remaining count:', remainingCount);
+  
 
   // Guard: Must have valid elimination data
   if (!latestElimination) {
@@ -183,7 +178,7 @@ export const EliminationScreen = ({ gameState, onContinue }: EliminationScreenPr
           <Button 
             variant="surveillance" 
             size="wide" 
-            onClick={() => onContinue()}
+            onClick={() => continueFromElimination()}
           >
             {isPlayerEliminated
               ? (gameState.juryMembers && gameState.juryMembers.length > 0
