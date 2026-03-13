@@ -548,7 +548,7 @@ export const useGameState = () => {
         }
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.warn('Failed to run background NPC social simulation:', e);
+        debugWarn('Failed to run background NPC social simulation:', e);
       }
     })();
 
@@ -1580,7 +1580,7 @@ export const useGameState = () => {
 
       // If we couldn't find any other finalist (degenerate cast), just keep player solo and pick first available.
       if (!otherFinalistName) {
-        console.warn('proceedToJuryVote: No non-player contestant found; unable to create proper Final 2.');
+        debugWarn('proceedToJuryVote: No non-player contestant found; unable to create proper Final 2.');
         return {
           ...prev,
           gamePhase: 'jury_vote' as const,
@@ -2041,7 +2041,7 @@ export const useGameState = () => {
     setGameState(prev => {
       const targetNPC = prev.contestants.find(c => c.name === from);
       if (!targetNPC || !prev.playerName) {
-        console.warn('Forced conversation target not found or playerName missing', from);
+        debugWarn('Forced conversation target not found or playerName missing', from);
         return {
           ...prev,
           forcedConversationsQueue: (prev.forcedConversationsQueue || []).slice(1),
@@ -2454,7 +2454,7 @@ export const useGameState = () => {
           });
         } catch (e) {
           // eslint-disable-next-line no-console
-          console.warn('Failed to generate LLM jury rationales:', e);
+          debugWarn('Failed to generate LLM jury rationales:', e);
         }
       })();
     }
@@ -2669,7 +2669,7 @@ export const useGameState = () => {
     try {
       localStorage.removeItem('rtv_game_state');
     } catch (e) {
-      console.warn('Failed to clear saved game state', e);
+      debugWarn('Failed to clear saved game state', e);
     }
   }, []);
 
@@ -2874,7 +2874,7 @@ export const useGameState = () => {
     setGameState(prev => {
       const targetNPC = prev.contestants.find(c => c.name === target);
       if (!targetNPC) {
-        console.warn('TagTalk: target not found', target);
+        debugWarn('TagTalk: target not found', target);
         // Fallback to generic action
         useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
         return prev;
@@ -2884,7 +2884,7 @@ export const useGameState = () => {
       try {
         const choice = (TAG_CHOICES as any[]).find((c: any) => c.choiceId === choiceId);
         if (!choice) {
-          console.warn('TagTalk: choice not found', choiceId);
+          debugWarn('TagTalk: choice not found', choiceId);
           useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
           return prev;
         }
@@ -3098,7 +3098,7 @@ export const useGameState = () => {
 
         return newState;
       } catch (e) {
-        console.warn('TagTalk: evaluate/apply failed, fallback to generic action', e);
+        debugWarn('TagTalk: evaluate/apply failed, fallback to generic action', e);
         useAction(interaction, target, `Tag choice: ${choiceId}`, 'tag');
         return prev;
       }
@@ -3380,8 +3380,12 @@ export const useGameState = () => {
     try {
       const raw = localStorage.getItem('rtv_game_state');
       if (raw) {
-        const parsed = JSON.parse(raw);
-        setGameState(parsed as GameState);
+        const parsed = JSON.parse(raw) as GameState;
+        const next =
+          import.meta.env.MODE === 'production' && !betaDebugEnabled()
+            ? { ...parsed, debugMode: false }
+            : parsed;
+        setGameState(next);
         debugLog('Loaded saved game.');
       }
     } catch (e) {

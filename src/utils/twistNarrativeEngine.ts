@@ -220,6 +220,10 @@ export function applyDailyNarrative(gs: GameState): GameState {
     const contractEndWeek = spec.contractEndWeek ?? contractWeeks;
     const contractEnded = week > contractEndWeek;
 
+    const GRACE_DAYS = 2;
+    const weekStartDay = (week - 1) * 7 + 1;
+    const canAssignWeekTask = week === 1 || gs.currentDay >= weekStartDay + GRACE_DAYS;
+
     // Update spec with contract meta
     const specUpdated = { ...spec, contractWeeks, contractEndWeek, contractEnded } as typeof spec;
 
@@ -227,7 +231,7 @@ export function applyDailyNarrative(gs: GameState): GameState {
     const tasks = (spec.tasks || []).slice();
     const weekTaskId = `w${week}_mission`;
     const hasWeekTask = tasks.some(t => t.id === weekTaskId);
-    if (!hasWeekTask && !contractEnded) {
+    if (!hasWeekTask && !contractEnded && canAssignWeekTask) {
       const newTask = createWeeklyTask(gs, week);
       tasks.push(newTask);
     }

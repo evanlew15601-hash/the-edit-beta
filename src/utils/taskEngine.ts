@@ -37,8 +37,15 @@ const GRACE_DAYS = 2;
 export function computeObjectiveProgress(gs: GameState, objective: ProductionTaskObjective, week: number): number {
   const { start, end } = getWeekBounds(week);
   const currentDay = typeof gs.currentDay === 'number' ? gs.currentDay : end;
+  const currentWeek = getCurrentWeek(currentDay);
+
+  // Strict week accounting: the first GRACE_DAYS of a new week are reserved as a catch-up window
+  // for the prior week’s mission, and do not count toward the new week’s objective progress.
+  const startEffective = week === currentWeek && week > 1 ? start + GRACE_DAYS : start;
+
   const endWithGrace = Math.min(end + GRACE_DAYS, currentDay);
-  const logs = (gs.interactionLog || []).filter(l => l.day >= start && l.day <= endWithGrace);
+  const logs = (gs.interactionLog || []).filter(l => l.day >= startEffective && l.day <= endWithGrace);
+
   switch (objective.kind) {
     case 'talk_count': {
       const talks = logs.filter(l => l.type === 'talk' && l.source === 'player');
@@ -58,7 +65,7 @@ export function computeObjectiveProgress(gs: GameState, objective: ProductionTas
       return meets.length;
     }
     case 'confessional_count': {
-      const confs = (gs.confessionals || []).filter(c => c.day >= start && c.day <= endWithGrace);
+      const confs = (gs.confessionals || []).filter(c => c.day >= startEffective && c.day <= endWithGrace);
       return confs.length;
     }
     case 'observation_count': {
@@ -71,7 +78,7 @@ export function computeObjectiveProgress(gs: GameState, objective: ProductionTas
     }
     case 'immunity_win': {
       // Requires tracking of day for immunity wins; fallback: if immunityWinner is player during this week via ratingsHistory reason
-      const wins = (gs.ratingsHistory || []).filter(r => r.day >= start && r.day <= endWithGrace && (gs.immunityWinner === gs.playerName || (r.reason || '').toLowerCase().includes('immunity'))).length;
+      const wins = (gs.ratingsHistory || []).filter(r => r.day >= startEffective && r.day <= endWithGrace && (gs.immunityWinner === gs.playerName || (r.reason || '').toLowerCase().includes('immunity'))).length;
       return wins > 0 ? 1 : 0;
     }
     default:

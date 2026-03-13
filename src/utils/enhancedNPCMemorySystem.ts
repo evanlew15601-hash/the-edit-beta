@@ -150,7 +150,12 @@ export class EnhancedNPCMemorySystem {
           const changes = pattern.consequence(contestant, gameState);
           Object.assign(updatedContestant, changes);
           
-          console.log(`Applied memory pattern ${pattern.type} to ${contestant.name}`);
+          if (
+            import.meta.env.MODE !== 'production' ||
+            (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+          ) {
+            console.log(`Applied memory pattern ${pattern.type} to ${contestant.name}`);
+          }
         }
       }
 

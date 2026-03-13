@@ -8,6 +8,8 @@ export const ProductionTasksPanel = () => {
   const player = gameState.contestants.find(c => c.name === gameState.playerName);
   const week = getCurrentWeek(gameState.currentDay);
   const { end } = getWeekBounds(week);
+  const GRACE_DAYS = 2;
+  const dueDay = end + GRACE_DAYS;
 
   if (!player || !player.special || player.special.kind !== 'planted_houseguest') return null;
 
@@ -18,7 +20,7 @@ export const ProductionTasksPanel = () => {
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-medium">Production Mission</h3>
         <div className="text-xs text-muted-foreground">
-          Week {week} • Due by Day {end}
+          Week {week} • Due by Day {dueDay}
         </div>
       </div>
       <p className="text-sm text-muted-foreground mb-4">

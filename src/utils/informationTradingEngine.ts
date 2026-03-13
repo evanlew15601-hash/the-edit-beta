@@ -33,7 +33,12 @@ export class InformationTradingEngine {
       return this.informationDatabase;
     }
 
-    console.log('Generating tradable information for day', gameState.currentDay);
+    if (
+      import.meta.env.MODE !== 'production' ||
+      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+    ) {
+      console.log('Generating tradable information for day', gameState.currentDay);
+    }
     this.informationDatabase = [];
     this.lastUpdateDay = gameState.currentDay;
     
@@ -94,7 +99,12 @@ export class InformationTradingEngine {
       });
     });
 
-    console.log(`Generated ${this.informationDatabase.length} pieces of information`);
+    if (
+      import.meta.env.MODE !== 'production' ||
+      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+    ) {
+      console.log(`Generated ${this.informationDatabase.length} pieces of information`);
+    }
     return this.informationDatabase;
   }
 
@@ -132,12 +142,22 @@ export class InformationTradingEngine {
     const fromContestant = gameState.contestants.find(c => c.name === from);
     
     if (!fromContestant) {
-      console.log(`Information sharing failed: ${from} not found`);
+      if (
+        import.meta.env.MODE !== 'production' ||
+        (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+      ) {
+        console.log(`Information sharing failed: ${from} not found`);
+      }
       return [];
     }
 
     // AUTOMATIC INFORMATION SHARING - No trust requirement needed
-    console.log(`Auto-sharing information from ${from} to ${to} via ${context}`);
+    if (
+      import.meta.env.MODE !== 'production' ||
+      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+    ) {
+      console.log(`Auto-sharing information from ${from} to ${to} via ${context}`);
+    }
 
     // Generate fresh information if needed
     this.generateTradableInformation(gameState);
@@ -176,7 +196,12 @@ export class InformationTradingEngine {
         context
       };
       this.informationLog.push(logEntry);
-      console.log('Information automatically shared:', logEntry);
+      if (
+        import.meta.env.MODE !== 'production' ||
+        (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+      ) {
+        console.log('Information automatically shared:', logEntry);
+      }
     });
 
     return sharedInfo;
@@ -219,7 +244,12 @@ export class InformationTradingEngine {
       .filter(log => log.to === playerName && log.day >= gameState.currentDay - 5)
       .sort((a, b) => b.day - a.day);
     
-    console.log(`Retrieved ${sharedInfo.length} pieces of shared information for ${playerName}`);
+    if (
+      import.meta.env.MODE !== 'production' ||
+      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+    ) {
+      console.log(`Retrieved ${sharedInfo.length} pieces of shared information for ${playerName}`);
+    }
     return sharedInfo;
   }
 

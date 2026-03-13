@@ -45,7 +45,12 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
     ? recentConfessionals[recentConfessionals.length - 1].content 
     : gameStateQuotes[Math.floor(Math.random() * gameStateQuotes.length)];
 
-  console.log(`[WeeklyRecap] Week ${currentWeek}: Using ${recentConfessionals.length > 0 ? 'actual' : 'generated'} quote for ${playerName}`);
+  if (
+    import.meta.env.MODE !== 'production' ||
+    (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+  ) {
+    console.log(`[WeeklyRecap] Week ${currentWeek}: Using ${recentConfessionals.length > 0 ? 'actual' : 'generated'} quote for ${playerName}`);
+  }
   
   // Get memory events for this week
   const memorySystem = memoryEngine.getMemorySystem();

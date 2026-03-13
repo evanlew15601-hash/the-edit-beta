@@ -43,11 +43,16 @@ export const JuryVoteScreen = () => {
   const playerEliminated = gameState.isPlayerEliminated || playerContestant?.isEliminated || false;
   const isPlayerInJury = playerEliminated && gameState.juryMembers?.includes(gameState.playerName);
   
-  console.log('[JuryVoteScreen] Final two:', finalTwo.map(c => c.name));
-  console.log('[JuryVoteScreen] Jury list:', gameState.juryMembers);
-  console.log('[JuryVoteScreen] Jury members:', juryMembers.map(j => j.name));
-  console.log('[JuryVoteScreen] Player eliminated?', playerEliminated);
-  console.log('[JuryVoteScreen] Player in jury?', isPlayerInJury);
+  if (
+    import.meta.env.MODE !== 'production' ||
+    (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+  ) {
+    console.log('[JuryVoteScreen] Final two:', finalTwo.map(c => c.name));
+    console.log('[JuryVoteScreen] Jury list:', gameState.juryMembers);
+    console.log('[JuryVoteScreen] Jury members:', juryMembers.map(j => j.name));
+    console.log('[JuryVoteScreen] Player eliminated?', playerEliminated);
+    console.log('[JuryVoteScreen] Player in jury?', isPlayerInJury);
+  }
   
   // Guard: Need at least 1 jury member
   if (juryMembers.length === 0) {
@@ -351,7 +356,12 @@ export const JuryVoteScreen = () => {
       if (voteCounts[vote] !== undefined) voteCounts[vote]++;
     });
 
-    console.log('[JuryVoteScreen] Final vote counts:', voteCounts);
+    if (
+      import.meta.env.MODE !== 'production' ||
+      (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+    ) {
+      console.log('[JuryVoteScreen] Final vote counts:', voteCounts);
+    }
 
     // FIXED: Handle tie scenario
     const sortedByVotes = Object.entries(voteCounts).sort((a, b) => b[1] - a[1]);
@@ -361,7 +371,12 @@ export const JuryVoteScreen = () => {
     let winnerName: string;
     if (tiedFinalists.length > 1) {
       // Tie-break: use random selection (in a real game this would be a special tie-break)
-      console.warn('[JuryVoteScreen] Jury vote tie detected, using random selection');
+      if (
+        import.meta.env.MODE !== 'production' ||
+        (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+      ) {
+        console.warn('[JuryVoteScreen] Jury vote tie detected, using random selection');
+      }
       winnerName = tiedFinalists[Math.floor(Math.random() * tiedFinalists.length)][0];
     } else {
       winnerName = sortedByVotes[0][0];

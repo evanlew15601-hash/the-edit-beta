@@ -21,16 +21,21 @@ import { MeetHouseguestsScreen } from '@/components/game/MeetHouseguestsScreen';
 const Index = () => {
   const { gameState, toggleDebugMode, continueFromElimination, completeCutscene } = useGame();
 
+  const canUseDebug =
+    import.meta.env.MODE !== 'production' ||
+    import.meta.env.VITE_ENABLE_BETA_DEBUG === '1';
+
   // Keyboard shortcut: Shift+D to toggle debug HUD
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!canUseDebug) return;
       if (e.shiftKey && e.key.toLowerCase() === 'd') {
         toggleDebugMode();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleDebugMode]);
+  }, [toggleDebugMode, canUseDebug]);
 
   // Test force elimination event handler (debug-only)
   React.useEffect(() => {
@@ -101,7 +106,7 @@ const Index = () => {
     <ErrorBoundary>
       {showHeader && <DashboardHeader />}
       {renderScreen()}
-      <VotingDebugPanel />
+      {canUseDebug && <VotingDebugPanel />}
     </ErrorBoundary>
   );
 };

@@ -43,7 +43,10 @@ export const Final3VoteScreen = () => {
   const playerStillActive = finalThree.some(c => c.name === gameState.playerName);
   const eligible = finalThree.filter(c => c.name !== gameState.playerName);
   
-  if (import.meta.env.MODE !== 'production') {
+  if (
+    import.meta.env.MODE !== 'production' ||
+    (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1' && typeof window !== 'undefined' && !!(window as any).__RTV_DEBUG__)
+  ) {
     console.log('[Final3VoteScreen] Final three:', finalThree.map(c => c.name));
     console.log('[Final3VoteScreen] Player active?', playerStillActive);
     console.log('[Final3VoteScreen] Eligible targets:', eligible.map(c => c.name));
