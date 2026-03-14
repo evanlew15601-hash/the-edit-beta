@@ -1,6 +1,7 @@
 import { GameState, WeeklyEdit } from '@/types/game';
 import { memoryEngine } from './memoryEngine';
 import { generateFanReactions } from './fanReactions';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 // Enhanced recap that truly pulls from memory and creates compelling content
 export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
@@ -45,7 +46,9 @@ export function buildEnhancedWeeklyEdit(gameState: GameState): WeeklyEdit {
     ? recentConfessionals[recentConfessionals.length - 1].content 
     : gameStateQuotes[Math.floor(Math.random() * gameStateQuotes.length)];
 
-  console.log(`[WeeklyRecap] Week ${currentWeek}: Using ${recentConfessionals.length > 0 ? 'actual' : 'generated'} quote for ${playerName}`);
+  if (isDebugEnabled()) {
+    console.log(`[WeeklyRecap] Week ${currentWeek}: Using ${recentConfessionals.length > 0 ? 'actual' : 'generated'} quote for ${playerName}`);
+  }
   
   // Get memory events for this week
   const memorySystem = memoryEngine.getMemorySystem();

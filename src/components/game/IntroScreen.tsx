@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { canUseDebugUI } from '@/utils/debugEnv';
 
 export const IntroScreen = () => {
   const {
@@ -24,6 +25,7 @@ export const IntroScreen = () => {
   } = useGame();
 
   const hasSave = hasSavedGame();
+  const canUseDebug = canUseDebugUI();
 
   const handleStart = () => {
     startGame();
@@ -87,15 +89,17 @@ export const IntroScreen = () => {
               </TopButton>
             )}
 
-            <TopButton
-              variant={gameState.debugMode ? 'secondary' : 'outline'}
-              size="sm"
-              onClick={toggleDebugMode}
-              aria-pressed={!!gameState.debugMode}
-              aria-label="Toggle debug"
-            >
-              Debug: {gameState.debugMode ? 'ON' : 'OFF'}
-            </TopButton>
+            {canUseDebug && (
+              <TopButton
+                variant={gameState.debugMode ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={toggleDebugMode}
+                aria-pressed={!!gameState.debugMode}
+                aria-label="Toggle debug"
+              >
+                Debug: {gameState.debugMode ? 'ON' : 'OFF'}
+              </TopButton>
+            )}
           </div>
         </div>
       </div>

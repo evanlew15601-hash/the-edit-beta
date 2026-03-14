@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { useGame } from '@/contexts/GameContext';
 import { Crown, Users, Trophy } from 'lucide-react';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export const Final3VoteScreen = () => {
   const {
@@ -43,7 +44,7 @@ export const Final3VoteScreen = () => {
   const playerStillActive = finalThree.some(c => c.name === gameState.playerName);
   const eligible = finalThree.filter(c => c.name !== gameState.playerName);
   
-  if (import.meta.env.MODE !== 'production') {
+  if (isDebugEnabled()) {
     console.log('[Final3VoteScreen] Final three:', finalThree.map(c => c.name));
     console.log('[Final3VoteScreen] Player active?', playerStillActive);
     console.log('[Final3VoteScreen] Eligible targets:', eligible.map(c => c.name));

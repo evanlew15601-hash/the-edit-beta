@@ -1,8 +1,8 @@
-import { supabase } from '@/integrations/supabase/client';
 import { generateAIResponse } from "./aiResponseEngine";
 
-// AI reply generation via Supabase edge function backed by Gemini (through Lovable AI gateway)
-// Falls back to rule-based response if cloud fails
+// AI reply generation.
+// Default: local deterministic phrasing (no backend required).
+// Optional: if VITE_ENABLE_CLOUD_AI=1 and Supabase env vars are present, use the edge function.
 
 // Simple LRU cache for short prompts
 const CACHE_LIMIT = 200;
@@ -143,8 +143,33 @@ export async function generateLocalAIReply(
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
+  const maxSent = Math.max(1, Math.min(2, opts?.maxSentences ?? 2));
+
+  const localLine = () => {
+    if (payload.npcPlan?.summary) {
+      return sanitizeOutput(payload.npcPlan.summary, maxSent);
+    }
+
+    const npc = payload.npc as any;
+    const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
+    return sanitizeOutput(line, maxSent);
+  };
+
+  const cloudEnabled =
+    import.meta.env.VITE_ENABLE_CLOUD_AI === '1' &&
+    !!import.meta.env.VITE_SUPABASE_URL &&
+    !!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!cloudEnabled) {
+    const cleaned = localLine();
+    cacheSet(cacheKey, cleaned);
+    return cleaned;
+  }
+
   try {
-    // Call the edge function
+    // Dynamically import Supabase only when cloud AI is explicitly enabled.
+    const { supabase } = await import('@/integrations/supabase/client');
+
     const { data, error } = await supabase.functions.invoke('generate-ai-reply', {
       body: {
         playerMessage: payload.playerMessage,
@@ -157,54 +182,27 @@ export async function generateLocalAIReply(
     });
 
     if (error) {
-      console.warn("Edge function error:", error);
-      throw new Error(error.message || "Edge function failed");
+      throw new Error(error.message || 'Edge function failed');
     }
 
     if (data?.error) {
-      console.warn("AI service error:", data.error);
       throw new Error(data.error);
     }
 
-    let text = data?.generatedText || "";
-    
-    let cleaned = sanitizeOutput(
-      text,
-      Math.max(1, Math.min(2, opts?.maxSentences ?? 2))
-    );
+    const text = data?.generatedText || '';
 
-    // Final guard: if the AI output is meta or otherwise broken,
-    // fall back to a deterministic rule-based line or the provided NPC plan.
+    let cleaned = sanitizeOutput(text, maxSent);
+
+    // If the cloud output is meta or otherwise broken, fall back to local.
     if (isMetaOrBroken(cleaned)) {
-      const maxSent = Math.max(1, Math.min(2, opts?.maxSentences ?? 2));
-
-      if (payload.npcPlan?.summary) {
-        cleaned = sanitizeOutput(payload.npcPlan.summary, maxSent);
-      } else {
-        const npc = payload.npc as any;
-        const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
-        cleaned = sanitizeOutput(line, maxSent);
-      }
+      cleaned = localLine();
     }
 
     cacheSet(cacheKey, cleaned);
     return cleaned;
-  } catch (e) {
-    console.warn("AI generation failed, falling back to rule-based engine:", e);
-    try {
-      // Fallback: use deterministic rule-based line (prefer npcPlan summary if provided)
-      const maxSent = Math.max(1, Math.min(2, opts?.maxSentences ?? 2));
-
-      if (payload.npcPlan?.summary) {
-        return sanitizeOutput(payload.npcPlan.summary, maxSent);
-      }
-
-      const npc = payload.npc as any;
-      const line = generateAIResponse(payload.parsedInput, npc, payload.playerMessage);
-      return sanitizeOutput(line, maxSent);
-    } catch (e2) {
-      console.error("Fallback failed:", e2);
-      return "I will consider that and keep us protected.";
-    }
+  } catch (_e) {
+    const cleaned = localLine();
+    cacheSet(cacheKey, cleaned);
+    return cleaned;
   }
 }

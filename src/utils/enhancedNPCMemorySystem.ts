@@ -1,4 +1,5 @@
 import { GameState, Contestant, GameMemory } from '@/types/game';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export interface NPCMemoryPattern {
   type: 'betrayal_detection' | 'alliance_loyalty' | 'threat_assessment' | 'opportunity_recognition';
@@ -150,7 +151,9 @@ export class EnhancedNPCMemorySystem {
           const changes = pattern.consequence(contestant, gameState);
           Object.assign(updatedContestant, changes);
           
-          console.log(`Applied memory pattern ${pattern.type} to ${contestant.name}`);
+          if (isDebugEnabled()) {
+            console.log(`Applied memory pattern ${pattern.type} to ${contestant.name}`);
+          }
         }
       }
 

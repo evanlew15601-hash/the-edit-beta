@@ -119,6 +119,10 @@ export interface InteractionLogEntry {
   tone?: string;
   ai_response?: string;
   source: 'player' | 'npc' | 'system' | 'emergent_event';
+  // Optional tag-talk metadata (used by edit/recap systems)
+  intent?: string;
+  topic?: string;
+  choiceId?: string;
 }
 
 export interface PlayerAction {
@@ -334,6 +338,19 @@ export interface GameState {
 
   // Narrative arc tracking for player twists
   twistNarrative?: TwistNarrative;
+
+  // Hard twist mechanics: production interference / timed overrides
+  playerCannotBeEliminatedUntilDay?: number;
+  hostChildFalloutUntilDay?: number;
+  productionIntel?: {
+    day: number;
+    leaks: {
+      npc: string;
+      target: string;
+      source?: string;
+      reasoning?: string;
+    }[];
+  };
 
   // Lite story mode current cutscene
   currentCutscene?: CurrentCutscene;

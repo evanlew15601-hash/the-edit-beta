@@ -1,4 +1,5 @@
 import { Contestant, GameState } from '@/types/game';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export type Relationship = {
   source: string;
@@ -140,7 +141,9 @@ class RelationshipGraphEngine {
       }
     }
 
-    console.log(`[RelationshipEngine] ${source} -> ${target}: trust ${relationship.trust.toFixed(1)} (${adjustedTrustDelta > 0 ? '+' : ''}${adjustedTrustDelta.toFixed(1)}), suspicion ${relationship.suspicion.toFixed(1)}`);
+    if (isDebugEnabled()) {
+      console.log(`[RelationshipEngine] ${source} -> ${target}: trust ${relationship.trust.toFixed(1)} (${adjustedTrustDelta > 0 ? '+' : ''}${adjustedTrustDelta.toFixed(1)}), suspicion ${relationship.suspicion.toFixed(1)}`);
+    }
   }
 
   // Form alliance between contestants

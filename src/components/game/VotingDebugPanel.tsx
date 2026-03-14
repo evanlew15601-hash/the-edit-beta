@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { useGame } from '@/contexts/GameContext';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
+import { clearLocalInteractions, fetchLatestInteractions } from '@/utils/interactionLogger';
 
 export const VotingDebugPanel: React.FC = () => {
   const {
@@ -23,11 +24,58 @@ export const VotingDebugPanel: React.FC = () => {
     endGame,
   } = useGame();
 
+  const [exporting, setExporting] = React.useState(false);
+  const [clearingLogs, setClearingLogs] = React.useState(false);
+
+  const downloadJson = (filename: string, data: unknown) => {
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportDiagnostics = async () => {
+    setExporting(true);
+    try {
+      const interactions = await fetchLatestInteractions({ limit: 400 });
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        build: {
+          mode: import.meta.env.MODE,
+          betaDebug: import.meta.env.VITE_ENABLE_BETA_DEBUG,
+        },
+        gameState,
+        interactions,
+      };
+
+      const safePlayer = (gameState.playerName || 'player').replace(/[^a-z0-9_-]+/gi, '_');
+      downloadJson(`rtv_diagnostics_${safePlayer}_day${gameState.currentDay}.json`, payload);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const clearDiagnosticsLogs = async () => {
+    setClearingLogs(true);
+    try {
+      await clearLocalInteractions();
+    } finally {
+      setClearingLogs(false);
+    }
+  };
+
   if (!gameState.debugMode) return null;
 
   const active = gameState.contestants.filter(c => !c.isEliminated);
   const eliminated = gameState.contestants.filter(c => c.isEliminated);
   const nonPlayerActive = active.filter(c => c.name !== gameState.playerName);
+  const nonPlayerEligibleForVote = nonPlayerActive.filter(c => c.name !== gameState.immunityWinner);
 
   const lastVote = gameState.votingHistory[gameState.votingHistory.length - 1];
   const lastDebug = lastVote?.debug;
@@ -79,6 +127,61 @@ export const VotingDebugPanel: React.FC = () => {
       }[];
   }, [active, gameState.currentDay]);
 
+  const player = React.useMemo(
+    () => gameState.contestants.find(c => c.name === gameState.playerName),
+    [gameState.contestants, gameState.playerName]
+  );
+
+  const planted = player?.special && player.special.kind === 'planted_houseguest' ? player.special : undefined;
+
+  const plantedWeekTasks = React.useMemo(() => {
+    if (!planted) return [];
+    const week = Math.max(1, Math.floor((gameState.currentDay - 1) / 7) + 1);
+    return (planted.tasks || []).filter(t => (t.week ?? week) === week);
+  }, [planted, gameState.currentDay]);
+
+  const confessionalStats = React.useMemo(() => {
+    const confs = gameState.confessionals || [];
+    const day = gameState.currentDay;
+    const week = Math.max(1, Math.floor((day - 1) / 7) + 1);
+    const start = (week - 1) * 7 + 1;
+    const end = week * 7;
+
+    const total = confs.length;
+    const today = confs.filter(c => c.day === day).length;
+    const thisWeek = confs.filter(c => c.day >= start && c.day <= end).length;
+    const selectedTotal = confs.filter((c: any) => !!c.selected).length;
+    const selectedWeek = confs.filter((c: any) => !!c.selected && c.day >= start && c.day <= end).length;
+
+    return { week, start, end, total, today, thisWeek, selectedTotal, selectedWeek };
+  }, [gameState.confessionals, gameState.currentDay]);
+
+  const integrityWarnings = React.useMemo(() => {
+    const warnings: string[] = [];
+
+    if (gameState.twistNarrative?.beats) {
+      const activeBeats = gameState.twistNarrative.beats.filter(b => b.status === 'active');
+      if (activeBeats.length > 1) {
+        warnings.push(`Multiple active beats: ${activeBeats.map(b => b.id).join(', ')}`);
+      }
+    }
+
+    if (planted) {
+      const tasks = planted.tasks || [];
+      if (tasks.length === 0) warnings.push('Planted HG: no tasks found');
+      if (tasks.length > 0 && plantedWeekTasks.length === 0) {
+        warnings.push(`Planted HG: no tasks for week ${confessionalStats.week}`);
+      }
+
+      const unrewarded = tasks.filter(t => t.completed && !t.rewarded);
+      if (unrewarded.length > 0) {
+        warnings.push(`Planted HG: completed but not rewarded: ${unrewarded.map(t => t.id).join(', ')}`);
+      }
+    }
+
+    return warnings;
+  }, [gameState.twistNarrative, planted, plantedWeekTasks.length, confessionalStats.week]);
+
   return (
     <div className="fixed bottom-4 right-4 z-50 w-[340px]">
       <Card className="p-4 shadow-xl border border-border bg-card/95 backdrop-blur-md rounded-lg">
@@ -122,7 +225,96 @@ export const VotingDebugPanel: React.FC = () => {
           </div>
         </div>
 
+        <div className="p-2 border rounded text-xs mb-3 space-y-1">
+          <div className="text-muted-foreground">Twists</div>
+          <div className="font-medium">Arc: {gameState.twistNarrative?.arc || 'none'}</div>
+          {gameState.twistNarrative?.currentBeatId && (
+            <div>
+              Active beat: <span className="font-medium">{gameState.twistNarrative.currentBeatId}</span>
+            </div>
+          )}
+          {typeof gameState.playerCannotBeEliminatedUntilDay === 'number' && (
+            <div className="text-destructive">
+              Protection: player cannot be eliminated until Day {gameState.playerCannotBeEliminatedUntilDay}
+            </div>
+          )}
+          {typeof gameState.hostChildFalloutUntilDay === 'number' && (
+            <div>
+              Host child fallout until Day {gameState.hostChildFalloutUntilDay}
+            </div>
+          )}
+          {gameState.productionIntel && gameState.productionIntel.day === gameState.currentDay && (
+            <div>
+              Intel leaks: {gameState.productionIntel.leaks.map(l => `${l.npc} → ${l.target}`).join(' • ')}
+            </div>
+          )}
+          {gameState.missionBroadcastBanner && gameState.missionBroadcastBanner.day === gameState.currentDay && (
+            <div>
+              Mission banner: <span className={gameState.missionBroadcastBanner.result === 'success' ? 'text-primary' : 'text-destructive'}>
+                {gameState.missionBroadcastBanner.result}
+              </span>
+            </div>
+          )}
+
+          {plantedWeekTasks.length > 0 && (
+            <div className="pt-1">
+              <div className="text-muted-foreground">Planted HG • Week {confessionalStats.week}</div>
+              {plantedWeekTasks.slice(0, 2).map(t => (
+                <div key={t.id} className="flex justify-between">
+                  <span className="truncate mr-2">{t.id}</span>
+                  <span>
+                    {t.progress ?? 0}/{t.target ?? 0}{t.completed ? ' ✓' : ''}
+                  </span>
+                </div>
+              ))}
+              {plantedWeekTasks.length > 2 && (
+                <div className="text-muted-foreground">…{plantedWeekTasks.length - 2} more</div>
+              )}
+              {typeof gameState.playerFunds === 'number' && (
+                <div className="text-muted-foreground">Funds: ${gameState.playerFunds}</div>
+              )}
+            </div>
+          )}
+
+          <div className="pt-1">
+            <div className="text-muted-foreground">Confessionals</div>
+            <div>
+              Today: <span className="font-medium">{confessionalStats.today}</span> • Week: <span className="font-medium">{confessionalStats.thisWeek}</span> • Total:{' '}
+              <span className="font-medium">{confessionalStats.total}</span>
+            </div>
+            <div className="text-muted-foreground">
+              Selected: {confessionalStats.selectedWeek}/{confessionalStats.thisWeek} (week) • {confessionalStats.selectedTotal}/{confessionalStats.total} (total)
+            </div>
+          </div>
+
+          {integrityWarnings.length > 0 && (
+            <div className="pt-1 space-y-1">
+              <div className="text-muted-foreground">Integrity</div>
+              {integrityWarnings.map((w) => (
+                <div key={w} className="text-destructive">{w}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-2">
+          <Button
+            variant="outline"
+            onClick={exportDiagnostics}
+            className="w-full"
+            disabled={exporting}
+          >
+            {exporting ? 'Exporting…' : 'Export Diagnostics'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={clearDiagnosticsLogs}
+            className="w-full"
+            disabled={clearingLogs}
+          >
+            {clearingLogs ? 'Clearing…' : 'Clear Local Logs'}
+          </Button>
+
           <Button variant="action" onClick={advanceDay} className="w-full">
             Advance Day
           </Button>
@@ -146,17 +338,24 @@ export const VotingDebugPanel: React.FC = () => {
           </Button>
           <Button
             variant="critical"
-            onClick={() => window.dispatchEvent(new Event('testForceElimination'))}
+            onClick={() => window.dispatchEvent(new Event('rtv:test:forceElimination'))}
             className="w-full"
           >
             Force Player Elimination (Test)
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => window.dispatchEvent(new Event('rtv:test:skipToJury'))}
+            className="w-full"
+          >
+            Skip to Jury (Test)
           </Button>
 
           {/* Phase-specific quick actions */}
           {gameState.gamePhase === 'player_vote' && (
             <div className="mt-2 border-t border-border pt-2">
               <div className="text-xs text-muted-foreground mb-1">Quick Player Vote</div>
-              {nonPlayerActive.map(c => (
+              {nonPlayerEligibleForVote.map(c => (
                 <Button
                   key={c.name}
                   variant="outline"

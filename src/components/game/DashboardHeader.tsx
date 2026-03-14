@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { canUseDebugUI } from '@/utils/debugEnv';
 
 export const DashboardHeader = () => {
   const {
@@ -79,6 +80,7 @@ export const DashboardHeader = () => {
   };
 
   const showRosterButton = gameState.gamePhase === 'premiere' || rosterPinned;
+  const canUseDebug = canUseDebugUI();
 
   return (
     <div className="bg-background/90 backdrop-blur-md border-b border-border/60 sticky top-0 z-50">
@@ -228,15 +230,17 @@ export const DashboardHeader = () => {
               <Button variant="ghost" size="sm" onClick={goToTitle} aria-label="Quit to title">
                 Title
               </Button>
-              <Button
-                variant={gameState.debugMode ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={toggleDebugMode}
-                aria-pressed={gameState.debugMode}
-                aria-label="Toggle debug"
-              >
-                Debug: {gameState.debugMode ? 'ON' : 'OFF'}
-              </Button>
+              {canUseDebug && (
+                <Button
+                  variant={gameState.debugMode ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={toggleDebugMode}
+                  aria-pressed={gameState.debugMode}
+                  aria-label="Toggle debug"
+                >
+                  Debug: {gameState.debugMode ? 'ON' : 'OFF'}
+                </Button>
+              )}
             </div>
           </div>
         </div>

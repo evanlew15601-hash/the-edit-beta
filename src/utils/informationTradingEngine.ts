@@ -1,5 +1,6 @@
 
 import { GameState, Contestant } from '@/types/game';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export interface TradableInformation {
   id: string;
@@ -33,7 +34,9 @@ export class InformationTradingEngine {
       return this.informationDatabase;
     }
 
-    console.log('Generating tradable information for day', gameState.currentDay);
+    if (isDebugEnabled()) {
+      console.log('Generating tradable information for day', gameState.currentDay);
+    }
     this.informationDatabase = [];
     this.lastUpdateDay = gameState.currentDay;
     
@@ -94,7 +97,9 @@ export class InformationTradingEngine {
       });
     });
 
-    console.log(`Generated ${this.informationDatabase.length} pieces of information`);
+    if (isDebugEnabled()) {
+      console.log(`Generated ${this.informationDatabase.length} pieces of information`);
+    }
     return this.informationDatabase;
   }
 
@@ -132,12 +137,16 @@ export class InformationTradingEngine {
     const fromContestant = gameState.contestants.find(c => c.name === from);
     
     if (!fromContestant) {
-      console.log(`Information sharing failed: ${from} not found`);
+      if (isDebugEnabled()) {
+        console.log(`Information sharing failed: ${from} not found`);
+      }
       return [];
     }
 
     // AUTOMATIC INFORMATION SHARING - No trust requirement needed
-    console.log(`Auto-sharing information from ${from} to ${to} via ${context}`);
+    if (isDebugEnabled()) {
+      console.log(`Auto-sharing information from ${from} to ${to} via ${context}`);
+    }
 
     // Generate fresh information if needed
     this.generateTradableInformation(gameState);
@@ -176,7 +185,9 @@ export class InformationTradingEngine {
         context
       };
       this.informationLog.push(logEntry);
-      console.log('Information automatically shared:', logEntry);
+      if (isDebugEnabled()) {
+        console.log('Information automatically shared:', logEntry);
+      }
     });
 
     return sharedInfo;
@@ -219,7 +230,9 @@ export class InformationTradingEngine {
       .filter(log => log.to === playerName && log.day >= gameState.currentDay - 5)
       .sort((a, b) => b.day - a.day);
     
-    console.log(`Retrieved ${sharedInfo.length} pieces of shared information for ${playerName}`);
+    if (isDebugEnabled()) {
+      console.log(`Retrieved ${sharedInfo.length} pieces of shared information for ${playerName}`);
+    }
     return sharedInfo;
   }
 

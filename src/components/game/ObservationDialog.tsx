@@ -61,8 +61,13 @@ export const ObservationDialog = ({ isOpen, onClose }: ObservationDialogProps) =
   };
 
   const handleSubmit = () => {
-    if (selectedObservation) {
-      useAction('observe');
+    if (selectedScenario) {
+      useAction(
+        'observe',
+        selectedScenario.participants.join(', '),
+        selectedScenario.revelation,
+        selectedScenario.id
+      );
       setSelectedObservation('');
       onClose();
     }

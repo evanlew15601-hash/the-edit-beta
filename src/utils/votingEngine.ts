@@ -2,6 +2,7 @@ import { Contestant, Alliance, VotingRecord, GameState, VotingDebugVoterEntry } 
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { AllianceManager } from '@/utils/allianceManager';
+import { isDebugEnabled } from '@/utils/debugEnv';
 
 export const processVoting = (
   contestants: Contestant[],
@@ -29,6 +30,10 @@ export const processVoting = (
 
   const debugEnabled = !!gameState.debugMode;
   const debugVoters: VotingDebugVoterEntry[] = [];
+
+  const playerProtected =
+    typeof gameState.playerCannotBeEliminatedUntilDay === 'number' &&
+    gameState.currentDay <= gameState.playerCannotBeEliminatedUntilDay;
 
   // Calculate threat levels for each contestant
   const threatLevels = new Map<string, number>();
@@ -77,6 +82,12 @@ export const processVoting = (
   if (playerEntity && playerEntity.psychProfile.suspicionLevel < 55 && playerThreat > 0) {
     playerThreat *= 0.7;
   }
+
+  // Hard mechanic: production protection week (Host's Child). Make the player essentially untargetable.
+  if (playerProtected) {
+    playerThreat = -1_000_000;
+  }
+
   threatLevels.set(playerName, playerThreat);
 
   // Generate votes based on relationships, memory, and threat levels
@@ -88,7 +99,13 @@ export const processVoting = (
 
     // ENHANCED: Check for player-influenced voting plan first (pressure/commitment stored in memory)
     const memPlan = memoryEngine.getVotingPlan(voter.name, gameState.currentDay);
-    if (memPlan && memPlan.target && memPlan.target !== voter.name && memPlan.target !== immunityWinner) {
+    if (
+      memPlan &&
+      memPlan.target &&
+      memPlan.target !== voter.name &&
+      memPlan.target !== immunityWinner &&
+      (!playerProtected || memPlan.target !== playerName)
+    ) {
       // Plans from different sources carry different stickiness and decay with age
       const age =
         typeof memPlan.day === 'number'
@@ -140,10 +157,12 @@ export const processVoting = (
         .map(c => c.name);
 
       const coordTarget = AllianceManager.getCoordinatedTarget(alliance, gameState, validTargets);
-      if (coordTarget && coordTarget !== immunityWinner) {
+      if (coordTarget && coordTarget !== immunityWinner && (!playerProtected || coordTarget !== playerName)) {
         allianceTarget = coordTarget;
         coordinatingAllianceStrength = alliance.strength;
-        console.log(`${voter.name} following alliance coordination: voting for ${coordTarget}`);
+        if (debugEnabled && isDebugEnabled()) {
+          console.log(`${voter.name} following alliance coordination: voting for ${coordTarget}`);
+        }
         break;
       }
     }
@@ -193,6 +212,7 @@ export const processVoting = (
     activeContestants.forEach(target => {
       if (target.name === voter.name) return;
       if (target.name === immunityWinner) return; // Can't vote for immunity winner
+      if (playerProtected && target.name === playerName) return;
 
       // Enhanced alliance loyalty with memory
       let recentBetrayal = false;
@@ -287,7 +307,7 @@ export const processVoting = (
     if (!targetName) {
       const pool = activeContestants
         .map(c => c.name)
-        .filter(n => n !== voter.name && n !== immunityWinner);
+        .filter(n => n !== voter.name && n !== immunityWinner && (!playerProtected || n !== playerName));
       if (pool.length > 0) {
         targetName = pool[Math.floor(Math.random() * pool.length)];
       }
@@ -361,6 +381,7 @@ export const processVoting = (
         let bestScore = -Infinity;
         tiedAtMax.forEach(candidate => {
           if (candidate === immunityWinner) return; // still cannot target immune, though unlikely
+          if (playerProtected && candidate === playerName) return;
           let score = (threatLevels.get(candidate) || 0);
           const relationship = voter.memory.filter(m => 
             m.participants.includes(candidate) && m.type === 'conversation'
@@ -436,17 +457,31 @@ export const processVoting = (
     if (sole) eliminated = sole;
   }
 
+  // Hard mechanic: if the player is protected this week, they cannot be eliminated.
+  let playerProtectionUsed = false;
+  if (playerProtected && eliminated === playerName) {
+    const nonPlayerEntries = entries.filter(([n]) => n !== playerName);
+    const maxNonPlayerVotes = nonPlayerEntries.reduce((m, [, c]) => Math.max(m, c), -Infinity);
+    const nextTarget = nonPlayerEntries.find(([, c]) => c === maxNonPlayerVotes)?.[0];
+    if (nextTarget) {
+      eliminated = nextTarget;
+      playerProtectionUsed = true;
+    }
+  }
+
   // Reason line
   const reason =
     !eliminated && isFinalThreeVote && tiedAtMax.length > 1 && maxVotes === 1
       ? 'Final 3 vote resulted in a 1-1-1 tie; tie-break will be decided.'
-      : eliminated === playerName 
-        ? 'You have been eliminated by the other contestants'
-        : tieBreak
-          ? (tieBreak.method === 'revote'
-              ? `${eliminated} lost the tie-break revote and was eliminated`
-              : `${eliminated} lost the sudden-death tie-break and was eliminated`)
-          : `${eliminated} was seen as the biggest threat and received ${maxVotes} votes`;
+      : playerProtectionUsed
+        ? `Production steered the vote away from ${playerName} (protected week); ${eliminated} was eliminated instead`
+        : eliminated === playerName
+          ? 'You have been eliminated by the other contestants'
+          : tieBreak
+            ? (tieBreak.method === 'revote'
+                ? `${eliminated} lost the tie-break revote and was eliminated`
+                : `${eliminated} lost the sudden-death tie-break and was eliminated`)
+            : `${eliminated} was seen as the biggest threat and received ${maxVotes} votes`;
 
   // Optional debug payload for developer tooling
   let debug: VotingRecord['debug'] | undefined;

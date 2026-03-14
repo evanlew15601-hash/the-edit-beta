@@ -220,6 +220,10 @@ export function applyDailyNarrative(gs: GameState): GameState {
     const contractEndWeek = spec.contractEndWeek ?? contractWeeks;
     const contractEnded = week > contractEndWeek;
 
+    const GRACE_DAYS = 2;
+    const weekStartDay = (week - 1) * 7 + 1;
+    const canAssignWeekTask = week === 1 || gs.currentDay >= weekStartDay + GRACE_DAYS;
+
     // Update spec with contract meta
     const specUpdated = { ...spec, contractWeeks, contractEndWeek, contractEnded } as typeof spec;
 
@@ -227,7 +231,7 @@ export function applyDailyNarrative(gs: GameState): GameState {
     const tasks = (spec.tasks || []).slice();
     const weekTaskId = `w${week}_mission`;
     const hasWeekTask = tasks.some(t => t.id === weekTaskId);
-    if (!hasWeekTask && !contractEnded) {
+    if (!hasWeekTask && !contractEnded && canAssignWeekTask) {
       const newTask = createWeeklyTask(gs, week);
       tasks.push(newTask);
     }
@@ -257,12 +261,42 @@ export function applyDailyNarrative(gs: GameState): GameState {
     working = verifyAndUpdateTasks(working);
   }
 
+  const inferredStartDay = (() => {
+    if (arc.arc === 'hosts_child') {
+      const first = (arc.beats || []).find(b => b.id === 'hc_first_week');
+      if (first) return first.dayPlanned - 1;
+    }
+    if (arc.arc === 'planted_houseguest') {
+      const first = (arc.beats || []).find(b => b.id === 'phg_current_mission');
+      if (first) return first.dayPlanned - 2;
+    }
+    return gs.currentDay || 1;
+  })();
+
+  const generatedBeats: NarrativeBeat[] =
+    arc.arc === 'hosts_child'
+      ? buildStaticHostChildBeats(inferredStartDay)
+      : arc.arc === 'planted_houseguest'
+      ? buildStaticPlantedHGBeats(inferredStartDay)
+      : (arc.beats || []);
+
   // Advance any planned beats into active status based purely on day
-  const beats = mergeBeats(arc.beats, arc.beats, gs.currentDay);
+  let beats = mergeBeats(arc.beats, generatedBeats, gs.currentDay);
+
+  // Enforce at most one active beat at a time (prevents story stalls if multiple beats get activated).
+  const activeBeats = beats
+    .filter(b => b.status === 'active')
+    .sort((a, b) => a.dayPlanned - b.dayPlanned);
+  const currentBeatId = activeBeats[0]?.id;
+  if (activeBeats.length > 1 && currentBeatId) {
+    beats = beats.map(b =>
+      b.status === 'active' && b.id !== currentBeatId ? { ...b, status: 'planned' as const } : b
+    );
+  }
 
   return {
     ...working,
-    twistNarrative: { ...arc, beats, currentBeatId: beats.find(b => b.status === 'active')?.id },
+    twistNarrative: { ...arc, beats, currentBeatId },
   };
 }
 

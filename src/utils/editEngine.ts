@@ -120,13 +120,14 @@ export const calculateLegacyEditPerception = (
     strategicActions += recentStrategic.length;
     
     // Analyze tag talk patterns for enhanced edit tracking
+    // Tag talks reuse base interaction types (talk/dm/scheme/activity) but carry explicit intent/topic metadata.
     const recentTagTalks = interactionLog
       .filter(entry => entry.day >= currentDay - 3 && entry.participants.includes(playerName))
-      .filter(entry => entry.type === 'tag_talk');
+      .filter(entry => !!(entry as any).intent || (entry.content || '').includes('[TAG'));
     
     recentTagTalks.forEach(talk => {
-      const intent = talk.intent?.toLowerCase() || '';
-      const tone = talk.tone?.toLowerCase() || '';
+      const intent = ((talk as any).intent || '').toLowerCase();
+      const tone = (talk.tone?.toLowerCase() || '');
       
       // Categorize actions based on intent and tone
       if (intent === 'insult' || tone === 'aggressive') {

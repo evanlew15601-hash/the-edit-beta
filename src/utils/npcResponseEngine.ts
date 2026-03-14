@@ -155,8 +155,8 @@ class NPCResponseEngine {
       ? this.adjustToneWithSocialReading(baseTone, socialReading, personality)
       : baseTone;
 
-    // Pull recent cloud interactions between this NPC and the player
-    let recentCloudInteractions:
+    // Pull recent interactions between this NPC and the player (local IndexedDB).
+    let recentInteractions:
       | {
           playerMessage: string;
           aiResponse: string;
@@ -165,24 +165,24 @@ class NPCResponseEngine {
         }[]
       = [];
     if (gameState.playerName) {
-      recentCloudInteractions = await fetchRecentInteractions({
+      recentInteractions = await fetchRecentInteractions({
         npcName: npc.name,
         playerName: gameState.playerName,
         limit: 6,
       });
     }
 
-    const lastInteractionsFromCloud = recentCloudInteractions
+    const lastInteractionsFromLog = recentInteractions
       .slice(0, 3)
       .map(i => i.playerMessage || i.aiResponse)
       .filter(Boolean);
 
-    const recentEventsFromCloud = recentCloudInteractions
+    const recentEventsFromLog = recentInteractions
       .slice(0, 5)
       .map(i => i.playerMessage || i.aiResponse)
       .filter(Boolean);
 
-    // Use Lovable Cloud-backed memory for content generation
+    // Use local interaction history + in-game memory for content generation
     let content: string;
     try {
       content = await generateLocalAIReply({
@@ -199,11 +199,11 @@ class NPCResponseEngine {
           alliances: context.socialContext.alliances,
           threats: context.socialContext.threats,
           recentEvents: [
-            ...recentEventsFromCloud,
+            ...recentEventsFromLog,
             ...context.socialContext.recentEvents,
           ].slice(0, 8),
           lastInteractions: [
-            ...lastInteractionsFromCloud,
+            ...lastInteractionsFromLog,
             ...context.recentMemories.slice(-3).map(m => m.content),
           ].slice(0, 3),
         },

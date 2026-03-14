@@ -17,30 +17,35 @@ import { VotingDebugPanel } from '@/components/game/VotingDebugPanel';
 import { DashboardHeader } from '@/components/game/DashboardHeader';
 import { ErrorBoundary } from '@/components/game/ErrorBoundary';
 import { MeetHouseguestsScreen } from '@/components/game/MeetHouseguestsScreen';
+import { canUseDebugUI } from '@/utils/debugEnv';
 
 const Index = () => {
   const { gameState, toggleDebugMode, continueFromElimination, completeCutscene } = useGame();
 
+  const canUseDebug = canUseDebugUI();
+
   // Keyboard shortcut: Shift+D to toggle debug HUD
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!canUseDebug) return;
       if (e.shiftKey && e.key.toLowerCase() === 'd') {
         toggleDebugMode();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleDebugMode]);
+  }, [toggleDebugMode, canUseDebug]);
 
-  // Test force elimination event handler
+  // Test force elimination event handler (debug-only)
   React.useEffect(() => {
     const handleTestElimination = () => {
+      if (!gameState.debugMode) return;
       continueFromElimination(true); // Force player elimination
     };
 
-    window.addEventListener('testForceElimination', handleTestElimination);
-    return () => window.removeEventListener('testForceElimination', handleTestElimination);
-  }, [continueFromElimination]);
+    window.addEventListener('rtv:test:forceElimination', handleTestElimination);
+    return () => window.removeEventListener('rtv:test:forceElimination', handleTestElimination);
+  }, [continueFromElimination, gameState.debugMode]);
 
   const renderScreen = () => {
     switch (gameState.gamePhase) {
@@ -100,7 +105,7 @@ const Index = () => {
     <ErrorBoundary>
       {showHeader && <DashboardHeader />}
       {renderScreen()}
-      <VotingDebugPanel />
+      {canUseDebug && <VotingDebugPanel />}
     </ErrorBoundary>
   );
 };
