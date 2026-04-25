@@ -31,6 +31,7 @@ import { BackgroundConversationEngine } from '@/utils/backgroundConversationEngi
 import { computeWeeklyEpisodeRating } from '@/utils/audienceEpisodeRating';
 import { clearLocalInteractions, logInteractionToCloud } from '@/utils/interactionLogger';
 import { betaDebugBuildEnabled, canUseDebugUI, isDebugEnabled } from '@/utils/debugEnv';
+import { resetFinaleMachine } from '@/hooks/useFinaleMachine';
 
 type GameActionType =
   PlayerAction['type']
