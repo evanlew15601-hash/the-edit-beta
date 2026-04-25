@@ -24,6 +24,7 @@ export const Final3VoteScreen = () => {
   const [persuasionOutcome, setPersuasionOutcome] = useState<'success' | 'fail' | null>(null);
 
   const [challengeResults, setChallengeResults] = useState<{ name: string; time: number }[]>([]);
+  const [tieBreakFired, setTieBreakFired] = useState(false);
 
   // DEBUG: auto-skip to tie-break selection when requested
   useEffect(() => {
@@ -125,9 +126,12 @@ export const Final3VoteScreen = () => {
     }
   }, [showingResults, tieBreakActive, voteResults, gameState.votingHistory, finalThree.length]);
 
-  // Execute selected tie-break route
+  // Execute selected tie-break route — guarded so it fires exactly once
   useEffect(() => {
-    if (!tieBreakActive || !tieBreakMethod) return;
+    if (!tieBreakActive || !tieBreakMethod || tieBreakFired) return;
+    // Only fire while we still have 3 active contestants (i.e. before resolution mutates state)
+    if (finalThree.length !== 3) return;
+    setTieBreakFired(true);
 
     const selectionReason: 'player_persuasion' | 'npc_choice' | 'manual' =
       persuasionOutcome === 'success' ? 'player_persuasion' :

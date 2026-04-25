@@ -76,6 +76,13 @@ export const JuryVoteScreen = () => {
   useEffect(() => {
     // Only simulate votes once, and do not include player's vote if they're in the jury.
     if (voteStable) return;
+    if (finalTwo.length !== 2 || juryMembers.length === 0) return;
+    // Avoid re-running once we've populated votes for all non-player jurors
+    const nonPlayerJurors = juryMembers.filter(j => !(isPlayerInJury && j.name === gameState.playerName));
+    if (nonPlayerJurors.length > 0 && nonPlayerJurors.every(j => votes[j.name])) {
+      if (!isPlayerInJury) setVoteStable(true);
+      return;
+    }
 
     const juryVotes: { [juryMember: string]: string } = {};
     const rationaleMap: { [juryMember: string]: string } = {};
