@@ -197,7 +197,7 @@ export const Final3VoteScreen = () => {
       setChallengeResults(results);
 
       setTimeout(() => {
-        handleTieBreakResult(
+        fireResolution(
           results[2].name,
           results[0].name,
           results[1].name,
@@ -241,7 +241,7 @@ export const Final3VoteScreen = () => {
       setChallengeResults(results);
 
       setTimeout(() => {
-        handleTieBreakResult(
+        fireResolution(
           results[2].name,
           results[0].name,
           results[1].name,
@@ -261,7 +261,7 @@ export const Final3VoteScreen = () => {
       setChallengeResults([]);
 
       setTimeout(() => {
-        handleTieBreakResult(
+        fireResolution(
           eliminated,
           remaining[0],
           remaining[1],
@@ -271,7 +271,7 @@ export const Final3VoteScreen = () => {
         );
       }, 2000);
     }
-  }, [tieBreakActive, tieBreakMethod, finalThree, handleTieBreakResult, persuasionOutcome]);
+  }, [tieBreakActive, tieBreakMethod, finalThree, handleTieBreakResult, persuasionOutcome, finaleMachine, finaleDispatch]);
 
   const handleSubmitVote = () => {
     if (choice) {
