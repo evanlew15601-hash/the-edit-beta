@@ -31,6 +31,7 @@ import { BackgroundConversationEngine } from '@/utils/backgroundConversationEngi
 import { computeWeeklyEpisodeRating } from '@/utils/audienceEpisodeRating';
 import { clearLocalInteractions, logInteractionToCloud } from '@/utils/interactionLogger';
 import { betaDebugBuildEnabled, canUseDebugUI, isDebugEnabled } from '@/utils/debugEnv';
+import { resetFinaleMachine } from '@/hooks/useFinaleMachine';
 
 type GameActionType =
   PlayerAction['type']
@@ -2616,6 +2617,8 @@ export const useGameState = () => {
   }, []);
 
   const resetGame = useCallback(() => {
+    // Reset the finale state machine so a new season starts with a clean slate.
+    resetFinaleMachine();
     setGameState({
       currentDay: 1,
       playerName: '',

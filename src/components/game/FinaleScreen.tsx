@@ -6,12 +6,22 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Crown, Users, MessageSquare } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { AFPCard } from './AFPCard';
+import { useFinaleMachine } from '@/hooks/useFinaleMachine';
 
 export const FinaleScreen = () => {
   const { gameState, submitFinaleSpeech, proceedToJuryVote, proceedToJuryVoteAsJuror } = useGame();
+  const { state: finaleMachine, dispatch: finaleDispatch } = useFinaleMachine();
   const [playerSpeech, setPlayerSpeech] = useState('');
-  const [speechSubmitted, setSpeechSubmitted] = useState(false);
   const [npcSpeeches, setNpcSpeeches] = useState<{ name: string; speech: string }[]>([]);
+
+  // Speech submission is now driven by the finale state machine, not local state,
+  // so a re-render or remount can never reset the "speech delivered" status.
+  const speechSubmitted =
+    finaleMachine.fired.speechSubmitted ||
+    finaleMachine.phase === 'FINALE_SPEECHES_DONE' ||
+    finaleMachine.phase === 'JURY_VOTING' ||
+    finaleMachine.phase === 'JURY_TALLIED' ||
+    finaleMachine.phase === 'DONE';
 
   // FIXED: Validate finale state
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
@@ -47,10 +57,24 @@ export const FinaleScreen = () => {
     gameState.juryMembers?.includes(c.name)
   );
 
+  // Idempotent submit handler — driven by the finale state machine.
+  // The machine only allows SUBMIT_SPEECH once, from FINALE_SPEECHES, so
+  // double clicks, re-renders, and React StrictMode double-invocations
+  // can never resubmit the speech.
   const handleSubmitSpeech = () => {
+    // Ensure the machine is in FINALE_SPEECHES (it will be once tie-break /
+    // normal Final 3 resolution has fired CONTINUE_TO_FINALE; otherwise
+    // advance through the lightweight prefix transitions here).
+    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
+    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
+    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_NORMAL' });
+    if (finaleMachine.phase === 'RESOLVED') finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
+
+    if (finaleMachine.fired.speechSubmitted) return;
+
     submitFinaleSpeech(playerSpeech);
-    setSpeechSubmitted(true);
-    
+    finaleDispatch({ type: 'SUBMIT_SPEECH' });
+
     // Generate NPC speeches
     const speeches = finalTwo
       .filter(c => c.name !== gameState.playerName)
@@ -58,6 +82,21 @@ export const FinaleScreen = () => {
         name: contestant.name,
         speech: generateNPCSpeech(contestant)
       }));
+    setNpcSpeeches(speeches);
+  };
+
+  const handleWatchAsJuror = () => {
+    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
+    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
+    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_NORMAL' });
+    if (finaleMachine.phase === 'RESOLVED') finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
+    if (!finaleMachine.fired.speechSubmitted) {
+      finaleDispatch({ type: 'SUBMIT_SPEECH' });
+    }
+    const speeches = finalTwo.map(contestant => ({
+      name: contestant.name,
+      speech: generateNPCSpeech(contestant)
+    }));
     setNpcSpeeches(speeches);
   };
 
@@ -196,15 +235,7 @@ export const FinaleScreen = () => {
                 </p>
                 <Button
                   variant="action"
-                  onClick={() => {
-                    setSpeechSubmitted(true);
-                    // Generate all NPC speeches for final two
-                    const speeches = finalTwo.map(contestant => ({
-                      name: contestant.name,
-                      speech: generateNPCSpeech(contestant)
-                    }));
-                    setNpcSpeeches(speeches);
-                  }}
+                  onClick={handleWatchAsJuror}
                   className="w-full"
                 >
                   Watch Final Speeches
@@ -261,7 +292,10 @@ export const FinaleScreen = () => {
                 </p>
                 <Button
                   variant="action"
-                  onClick={onFinaleContinue}
+                  onClick={() => {
+                    finaleDispatch({ type: 'PROCEED_TO_JURY' });
+                    onFinaleContinue();
+                  }}
                   className="w-full"
                 >
                   Proceed to Jury Vote
