@@ -343,8 +343,9 @@ export const JuryVoteScreen = () => {
     // If all jurors except possibly the player have votes, and player isn't in jury, lock votes.
     if (!isPlayerInJury && Object.keys(juryVotes).length === juryMembers.length) {
       setVoteStable(true);
+      finaleDispatch({ type: 'TALLY_JURY' });
     }
-  }, [finalTwo, juryMembers, gameState.playerName, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier]);
+  }, [finalTwo, juryMembers, gameState.playerName, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier, finaleMachine, finaleDispatch, votes]);
 
   // Visual deliberation progress indicator
   useEffect(() => {
@@ -509,6 +510,7 @@ export const JuryVoteScreen = () => {
                               // When all jury members (including player) have voted, lock votes.
                               if (Object.keys(updated).length === juryMembers.length) {
                                 setVoteStable(true);
+                                finaleDispatch({ type: 'TALLY_JURY' });
                               }
                               return updated;
                             });
