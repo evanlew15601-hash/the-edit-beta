@@ -8,9 +8,11 @@ import { analyzeFinaleSpeech } from '@/utils/speechQuality';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { isDebugEnabled } from '@/utils/debugEnv';
+import { useFinaleMachine } from '@/hooks/useFinaleMachine';
 
 export const JuryVoteScreen = () => {
   const { gameState, endGame } = useGame();
+  const { state: finaleMachine, dispatch: finaleDispatch } = useFinaleMachine();
 
   const [votes, setVotes] = useState<{ [juryMember: string]: string }>({});
   // Use stored finale speech if provided via game state
