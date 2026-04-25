@@ -24,6 +24,7 @@ export const Final3VoteScreen = () => {
   const [persuasionOutcome, setPersuasionOutcome] = useState<'success' | 'fail' | null>(null);
 
   const [challengeResults, setChallengeResults] = useState<{ name: string; time: number }[]>([]);
+  const [tieBreakFired, setTieBreakFired] = useState(false);
 
   // DEBUG: auto-skip to tie-break selection when requested
   useEffect(() => {
@@ -126,7 +127,6 @@ export const Final3VoteScreen = () => {
   }, [showingResults, tieBreakActive, voteResults, gameState.votingHistory, finalThree.length]);
 
   // Execute selected tie-break route — guarded so it fires exactly once
-  const [tieBreakFired, setTieBreakFired] = useState(false);
   useEffect(() => {
     if (!tieBreakActive || !tieBreakMethod || tieBreakFired) return;
     // Only fire while we still have 3 active contestants (i.e. before resolution mutates state)
