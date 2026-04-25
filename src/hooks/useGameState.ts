@@ -351,7 +351,7 @@ export const useGameState = () => {
                     -6,
                     10,
                     -2,
-                    'event',
+                    'conversation',
                     `[Production] Mission failure aired: ${candidate.id}`,
                     newDay
                   );
@@ -621,7 +621,7 @@ export const useGameState = () => {
               0,
               4,
               0,
-              'event',
+              'conversation',
               '[Host’s Child] Fallout scrutiny after reveal',
               freshState.currentDay
             );
@@ -1006,7 +1006,7 @@ export const useGameState = () => {
               trustDelta,
               Math.max(0, suspicionDelta),
               1,
-              'event',
+              'conversation',
               `[Activity] ${content}`,
               prev.currentDay
             );
@@ -2299,7 +2299,7 @@ export const useGameState = () => {
                   -10,
                   15,
                   -3,
-                  'event',
+                  'conversation',
                   '[Planted Houseguest] Exposed on air',
                   nextState.currentDay
                 );

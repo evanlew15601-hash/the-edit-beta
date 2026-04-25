@@ -365,7 +365,7 @@ class NPCResponseEngine {
       perception.suspicionLevel = context.relationship.suspicion;
       perception.lastInteractionDay =
         context.relationship.lastInteraction ||
-        context.recentMemories.at(-1)?.day ||
+        context.recentMemories[context.recentMemories.length - 1]?.day ||
         perception.lastInteractionDay;
     }
 
