@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { useGame } from '@/contexts/GameContext';
 import { Crown, Users, Trophy } from 'lucide-react';
 import { isDebugEnabled } from '@/utils/debugEnv';
+import { useFinaleMachine } from '@/hooks/useFinaleMachine';
 
 export const Final3VoteScreen = () => {
   const {
@@ -24,7 +25,7 @@ export const Final3VoteScreen = () => {
   const [persuasionOutcome, setPersuasionOutcome] = useState<'success' | 'fail' | null>(null);
 
   const [challengeResults, setChallengeResults] = useState<{ name: string; time: number }[]>([]);
-  const [tieBreakFired, setTieBreakFired] = useState(false);
+  const { state: finaleMachine, dispatch: finaleDispatch } = useFinaleMachine();
 
   // DEBUG: auto-skip to tie-break selection when requested
   useEffect(() => {
@@ -126,12 +127,35 @@ export const Final3VoteScreen = () => {
     }
   }, [showingResults, tieBreakActive, voteResults, gameState.votingHistory, finalThree.length]);
 
-  // Execute selected tie-break route — guarded so it fires exactly once
+  // Execute selected tie-break route — strictly guarded by the finale state machine.
+  // The machine only allows RESOLVE_TIEBREAK once, from TIEBREAK_RUNNING, so even if
+  // this effect re-fires due to React dependency churn the side-effect runs exactly once.
   useEffect(() => {
-    if (!tieBreakActive || !tieBreakMethod || tieBreakFired) return;
-    // Only fire while we still have 3 active contestants (i.e. before resolution mutates state)
+    if (!tieBreakActive || !tieBreakMethod) return;
     if (finalThree.length !== 3) return;
-    setTieBreakFired(true);
+    if (finaleMachine.fired.tieBreakResolved) return;
+
+    // Move the machine into TIEBREAK_RUNNING (idempotent — no-op if already there/past).
+    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
+    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
+    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_TIE' });
+    if (finaleMachine.phase === 'TIEBREAK_SELECT') finaleDispatch({ type: 'CHOOSE_METHOD' });
+    if (finaleMachine.phase !== 'TIEBREAK_RUNNING') return;
+
+    const fireResolution = (
+      eliminated: string,
+      w1: string,
+      w2: string,
+      method: 'challenge' | 'fire_making' | 'random_draw',
+      results: { name: string; time: number }[],
+      selectionReason: 'player_persuasion' | 'npc_choice' | 'manual'
+    ) => {
+      // Re-check guard at the moment of firing — covers a queued setTimeout
+      // racing with another render.
+      if (finaleMachine.fired.tieBreakResolved) return;
+      finaleDispatch({ type: 'RESOLVE_TIEBREAK' });
+      handleTieBreakResult(eliminated, w1, w2, method, results, selectionReason);
+    };
 
     const selectionReason: 'player_persuasion' | 'npc_choice' | 'manual' =
       persuasionOutcome === 'success' ? 'player_persuasion' :
