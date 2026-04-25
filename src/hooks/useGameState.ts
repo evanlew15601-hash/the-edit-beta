@@ -2616,6 +2616,8 @@ export const useGameState = () => {
   }, []);
 
   const resetGame = useCallback(() => {
+    // Reset the finale state machine so a new season starts with a clean slate.
+    resetFinaleMachine();
     setGameState({
       currentDay: 1,
       playerName: '',
