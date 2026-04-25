@@ -292,7 +292,10 @@ export const FinaleScreen = () => {
                 </p>
                 <Button
                   variant="action"
-                  onClick={onFinaleContinue}
+                  onClick={() => {
+                    finaleDispatch({ type: 'PROCEED_TO_JURY' });
+                    onFinaleContinue();
+                  }}
                   className="w-full"
                 >
                   Proceed to Jury Vote
