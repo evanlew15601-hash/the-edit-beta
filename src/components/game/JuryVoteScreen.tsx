@@ -76,13 +76,32 @@ export const JuryVoteScreen = () => {
   }
   
   useEffect(() => {
-    // Only simulate votes once, and do not include player's vote if they're in the jury.
+    // Strictly guarded by the finale state machine: TALLY_JURY only fires once.
+    // This effect can re-run due to dependency churn but the side effect
+    // (computing jury votes) only happens on the first run.
     if (voteStable) return;
+    if (finaleMachine.fired.juryTallied) {
+      if (!isPlayerInJury) setVoteStable(true);
+      return;
+    }
     if (finalTwo.length !== 2 || juryMembers.length === 0) return;
+
+    // Move machine into JURY_VOTING if not yet there (idempotent transitions).
+    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
+    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
+    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_NORMAL' });
+    if (finaleMachine.phase === 'RESOLVED') finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
+    if (finaleMachine.phase === 'FINALE_SPEECHES') finaleDispatch({ type: 'SUBMIT_SPEECH' });
+    if (finaleMachine.phase === 'FINALE_SPEECHES_DONE') finaleDispatch({ type: 'PROCEED_TO_JURY' });
+    if (finaleMachine.phase !== 'JURY_VOTING') return;
+
     // Avoid re-running once we've populated votes for all non-player jurors
     const nonPlayerJurors = juryMembers.filter(j => !(isPlayerInJury && j.name === gameState.playerName));
     if (nonPlayerJurors.length > 0 && nonPlayerJurors.every(j => votes[j.name])) {
-      if (!isPlayerInJury) setVoteStable(true);
+      if (!isPlayerInJury) {
+        setVoteStable(true);
+        finaleDispatch({ type: 'TALLY_JURY' });
+      }
       return;
     }
 
