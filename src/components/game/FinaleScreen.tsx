@@ -6,12 +6,22 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Crown, Users, MessageSquare } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { AFPCard } from './AFPCard';
+import { useFinaleMachine } from '@/hooks/useFinaleMachine';
 
 export const FinaleScreen = () => {
   const { gameState, submitFinaleSpeech, proceedToJuryVote, proceedToJuryVoteAsJuror } = useGame();
+  const { state: finaleMachine, dispatch: finaleDispatch } = useFinaleMachine();
   const [playerSpeech, setPlayerSpeech] = useState('');
-  const [speechSubmitted, setSpeechSubmitted] = useState(false);
   const [npcSpeeches, setNpcSpeeches] = useState<{ name: string; speech: string }[]>([]);
+
+  // Speech submission is now driven by the finale state machine, not local state,
+  // so a re-render or remount can never reset the "speech delivered" status.
+  const speechSubmitted =
+    finaleMachine.fired.speechSubmitted ||
+    finaleMachine.phase === 'FINALE_SPEECHES_DONE' ||
+    finaleMachine.phase === 'JURY_VOTING' ||
+    finaleMachine.phase === 'JURY_TALLIED' ||
+    finaleMachine.phase === 'DONE';
 
   // FIXED: Validate finale state
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
