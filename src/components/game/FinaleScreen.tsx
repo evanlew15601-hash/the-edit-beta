@@ -13,6 +13,7 @@ export const FinaleScreen = () => {
   const { state: finaleMachine, dispatch: finaleDispatch } = useFinaleMachine();
   const [playerSpeech, setPlayerSpeech] = useState('');
   const [npcSpeeches, setNpcSpeeches] = useState<{ name: string; speech: string }[]>([]);
+  const effectivePlayerSpeech = playerSpeech || gameState.finaleSpeech || '';
 
   const enterFinaleSpeeches = useCallback(() => {
     finaleDispatch({ type: 'START_VOTING' });
@@ -250,7 +251,7 @@ export const FinaleScreen = () => {
                       <div className="font-medium text-primary mb-2">
                         {gameState.playerName} (Your Speech)
                       </div>
-                      <p className="text-sm italic">"{playerSpeech}"</p>
+                      <p className="text-sm italic">"{effectivePlayerSpeech}"</p>
                     </div>
                   )}
 
