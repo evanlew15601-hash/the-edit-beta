@@ -112,7 +112,6 @@ export const Final3VoteScreen = () => {
 
     enterTieBreakSelection();
     finaleDispatch({ type: 'CHOOSE_METHOD' });
-    if (finaleMachine.phase !== 'TIEBREAK_RUNNING') return;
     if (!finaleDispatch({ type: 'START_TIEBREAK_RESOLUTION' })) return;
 
     const fireResolution = (
