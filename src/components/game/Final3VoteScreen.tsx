@@ -585,6 +585,7 @@ export const Final3VoteScreen = () => {
               size="wide"
               className="mt-6"
               onClick={() => {
+                finaleDispatch({ type: 'TALLY_NORMAL' });
                 finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
                 continueFromFinal3Results();
               }}
