@@ -113,11 +113,18 @@ export const JuryVoteScreen = () => {
       setVoteStable(true);
       return;
     }
+    if (finaleMachine.juryPartial) {
+      setVotes(finaleMachine.juryPartial.votes);
+      setRationales(finaleMachine.juryPartial.rationales);
+      if (!isPlayerInJury || finaleMachine.juryPartial.votes[gameState.playerName]) {
+        setVoteStable(true);
+      }
+      return;
+    }
     if (finaleMachine.fired.juryTallyStarted || finaleMachine.fired.juryTallied) return;
     if (finalTwo.length !== 2 || juryMembers.length === 0) return;
 
     enterJuryVoting();
-    if (!finaleDispatch({ type: 'START_JURY_TALLY' })) return;
 
     // Avoid re-running once we've populated votes for all non-player jurors
     const nonPlayerJurors = juryMembers.filter(j => !(isPlayerInJury && j.name === gameState.playerName));
@@ -360,6 +367,8 @@ export const JuryVoteScreen = () => {
 
       rationaleMap[juryMember.name] = `Chose ${topChoice.name} due to ${relationPhrase} and ${speechOrGamePhrase}.`;
     });
+
+    if (!finaleDispatch({ type: 'START_JURY_TALLY', votes: juryVotes, rationales: rationaleMap })) return;
 
     setVotes(juryVotes);
     setRationales(rationaleMap);
