@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { useGame } from '@/contexts/GameContext';
@@ -27,6 +27,18 @@ export const Final3VoteScreen = () => {
   const [challengeResults, setChallengeResults] = useState<{ name: string; time: number }[]>([]);
   const { state: finaleMachine, dispatch: finaleDispatch } = useFinaleMachine();
 
+  const enterTieBreakSelection = useCallback(() => {
+    finaleDispatch({ type: 'START_VOTING' });
+    finaleDispatch({ type: 'SUBMIT_VOTE' });
+    finaleDispatch({ type: 'TALLY_TIE' });
+  }, [finaleDispatch]);
+
+  const chooseTieBreakMethod = useCallback((method: TieBreakMethod) => {
+    enterTieBreakSelection();
+    finaleDispatch({ type: 'CHOOSE_METHOD' });
+    setTieBreakMethod(method);
+  }, [enterTieBreakSelection, finaleDispatch]);
+
   // DEBUG: auto-skip to tie-break selection when requested
   useEffect(() => {
     if (!gameState.debugForceFinal3TieBreak) return;
@@ -39,7 +51,8 @@ export const Final3VoteScreen = () => {
     setShowingResults(true);
     setTieBreakActive(true);
     setTieBreakMethod(null);
-  }, [gameState.debugForceFinal3TieBreak, gameState.contestants]);
+    enterTieBreakSelection();
+  }, [gameState.debugForceFinal3TieBreak, gameState.contestants, enterTieBreakSelection]);
 
   // FIXED: Validate Final 3 state
   const finalThree = gameState.contestants.filter(c => !c.isEliminated);
@@ -52,48 +65,6 @@ export const Final3VoteScreen = () => {
     console.log('[Final3VoteScreen] Eligible targets:', eligible.map(c => c.name));
   }
 
-  // Guard: Must have exactly 3 contestants
-  if (finalThree.length !== 3) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <Card className="p-6 text-center">
-            <h1 className="text-3xl font-light mb-4">Final 3 Vote</h1>
-            <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
-              <p className="text-destructive">
-                Error: Expected exactly 3 contestants, found {finalThree.length}
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Active: {finalThree.map(c => c.name).join(', ')}
-              </p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // Guard: Player must be in Final 3
-  if (!playerStillActive) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <Card className="p-6 text-center">
-            <h1 className="text-3xl font-light mb-4">Final 3 Vote</h1>
-            <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
-              <p className="text-destructive">
-                Error: Player is not in the Final 3. This screen should not be shown.
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Remaining contestants: {finalThree.map(c => c.name).join(', ')}
-              </p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   useEffect(() => {
     if (!showingResults || tieBreakActive) return;
 
@@ -103,6 +74,7 @@ export const Final3VoteScreen = () => {
       if (finalThree.length === 3 && values.length === 3 && values.every(v => v === 1)) {
         setTieBreakActive(true);
         setTieBreakMethod(null);
+        enterTieBreakSelection();
       }
       return;
     }
@@ -124,8 +96,11 @@ export const Final3VoteScreen = () => {
     if (finalThree.length === 3 && voteValues.length === 3 && voteValues.every(v => v === 1)) {
       setTieBreakActive(true);
       setTieBreakMethod(null);
+      enterTieBreakSelection();
+    } else {
+      finaleDispatch({ type: 'TALLY_NORMAL' });
     }
-  }, [showingResults, tieBreakActive, voteResults, gameState.votingHistory, finalThree.length]);
+  }, [showingResults, tieBreakActive, voteResults, gameState.votingHistory, finalThree.length, enterTieBreakSelection, finaleDispatch]);
 
   // Execute selected tie-break route — strictly guarded by the finale state machine.
   // The machine only allows RESOLVE_TIEBREAK once, from TIEBREAK_RUNNING, so even if
@@ -133,14 +108,11 @@ export const Final3VoteScreen = () => {
   useEffect(() => {
     if (!tieBreakActive || !tieBreakMethod) return;
     if (finalThree.length !== 3) return;
-    if (finaleMachine.fired.tieBreakResolved) return;
+    if (finaleMachine.fired.tieBreakStarted || finaleMachine.fired.tieBreakResolved) return;
 
-    // Move the machine into TIEBREAK_RUNNING (idempotent — no-op if already there/past).
-    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
-    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
-    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_TIE' });
-    if (finaleMachine.phase === 'TIEBREAK_SELECT') finaleDispatch({ type: 'CHOOSE_METHOD' });
-    if (finaleMachine.phase !== 'TIEBREAK_RUNNING') return;
+    enterTieBreakSelection();
+    finaleDispatch({ type: 'CHOOSE_METHOD' });
+    if (!finaleDispatch({ type: 'START_TIEBREAK_RESOLUTION' })) return;
 
     const fireResolution = (
       eliminated: string,
@@ -152,8 +124,7 @@ export const Final3VoteScreen = () => {
     ) => {
       // Re-check guard at the moment of firing — covers a queued setTimeout
       // racing with another render.
-      if (finaleMachine.fired.tieBreakResolved) return;
-      finaleDispatch({ type: 'RESOLVE_TIEBREAK' });
+      if (!finaleDispatch({ type: 'RESOLVE_TIEBREAK' })) return;
       handleTieBreakResult(eliminated, w1, w2, method, results, selectionReason);
     };
 
@@ -271,11 +242,13 @@ export const Final3VoteScreen = () => {
         );
       }, 2000);
     }
-  }, [tieBreakActive, tieBreakMethod, finalThree, handleTieBreakResult, persuasionOutcome, finaleMachine, finaleDispatch]);
+  }, [tieBreakActive, tieBreakMethod, finalThree, handleTieBreakResult, persuasionOutcome, finaleMachine, finaleDispatch, enterTieBreakSelection]);
 
   const handleSubmitVote = () => {
     if (choice) {
+      finaleDispatch({ type: 'START_VOTING' });
       submitFinal3Vote(choice);
+      finaleDispatch({ type: 'SUBMIT_VOTE' });
       setShowingResults(true);
     }
   };
@@ -285,6 +258,39 @@ export const Final3VoteScreen = () => {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Guard after hooks so React hook order stays stable.
+  if (finalThree.length !== 3) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <Card className="p-6 text-center">
+            <h1 className="text-3xl font-light mb-4">Final 3 Vote</h1>
+            <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
+              <p className="text-destructive">Error: Expected exactly 3 contestants, found {finalThree.length}</p>
+              <p className="text-sm text-muted-foreground mt-2">Active: {finalThree.map(c => c.name).join(', ')}</p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!playerStillActive) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <Card className="p-6 text-center">
+            <h1 className="text-3xl font-light mb-4">Final 3 Vote</h1>
+            <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
+              <p className="text-destructive">Error: Player is not in the Final 3. This screen should not be shown.</p>
+              <p className="text-sm text-muted-foreground mt-2">Remaining contestants: {finalThree.map(c => c.name).join(', ')}</p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (tieBreakActive) {
     return (
@@ -357,7 +363,7 @@ export const Final3VoteScreen = () => {
                         setPersuasionOutcome(success ? 'success' : 'fail');
 
                         if (success && playerPreferredMethod) {
-                          setTieBreakMethod(playerPreferredMethod);
+                          chooseTieBreakMethod(playerPreferredMethod);
                           setPersuasionOutcome('success');
                         } else {
                           // NPCs choose a method based on their preferences
@@ -379,7 +385,7 @@ export const Final3VoteScreen = () => {
                             }
                             return 'challenge';
                           })();
-                          setTieBreakMethod(npcPreferred);
+                          chooseTieBreakMethod(npcPreferred);
                           setPersuasionOutcome('fail');
                         }
                       }}
@@ -402,7 +408,7 @@ export const Final3VoteScreen = () => {
                         <div className="font-medium">Obstacle Challenge</div>
                         <div className="text-xs text-muted-foreground">Fastest two advance. Slowest is eliminated.</div>
                       </div>
-                      <Button variant="action" onClick={() => setTieBreakMethod('challenge')}>Choose</Button>
+                      <Button variant="action" onClick={() => chooseTieBreakMethod('challenge')}>Choose</Button>
                     </div>
                   </Card>
 
@@ -412,7 +418,7 @@ export const Final3VoteScreen = () => {
                         <div className="font-medium">Fire-Making</div>
                         <div className="text-xs text-muted-foreground">Fastest two to make fire advance. Slowest is eliminated.</div>
                       </div>
-                      <Button variant="action" onClick={() => setTieBreakMethod('fire_making')}>Choose</Button>
+                      <Button variant="action" onClick={() => chooseTieBreakMethod('fire_making')}>Choose</Button>
                     </div>
                   </Card>
 
@@ -422,7 +428,7 @@ export const Final3VoteScreen = () => {
                         <div className="font-medium">Random Draw</div>
                         <div className="text-xs text-muted-foreground">Draw rocks. One is eliminated at random.</div>
                       </div>
-                      <Button variant="action" onClick={() => setTieBreakMethod('random_draw')}>Choose</Button>
+                      <Button variant="action" onClick={() => chooseTieBreakMethod('random_draw')}>Choose</Button>
                     </div>
                   </Card>
                 </div>
@@ -568,7 +574,11 @@ export const Final3VoteScreen = () => {
               variant="action"
               size="wide"
               className="mt-6"
-              onClick={continueFromFinal3Results}
+              onClick={() => {
+                finaleDispatch({ type: 'TALLY_NORMAL' });
+                finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
+                continueFromFinal3Results();
+              }}
             >
               Continue
             </Button>

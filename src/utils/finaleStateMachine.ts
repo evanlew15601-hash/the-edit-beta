@@ -59,11 +59,22 @@ export type FinaleEvent =
   | { type: 'TALLY_NORMAL' }
   | { type: 'TALLY_TIE' }
   | { type: 'CHOOSE_METHOD' }
+  | { type: 'START_TIEBREAK_RESOLUTION' }
   | { type: 'RESOLVE_TIEBREAK' }
   | { type: 'CONTINUE_TO_FINALE' }
   | { type: 'SUBMIT_SPEECH' }
   | { type: 'PROCEED_TO_JURY' }
-  | { type: 'TALLY_JURY' }
+  | {
+      type: 'START_JURY_TALLY';
+      votes?: { [juryMember: string]: string };
+      rationales?: { [juryMember: string]: string };
+    }
+  | {
+      type: 'TALLY_JURY';
+      votes?: { [juryMember: string]: string };
+      rationales?: { [juryMember: string]: string };
+      winner?: string;
+    }
   | { type: 'REVEAL_WINNER' }
   | { type: 'RESET' };
 
@@ -71,17 +82,30 @@ export interface FinaleState {
   phase: FinalePhase;
   /** Tracks one-shot side effects so an effect can't fire twice. */
   fired: {
+    tieBreakStarted: boolean;
     tieBreakResolved: boolean;
     speechSubmitted: boolean;
+    juryTallyStarted: boolean;
     juryTallied: boolean;
+  };
+  juryPartial?: {
+    votes: { [juryMember: string]: string };
+    rationales: { [juryMember: string]: string };
+  };
+  juryResult?: {
+    votes: { [juryMember: string]: string };
+    rationales: { [juryMember: string]: string };
+    winner: string;
   };
 }
 
 export const initialFinaleState: FinaleState = {
   phase: 'IDLE',
   fired: {
+    tieBreakStarted: false,
     tieBreakResolved: false,
     speechSubmitted: false,
+    juryTallyStarted: false,
     juryTallied: false,
   },
 };
@@ -116,6 +140,14 @@ export function finaleReducer(state: FinaleState, event: FinaleEvent): FinaleSta
       if (state.phase !== 'TIEBREAK_SELECT') return state;
       return { ...state, phase: 'TIEBREAK_RUNNING' };
 
+    case 'START_TIEBREAK_RESOLUTION':
+      if (state.phase !== 'TIEBREAK_RUNNING') return state;
+      if (state.fired.tieBreakStarted || state.fired.tieBreakResolved) return state;
+      return {
+        ...state,
+        fired: { ...state.fired, tieBreakStarted: true },
+      };
+
     case 'RESOLVE_TIEBREAK':
       // Strict guard: only allowed once, only from TIEBREAK_RUNNING.
       if (state.phase !== 'TIEBREAK_RUNNING') return state;
@@ -141,12 +173,40 @@ export function finaleReducer(state: FinaleState, event: FinaleEvent): FinaleSta
       if (state.phase !== 'FINALE_SPEECHES_DONE') return state;
       return { ...state, phase: 'JURY_VOTING' };
 
+    case 'START_JURY_TALLY':
+      if (state.phase !== 'JURY_VOTING') return state;
+      if (state.fired.juryTallyStarted || state.fired.juryTallied) return state;
+      return {
+        ...state,
+        fired: { ...state.fired, juryTallyStarted: true },
+        juryPartial: event.votes
+          ? {
+              votes: event.votes,
+              rationales: event.rationales || {},
+            }
+          : state.juryPartial,
+      };
+
     case 'TALLY_JURY':
       if (state.phase !== 'JURY_VOTING') return state;
       if (state.fired.juryTallied) return state;
       return {
         phase: 'JURY_TALLIED',
         fired: { ...state.fired, juryTallied: true },
+        juryPartial: state.juryPartial,
+        juryResult: event.votes && event.winner
+          ? {
+              votes: event.votes,
+              rationales: event.rationales || {},
+              winner: event.winner,
+            }
+          : state.juryPartial && event.winner
+          ? {
+              votes: state.juryPartial.votes,
+              rationales: state.juryPartial.rationales,
+              winner: event.winner,
+            }
+          : state.juryResult,
       };
 
     case 'REVEAL_WINNER':

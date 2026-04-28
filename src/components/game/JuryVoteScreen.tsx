@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Progress } from '@/components/ui/progress';
@@ -34,6 +34,23 @@ export const JuryVoteScreen = () => {
 
   // FIXED: Validate jury vote state
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
+
+  const determineWinner = useCallback((nextVotes: { [juryMember: string]: string }) => {
+    const voteCounts: { [finalist: string]: number } = {};
+    finalTwo.forEach(f => (voteCounts[f.name] = 0));
+
+    Object.values(nextVotes).forEach(vote => {
+      if (voteCounts[vote] !== undefined) voteCounts[vote]++;
+    });
+
+    const sortedByVotes = Object.entries(voteCounts).sort((a, b) => b[1] - a[1]);
+    const topVotes = sortedByVotes[0]?.[1] ?? 0;
+    const tiedFinalists = sortedByVotes.filter(([_, count]) => count === topVotes);
+
+    return tiedFinalists.length > 1
+      ? tiedFinalists[Math.floor(Math.random() * tiedFinalists.length)][0]
+      : sortedByVotes[0]?.[0] || finalTwo[0]?.name || '';
+  }, [finalTwo]);
   
   // CRITICAL: Filter jury members properly - must be eliminated AND in jury list
   const juryMembers = gameState.contestants.filter(c => 
@@ -45,6 +62,15 @@ export const JuryVoteScreen = () => {
   const playerContestant = gameState.contestants.find(c => c.name === gameState.playerName);
   const playerEliminated = gameState.isPlayerEliminated || playerContestant?.isEliminated || false;
   const isPlayerInJury = playerEliminated && gameState.juryMembers?.includes(gameState.playerName);
+
+  const enterJuryVoting = useCallback(() => {
+    finaleDispatch({ type: 'START_VOTING' });
+    finaleDispatch({ type: 'SUBMIT_VOTE' });
+    finaleDispatch({ type: 'TALLY_NORMAL' });
+    finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
+    finaleDispatch({ type: 'SUBMIT_SPEECH' });
+    finaleDispatch({ type: 'PROCEED_TO_JURY' });
+  }, [finaleDispatch]);
   
   if (isDebugEnabled()) {
     console.log('[JuryVoteScreen] Final two:', finalTwo.map(c => c.name));
@@ -54,56 +80,30 @@ export const JuryVoteScreen = () => {
     console.log('[JuryVoteScreen] Player in jury?', isPlayerInJury);
   }
   
-  // Guard: Need at least 1 jury member
-  if (juryMembers.length === 0) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <Card className="p-6 text-center">
-            <h1 className="text-3xl font-light mb-4">Jury Vote</h1>
-            <div className="bg-warning/10 border border-warning/20 rounded p-4">
-              <p className="text-destructive">
-                Error: No jury members found
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Jury list: {gameState.juryMembers?.join(', ') || 'empty'}
-              </p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-  
   useEffect(() => {
     // Strictly guarded by the finale state machine: TALLY_JURY only fires once.
     // This effect can re-run due to dependency churn but the side effect
     // (computing jury votes) only happens on the first run.
     if (voteStable) return;
-    if (finaleMachine.fired.juryTallied) {
-      if (!isPlayerInJury) setVoteStable(true);
+    if (finaleMachine.juryResult) {
+      setVotes(finaleMachine.juryResult.votes);
+      setRationales(finaleMachine.juryResult.rationales);
+      setWinner(finaleMachine.juryResult.winner);
+      setVoteStable(true);
       return;
     }
-    if (finalTwo.length !== 2 || juryMembers.length === 0) return;
-
-    // Move machine into JURY_VOTING if not yet there (idempotent transitions).
-    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
-    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
-    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_NORMAL' });
-    if (finaleMachine.phase === 'RESOLVED') finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
-    if (finaleMachine.phase === 'FINALE_SPEECHES') finaleDispatch({ type: 'SUBMIT_SPEECH' });
-    if (finaleMachine.phase === 'FINALE_SPEECHES_DONE') finaleDispatch({ type: 'PROCEED_TO_JURY' });
-    if (finaleMachine.phase !== 'JURY_VOTING') return;
-
-    // Avoid re-running once we've populated votes for all non-player jurors
-    const nonPlayerJurors = juryMembers.filter(j => !(isPlayerInJury && j.name === gameState.playerName));
-    if (nonPlayerJurors.length > 0 && nonPlayerJurors.every(j => votes[j.name])) {
-      if (!isPlayerInJury) {
+    if (finaleMachine.juryPartial) {
+      setVotes(finaleMachine.juryPartial.votes);
+      setRationales(finaleMachine.juryPartial.rationales);
+      if (!isPlayerInJury || finaleMachine.juryPartial.votes[gameState.playerName]) {
         setVoteStable(true);
-        finaleDispatch({ type: 'TALLY_JURY' });
       }
       return;
     }
+    if (finaleMachine.fired.juryTallyStarted || finaleMachine.fired.juryTallied) return;
+    if (finalTwo.length !== 2 || juryMembers.length === 0) return;
+
+    enterJuryVoting();
 
     const juryVotes: { [juryMember: string]: string } = {};
     const rationaleMap: { [juryMember: string]: string } = {};
@@ -337,15 +337,19 @@ export const JuryVoteScreen = () => {
       rationaleMap[juryMember.name] = `Chose ${topChoice.name} due to ${relationPhrase} and ${speechOrGamePhrase}.`;
     });
 
+    if (!finaleDispatch({ type: 'START_JURY_TALLY', votes: juryVotes, rationales: rationaleMap })) return;
+
     setVotes(juryVotes);
     setRationales(rationaleMap);
 
     // If all jurors except possibly the player have votes, and player isn't in jury, lock votes.
     if (!isPlayerInJury && Object.keys(juryVotes).length === juryMembers.length) {
+      const winnerName = determineWinner(juryVotes);
+      setWinner(winnerName);
       setVoteStable(true);
-      finaleDispatch({ type: 'TALLY_JURY' });
+      finaleDispatch({ type: 'TALLY_JURY', votes: juryVotes, rationales: rationaleMap, winner: winnerName });
     }
-  }, [finalTwo, juryMembers, gameState.playerName, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier, finaleMachine, finaleDispatch, votes]);
+  }, [finalTwo, juryMembers, gameState.playerName, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier, finaleMachine, finaleDispatch, votes, enterJuryVoting, determineWinner]);
 
   // Visual deliberation progress indicator
   useEffect(() => {
@@ -376,39 +380,14 @@ export const JuryVoteScreen = () => {
     const allJurorsVoted = juryMembers.every(j => Boolean(votes[j.name]));
     if (!allJurorsVoted) return;
 
-    const voteCounts: { [finalist: string]: number } = {};
-    finalTwo.forEach(f => (voteCounts[f.name] = 0));
-
-    Object.values(votes).forEach(vote => {
-      if (voteCounts[vote] !== undefined) voteCounts[vote]++;
-    });
-
-    if (isDebugEnabled()) {
-      console.log('[JuryVoteScreen] Final vote counts:', voteCounts);
-    }
-
-    // FIXED: Handle tie scenario
-    const sortedByVotes = Object.entries(voteCounts).sort((a, b) => b[1] - a[1]);
-    const topVotes = sortedByVotes[0][1];
-    const tiedFinalists = sortedByVotes.filter(([_, count]) => count === topVotes);
-    
-    let winnerName: string;
-    if (tiedFinalists.length > 1) {
-      // Tie-break: use random selection (in a real game this would be a special tie-break)
-      if (isDebugEnabled()) {
-        console.warn('[JuryVoteScreen] Jury vote tie detected, using random selection');
-      }
-      winnerName = tiedFinalists[Math.floor(Math.random() * tiedFinalists.length)][0];
-    } else {
-      winnerName = sortedByVotes[0][0];
-    }
+    const winnerName = winner || determineWinner(votes);
 
     setWinner(winnerName);
 
     // Show results after a brief delay for dramatic effect
     const timer = setTimeout(() => setShowResults(true), RESULT_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [voteStable, votes, finalTwo, showResults, RESULT_DELAY_MS, juryMembers]);
+  }, [voteStable, votes, showResults, RESULT_DELAY_MS, juryMembers, winner, determineWinner]);
 
   // Start animated per-juror reveal once results are shown
   useEffect(() => {
@@ -509,8 +488,15 @@ export const JuryVoteScreen = () => {
                               const updated = { ...prev, [gameState.playerName]: finalist.name };
                               // When all jury members (including player) have voted, lock votes.
                               if (Object.keys(updated).length === juryMembers.length) {
+                                const completeRationales = {
+                                  ...rationales,
+                                  [gameState.playerName]: `You chose ${finalist.name} based on the finalist's closing argument and overall game.`,
+                                };
+                                const winnerName = determineWinner(updated);
+                                setRationales(completeRationales);
+                                setWinner(winnerName);
                                 setVoteStable(true);
-                                finaleDispatch({ type: 'TALLY_JURY' });
+                                finaleDispatch({ type: 'TALLY_JURY', votes: updated, rationales: completeRationales, winner: winnerName });
                               }
                               return updated;
                             });
