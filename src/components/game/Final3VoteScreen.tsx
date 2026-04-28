@@ -27,6 +27,18 @@ export const Final3VoteScreen = () => {
   const [challengeResults, setChallengeResults] = useState<{ name: string; time: number }[]>([]);
   const { state: finaleMachine, dispatch: finaleDispatch } = useFinaleMachine();
 
+  const enterTieBreakSelection = () => {
+    finaleDispatch({ type: 'START_VOTING' });
+    finaleDispatch({ type: 'SUBMIT_VOTE' });
+    finaleDispatch({ type: 'TALLY_TIE' });
+  };
+
+  const chooseTieBreakMethod = (method: TieBreakMethod) => {
+    enterTieBreakSelection();
+    finaleDispatch({ type: 'CHOOSE_METHOD' });
+    setTieBreakMethod(method);
+  };
+
   // DEBUG: auto-skip to tie-break selection when requested
   useEffect(() => {
     if (!gameState.debugForceFinal3TieBreak) return;
@@ -39,6 +51,7 @@ export const Final3VoteScreen = () => {
     setShowingResults(true);
     setTieBreakActive(true);
     setTieBreakMethod(null);
+    enterTieBreakSelection();
   }, [gameState.debugForceFinal3TieBreak, gameState.contestants]);
 
   // FIXED: Validate Final 3 state
@@ -103,6 +116,7 @@ export const Final3VoteScreen = () => {
       if (finalThree.length === 3 && values.length === 3 && values.every(v => v === 1)) {
         setTieBreakActive(true);
         setTieBreakMethod(null);
+        enterTieBreakSelection();
       }
       return;
     }
@@ -124,6 +138,9 @@ export const Final3VoteScreen = () => {
     if (finalThree.length === 3 && voteValues.length === 3 && voteValues.every(v => v === 1)) {
       setTieBreakActive(true);
       setTieBreakMethod(null);
+      enterTieBreakSelection();
+    } else {
+      finaleDispatch({ type: 'TALLY_NORMAL' });
     }
   }, [showingResults, tieBreakActive, voteResults, gameState.votingHistory, finalThree.length]);
 
