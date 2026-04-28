@@ -366,10 +366,12 @@ export const JuryVoteScreen = () => {
 
     // If all jurors except possibly the player have votes, and player isn't in jury, lock votes.
     if (!isPlayerInJury && Object.keys(juryVotes).length === juryMembers.length) {
+      const winnerName = determineWinner(juryVotes);
+      setWinner(winnerName);
       setVoteStable(true);
-      finaleDispatch({ type: 'TALLY_JURY' });
+      finaleDispatch({ type: 'TALLY_JURY', votes: juryVotes, rationales: rationaleMap, winner: winnerName });
     }
-  }, [finalTwo, juryMembers, gameState.playerName, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier, finaleMachine, finaleDispatch, votes]);
+  }, [finalTwo, juryMembers, gameState.playerName, voteStable, isPlayerInJury, effectivePlayerSpeech, speechEval.impact, speechEval.tier, finaleMachine, finaleDispatch, votes, enterJuryVoting, determineWinner]);
 
   // Visual deliberation progress indicator
   useEffect(() => {
@@ -400,39 +402,14 @@ export const JuryVoteScreen = () => {
     const allJurorsVoted = juryMembers.every(j => Boolean(votes[j.name]));
     if (!allJurorsVoted) return;
 
-    const voteCounts: { [finalist: string]: number } = {};
-    finalTwo.forEach(f => (voteCounts[f.name] = 0));
-
-    Object.values(votes).forEach(vote => {
-      if (voteCounts[vote] !== undefined) voteCounts[vote]++;
-    });
-
-    if (isDebugEnabled()) {
-      console.log('[JuryVoteScreen] Final vote counts:', voteCounts);
-    }
-
-    // FIXED: Handle tie scenario
-    const sortedByVotes = Object.entries(voteCounts).sort((a, b) => b[1] - a[1]);
-    const topVotes = sortedByVotes[0][1];
-    const tiedFinalists = sortedByVotes.filter(([_, count]) => count === topVotes);
-    
-    let winnerName: string;
-    if (tiedFinalists.length > 1) {
-      // Tie-break: use random selection (in a real game this would be a special tie-break)
-      if (isDebugEnabled()) {
-        console.warn('[JuryVoteScreen] Jury vote tie detected, using random selection');
-      }
-      winnerName = tiedFinalists[Math.floor(Math.random() * tiedFinalists.length)][0];
-    } else {
-      winnerName = sortedByVotes[0][0];
-    }
+    const winnerName = winner || determineWinner(votes);
 
     setWinner(winnerName);
 
     // Show results after a brief delay for dramatic effect
     const timer = setTimeout(() => setShowResults(true), RESULT_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [voteStable, votes, finalTwo, showResults, RESULT_DELAY_MS, juryMembers]);
+  }, [voteStable, votes, showResults, RESULT_DELAY_MS, juryMembers, winner, determineWinner]);
 
   // Start animated per-juror reveal once results are shown
   useEffect(() => {
