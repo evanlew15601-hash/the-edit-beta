@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { useGame } from '@/contexts/GameContext';
@@ -27,17 +27,17 @@ export const Final3VoteScreen = () => {
   const [challengeResults, setChallengeResults] = useState<{ name: string; time: number }[]>([]);
   const { state: finaleMachine, dispatch: finaleDispatch } = useFinaleMachine();
 
-  const enterTieBreakSelection = () => {
+  const enterTieBreakSelection = useCallback(() => {
     finaleDispatch({ type: 'START_VOTING' });
     finaleDispatch({ type: 'SUBMIT_VOTE' });
     finaleDispatch({ type: 'TALLY_TIE' });
-  };
+  }, [finaleDispatch]);
 
-  const chooseTieBreakMethod = (method: TieBreakMethod) => {
+  const chooseTieBreakMethod = useCallback((method: TieBreakMethod) => {
     enterTieBreakSelection();
     finaleDispatch({ type: 'CHOOSE_METHOD' });
     setTieBreakMethod(method);
-  };
+  }, [enterTieBreakSelection, finaleDispatch]);
 
   // DEBUG: auto-skip to tie-break selection when requested
   useEffect(() => {
@@ -52,7 +52,7 @@ export const Final3VoteScreen = () => {
     setTieBreakActive(true);
     setTieBreakMethod(null);
     enterTieBreakSelection();
-  }, [gameState.debugForceFinal3TieBreak, gameState.contestants]);
+  }, [gameState.debugForceFinal3TieBreak, gameState.contestants, enterTieBreakSelection]);
 
   // FIXED: Validate Final 3 state
   const finalThree = gameState.contestants.filter(c => !c.isEliminated);
@@ -142,7 +142,7 @@ export const Final3VoteScreen = () => {
     } else {
       finaleDispatch({ type: 'TALLY_NORMAL' });
     }
-  }, [showingResults, tieBreakActive, voteResults, gameState.votingHistory, finalThree.length]);
+  }, [showingResults, tieBreakActive, voteResults, gameState.votingHistory, finalThree.length, enterTieBreakSelection, finaleDispatch]);
 
   // Execute selected tie-break route — strictly guarded by the finale state machine.
   // The machine only allows RESOLVE_TIEBREAK once, from TIEBREAK_RUNNING, so even if
