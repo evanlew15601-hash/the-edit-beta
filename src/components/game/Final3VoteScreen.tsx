@@ -65,48 +65,6 @@ export const Final3VoteScreen = () => {
     console.log('[Final3VoteScreen] Eligible targets:', eligible.map(c => c.name));
   }
 
-  // Guard: Must have exactly 3 contestants
-  if (finalThree.length !== 3) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <Card className="p-6 text-center">
-            <h1 className="text-3xl font-light mb-4">Final 3 Vote</h1>
-            <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
-              <p className="text-destructive">
-                Error: Expected exactly 3 contestants, found {finalThree.length}
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Active: {finalThree.map(c => c.name).join(', ')}
-              </p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // Guard: Player must be in Final 3
-  if (!playerStillActive) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <Card className="p-6 text-center">
-            <h1 className="text-3xl font-light mb-4">Final 3 Vote</h1>
-            <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
-              <p className="text-destructive">
-                Error: Player is not in the Final 3. This screen should not be shown.
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Remaining contestants: {finalThree.map(c => c.name).join(', ')}
-              </p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   useEffect(() => {
     if (!showingResults || tieBreakActive) return;
 
