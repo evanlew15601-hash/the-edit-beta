@@ -32,6 +32,9 @@ export const JuryVoteScreen = () => {
   // Animated reveal of jury votes
   const [revealedCount, setRevealedCount] = useState(0);
 
+  // FIXED: Validate jury vote state
+  const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
+
   const determineWinner = useCallback((nextVotes: { [juryMember: string]: string }) => {
     const voteCounts: { [finalist: string]: number } = {};
     finalTwo.forEach(f => (voteCounts[f.name] = 0));
@@ -48,9 +51,6 @@ export const JuryVoteScreen = () => {
       ? tiedFinalists[Math.floor(Math.random() * tiedFinalists.length)][0]
       : sortedByVotes[0]?.[0] || finalTwo[0]?.name || '';
   }, [finalTwo]);
-
-  // FIXED: Validate jury vote state
-  const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
   
   // CRITICAL: Filter jury members properly - must be eliminated AND in jury list
   const juryMembers = gameState.contestants.filter(c => 
