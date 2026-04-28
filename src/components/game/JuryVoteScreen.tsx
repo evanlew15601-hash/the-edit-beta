@@ -510,8 +510,15 @@ export const JuryVoteScreen = () => {
                               const updated = { ...prev, [gameState.playerName]: finalist.name };
                               // When all jury members (including player) have voted, lock votes.
                               if (Object.keys(updated).length === juryMembers.length) {
+                                const completeRationales = {
+                                  ...rationales,
+                                  [gameState.playerName]: `You chose ${finalist.name} based on the finalist's closing argument and overall game.`,
+                                };
+                                const winnerName = determineWinner(updated);
+                                setRationales(completeRationales);
+                                setWinner(winnerName);
                                 setVoteStable(true);
-                                finaleDispatch({ type: 'TALLY_JURY' });
+                                finaleDispatch({ type: 'TALLY_JURY', votes: updated, rationales: completeRationales, winner: winnerName });
                               }
                               return updated;
                             });
