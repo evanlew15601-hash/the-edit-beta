@@ -289,7 +289,9 @@ export const Final3VoteScreen = () => {
 
   const handleSubmitVote = () => {
     if (choice) {
+      finaleDispatch({ type: 'START_VOTING' });
       submitFinal3Vote(choice);
+      finaleDispatch({ type: 'SUBMIT_VOTE' });
       setShowingResults(true);
     }
   };
@@ -582,7 +584,10 @@ export const Final3VoteScreen = () => {
               variant="action"
               size="wide"
               className="mt-6"
-              onClick={continueFromFinal3Results}
+              onClick={() => {
+                finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
+                continueFromFinal3Results();
+              }}
             >
               Continue
             </Button>
