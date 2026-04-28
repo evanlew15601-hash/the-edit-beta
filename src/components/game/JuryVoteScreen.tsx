@@ -80,27 +80,6 @@ export const JuryVoteScreen = () => {
     console.log('[JuryVoteScreen] Player in jury?', isPlayerInJury);
   }
   
-  // Guard: Need at least 1 jury member
-  if (juryMembers.length === 0) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <Card className="p-6 text-center">
-            <h1 className="text-3xl font-light mb-4">Jury Vote</h1>
-            <div className="bg-warning/10 border border-warning/20 rounded p-4">
-              <p className="text-destructive">
-                Error: No jury members found
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Jury list: {gameState.juryMembers?.join(', ') || 'empty'}
-              </p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-  
   useEffect(() => {
     // Strictly guarded by the finale state machine: TALLY_JURY only fires once.
     // This effect can re-run due to dependency churn but the side effect
@@ -125,16 +104,6 @@ export const JuryVoteScreen = () => {
     if (finalTwo.length !== 2 || juryMembers.length === 0) return;
 
     enterJuryVoting();
-
-    // Avoid re-running once we've populated votes for all non-player jurors
-    const nonPlayerJurors = juryMembers.filter(j => !(isPlayerInJury && j.name === gameState.playerName));
-    if (nonPlayerJurors.length > 0 && nonPlayerJurors.every(j => votes[j.name])) {
-      if (!isPlayerInJury) {
-        setVoteStable(true);
-        finaleDispatch({ type: 'TALLY_JURY' });
-      }
-      return;
-    }
 
     const juryVotes: { [juryMember: string]: string } = {};
     const rationaleMap: { [juryMember: string]: string } = {};
