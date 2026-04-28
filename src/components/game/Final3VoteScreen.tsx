@@ -371,7 +371,7 @@ export const Final3VoteScreen = () => {
                         setPersuasionOutcome(success ? 'success' : 'fail');
 
                         if (success && playerPreferredMethod) {
-                          setTieBreakMethod(playerPreferredMethod);
+                          chooseTieBreakMethod(playerPreferredMethod);
                           setPersuasionOutcome('success');
                         } else {
                           // NPCs choose a method based on their preferences
@@ -393,7 +393,7 @@ export const Final3VoteScreen = () => {
                             }
                             return 'challenge';
                           })();
-                          setTieBreakMethod(npcPreferred);
+                          chooseTieBreakMethod(npcPreferred);
                           setPersuasionOutcome('fail');
                         }
                       }}
@@ -416,7 +416,7 @@ export const Final3VoteScreen = () => {
                         <div className="font-medium">Obstacle Challenge</div>
                         <div className="text-xs text-muted-foreground">Fastest two advance. Slowest is eliminated.</div>
                       </div>
-                      <Button variant="action" onClick={() => setTieBreakMethod('challenge')}>Choose</Button>
+                      <Button variant="action" onClick={() => chooseTieBreakMethod('challenge')}>Choose</Button>
                     </div>
                   </Card>
 
@@ -426,7 +426,7 @@ export const Final3VoteScreen = () => {
                         <div className="font-medium">Fire-Making</div>
                         <div className="text-xs text-muted-foreground">Fastest two to make fire advance. Slowest is eliminated.</div>
                       </div>
-                      <Button variant="action" onClick={() => setTieBreakMethod('fire_making')}>Choose</Button>
+                      <Button variant="action" onClick={() => chooseTieBreakMethod('fire_making')}>Choose</Button>
                     </div>
                   </Card>
 
@@ -436,7 +436,7 @@ export const Final3VoteScreen = () => {
                         <div className="font-medium">Random Draw</div>
                         <div className="text-xs text-muted-foreground">Draw rocks. One is eliminated at random.</div>
                       </div>
-                      <Button variant="action" onClick={() => setTieBreakMethod('random_draw')}>Choose</Button>
+                      <Button variant="action" onClick={() => chooseTieBreakMethod('random_draw')}>Choose</Button>
                     </div>
                   </Card>
                 </div>
