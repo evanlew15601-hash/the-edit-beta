@@ -18,9 +18,10 @@ const subscribers = new Set<(s: FinaleState) => void>();
 
 function dispatchGlobal(event: FinaleEvent) {
   const next = finaleReducer(currentState, event);
-  if (next === currentState) return;
+  if (next === currentState) return false;
   currentState = next;
   subscribers.forEach(cb => cb(currentState));
+  return true;
 }
 
 /** Reset the singleton — call when starting a new season. */
@@ -41,7 +42,7 @@ export function useFinaleMachine() {
   }, []);
 
   const dispatch = useCallback((event: FinaleEvent) => {
-    dispatchGlobal(event);
+    return dispatchGlobal(event);
   }, []);
 
   return { state: currentState, dispatch };
