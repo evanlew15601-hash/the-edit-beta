@@ -150,14 +150,12 @@ export const Final3VoteScreen = () => {
   useEffect(() => {
     if (!tieBreakActive || !tieBreakMethod) return;
     if (finalThree.length !== 3) return;
-    if (finaleMachine.fired.tieBreakResolved) return;
+    if (finaleMachine.fired.tieBreakStarted || finaleMachine.fired.tieBreakResolved) return;
 
-    // Move the machine into TIEBREAK_RUNNING (idempotent — no-op if already there/past).
-    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
-    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
-    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_TIE' });
-    if (finaleMachine.phase === 'TIEBREAK_SELECT') finaleDispatch({ type: 'CHOOSE_METHOD' });
+    enterTieBreakSelection();
+    finaleDispatch({ type: 'CHOOSE_METHOD' });
     if (finaleMachine.phase !== 'TIEBREAK_RUNNING') return;
+    if (!finaleDispatch({ type: 'START_TIEBREAK_RESOLUTION' })) return;
 
     const fireResolution = (
       eliminated: string,
@@ -169,8 +167,7 @@ export const Final3VoteScreen = () => {
     ) => {
       // Re-check guard at the moment of firing — covers a queued setTimeout
       // racing with another render.
-      if (finaleMachine.fired.tieBreakResolved) return;
-      finaleDispatch({ type: 'RESOLVE_TIEBREAK' });
+      if (!finaleDispatch({ type: 'RESOLVE_TIEBREAK' })) return;
       handleTieBreakResult(eliminated, w1, w2, method, results, selectionReason);
     };
 
@@ -288,7 +285,7 @@ export const Final3VoteScreen = () => {
         );
       }, 2000);
     }
-  }, [tieBreakActive, tieBreakMethod, finalThree, handleTieBreakResult, persuasionOutcome, finaleMachine, finaleDispatch]);
+  }, [tieBreakActive, tieBreakMethod, finalThree, handleTieBreakResult, persuasionOutcome, finaleMachine, finaleDispatch, enterTieBreakSelection]);
 
   const handleSubmitVote = () => {
     if (choice) {
