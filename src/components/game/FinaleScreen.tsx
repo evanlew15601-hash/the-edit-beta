@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,9 +14,17 @@ export const FinaleScreen = () => {
   const [playerSpeech, setPlayerSpeech] = useState('');
   const [npcSpeeches, setNpcSpeeches] = useState<{ name: string; speech: string }[]>([]);
 
+  const enterFinaleSpeeches = useCallback(() => {
+    finaleDispatch({ type: 'START_VOTING' });
+    finaleDispatch({ type: 'SUBMIT_VOTE' });
+    finaleDispatch({ type: 'TALLY_NORMAL' });
+    finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
+  }, [finaleDispatch]);
+
   // Speech submission is now driven by the finale state machine, not local state,
   // so a re-render or remount can never reset the "speech delivered" status.
   const speechSubmitted =
+    gameState.finaleSpeechesGiven ||
     finaleMachine.fired.speechSubmitted ||
     finaleMachine.phase === 'FINALE_SPEECHES_DONE' ||
     finaleMachine.phase === 'JURY_VOTING' ||
@@ -62,18 +70,11 @@ export const FinaleScreen = () => {
   // double clicks, re-renders, and React StrictMode double-invocations
   // can never resubmit the speech.
   const handleSubmitSpeech = () => {
-    // Ensure the machine is in FINALE_SPEECHES (it will be once tie-break /
-    // normal Final 3 resolution has fired CONTINUE_TO_FINALE; otherwise
-    // advance through the lightweight prefix transitions here).
-    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
-    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
-    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_NORMAL' });
-    if (finaleMachine.phase === 'RESOLVED') finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
-
-    if (finaleMachine.fired.speechSubmitted) return;
+    if (speechSubmitted) return;
+    enterFinaleSpeeches();
+    if (!finaleDispatch({ type: 'SUBMIT_SPEECH' })) return;
 
     submitFinaleSpeech(playerSpeech);
-    finaleDispatch({ type: 'SUBMIT_SPEECH' });
 
     // Generate NPC speeches
     const speeches = finalTwo
@@ -86,13 +87,8 @@ export const FinaleScreen = () => {
   };
 
   const handleWatchAsJuror = () => {
-    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
-    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
-    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_NORMAL' });
-    if (finaleMachine.phase === 'RESOLVED') finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
-    if (!finaleMachine.fired.speechSubmitted) {
-      finaleDispatch({ type: 'SUBMIT_SPEECH' });
-    }
+    enterFinaleSpeeches();
+    finaleDispatch({ type: 'SUBMIT_SPEECH' });
     const speeches = finalTwo.map(contestant => ({
       name: contestant.name,
       speech: generateNPCSpeech(contestant)
