@@ -62,6 +62,15 @@ export const JuryVoteScreen = () => {
   const playerContestant = gameState.contestants.find(c => c.name === gameState.playerName);
   const playerEliminated = gameState.isPlayerEliminated || playerContestant?.isEliminated || false;
   const isPlayerInJury = playerEliminated && gameState.juryMembers?.includes(gameState.playerName);
+
+  const enterJuryVoting = useCallback(() => {
+    finaleDispatch({ type: 'START_VOTING' });
+    finaleDispatch({ type: 'SUBMIT_VOTE' });
+    finaleDispatch({ type: 'TALLY_NORMAL' });
+    finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
+    finaleDispatch({ type: 'SUBMIT_SPEECH' });
+    finaleDispatch({ type: 'PROCEED_TO_JURY' });
+  }, [finaleDispatch]);
   
   if (isDebugEnabled()) {
     console.log('[JuryVoteScreen] Final two:', finalTwo.map(c => c.name));
@@ -97,20 +106,18 @@ export const JuryVoteScreen = () => {
     // This effect can re-run due to dependency churn but the side effect
     // (computing jury votes) only happens on the first run.
     if (voteStable) return;
-    if (finaleMachine.fired.juryTallied) {
-      if (!isPlayerInJury) setVoteStable(true);
+    if (finaleMachine.juryResult) {
+      setVotes(finaleMachine.juryResult.votes);
+      setRationales(finaleMachine.juryResult.rationales);
+      setWinner(finaleMachine.juryResult.winner);
+      setVoteStable(true);
       return;
     }
+    if (finaleMachine.fired.juryTallyStarted || finaleMachine.fired.juryTallied) return;
     if (finalTwo.length !== 2 || juryMembers.length === 0) return;
 
-    // Move machine into JURY_VOTING if not yet there (idempotent transitions).
-    if (finaleMachine.phase === 'IDLE') finaleDispatch({ type: 'START_VOTING' });
-    if (finaleMachine.phase === 'VOTING') finaleDispatch({ type: 'SUBMIT_VOTE' });
-    if (finaleMachine.phase === 'TALLYING') finaleDispatch({ type: 'TALLY_NORMAL' });
-    if (finaleMachine.phase === 'RESOLVED') finaleDispatch({ type: 'CONTINUE_TO_FINALE' });
-    if (finaleMachine.phase === 'FINALE_SPEECHES') finaleDispatch({ type: 'SUBMIT_SPEECH' });
-    if (finaleMachine.phase === 'FINALE_SPEECHES_DONE') finaleDispatch({ type: 'PROCEED_TO_JURY' });
-    if (finaleMachine.phase !== 'JURY_VOTING') return;
+    enterJuryVoting();
+    if (!finaleDispatch({ type: 'START_JURY_TALLY' })) return;
 
     // Avoid re-running once we've populated votes for all non-player jurors
     const nonPlayerJurors = juryMembers.filter(j => !(isPlayerInJury && j.name === gameState.playerName));
