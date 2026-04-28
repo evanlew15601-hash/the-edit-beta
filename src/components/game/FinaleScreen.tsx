@@ -289,6 +289,7 @@ export const FinaleScreen = () => {
                 <Button
                   variant="action"
                   onClick={() => {
+                    if (!speechSubmitted) return;
                     finaleDispatch({ type: 'PROCEED_TO_JURY' });
                     onFinaleContinue();
                   }}
