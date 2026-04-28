@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/enhanced-button';
 import { Progress } from '@/components/ui/progress';
@@ -31,6 +31,23 @@ export const JuryVoteScreen = () => {
 
   // Animated reveal of jury votes
   const [revealedCount, setRevealedCount] = useState(0);
+
+  const determineWinner = useCallback((nextVotes: { [juryMember: string]: string }) => {
+    const voteCounts: { [finalist: string]: number } = {};
+    finalTwo.forEach(f => (voteCounts[f.name] = 0));
+
+    Object.values(nextVotes).forEach(vote => {
+      if (voteCounts[vote] !== undefined) voteCounts[vote]++;
+    });
+
+    const sortedByVotes = Object.entries(voteCounts).sort((a, b) => b[1] - a[1]);
+    const topVotes = sortedByVotes[0]?.[1] ?? 0;
+    const tiedFinalists = sortedByVotes.filter(([_, count]) => count === topVotes);
+
+    return tiedFinalists.length > 1
+      ? tiedFinalists[Math.floor(Math.random() * tiedFinalists.length)][0]
+      : sortedByVotes[0]?.[0] || finalTwo[0]?.name || '';
+  }, [finalTwo]);
 
   // FIXED: Validate jury vote state
   const finalTwo = gameState.contestants.filter(c => !c.isEliminated);
