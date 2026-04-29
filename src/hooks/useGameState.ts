@@ -476,10 +476,21 @@ export const useGameState = () => {
       // Clear forced conversations that are too old; keep up to 2 queued
       const nextForcedQueue = (prev.forcedConversationsQueue || []).filter(fc => newDay - fc.day <= 2).slice(0, 2);
 
+      // Scale daily action cap as cast shrinks to keep choices meaningful
+      const activeCountForCap = baseContestants.filter(c => !c.isEliminated).length;
+      const scaledCap = activeCountForCap >= 12
+        ? 10
+        : activeCountForCap >= 8
+          ? 8
+          : activeCountForCap >= 5
+            ? 6
+            : Math.max(4, activeCountForCap);
+
       return {
         ...prev,
         currentDay: newDay,
         dailyActionCount: 0,
+        dailyActionCap: scaledCap,
         groupActionsUsedToday: 0,
         contestants: baseContestants,
         alliances: alliancesWithSecrecy,

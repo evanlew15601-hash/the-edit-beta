@@ -183,8 +183,8 @@ export const VotingDebugPanel: React.FC = () => {
   }, [gameState.twistNarrative, planted, plantedWeekTasks.length, confessionalStats.week]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[340px]">
-      <Card className="p-4 shadow-xl border border-border bg-card/95 backdrop-blur-md rounded-lg">
+    <div className="fixed bottom-4 right-4 z-50 w-[min(340px,calc(100vw-2rem))] max-h-[80vh] overflow-y-auto pointer-events-none">
+      <Card className="p-4 shadow-xl border border-border bg-card/95 backdrop-blur-md rounded-lg pointer-events-auto">
         <div className="flex items-center justify-between mb-2">
           <div>
             <div className="text-[11px] text-muted-foreground">Developer Tools</div>
