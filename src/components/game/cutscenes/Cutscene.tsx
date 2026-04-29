@@ -108,6 +108,16 @@ export const Cutscene = ({ title, slides, onComplete, ctaLabel = 'Continue' }: C
               <Button variant="outline" size="sm" onClick={prev} disabled={index === 0}>
                 Back
               </Button>
+              {!isLast && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onComplete}
+                  title="Skip the rest of this cutscene"
+                >
+                  Skip
+                </Button>
+              )}
               <Button variant="action" size="sm" onClick={next} className="hover-scale">
                 {isLast ? ctaLabel : 'Next'}
               </Button>
