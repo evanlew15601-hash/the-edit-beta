@@ -495,6 +495,20 @@ export const Final3VoteScreen = () => {
   }
 
   if (showingResults) {
+    if (Object.keys(voteResults).length === 0) {
+      return (
+        <div className="min-h-screen bg-background p-6">
+          <div className="max-w-4xl mx-auto space-y-6">
+            <Card className="p-6 text-center">
+              <Crown className="w-10 h-10 text-primary mx-auto mb-4" />
+              <h1 className="text-3xl font-light mb-2">Tallying Final 3 Vote</h1>
+              <p className="text-muted-foreground">The final vote is being counted.</p>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
     const maxVotes = Math.max(...Object.values(voteResults));
     const eliminated = Object.entries(voteResults).find(([_, votes]) => votes === maxVotes)?.[0];
     const finalists = finalThree.filter(c => c.name !== eliminated);

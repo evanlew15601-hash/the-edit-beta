@@ -134,9 +134,20 @@ export const useGameState = () => {
 
   // Keep a ref to always access the latest gameState in async callbacks
   const gameStateRef = useRef(gameState);
+  const previousGamePhaseRef = useRef<GameState['gamePhase']>(gameState.gamePhase);
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  useEffect(() => {
+    const previousPhase = previousGamePhaseRef.current;
+    previousGamePhaseRef.current = gameState.gamePhase;
+
+    if (previousPhase === gameState.gamePhase) return;
+    if (gameState.gamePhase === 'final_3_vote' || gameState.gamePhase === 'finale' || gameState.gamePhase === 'jury_vote') {
+      resetFinaleMachine();
+    }
+  }, [gameState.gamePhase]);
 
   // Allow beta builds to emit debug logs when debugMode is enabled.
   // This is consumed by debugLog/debugWarn via window.__RTV_DEBUG__.
