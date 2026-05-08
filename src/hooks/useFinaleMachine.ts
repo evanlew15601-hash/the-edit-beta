@@ -45,5 +45,9 @@ export function useFinaleMachine() {
     return dispatchGlobal(event);
   }, []);
 
-  return { state: currentState, dispatch };
+  const reset = useCallback(() => {
+    resetFinaleMachine();
+  }, []);
+
+  return { state: currentState, dispatch, reset };
 }
