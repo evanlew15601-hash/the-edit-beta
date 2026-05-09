@@ -2639,8 +2639,18 @@ export const useGameState = () => {
   }, []);
 
   const resetGame = useCallback(() => {
-    // Reset the finale state machine so a new season starts with a clean slate.
+    // Full season reset: clear finale machine, NPC memory, and all
+    // post-season carry-over (jury, finalists, winner, tie-breaks, cutscenes…).
+    // We explicitly set every optional post-season field to `undefined` so
+    // React replaces the object cleanly and no stale field can leak forward
+    // even if some other code path read from `prev.<field>` defensively.
     resetFinaleMachine();
+    try {
+      memoryEngine.resetMemory();
+    } catch (e) {
+      debugWarn('Failed to reset NPC memory engine', e);
+    }
+    previousGamePhaseRef.current = 'intro';
     setGameState({
       currentDay: 1,
       playerName: '',
@@ -2679,7 +2689,44 @@ export const useGameState = () => {
       tagChoiceCooldowns: {},
       reactionProfiles: {},
       debugMode: defaultDebugMode,
-    });
+      // Explicitly clear post-season / finale carry-over
+      juryMembers: undefined,
+      finalJuryVotes: undefined,
+      juryRationales: undefined,
+      gameWinner: undefined,
+      isPlayerEliminated: undefined,
+      afpVote: undefined,
+      afpRanking: undefined,
+      final3TieBreak: undefined,
+      immunityWinner: undefined,
+      finaleSpeechesGiven: undefined,
+      finaleSpeech: undefined,
+      currentCutscene: undefined,
+      twistNarrative: undefined,
+      debugForceFinal3TieBreak: undefined,
+      productionIntel: undefined,
+      missionBroadcastBanner: undefined,
+      ratingsHistory: undefined,
+      viewerRating: undefined,
+      hostChildName: undefined,
+      hostChildRevealDay: undefined,
+      productionTaskLog: undefined,
+      playerCannotBeEliminatedUntilDay: undefined,
+      hostChildFalloutUntilDay: undefined,
+      ongoingHouseMeeting: undefined,
+      lastHouseMeetingReaction: undefined,
+      lastActionTarget: undefined,
+      lastActionType: undefined,
+      lastAIResponse: undefined,
+      lastAIResponseLoading: undefined,
+      lastAIAdditions: undefined,
+      lastAIReaction: undefined,
+      lastParsedInput: undefined,
+      lastParsedIntent: undefined,
+      lastEmergentEvent: undefined,
+      lastTagOutcome: undefined,
+      playerFunds: undefined,
+    } as GameState);
     try {
       localStorage.removeItem('rtv_game_state');
       void clearLocalInteractions();
