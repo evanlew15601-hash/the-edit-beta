@@ -85,6 +85,9 @@ export interface Contestant {
     suspicionLevel: number; // 0 to 100
     emotionalCloseness: number; // 0 to 100
     editBias: number; // -50 to 50
+    // Beliefs the player has planted in this NPC's head via manipulation.
+    // Each one is a claim the NPC currently treats as either believed or suspected.
+    plantedBeliefs?: PlantedBelief[];
   };
   memory: GameMemory[];
   isEliminated: boolean;
