@@ -97,6 +97,7 @@ export class AIVotingStrategy {
       const allianceTrust = playerAlliances.find(a => a.members.includes(gameState.playerName))?.strength || 50;
       playerScore -= allianceTrust * 0.8;
     }
+    playerScore += plantedBeliefVoteBoost(contestant.name, gameState.playerName, gameState);
     targetScores.set(gameState.playerName, playerScore);
     
     // Find top target
