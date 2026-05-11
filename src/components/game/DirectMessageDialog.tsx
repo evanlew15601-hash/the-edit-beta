@@ -180,7 +180,67 @@ export const DirectMessageDialog = ({ isOpen, onClose }: DirectMessageDialogProp
             </div>
           </div>
 
-          {/* Outcome Preview */}
+          {/* Manipulation: Plant a structured claim */}
+          {tone === 'manipulation' && (
+            <div className="space-y-3 border border-edit-villain/40 rounded p-3 bg-edit-villain/5">
+              <div>
+                <div className="text-sm font-medium">Plant a claim</div>
+                <p className="text-xs text-muted-foreground">
+                  Lies that get cross-checked with other houseguests will be exposed.
+                  Trust will collapse if you're caught.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">Claim type</label>
+                  <Select value={claimType} onValueChange={(v) => setClaimType(v as ClaimType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="voting_intent">Voting plan</SelectItem>
+                      <SelectItem value="alliance_exists">Secret alliance</SelectItem>
+                      <SelectItem value="said_about_you">Talked behind back</SelectItem>
+                      <SelectItem value="is_threat">Hidden threat</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground">About</label>
+                  <Select value={claimAbout} onValueChange={setClaimAbout}>
+                    <SelectTrigger><SelectValue placeholder="Who is the claim about?" /></SelectTrigger>
+                    <SelectContent>
+                      {contestants
+                        .filter(c => c.name !== selectedTarget)
+                        .map(c => (
+                          <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {(claimType === 'voting_intent' || claimType === 'alliance_exists') && (
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    {claimType === 'voting_intent' ? 'Allegedly voting for' : 'Allegedly allied with'}
+                  </label>
+                  <Select value={claimPayload} onValueChange={setClaimPayload}>
+                    <SelectTrigger><SelectValue placeholder="Pick a name" /></SelectTrigger>
+                    <SelectContent>
+                      {(claimType === 'voting_intent'
+                        ? gameState.contestants.filter(c => !c.isEliminated && c.name !== claimAbout)
+                        : contestants.filter(c => c.name !== claimAbout && c.name !== selectedTarget)
+                      ).map(c => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
           {preview && (
             <div className="flex items-center flex-wrap gap-2 bg-muted/40 border border-border/60 rounded p-2.5">
               <span className="text-xs text-muted-foreground">Preview</span>
