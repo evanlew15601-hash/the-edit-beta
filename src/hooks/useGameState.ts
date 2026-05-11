@@ -582,10 +582,16 @@ export const useGameState = () => {
       // Mirror the trust delta into the relationship graph so other systems see it.
       const rel = relationshipGraphEngine.getRelationship(input.listener, prev.playerName);
       if (rel) {
-        relationshipGraphEngine.updateRelationship(input.listener, prev.playerName, {
-          trust: r.trustDelta,
-          suspicion: r.suspicionDelta,
-        });
+        relationshipGraphEngine.updateRelationship(
+          input.listener,
+          prev.playerName,
+          r.trustDelta,
+          r.suspicionDelta,
+          0,
+          'manipulation' as any,
+          `Player planted a claim about ${input.about}`,
+          prev.currentDay,
+        );
       }
 
       // Drop a memory entry on the listener so jury/recap can reference it later.
