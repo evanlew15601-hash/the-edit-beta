@@ -70,8 +70,6 @@ export const VotingDebugPanel: React.FC = () => {
     }
   };
 
-  if (!gameState.debugMode) return null;
-
   const active = gameState.contestants.filter(c => !c.isEliminated);
   const eliminated = gameState.contestants.filter(c => c.isEliminated);
   const nonPlayerActive = active.filter(c => c.name !== gameState.playerName);
