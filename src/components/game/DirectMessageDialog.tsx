@@ -25,7 +25,7 @@ const PRESETS = [
 ];
 
 export const DirectMessageDialog = ({ isOpen, onClose }: DirectMessageDialogProps) => {
-  const { gameState, useAction } = useGame();
+  const { gameState, useAction, plantClaim } = useGame();
   const contestants: Contestant[] = useMemo(
     () => gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName),
     [gameState.contestants, gameState.playerName]
@@ -34,14 +34,41 @@ export const DirectMessageDialog = ({ isOpen, onClose }: DirectMessageDialogProp
   const [content, setContent] = useState('');
   const [tone, setTone] = useState<string>('');
 
+  // Manipulation subform state
+  const [claimType, setClaimType] = useState<ClaimType>('voting_intent');
+  const [claimAbout, setClaimAbout] = useState<string>('');
+  const [claimPayload, setClaimPayload] = useState<string>('');
+
   const handleSubmit = () => {
-    if (selectedTarget && content && tone) {
-      useAction('dm', selectedTarget, content, tone);
-      setSelectedTarget('');
-      setContent('');
-      setTone('');
-      onClose();
+    if (!selectedTarget || !content || !tone) return;
+
+    if (tone === 'manipulation' && claimAbout) {
+      // Route through the deception engine. The DM still goes through useAction
+      // so the conversation is logged and entertainment/edit effects fire.
+      const result = plantClaim({
+        listener: selectedTarget,
+        about: claimAbout,
+        claimType,
+        payload: claimPayload || undefined,
+      });
+      if (result) {
+        const stance =
+          result.belief.status === 'believed' ? `${selectedTarget} bought it.` :
+          result.belief.status === 'suspected' ? `${selectedTarget} is wary but didn't dismiss it.` :
+          `${selectedTarget} didn't buy it.`;
+        toast(stance, {
+          description: result.reasoning,
+        });
+      }
     }
+
+    useAction('dm', selectedTarget, content, tone);
+    setSelectedTarget('');
+    setContent('');
+    setTone('');
+    setClaimAbout('');
+    setClaimPayload('');
+    onClose();
   };
 
   const toneOptions = [
