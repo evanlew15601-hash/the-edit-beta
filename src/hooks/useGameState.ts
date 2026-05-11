@@ -263,10 +263,13 @@ export const useGameState = () => {
         contestants: cleanedContestants,
       });
 
+      // Manipulation system: NPCs spend the day quietly checking suspicious claims.
+      const afterCorroboration = tickCorroboration(specialApplied);
+
       // Apply narrative arc tracking for player twists
       let narrativeApplied = applyDailyNarrative({
-        ...specialApplied,
-        twistNarrative: specialApplied.twistNarrative || initializeTwistNarrative(specialApplied),
+        ...afterCorroboration,
+        twistNarrative: afterCorroboration.twistNarrative || initializeTwistNarrative(afterCorroboration),
       });
 
       // Mission result cutscenes for planted houseguest specials
