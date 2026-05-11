@@ -1,6 +1,7 @@
 import { GameState, Contestant } from '@/types/game';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
+import { plantedBeliefVoteBoost } from '@/utils/deceptionEngine';
 
 export interface VotingPlan {
   target: string;
