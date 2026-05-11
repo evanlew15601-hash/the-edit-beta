@@ -5,9 +5,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGame } from '@/contexts/GameContext';
-import { Contestant } from '@/types/game';
+import { Contestant, ClaimType } from '@/types/game';
 import { Badge } from '@/components/ui/badge';
 import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
+import { toast } from 'sonner';
 
 interface DirectMessageDialogProps {
   isOpen: boolean;
