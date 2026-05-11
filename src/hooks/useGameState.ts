@@ -32,6 +32,7 @@ import { computeWeeklyEpisodeRating } from '@/utils/audienceEpisodeRating';
 import { clearLocalInteractions, logInteractionToCloud } from '@/utils/interactionLogger';
 import { betaDebugBuildEnabled, canUseDebugUI, isDebugEnabled } from '@/utils/debugEnv';
 import { resetFinaleMachine } from '@/hooks/useFinaleMachine';
+import { recordClaim, tickCorroboration, type PlantClaimInput, type PlantClaimResult } from '@/utils/deceptionEngine';
 
 type GameActionType =
   PlayerAction['type']
