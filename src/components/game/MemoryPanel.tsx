@@ -88,6 +88,37 @@ export const MemoryPanel = () => {
         </div>
       )}
 
+      {/* Lies in play — surface every active manipulation the player has running. */}
+      {(() => {
+        const inPlay = gameState.contestants.flatMap(c =>
+          (c.psychProfile.plantedBeliefs || [])
+            .filter(b => b.speaker === player)
+            .map(b => ({ ...b, listener: c.name }))
+        );
+        if (inPlay.length === 0) return null;
+        return (
+          <div className="mb-4 p-3 bg-edit-villain/10 border border-edit-villain/30 rounded-lg">
+            <h4 className="text-sm font-semibold mb-2">Lies in Play</h4>
+            <div className="space-y-1.5">
+              {inPlay.slice(0, 6).map(b => (
+                <div key={b.id} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="truncate">
+                    To <strong>{b.listener}</strong> about <strong>{b.about}</strong>
+                    {b.payload ? ` (${b.payload})` : ''}
+                  </span>
+                  <Badge
+                    variant={b.status === 'exposed' ? 'destructive' : b.status === 'believed' ? 'default' : 'outline'}
+                    className="text-[10px]"
+                  >
+                    {b.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <ScrollArea className="h-60 pr-3">
         <div className="space-y-2">
           {feed.length === 0 ? (

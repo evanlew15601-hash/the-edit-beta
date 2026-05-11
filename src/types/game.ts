@@ -70,6 +70,38 @@ export type SpecialBackground =
       revealDay?: number;
     };
 
+export type ClaimType = 'voting_intent' | 'alliance_exists' | 'said_about_you' | 'is_threat';
+
+export interface PlantedBelief {
+  id: string;
+  day: number;
+  speaker: string; // who said it (the player)
+  about: string; // who the claim is about
+  claimType: ClaimType;
+  payload?: string; // extra data (e.g. alleged ally name, alleged voting target)
+  isTrue: boolean; // computed against game state at plant time
+  // Listener's stance on the claim:
+  //  - 'believed' = currently shaping their behavior
+  //  - 'suspected' = noted but discounted
+  //  - 'rejected' = disbelieved on contact
+  //  - 'exposed' = confirmed false via corroboration
+  status: 'believed' | 'suspected' | 'rejected' | 'exposed';
+  exposedDay?: number;
+  reasoning?: string;
+}
+
+export interface DeceptionLogEntry {
+  id: string;
+  day: number;
+  listener: string;
+  about: string;
+  claimType: ClaimType;
+  payload?: string;
+  isTrue: boolean;
+  outcome: 'believed' | 'suspected' | 'rejected' | 'exposed' | 'paid_off';
+  note?: string;
+}
+
 export interface Contestant {
   id: string;
   name: string;
@@ -85,6 +117,9 @@ export interface Contestant {
     suspicionLevel: number; // 0 to 100
     emotionalCloseness: number; // 0 to 100
     editBias: number; // -50 to 50
+    // Beliefs the player has planted in this NPC's head via manipulation.
+    // Each one is a claim the NPC currently treats as either believed or suspected.
+    plantedBeliefs?: PlantedBelief[];
   };
   memory: GameMemory[];
   isEliminated: boolean;
@@ -357,6 +392,9 @@ export interface GameState {
 
   // Debug: force Final 3 tie-break flow
   debugForceFinal3TieBreak?: boolean;
+
+  // Manipulation system: log of all claims the player has planted
+  deceptionLog?: DeceptionLogEntry[];
 }
 
 export interface Confessional {

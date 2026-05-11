@@ -1,6 +1,7 @@
 import { GameState, Contestant } from '@/types/game';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
+import { plantedBeliefVoteBoost } from '@/utils/deceptionEngine';
 
 export interface VotingPlan {
   target: string;
@@ -82,8 +83,9 @@ export class AIVotingStrategy {
         (m.content.includes('betrayal') || m.emotionalImpact < -3) &&
         m.day >= gameState.currentDay - 7
       );
-      score += personalConflicts.length * 25;
-      
+      // Manipulation: planted beliefs about this target push their threat up.
+      score += plantedBeliefVoteBoost(contestant.name, target.name, gameState);
+
       targetScores.set(target.name, score);
     });
     
@@ -95,6 +97,7 @@ export class AIVotingStrategy {
       const allianceTrust = playerAlliances.find(a => a.members.includes(gameState.playerName))?.strength || 50;
       playerScore -= allianceTrust * 0.8;
     }
+    playerScore += plantedBeliefVoteBoost(contestant.name, gameState.playerName, gameState);
     targetScores.set(gameState.playerName, playerScore);
     
     // Find top target

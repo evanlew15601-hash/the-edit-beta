@@ -32,6 +32,8 @@ import { computeWeeklyEpisodeRating } from '@/utils/audienceEpisodeRating';
 import { clearLocalInteractions, logInteractionToCloud } from '@/utils/interactionLogger';
 import { betaDebugBuildEnabled, canUseDebugUI, isDebugEnabled } from '@/utils/debugEnv';
 import { resetFinaleMachine } from '@/hooks/useFinaleMachine';
+import { recordClaim, tickCorroboration, type PlantClaimInput, type PlantClaimResult } from '@/utils/deceptionEngine';
+import { toast } from 'sonner';
 
 type GameActionType =
   PlayerAction['type']
@@ -262,10 +264,13 @@ export const useGameState = () => {
         contestants: cleanedContestants,
       });
 
+      // Manipulation system: NPCs spend the day quietly checking suspicious claims.
+      const afterCorroboration = tickCorroboration(specialApplied);
+
       // Apply narrative arc tracking for player twists
       let narrativeApplied = applyDailyNarrative({
-        ...specialApplied,
-        twistNarrative: specialApplied.twistNarrative || initializeTwistNarrative(specialApplied),
+        ...afterCorroboration,
+        twistNarrative: afterCorroboration.twistNarrative || initializeTwistNarrative(afterCorroboration),
       });
 
       // Mission result cutscenes for planted houseguest specials
@@ -565,6 +570,59 @@ export const useGameState = () => {
     })();
 
     
+  }, []);
+
+  // Manipulation: plant a structured claim in an NPC's head. Returns the
+  // listener's stance so the UI can describe the immediate reaction.
+  const plantClaim = useCallback((input: PlantClaimInput): PlantClaimResult | null => {
+    let result: PlantClaimResult | null = null;
+    setGameState(prev => {
+      const { state, result: r } = recordClaim(prev, input);
+      result = r;
+
+      // Mirror the trust delta into the relationship graph so other systems see it.
+      const rel = relationshipGraphEngine.getRelationship(input.listener, prev.playerName);
+      if (rel) {
+        relationshipGraphEngine.updateRelationship(
+          input.listener,
+          prev.playerName,
+          r.trustDelta,
+          r.suspicionDelta,
+          0,
+          'manipulation' as any,
+          `Player planted a claim about ${input.about}`,
+          prev.currentDay,
+        );
+      }
+
+      // Drop a memory entry on the listener so jury/recap can reference it later.
+      const contestants = state.contestants.map(c => {
+        if (c.name !== input.listener) return c;
+        const note = r.belief.status === 'rejected'
+          ? `Player tried to plant a claim about ${input.about} — did not buy it`
+          : r.belief.status === 'believed'
+            ? `Player told me about ${input.about} — taking it seriously`
+            : `Player floated a story about ${input.about} — keeping a close eye`;
+        return {
+          ...c,
+          memory: [
+            ...c.memory,
+            {
+              day: prev.currentDay,
+              type: 'dm' as const,
+              participants: [prev.playerName, input.about],
+              content: note,
+              emotionalImpact: r.belief.status === 'rejected' ? -3 : r.belief.status === 'believed' ? 1 : -1,
+              timestamp: Date.now(),
+              tags: ['rumor', 'manipulation'],
+            },
+          ],
+        };
+      });
+
+      return { ...state, contestants };
+    });
+    return result;
   }, []);
 
   const useAction = useCallback((actionType: GameActionType, target?: string, content?: string, tone?: string) => {
@@ -3465,7 +3523,42 @@ export const useGameState = () => {
     }
   }, []);
 
-  
+  // Surface manipulation outcomes the moment they land in the deception log.
+  // Newly-exposed lies push the player toward Villain; newly-believed claims
+  // give a quiet Strategist nudge.
+  const lastDeceptionCountRef = useRef(0);
+  useEffect(() => {
+    const log = gameState.deceptionLog || [];
+    if (log.length <= lastDeceptionCountRef.current) {
+      lastDeceptionCountRef.current = log.length;
+      return;
+    }
+    const fresh = log.slice(lastDeceptionCountRef.current);
+    lastDeceptionCountRef.current = log.length;
+    let editShift = 0;
+    for (const entry of fresh) {
+      if (entry.outcome === 'exposed') {
+        toast(`${entry.listener} caught the lie about ${entry.about}`, {
+          description: 'Trust collapsed and the house is talking.',
+        });
+        editShift -= 4;
+      } else if (entry.outcome === 'believed' && !entry.isTrue) {
+        editShift -= 1; // quietly villainous when a lie lands
+      }
+    }
+    if (editShift !== 0) {
+      setGameState(prev => ({
+        ...prev,
+        editPerception: {
+          ...prev.editPerception,
+          audienceApproval: Math.max(-100, Math.min(100, prev.editPerception.audienceApproval + editShift)),
+          lastEditShift: editShift,
+        },
+      }));
+    }
+  }, [gameState.deceptionLog]);
+
+
 
   // Listen for planted contract decision (reveal or keep secret)
   useEffect(() => {
@@ -3663,5 +3756,7 @@ export const useGameState = () => {
     finalizeCharacterCreation,
     // Cutscene
     completeCutscene,
+    // Manipulation
+    plantClaim,
   };
 };
