@@ -392,6 +392,9 @@ export interface GameState {
 
   // Debug: force Final 3 tie-break flow
   debugForceFinal3TieBreak?: boolean;
+
+  // Manipulation system: log of all claims the player has planted
+  deceptionLog?: DeceptionLogEntry[];
 }
 
 export interface Confessional {
