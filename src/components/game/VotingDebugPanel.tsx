@@ -70,8 +70,6 @@ export const VotingDebugPanel: React.FC = () => {
     }
   };
 
-  if (!gameState.debugMode) return null;
-
   const active = gameState.contestants.filter(c => !c.isEliminated);
   const eliminated = gameState.contestants.filter(c => c.isEliminated);
   const nonPlayerActive = active.filter(c => c.name !== gameState.playerName);
@@ -181,6 +179,8 @@ export const VotingDebugPanel: React.FC = () => {
 
     return warnings;
   }, [gameState.twistNarrative, planted, plantedWeekTasks.length, confessionalStats.week]);
+
+  if (!gameState.debugMode) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 w-[min(340px,calc(100vw-2rem))] max-h-[80vh] overflow-y-auto pointer-events-none">
