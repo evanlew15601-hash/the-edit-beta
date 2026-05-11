@@ -83,8 +83,9 @@ export class AIVotingStrategy {
         (m.content.includes('betrayal') || m.emotionalImpact < -3) &&
         m.day >= gameState.currentDay - 7
       );
-      score += personalConflicts.length * 25;
-      
+      // Manipulation: planted beliefs about this target push their threat up.
+      score += plantedBeliefVoteBoost(contestant.name, target.name, gameState);
+
       targetScores.set(target.name, score);
     });
     
