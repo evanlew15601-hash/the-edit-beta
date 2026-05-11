@@ -3720,5 +3720,7 @@ export const useGameState = () => {
     finalizeCharacterCreation,
     // Cutscene
     completeCutscene,
+    // Manipulation
+    plantClaim,
   };
 };
