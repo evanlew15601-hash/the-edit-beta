@@ -571,7 +571,53 @@ export const useGameState = () => {
     
   }, []);
 
-  const useAction = useCallback((actionType: GameActionType, target?: string, content?: string, tone?: string) => {
+  // Manipulation: plant a structured claim in an NPC's head. Returns the
+  // listener's stance so the UI can describe the immediate reaction.
+  const plantClaim = useCallback((input: PlantClaimInput): PlantClaimResult | null => {
+    let result: PlantClaimResult | null = null;
+    setGameState(prev => {
+      const { state, result: r } = recordClaim(prev, input);
+      result = r;
+
+      // Mirror the trust delta into the relationship graph so other systems see it.
+      const rel = relationshipGraphEngine.getRelationship(input.listener, prev.playerName);
+      if (rel) {
+        relationshipGraphEngine.updateRelationship(input.listener, prev.playerName, {
+          trust: r.trustDelta,
+          suspicion: r.suspicionDelta,
+        });
+      }
+
+      // Drop a memory entry on the listener so jury/recap can reference it later.
+      const contestants = state.contestants.map(c => {
+        if (c.name !== input.listener) return c;
+        const note = r.belief.status === 'rejected'
+          ? `Player tried to plant a claim about ${input.about} — did not buy it`
+          : r.belief.status === 'believed'
+            ? `Player told me about ${input.about} — taking it seriously`
+            : `Player floated a story about ${input.about} — keeping a close eye`;
+        return {
+          ...c,
+          memory: [
+            ...c.memory,
+            {
+              day: prev.currentDay,
+              type: 'dm' as const,
+              participants: [prev.playerName, input.about],
+              content: note,
+              emotionalImpact: r.belief.status === 'rejected' ? -3 : r.belief.status === 'believed' ? 1 : -1,
+              timestamp: Date.now(),
+              tags: ['rumor', 'manipulation'],
+            },
+          ],
+        };
+      });
+
+      return { ...state, contestants };
+    });
+    return result;
+  }, []);
+
     debugLog('=== ACTION TRIGGERED ===');
     debugLog('Action Type:', actionType);
     debugLog('Target:', target);
