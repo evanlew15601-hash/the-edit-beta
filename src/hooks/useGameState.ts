@@ -618,6 +618,7 @@ export const useGameState = () => {
     return result;
   }, []);
 
+  const useAction = useCallback((actionType: GameActionType, target?: string, content?: string, tone?: string) => {
     debugLog('=== ACTION TRIGGERED ===');
     debugLog('Action Type:', actionType);
     debugLog('Target:', target);
