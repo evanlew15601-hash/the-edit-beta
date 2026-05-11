@@ -180,6 +180,8 @@ export const VotingDebugPanel: React.FC = () => {
     return warnings;
   }, [gameState.twistNarrative, planted, plantedWeekTasks.length, confessionalStats.week]);
 
+  if (!gameState.debugMode) return null;
+
   return (
     <div className="fixed bottom-4 right-4 z-50 w-[min(340px,calc(100vw-2rem))] max-h-[80vh] overflow-y-auto pointer-events-none">
       <Card className="p-4 shadow-xl border border-border bg-card/95 backdrop-blur-md rounded-lg pointer-events-auto">
