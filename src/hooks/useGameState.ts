@@ -3523,7 +3523,42 @@ export const useGameState = () => {
     }
   }, []);
 
-  
+  // Surface manipulation outcomes the moment they land in the deception log.
+  // Newly-exposed lies push the player toward Villain; newly-believed claims
+  // give a quiet Strategist nudge.
+  const lastDeceptionCountRef = useRef(0);
+  useEffect(() => {
+    const log = gameState.deceptionLog || [];
+    if (log.length <= lastDeceptionCountRef.current) {
+      lastDeceptionCountRef.current = log.length;
+      return;
+    }
+    const fresh = log.slice(lastDeceptionCountRef.current);
+    lastDeceptionCountRef.current = log.length;
+    let editShift = 0;
+    for (const entry of fresh) {
+      if (entry.outcome === 'exposed') {
+        toast(`${entry.listener} caught the lie about ${entry.about}`, {
+          description: 'Trust collapsed and the house is talking.',
+        });
+        editShift -= 4;
+      } else if (entry.outcome === 'believed' && !entry.isTrue) {
+        editShift -= 1; // quietly villainous when a lie lands
+      }
+    }
+    if (editShift !== 0) {
+      setGameState(prev => ({
+        ...prev,
+        editPerception: {
+          ...prev.editPerception,
+          audienceApproval: Math.max(-100, Math.min(100, prev.editPerception.audienceApproval + editShift)),
+          lastEditShift: editShift,
+        },
+      }));
+    }
+  }, [gameState.deceptionLog]);
+
+
 
   // Listen for planted contract decision (reveal or keep secret)
   useEffect(() => {
