@@ -202,6 +202,7 @@ describe('deceptionEngine eliminated listener regressions', () => {
       state = forceStatus(state, 'Eliminated', 'believed', { isTrue: false });
 
       const beforeElimTrust = state.contestants.find((c) => c.name === 'Eliminated')!.psychProfile.trustLevel;
+      const beforeElimSuspicion = state.contestants.find((c) => c.name === 'Eliminated')!.psychProfile.suspicionLevel;
       const beforeElimLog = state.deceptionLog!.length;
 
       // Tick many times
@@ -220,7 +221,7 @@ describe('deceptionEngine eliminated listener regressions', () => {
       // Eliminated listener must remain untouched
       expect(eliminated.psychProfile.plantedBeliefs![0].status).toBe('believed');
       expect(eliminated.psychProfile.trustLevel).toBe(beforeElimTrust);
-      expect(eliminated.psychProfile.suspicionLevel).toBe(30);
+      expect(eliminated.psychProfile.suspicionLevel).toBe(beforeElimSuspicion);
       // Only one exposure log (from Active)
       const exposureLogs = state.deceptionLog!.slice(beforeElimLog).filter((e) => e.outcome === 'exposed');
       expect(exposureLogs.length).toBeLessThanOrEqual(1);
