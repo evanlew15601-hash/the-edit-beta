@@ -247,6 +247,7 @@ export function tickCorroboration(state: GameState): GameState {
   const log: DeceptionLogEntry[] = [...(state.deceptionLog || [])];
 
   const contestants = state.contestants.map((c) => {
+    if (c.isEliminated) return c;
     const beliefs = c.psychProfile.plantedBeliefs;
     if (!beliefs || beliefs.length === 0) return c;
 
@@ -319,7 +320,7 @@ export function plantedBeliefVoteBoost(
   state: GameState,
 ): number {
   const listener = state.contestants.find((c) => c.name === listenerName);
-  if (!listener) return 0;
+  if (!listener || listener.isEliminated) return 0;
   const beliefs = listener.psychProfile.plantedBeliefs || [];
   let boost = 0;
   for (const b of beliefs) {
