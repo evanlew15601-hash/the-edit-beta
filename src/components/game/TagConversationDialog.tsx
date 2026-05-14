@@ -150,17 +150,46 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Target</label>
-              <Select value={selectedTarget} onValueChange={setSelectedTarget} disabled={targetType !== 'Person'}>
-                <SelectTrigger><SelectValue placeholder={targetType === 'Person' ? 'Choose who to talk to...' : `Not needed for ${targetType}`} /></SelectTrigger>
-                <SelectContent className="z-50 bg-popover text-popover-foreground">
-                  {targetOptions.map((contestant) => (
-                    <SelectItem key={contestant.id} value={contestant.name}>
-                      {contestant.name} - {contestant.publicPersona}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {targetType === 'Person' && (
+                <Select value={selectedTarget} onValueChange={setSelectedTarget}>
+                  <SelectTrigger><SelectValue placeholder="Choose who to talk to..." /></SelectTrigger>
+                  <SelectContent className="z-50 bg-popover text-popover-foreground">
+                    {targetOptions.map((contestant) => (
+                      <SelectItem key={contestant.id} value={contestant.name}>
+                        {contestant.name} - {contestant.publicPersona}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {targetType === 'Group' && (
+                <ScrollArea className="h-32 rounded border border-border p-2">
+                  <div className="space-y-1">
+                    {contestants.filter(c => c.name !== gameState.playerName).map(c => (
+                      <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted px-1 py-0.5 rounded">
+                        <Checkbox
+                          checked={selectedGroupTargets.includes(c.name)}
+                          onCheckedChange={() => toggleGroupTarget(c.name)}
+                        />
+                        <span>{c.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+              {targetType !== 'Person' && targetType !== 'Group' && (
+                <div className="text-xs text-muted-foreground py-2">
+                  No specific target needed for {targetType}.
+                </div>
+              )}
             </div>
+          </div>
+
+          {targetType === 'Group' && selectedGroupTargets.length > 0 && (
+            <div className="text-xs text-muted-foreground">
+              Targeting {selectedGroupTargets.length} contestant{selectedGroupTargets.length === 1 ? '' : 's'}: {selectedGroupTargets.join(', ')}
+            </div>
+          )}
           </div>
 
           <ScrollArea className="h-[50vh] pr-4">
