@@ -97,12 +97,12 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-3xl max-h-[90vh]">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Tag {interaction.charAt(0).toUpperCase() + interaction.slice(1)}</DialogTitle>
           <DialogDescription>Pick tags to shape your intent, tone, topic, and target.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="flex flex-col flex-1 min-h-0 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm font-medium">Intent</label>
@@ -148,7 +148,7 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 md:col-span-2">
               <label className="text-sm font-medium">Target</label>
               {targetType === 'Person' && (
                 <Select value={selectedTarget} onValueChange={setSelectedTarget}>
@@ -191,7 +191,7 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
             </div>
           )}
 
-          <ScrollArea className="h-[50vh] pr-4">
+          <ScrollArea className="flex-1 min-h-0 pr-4">
             <div className="grid grid-cols-1 gap-3">
               {filtered.map((ch) => {
                 const seed = `${gameState.currentDay}|${gameState.playerName}|${selectedTarget}|${ch.choiceId}`;
@@ -215,15 +215,24 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
                   </button>
                 );
               })}
+              {filtered.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-8">
+                  No choices match the current filters. Try clearing Intent/Tone/Topic.
+                </div>
+              )}
             </div>
           </ScrollArea>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-2 border-t border-border">
             <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button 
-              variant="action" 
-              onClick={handleSubmit} 
-              disabled={!selectedChoiceId || (targetType === 'Person' && !selectedTarget)} 
+            <Button
+              variant="action"
+              onClick={handleSubmit}
+              disabled={
+                !selectedChoiceId ||
+                (targetType === 'Person' && !selectedTarget) ||
+                (targetType === 'Group' && selectedGroupTargets.length === 0)
+              }
               className="flex-1"
             >
               Send
