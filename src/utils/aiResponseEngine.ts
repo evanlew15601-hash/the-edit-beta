@@ -274,128 +274,111 @@ export function calculateAILeakChance(parsedInput: SpeechAct, psychProfile: any)
   return Math.min(0.8, baseChance); // Cap at 80%
 }
 
-// Generate AI-driven NPC response based on parsed input (pre-written, in-character templates)
+// Rule-based fallback. Naturalistic, persona-flavored, never the only voice the
+// player hears (cloud AI is the default — see localLLM.ts).
+const pick = <T,>(seed: string, arr: T[]): T => {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return arr[Math.abs(h) % arr.length];
+};
+
 export function generateAIResponse(parsedInput: SpeechAct, npc: Contestant, content: string): string {
   const bias = getNPCPersonalityBias(npc);
   const mention = parsedInput.namedMentions?.[0];
+  const archetype = deriveArchetype(npc);
+  const seed = `${npc.name}|${parsedInput.primary}|${content.slice(0, 24)}`;
 
   let line = '';
 
   switch (parsedInput.primary) {
     case 'alliance_proposal':
       if (bias.trustfulness > 60) {
-        line = 'I have been thinking the same—we could help each other.';
+        line = pick(seed, [
+          "Honestly? I've been thinking the same thing.",
+          "Yeah, okay. Let's see how it plays.",
+          "I'm in — quiet though, no big show.",
+        ]);
       } else if (bias.suspiciousness > 70) {
-        line = 'Why now? What are you not saying?';
+        line = pick(seed, [
+          "Why now? What aren't you telling me?",
+          "That's convenient. Who else have you said this to?",
+          "Hmm. Let me think about who benefits from this.",
+        ]);
       } else {
-        line = 'I need to think about this before I commit.';
+        line = pick(seed, [
+          "Maybe. Give me a day to read the room.",
+          "I hear you. I'm not committing tonight though.",
+          "Possibly. Tell me who else is in.",
+        ]);
       }
       break;
 
     case 'flirting':
-      if (bias.emotionalVolatility > 60) {
-        line = 'You are charming. Let us keep this quiet and real.';
-      } else {
-        line = 'Thanks. I prefer to stay strategic right now.';
-      }
+      line = bias.emotionalVolatility > 60
+        ? pick(seed, ["You're trouble, you know that?", "Easy. Cameras everywhere.", "Don't make me laugh, I'm trying to look serious."])
+        : pick(seed, ["Cute. Try that on someone else.", "Flattery, huh? Noted.", "Mm. Let's keep our heads on the game."]);
       break;
 
     case 'threatening':
-      if (bias.revengefulness > 70) {
-        line = 'Is that a threat? You just picked the wrong person.';
-      } else {
-        line = 'I do not accept threats; try another approach.';
-      }
+      line = bias.revengefulness > 70
+        ? pick(seed, ["Was that a threat? Bad call.", "You really want to do this with me?", "Cool. I'll remember that."])
+        : pick(seed, ["I don't do threats. Try again.", "That's not the move. Walk it back.", "Okay. Noted, and not forgotten."]);
       break;
 
     case 'gaslighting':
-      if (bias.manipulationDetection > 60) {
-        line = 'Do not try to manipulate me—I know exactly what happened.';
-      } else {
-        line = 'I hear you, but I remember it differently.';
-      }
+      line = bias.manipulationDetection > 60
+        ? pick(seed, ["Don't. I know what happened.", "Nice try. I was there.", "You're rewriting it. Stop."])
+        : pick(seed, ["I hear you, but I remember it differently.", "Maybe. I'm not sure that's how it went.", "Hm. That's not what I saw."]);
       break;
 
     case 'information_fishing':
       if (bias.suspiciousness > 70) {
-        line = mention ? `Interesting that you are asking about ${mention}. Why do you want to know?` : 'Interesting that you are asking. Why do you want to know?';
+        line = mention
+          ? pick(seed, [`Why are you asking about ${mention}?`, `Interesting question about ${mention}. Why?`, `${mention}? What do you actually want to know?`])
+          : pick(seed, ["Why are you asking?", "What's this really about?", "Curious why you want to know."]);
       } else {
-        line = mention ? `If this is about ${mention}, give me specifics—names or numbers.` : 'If you want details, give me specifics—names or numbers.';
+        line = mention
+          ? pick(seed, [`If it's about ${mention}, ask me straight.`, `${mention}? Be specific.`])
+          : pick(seed, ["Be specific — votes, alliances, or trust?", "What are you actually after?"]);
       }
       break;
 
     default: {
-      const text = content.toLowerCase();
-      const personalBackground = /(where\s+are\s+you\s+from|where\s+do\s+you\s+live|what\s+(city|state|country)\s+are\s+you\s+from)/i.test(content);
-      const checkIn = /\bhow('?s| is)?\b.*\b(today|day|going)\b/.test(text)
-        || /\bhow (are you)\b/.test(text)
-        || /\bhow (are you|you'?re)\s+(feeling|doing)\b/.test(text)
-        || /\bhow do you feel\b/.test(text)
-        || /\bhow is it going\b/.test(text);
+      const checkIn = /\bhow('?s| is)?\b.*\b(today|day|going)\b/i.test(content)
+        || /\bhow are you\b/i.test(content)
+        || /\bhow do you feel\b/i.test(content);
 
-      const extractTopicPhrase = (original: string): string | null => {
-        const patterns = [
-          /think\s+about\s+([^.!?"']+)/i,
-          /think\s+of\s+([^.!?"']+)/i,
-          /about\s+([^.!?"']+)/i,
-        ];
-        for (const re of patterns) {
-          const m = original.match(re);
-          if (m && m[1]) {
-            let phrase = m[1].trim();
-            phrase = phrase.replace(/^\s*"|"\\s*$/g, '');
-            const words = phrase.split(/\s+/).slice(0, 6);
-            phrase = words.join(' ').replace(/[\s,;.]+$/, '');
-            if (phrase.length >= 3) return phrase;
-          }
-        }
-        const stop = new Set([
-          'about','today','that','this','with','your','what','when','where','why','how','going','really','just','like','have','been','they','them','their','there','these','those','think','thinking','wonder','wondering','wondered','know','feel','feeling','doing','say','saying','ask','asking','talk','talking','chat','chatting','discuss','discussing','discussion','question','topic','make','made','take','took','give','gave','keep','kept','need','needed','want','wanted','right','okay','still','very','much','maybe','probably','literally','honestly','kinda','sorta','thing','so','far',
-          'from','into','onto','over','under','after','before','around','through','against','between','within','without','upon','inside','outside','across','toward','towards','behind','beside','besides','above','below','near','off','out','in','on','at','for','to','of','as','by','up','down','via','per',
-          'you','your','yours','me','my','mine','we','our','ours','he','she','it','its','they','them','their','theirs','am','is','are','was','were','be','been','being',
-          'excited','happy','glad','nervous','thrilled','pumped','here'
-        ]);
-        const candidates = (original.toLowerCase().match(/\b[a-z]{3,}\b/g) || []).filter(w => !stop.has(w));
-        return candidates[0] ? candidates[0] : null;
-      };
-
-      if (personalBackground) {
-        line = 'I keep personal history off the table; the game is what matters.';
-      } else if (parsedInput.primary === 'neutral_conversation' && checkIn) {
+      if (checkIn) {
         if (npc.psychProfile.suspicionLevel > 60) {
-          line = 'It is tense—people are sniffing for cracks. I am staying quiet.';
+          line = pick(seed, ["Tense. People are sniffing for cracks.", "On edge, honestly.", "Quiet. I'm watching."]);
         } else if (npc.psychProfile.trustLevel > 50) {
-          line = 'Busy. A couple sparks in the kitchen, but I am keeping us out of it.';
+          line = pick(seed, ["Busy. Couple of sparks in the kitchen earlier.", "Good. Keeping our heads down.", "Fine — better now you're here."]);
         } else {
-          line = 'Fine. Reading the room and not overplaying anything.';
+          line = pick(seed, ["Fine. Reading the room.", "I'm okay. You?", "Hanging in. You good?"]);
         }
       } else if (parsedInput.informationSeeking) {
-        const phrase = extractTopicPhrase(content);
-        line = phrase ? `What exactly about ${phrase}?` : (mention ? `What exactly about ${mention}?` : 'Be specific—alliances, votes, or trust?');
+        line = mention
+          ? pick(seed, [`What exactly about ${mention}?`, `${mention}? What part?`])
+          : pick(seed, ["What part though?", "Be specific — I'll bite.", "Like… which angle?"]);
+      } else if (npc.psychProfile.suspicionLevel > 60) {
+        line = pick(seed, ["I'm keeping distance till the dust settles.", "Not the day for big moves.", "Let me hang back on this one."]);
+      } else if (npc.psychProfile.trustLevel > 50) {
+        line = pick(seed, ["Steady. Let's keep it small.", "Yeah, I'm with you on that.", "Same page. Quietly though."]);
       } else {
-        if (npc.psychProfile.suspicionLevel > 60) {
-          line = 'I am keeping distance until the dust settles.';
-        } else if (npc.psychProfile.trustLevel > 50) {
-          line = 'Steady—let us keep our footprint small and accurate.';
-        } else {
-          line = 'Let us be careful and avoid attention.';
-        }
+        line = pick(seed, ["Let's not draw attention.", "I'd rather wait this out.", "Hm. Maybe. Maybe not."]);
       }
       break;
     }
   }
 
-  // Emotional reactions based on subtext (brief add-on)
+  // Subtext add-ons (kept short)
   if (parsedInput.emotionalSubtext.anger > 60 && bias.emotionalVolatility > 50) {
-    line = `${line} Keep your tone steady with me.`;
+    line = `${line} Watch your tone with me.`;
   }
   if (parsedInput.manipulationLevel > 70 && bias.manipulationDetection > 60) {
-    line = `${line} I see through tricks.`;
+    line = `${line} I see what you're doing.`;
   }
 
-  const archetype = deriveArchetype(npc);
   const toned = applyArchetypeTone(line, archetype, parsedInput, content).trim();
-
-  // Enforce 1–2 sentences
   return toned.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
 }
