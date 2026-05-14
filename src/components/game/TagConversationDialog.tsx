@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useGame } from '@/contexts/GameContext';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { Choice, IntentTag, ToneTag, TopicTag, TargetType, InteractionType } from '@/types/tagDialogue';
@@ -19,6 +20,7 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
   const { gameState, tagTalk } = useGame();
   const contestants = useMemo(() => gameState.contestants.filter((c) => !c.isEliminated), [gameState.contestants]);
   const [selectedTarget, setSelectedTarget] = useState<string>('');
+  const [selectedGroupTargets, setSelectedGroupTargets] = useState<string[]>([]);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string>('');
   const [intent, setIntent] = useState<IntentTag | ''>('');
   const [tone, setTone] = useState<ToneTag | ''>('');
@@ -31,6 +33,7 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
     if (isOpen) {
       // Reset selections
       setSelectedTarget('');
+      setSelectedGroupTargets([]);
       setSelectedChoiceId('');
       setIntent('');
       setTone('');
@@ -57,13 +60,30 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
   }, [intent, tone, topic, targetType, interaction, targetContestant, gameState]);
 
   const handleSubmit = () => {
-    const target = targetType === 'Person' ? selectedTarget : targetType.toLowerCase();
-    if (selectedChoiceId && (targetType !== 'Person' || target)) {
-      tagTalk(target, selectedChoiceId, interaction);
-      setSelectedTarget('');
-      setSelectedChoiceId('');
-      onClose();
+    if (!selectedChoiceId) return;
+    if (targetType === 'Person') {
+      if (!selectedTarget) return;
+      tagTalk(selectedTarget, selectedChoiceId, interaction);
+    } else if (targetType === 'Group') {
+      if (selectedGroupTargets.length === 0) return;
+      // Apply the choice to each selected contestant for a group effect
+      selectedGroupTargets.forEach(name => tagTalk(name, selectedChoiceId, interaction));
+    } else if (targetType === 'Self') {
+      tagTalk(gameState.playerName, selectedChoiceId, interaction);
+    } else {
+      // Audience / Object — no specific contestant; pass type as marker
+      tagTalk(targetType.toLowerCase(), selectedChoiceId, interaction);
     }
+    setSelectedTarget('');
+    setSelectedGroupTargets([]);
+    setSelectedChoiceId('');
+    onClose();
+  };
+
+  const toggleGroupTarget = (name: string) => {
+    setSelectedGroupTargets(prev =>
+      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    );
   };
 
   const intents: IntentTag[] = ['BuildAlliance','ProbeForInfo','Divert','SowDoubt','BoostMorale','Flirt','Insult','MakeJoke','RevealSecret','Deflect'];
@@ -130,18 +150,46 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Target</label>
-              <Select value={selectedTarget} onValueChange={setSelectedTarget} disabled={targetType !== 'Person'}>
-                <SelectTrigger><SelectValue placeholder={targetType === 'Person' ? 'Choose who to talk to...' : `Not needed for ${targetType}`} /></SelectTrigger>
-                <SelectContent className="z-50 bg-popover text-popover-foreground">
-                  {targetOptions.map((contestant) => (
-                    <SelectItem key={contestant.id} value={contestant.name}>
-                      {contestant.name} - {contestant.publicPersona}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {targetType === 'Person' && (
+                <Select value={selectedTarget} onValueChange={setSelectedTarget}>
+                  <SelectTrigger><SelectValue placeholder="Choose who to talk to..." /></SelectTrigger>
+                  <SelectContent className="z-50 bg-popover text-popover-foreground">
+                    {targetOptions.map((contestant) => (
+                      <SelectItem key={contestant.id} value={contestant.name}>
+                        {contestant.name} - {contestant.publicPersona}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {targetType === 'Group' && (
+                <ScrollArea className="h-32 rounded border border-border p-2">
+                  <div className="space-y-1">
+                    {contestants.filter(c => c.name !== gameState.playerName).map(c => (
+                      <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted px-1 py-0.5 rounded">
+                        <Checkbox
+                          checked={selectedGroupTargets.includes(c.name)}
+                          onCheckedChange={() => toggleGroupTarget(c.name)}
+                        />
+                        <span>{c.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+              {targetType !== 'Person' && targetType !== 'Group' && (
+                <div className="text-xs text-muted-foreground py-2">
+                  No specific target needed for {targetType}.
+                </div>
+              )}
             </div>
           </div>
+
+          {targetType === 'Group' && selectedGroupTargets.length > 0 && (
+            <div className="text-xs text-muted-foreground">
+              Targeting {selectedGroupTargets.length} contestant{selectedGroupTargets.length === 1 ? '' : 's'}: {selectedGroupTargets.join(', ')}
+            </div>
+          )}
 
           <ScrollArea className="h-[50vh] pr-4">
             <div className="grid grid-cols-1 gap-3">
