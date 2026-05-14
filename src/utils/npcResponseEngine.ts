@@ -4,6 +4,7 @@ import { speechActClassifier, SpeechAct } from './speechActClassifier';
 import { relationshipGraphEngine, Relationship } from './relationshipGraphEngine';
 import { npcAutonomyEngine, NPCPersonalityProfile } from './npcAutonomyEngine';
 import { generateLocalAIReply } from './localLLM';
+import { deriveArchetype } from './aiResponseEngine';
 import { logInteractionToCloud, fetchRecentInteractions } from './interactionLogger';
 import { analyzeSurface } from './textSurfaceAnalyzer';
 import { conversationIntentEngine } from './conversationIntentEngine';
