@@ -190,7 +190,6 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
               Targeting {selectedGroupTargets.length} contestant{selectedGroupTargets.length === 1 ? '' : 's'}: {selectedGroupTargets.join(', ')}
             </div>
           )}
-          </div>
 
           <ScrollArea className="h-[50vh] pr-4">
             <div className="grid grid-cols-1 gap-3">
