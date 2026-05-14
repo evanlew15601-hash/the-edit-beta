@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/enhanced-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useGame } from '@/contexts/GameContext';
 import { TAG_CHOICES } from '@/data/tagChoices';
 import { Choice, IntentTag, ToneTag, TopicTag, TargetType, InteractionType } from '@/types/tagDialogue';
