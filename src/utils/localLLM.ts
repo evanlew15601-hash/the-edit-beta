@@ -1,8 +1,9 @@
 import { generateAIResponse } from "./aiResponseEngine";
 
 // AI reply generation.
-// Default: local deterministic phrasing (no backend required).
-// Optional: if VITE_ENABLE_CLOUD_AI=1 and Supabase env vars are present, use the edge function.
+// Default: cloud AI via the `generate-ai-reply` Supabase edge function.
+// Fallback: rule-based phrasing in aiResponseEngine when cloud is unreachable
+// or explicitly disabled with VITE_DISABLE_CLOUD_AI=1 (mostly for tests).
 
 // Simple LRU cache for short prompts
 const CACHE_LIMIT = 200;
