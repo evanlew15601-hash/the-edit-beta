@@ -1,8 +1,9 @@
 import { generateAIResponse } from "./aiResponseEngine";
 
 // AI reply generation.
-// Default: local deterministic phrasing (no backend required).
-// Optional: if VITE_ENABLE_CLOUD_AI=1 and Supabase env vars are present, use the edge function.
+// Default: cloud AI via the `generate-ai-reply` Supabase edge function.
+// Fallback: rule-based phrasing in aiResponseEngine when cloud is unreachable
+// or explicitly disabled with VITE_DISABLE_CLOUD_AI=1 (mostly for tests).
 
 // Simple LRU cache for short prompts
 const CACHE_LIMIT = 200;
@@ -34,58 +35,29 @@ function norm(x: any) {
 function sanitizeOutput(text: string, maxSentences: number) {
   let t = String(text || "").trim();
 
-  // Common patterns to strip
+  // Strip wrapping quotes / backticks but keep natural voice intact
   t = t.replace(/^[\s\-–—]+/, "");
-  t = t.replace(/^[\"'""`]+|[\"'""`]+$/g, ""); // drop wrapping quotes
+  t = t.replace(/^["'`""]+|["'`""]+$/g, "");
 
-  // If quoted line appears inside, prefer it
-  const quoted = t.match(/\\"([^\\"]{3,})\\"/);
-  if (quoted) t = quoted[1];
-
-  // Drop speaker labels, stage directions, or third-person narration prefixes
-  t = t.replace(/^(assistant|system|npc)\s*:/i, "");
+  // Drop speaker labels and stage directions only
+  t = t.replace(/^(assistant|system|npc|character)\s*:\s*/i, "").trim();
   t = t.replace(/^[A-Z][a-z]+:\s*/, "");
   t = t.replace(/^\(([^)]+)\)\s*/, "");
   t = t.replace(/^\*[^*]+\*\s*/, "");
-  t = t.replace(/^[A-Z][a-z]+\s+(glances|stares|keeps|says|whispers|mutters|shrugs|smiles|laughs)[^.]*\.\s*/i, "");
 
   // Remove meta / OOC hints
   t = t.replace(/\b(as an AI|as a language model|cannot discuss (policy|meta)|I cannot reveal)\b.*$/i, "").trim();
 
-  // Enforce first-person voice quickly by removing lingering labels/quotes
-  t = t.replace(/^[\"'""]+/, "").replace(/[\"'""]+$/, "");
-
-  // Split into sentences
-  let parts = t
+  const max = Math.max(1, Math.min(2, maxSentences || 2));
+  const parts = t
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, max);
 
-  const max = Math.max(1, Math.min(2, maxSentences || 2));
-
-  if (parts.length > max) {
-    // Prefer sentences that actually talk about strategy or game concepts
-    const strategicRegex = /\b(vote|votes|numbers|target|alliance|trust|plan|count|jury)\b/i;
-    const prioritized = parts.filter((p) => strategicRegex.test(p));
-
-    const selected: string[] = [];
-    for (const p of prioritized) {
-      if (selected.length >= max) break;
-      selected.push(p);
-    }
-    for (const p of parts) {
-      if (selected.length >= max) break;
-      if (!selected.includes(p)) selected.push(p);
-    }
-    parts = selected.slice(0, max);
-  }
-
-  t = parts.join(" ");
-
-  // Avoid empty line
-  if (!t) t = "I will keep an eye on that.";
-
-  return t.trim();
+  t = parts.join(" ").trim();
+  if (!t) t = "Hm. Let me sit with that.";
+  return t;
 }
 
 // Lightweight validator to catch meta / obviously broken lines.
@@ -155,19 +127,21 @@ export async function generateLocalAIReply(
     return sanitizeOutput(line, maxSent);
   };
 
-  const cloudEnabled =
-    import.meta.env.VITE_ENABLE_CLOUD_AI === '1' &&
+  // Cloud AI is the default per the project's response-engine memory; rule-based
+  // is only a fallback for offline/error cases. Disable explicitly with
+  // VITE_DISABLE_CLOUD_AI=1 (mostly for tests).
+  const cloudDisabled = import.meta.env.VITE_DISABLE_CLOUD_AI === '1';
+  const cloudReachable =
     !!import.meta.env.VITE_SUPABASE_URL &&
     !!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!cloudEnabled) {
+  if (cloudDisabled || !cloudReachable) {
     const cleaned = localLine();
     cacheSet(cacheKey, cleaned);
     return cleaned;
   }
 
   try {
-    // Dynamically import Supabase only when cloud AI is explicitly enabled.
     const { supabase } = await import('@/integrations/supabase/client');
 
     const { data, error } = await supabase.functions.invoke('generate-ai-reply', {
@@ -178,6 +152,7 @@ export async function generateLocalAIReply(
         conversationType: payload.conversationType,
         parsedInput: payload.parsedInput,
         socialContext: payload.socialContext,
+        playerName: payload.playerName,
       },
     });
 

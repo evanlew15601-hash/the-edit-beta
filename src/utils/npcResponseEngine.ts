@@ -4,6 +4,7 @@ import { speechActClassifier, SpeechAct } from './speechActClassifier';
 import { relationshipGraphEngine, Relationship } from './relationshipGraphEngine';
 import { npcAutonomyEngine, NPCPersonalityProfile } from './npcAutonomyEngine';
 import { generateLocalAIReply } from './localLLM';
+import { deriveArchetype } from './aiResponseEngine';
 import { logInteractionToCloud, fetchRecentInteractions } from './interactionLogger';
 import { analyzeSurface } from './textSurfaceAnalyzer';
 import { conversationIntentEngine } from './conversationIntentEngine';
@@ -182,7 +183,29 @@ class NPCResponseEngine {
       .map(i => i.playerMessage || i.aiResponse)
       .filter(Boolean);
 
-    // Use local interaction history + in-game memory for content generation
+    // Format active planted beliefs into short, in-voice statements the model
+    // can treat as fact. Only "believed" / "suspected" beliefs influence behavior.
+    const activeBeliefs = (npc.psychProfile.plantedBeliefs || [])
+      .filter(b => b.status === 'believed' || b.status === 'suspected')
+      .slice(-4)
+      .map(b => {
+        switch (b.claimType) {
+          case 'voting_intent':
+            return `${b.about} is planning to vote ${b.payload || 'someone in our group'} out`;
+          case 'alliance_exists':
+            return `${b.about} is secretly working with ${b.payload || 'another houseguest'}`;
+          case 'said_about_you':
+            return `${b.about} has been talking trash about you behind your back`;
+          case 'is_threat':
+            return `${b.about} is a real threat to your game`;
+          default:
+            return `Something ${b.speaker} told you about ${b.about}`;
+        }
+      });
+
+    const playerIsAlly = !!gameState.playerName &&
+      context.socialContext.alliances.includes(gameState.playerName);
+
     let content: string;
     try {
       content = await generateLocalAIReply({
@@ -192,12 +215,16 @@ class NPCResponseEngine {
           name: npc.name,
           publicPersona: npc.publicPersona,
           psychProfile: npc.psychProfile,
-        },
+          // archetype is read by the edge function for voice guidance
+          archetype: deriveArchetype(npc),
+        } as any,
         tone,
         conversationType,
         socialContext: {
           alliances: context.socialContext.alliances,
           threats: context.socialContext.threats,
+          opportunities: context.socialContext.opportunities,
+          currentDramaTension: context.socialContext.currentDramaTension,
           recentEvents: [
             ...recentEventsFromLog,
             ...context.socialContext.recentEvents,
@@ -205,7 +232,9 @@ class NPCResponseEngine {
           lastInteractions: [
             ...lastInteractionsFromLog,
             ...context.recentMemories.slice(-3).map(m => m.content),
-          ].slice(0, 3),
+          ].slice(0, 4),
+          playerIsAlly,
+          plantedBeliefs: activeBeliefs,
         },
         playerName: gameState.playerName,
       });
