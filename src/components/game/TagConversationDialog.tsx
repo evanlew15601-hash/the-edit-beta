@@ -20,6 +20,7 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
   const { gameState, tagTalk } = useGame();
   const contestants = useMemo(() => gameState.contestants.filter((c) => !c.isEliminated), [gameState.contestants]);
   const [selectedTarget, setSelectedTarget] = useState<string>('');
+  const [selectedGroupTargets, setSelectedGroupTargets] = useState<string[]>([]);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string>('');
   const [intent, setIntent] = useState<IntentTag | ''>('');
   const [tone, setTone] = useState<ToneTag | ''>('');
@@ -32,6 +33,7 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
     if (isOpen) {
       // Reset selections
       setSelectedTarget('');
+      setSelectedGroupTargets([]);
       setSelectedChoiceId('');
       setIntent('');
       setTone('');
@@ -58,13 +60,30 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
   }, [intent, tone, topic, targetType, interaction, targetContestant, gameState]);
 
   const handleSubmit = () => {
-    const target = targetType === 'Person' ? selectedTarget : targetType.toLowerCase();
-    if (selectedChoiceId && (targetType !== 'Person' || target)) {
-      tagTalk(target, selectedChoiceId, interaction);
-      setSelectedTarget('');
-      setSelectedChoiceId('');
-      onClose();
+    if (!selectedChoiceId) return;
+    if (targetType === 'Person') {
+      if (!selectedTarget) return;
+      tagTalk(selectedTarget, selectedChoiceId, interaction);
+    } else if (targetType === 'Group') {
+      if (selectedGroupTargets.length === 0) return;
+      // Apply the choice to each selected contestant for a group effect
+      selectedGroupTargets.forEach(name => tagTalk(name, selectedChoiceId, interaction));
+    } else if (targetType === 'Self') {
+      tagTalk(gameState.playerName, selectedChoiceId, interaction);
+    } else {
+      // Audience / Object — no specific contestant; pass type as marker
+      tagTalk(targetType.toLowerCase(), selectedChoiceId, interaction);
     }
+    setSelectedTarget('');
+    setSelectedGroupTargets([]);
+    setSelectedChoiceId('');
+    onClose();
+  };
+
+  const toggleGroupTarget = (name: string) => {
+    setSelectedGroupTargets(prev =>
+      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    );
   };
 
   const intents: IntentTag[] = ['BuildAlliance','ProbeForInfo','Divert','SowDoubt','BoostMorale','Flirt','Insult','MakeJoke','RevealSecret','Deflect'];
