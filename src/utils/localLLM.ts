@@ -126,19 +126,21 @@ export async function generateLocalAIReply(
     return sanitizeOutput(line, maxSent);
   };
 
-  const cloudEnabled =
-    import.meta.env.VITE_ENABLE_CLOUD_AI === '1' &&
+  // Cloud AI is the default per the project's response-engine memory; rule-based
+  // is only a fallback for offline/error cases. Disable explicitly with
+  // VITE_DISABLE_CLOUD_AI=1 (mostly for tests).
+  const cloudDisabled = import.meta.env.VITE_DISABLE_CLOUD_AI === '1';
+  const cloudReachable =
     !!import.meta.env.VITE_SUPABASE_URL &&
     !!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!cloudEnabled) {
+  if (cloudDisabled || !cloudReachable) {
     const cleaned = localLine();
     cacheSet(cacheKey, cleaned);
     return cleaned;
   }
 
   try {
-    // Dynamically import Supabase only when cloud AI is explicitly enabled.
     const { supabase } = await import('@/integrations/supabase/client');
 
     const { data, error } = await supabase.functions.invoke('generate-ai-reply', {
@@ -149,6 +151,7 @@ export async function generateLocalAIReply(
         conversationType: payload.conversationType,
         parsedInput: payload.parsedInput,
         socialContext: payload.socialContext,
+        playerName: payload.playerName,
       },
     });
 
