@@ -33,61 +33,41 @@ export function deriveArchetype(npc: Contestant): Archetype {
   return 'Floater';
 }
 
-// Remove slang/jargon and enforce formal, neutral wording
-export function sanitizeAndFormalize(text: string): string {
-  let t = text;
-  const replacements: Array<[RegExp, string]> = [
-    [/\bI'm\b/g, 'I am'], [/\byou're\b/gi, 'you are'], [/\bit's\b/gi, 'it is'], [/\blet's\b/gi, 'let us'],
-    [/\bthat's\b/gi, 'that is'], [/\bthere's\b/gi, 'there is'], [/\bwe're\b/gi, 'we are'], [/\bthey're\b/gi, 'they are'],
-    [/\bdon't\b/gi, 'do not'], [/\bdoesn't\b/gi, 'does not'], [/\bisn't\b/gi, 'is not'], [/\baren't\b/gi, 'are not'],
-    [/\bcan't\b/gi, 'cannot'], [/n't\b/gi, ' not'], [/\bwon't\b/gi, 'will not'], [/\bI'll\b/gi, 'I will'],
-
-    // General slang/colloquialisms
-    [/\bwanna\b/gi, 'want to'], [/\bgonna\b/gi, 'going to'], [/\bkinda\b/gi, 'somewhat'], [/\bsorta\b/gi, 'somewhat'],
-    [/\bbruh\b|\bbro\b|\bfam\b|\bdude\b|\byo\b/gi, ''], [/\bnah\b/gi, 'no'], [/\byep\b/gi, 'yes'], [/\byeah\b/gi, 'yes'],
-    [/\bain'?t\b/gi, 'is not'], [/\bcap\b/gi, ''], [/\bsus\b/gi, 'questionable'], [/\blow-?key\b/gi, ''], [/\bhigh-?key\b/gi, ''],
-
-    // Show-jargon to neutral
-    [/\bplay tight\b/gi, 'be careful'], [/\bavoid noise\b/gi, 'avoid attention'], [/\blive wire\b/gi, 'a volatile situation'],
-    [/\bclocked\b/gi, ''], [/\bNoted\.?\b/g, '']
-  ];
-  for (const [re, val] of replacements) t = t.replace(re, val);
-  // Collapse extra spaces
+// Light cleanup that preserves natural voice (contractions, fillers).
+// Use this for the rule-based fallback so it doesn't sound robotic.
+export function humanize(text: string): string {
+  let t = String(text || '').trim();
+  // Strip wrapping quotes / stage directions only
+  t = t.replace(/^["'`""]+|["'`""]+$/g, '');
+  t = t.replace(/^\*[^*]+\*\s*/g, '');
+  t = t.replace(/\bAs an AI\b.*$/i, '');
+  // Smart-quote normalization
+  t = t.replace(/[""]/g, '"').replace(/['']/g, "'");
+  // Collapse whitespace
   t = t.replace(/\s{2,}/g, ' ').trim();
-  // Keep quotes symmetrical
-  t = t.replace(/“/g, '\"').replace(/”/g, '\"').replace(/''/g, '\"');
   return t;
 }
 
-export function applyArchetypeTone(text: string, archetype: Archetype, parsed: SpeechAct, original: string): string {
-  let t = text;
-  switch (archetype) {
-    case 'Charmer':
-      if (/[?]/.test(original) || /\babout\b/i.test(original)) {
-        t = t.replace(/^(.+?)$/, (_m, s1) => `${s1} I appreciate you asking.`);
-      }
-      break;
-    case 'Hothead':
-      // Keep direct; remove hedging
-      t = t.replace(/\bI need to think about this\b/gi, 'I will decide quickly');
-      break;
-    case 'Floater':
-      if (!/for now\.?$/i.test(t)) t = t.replace(/\.$/, '. For now.');
-      break;
-    case 'Loyalist':
-      t = t.replace(/keeping distance/gi, 'keeping us protected');
-      break;
-    case 'Cynic':
-      if (!/not convinced/i.test(t)) {
-        t = /\.$/.test(t) ? `${t} I am not convinced yet.` : `${t}. I am not convinced yet.`;
-      }
-      break;
-    case 'Strategist':
-    default:
-      // Already formal; no change
-      break;
-  }
-  return sanitizeAndFormalize(t);
+// Legacy: kept for any caller still expecting the old formal sanitizer.
+// New code should call `humanize` instead.
+export function sanitizeAndFormalize(text: string): string {
+  return humanize(text);
+}
+
+// Persona-flavored variants for the rule-based fallback so two NPCs with
+// different archetypes don't say the exact same line.
+const ARCHETYPE_FLAVOR: Record<Archetype, (line: string) => string> = {
+  Strategist: (s) => s,
+  Charmer: (s) => /[?!.]$/.test(s) ? s : `${s}.`,
+  Hothead: (s) => s.replace(/\bI need to think about this\b/gi, "I'll decide. Soon."),
+  Floater: (s) => /for now\.?$/i.test(s) ? s : s.replace(/\.$/, '. For now.'),
+  Loyalist: (s) => s.replace(/keeping distance/gi, 'keeping us covered'),
+  Cynic: (s) => /not convinced/i.test(s) ? s : (/[.!?]$/.test(s) ? `${s} Not convinced.` : `${s}. Not convinced.`),
+};
+
+export function applyArchetypeTone(text: string, archetype: Archetype, _parsed: SpeechAct, _original: string): string {
+  const flavor = ARCHETYPE_FLAVOR[archetype] || ((s: string) => s);
+  return humanize(flavor(text));
 }
 
 
