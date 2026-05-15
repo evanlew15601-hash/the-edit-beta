@@ -217,18 +217,23 @@ export const FinaleScreen = () => {
                 placeholder="Address the jury. Explain your strategy, acknowledge your moves, and make your case for why you deserve to win..."
                 className="min-h-[120px] mb-2"
               />
-              {tooShort && (
-                <div className="text-xs text-muted-foreground mb-2">
-                  Tip: Write at least two sentences and mention your strategy, relationships, and key moves.
-                </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                <span>{speechStats.words} words · {speechStats.chars} chars</span>
+                <span>min {MIN_WORDS} words · {MIN_CHARS} chars</span>
+              </div>
+              {unmetReasons.length > 0 && (
+                <ul className="text-xs text-muted-foreground mb-2 space-y-0.5 list-disc list-inside">
+                  {unmetReasons.map((r) => <li key={r}>{r}</li>)}
+                </ul>
               )}
               <Button
                 variant="action"
                 onClick={handleSubmitSpeech}
                 disabled={!playerSpeech.trim() || tooShort}
                 className="w-full"
+                title={unmetReasons.join(' ')}
               >
-                Deliver Speech
+                {tooShort ? 'Deliver Speech (requirements not met)' : 'Deliver Speech'}
               </Button>
             </Card>
           ) : !speechSubmitted && (isPlayerEliminated || !isPlayerInFinale) ? (
