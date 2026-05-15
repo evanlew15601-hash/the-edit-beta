@@ -122,11 +122,20 @@ export const FinaleScreen = () => {
     return speeches[Math.floor(Math.random() * speeches.length)];
   };
 
-  const tooShort = (() => {
+  const MIN_CHARS = 40;
+  const MIN_WORDS = 8;
+  const speechStats = (() => {
     const trimmed = playerSpeech.trim();
     const words = (trimmed.match(/\b[\w']+\b/g) || []).length;
-    return trimmed.length < 40 || words < 8;
+    return { trimmed, words, chars: trimmed.length };
   })();
+  const tooShort = speechStats.chars < MIN_CHARS || speechStats.words < MIN_WORDS;
+  const unmetReasons: string[] = [];
+  if (speechStats.chars === 0) unmetReasons.push('Write your speech to enable Deliver.');
+  else {
+    if (speechStats.words < MIN_WORDS) unmetReasons.push(`Need at least ${MIN_WORDS} words (currently ${speechStats.words}).`);
+    if (speechStats.chars < MIN_CHARS) unmetReasons.push(`Need at least ${MIN_CHARS} characters (currently ${speechStats.chars}).`);
+  }
 
   // If the player is eliminated and watching as a juror, continue to the juror-specific jury vote flow.
   // Otherwise, proceed to the standard jury vote where the player is a finalist.
