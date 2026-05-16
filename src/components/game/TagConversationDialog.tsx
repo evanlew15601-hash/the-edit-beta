@@ -201,9 +201,24 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
             </div>
           </div>
 
+          {/* Subject callout: makes it explicit who the line lands on */}
+          {(targetType === 'Person' && selectedTarget) && (
+            <div className="rounded border border-primary/40 bg-primary/5 p-2.5 text-sm">
+              <span className="text-muted-foreground">Subject of this {interactionLabel}: </span>
+              <span className="font-semibold text-foreground">{selectedTarget}</span>
+              <span className="text-muted-foreground"> — trust/suspicion and memory will update for them.</span>
+            </div>
+          )}
           {targetType === 'Group' && selectedGroupTargets.length > 0 && (
-            <div className="text-xs text-muted-foreground">
-              Targeting {selectedGroupTargets.length} contestant{selectedGroupTargets.length === 1 ? '' : 's'}: {selectedGroupTargets.join(', ')}
+            <div className="rounded border border-primary/40 bg-primary/5 p-2.5 text-sm">
+              <span className="text-muted-foreground">Group subjects ({selectedGroupTargets.length}): </span>
+              <span className="font-semibold text-foreground">{selectedGroupTargets.join(', ')}</span>
+              <span className="text-muted-foreground"> — the line lands on each of them.</span>
+            </div>
+          )}
+          {targetType === 'Self' && (
+            <div className="rounded border border-border bg-muted/40 p-2.5 text-sm text-muted-foreground">
+              Self-directed beat — no other houseguest is affected.
             </div>
           )}
 
@@ -239,20 +254,23 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
             </div>
           </ScrollArea>
 
-          <div className="flex gap-3 pt-2 border-t border-border">
-            <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button
-              variant="action"
-              onClick={handleSubmit}
-              disabled={
-                !selectedChoiceId ||
-                (targetType === 'Person' && !selectedTarget) ||
-                (targetType === 'Group' && selectedGroupTargets.length === 0)
-              }
-              className="flex-1"
-            >
-              Send
-            </Button>
+          <div className="flex flex-col gap-2 pt-2 border-t border-border">
+            {disabledReason && (
+              <div className="text-xs text-muted-foreground">{disabledReason}</div>
+            )}
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+              <Button
+                variant="action"
+                onClick={handleSubmit}
+                disabled={!!disabledReason}
+                className="flex-1"
+              >
+                {targetType === 'Group' && selectedGroupTargets.length > 1
+                  ? `Send to ${selectedGroupTargets.length}`
+                  : 'Send'}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
