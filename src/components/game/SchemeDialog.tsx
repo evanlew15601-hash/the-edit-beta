@@ -250,7 +250,9 @@ export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
               disabled={!schemeType || !selectedTarget || !content}
               className="flex-1"
             >
-              Execute Scheme
+              {selectedTarget
+                ? `Execute ${selectedScheme?.label || 'Scheme'} against ${selectedTarget}`
+                : 'Execute Scheme'}
             </Button>
             </div>
           </div>
