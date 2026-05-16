@@ -168,10 +168,13 @@ export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
           {schemeType && (
             <>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Primary Target</label>
+                <label className="text-sm font-medium">Subject / Victim of the Scheme</label>
+                <p className="text-xs text-muted-foreground">
+                  Whoever you choose is the person this {selectedScheme?.label.toLowerCase()} is aimed at. They take the brunt of trust/suspicion shifts and any belief planted in others is about them.
+                </p>
                 <Select value={selectedTarget} onValueChange={setSelectedTarget}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose your target..." />
+                    <SelectValue placeholder="Choose the houseguest to scheme against..." />
                   </SelectTrigger>
                   <SelectContent>
                     {contestants.map((contestant) => (
@@ -183,12 +186,23 @@ export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
                 </Select>
               </div>
 
+              {selectedTarget && (
+                <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                  <div className="font-semibold text-destructive">
+                    Victim: {selectedTarget}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    This {selectedScheme?.label.toLowerCase()} will be aimed squarely at {selectedTarget}. Their trust, suspicion, and how the rest of the house perceives them can all shift.
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Execution Plan</label>
                 <Textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder={`Describe how you want to execute this ${selectedScheme?.label.toLowerCase()}. Be specific about your approach...`}
+                  placeholder={`Describe how you want to execute this ${selectedScheme?.label.toLowerCase()}${selectedTarget ? ` against ${selectedTarget}` : ''}. Be specific about your approach...`}
                   className="min-h-[120px]"
                 />
               </div>
