@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic, InteractionLogEntry } from '@/types/game';
+import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic, InteractionLogEntry, ClaimType } from '@/types/game';
 import { houseMeetingEngine } from '@/utils/houseMeetingEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { generateStaticNPCs } from '@/utils/npcGeneration';
