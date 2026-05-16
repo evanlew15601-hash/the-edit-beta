@@ -104,8 +104,14 @@ export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Execute a Scheme</DialogTitle>
-          <DialogDescription>High risk moves that can change trust and suspicion.</DialogDescription>
+          <DialogTitle>
+            Execute a Scheme{selectedTarget ? ` against ${selectedTarget}` : ''}
+          </DialogTitle>
+          <DialogDescription>
+            {selectedTarget
+              ? `${selectedTarget} is the subject and victim of this scheme. Effects fall on them and ripple through the house.`
+              : 'High risk moves that can change trust, suspicion, and how others see your target.'}
+          </DialogDescription>
         </DialogHeader>
         
         <ScrollArea className="max-h-[70vh] pr-4">
