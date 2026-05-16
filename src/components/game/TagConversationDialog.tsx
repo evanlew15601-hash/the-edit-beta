@@ -89,11 +89,27 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
   const intents: IntentTag[] = ['BuildAlliance','ProbeForInfo','Divert','SowDoubt','BoostMorale','Flirt','Insult','MakeJoke','RevealSecret','Deflect'];
   const tones: ToneTag[] = ['Sincere','Sarcastic','Flirty','Aggressive','Playful','Dismissive','Apologetic','Neutral'];
   const topics: TopicTag[] = ['Game','Strategy','Romance','Food','Sleep','Challenge','Eviction','Rumor','PersonalHistory','Production'];
-  const targetTypes: TargetType[] = ['Person','Group','Self','Object','Audience'];
+  // Only show target types that have authored lines available. Object/Audience
+  // currently have no choices, which made the dialog impossible to submit.
+  const availableTargetTypes = useMemo(() => {
+    const set = new Set<TargetType>();
+    TAG_CHOICES.forEach((c) => set.add(c.targetType));
+    return (['Person','Group','Self','Object','Audience'] as TargetType[]).filter(t => set.has(t));
+  }, []);
+  const targetTypes: TargetType[] = availableTargetTypes;
 
   const targetOptions = targetType === 'Person'
     ? contestants.filter((c) => c.name !== gameState.playerName)
     : contestants;
+
+  const interactionLabel = interaction.charAt(0).toUpperCase() + interaction.slice(1);
+  const disabledReason = !selectedChoiceId
+    ? 'Pick a line below to send.'
+    : targetType === 'Person' && !selectedTarget
+      ? 'Choose who you are talking to.'
+      : targetType === 'Group' && selectedGroupTargets.length === 0
+        ? 'Pick at least one houseguest for the group.'
+        : '';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
