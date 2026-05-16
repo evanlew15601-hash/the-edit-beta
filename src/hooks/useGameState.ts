@@ -1185,20 +1185,74 @@ export const useGameState = () => {
           suspicionDelta,
           0,
           'scheme',
-          `[Scheme:${tone}] ${success ? 'Succeeded' : 'Backfired'}: ${content}`,
+          `[Scheme:${tone}] ${success ? 'Succeeded' : 'Backfired'} against ${target}: ${content}`,
           prev.currentDay
         );
 
-        const updatedActions = prev.playerActions.map((a) =>
+        // Ripple: when a scheme is aimed AT a victim, the rest of the house is
+        // where it really lands. Plant a corresponding belief about the victim
+        // into a plausible listener using the deception engine, so the scheme
+        // actually nudges the social graph against the chosen target.
+        let workingState: GameState = prev;
+        const rippleNotes: string[] = [];
+        if (success) {
+          const claimType: ClaimType | null =
+            tone === 'rumor_spread' ? 'said_about_you' :
+            tone === 'vote_manipulation' ? 'voting_intent' :
+            tone === 'alliance_break' ? 'is_threat' :
+            tone === 'fake_alliance' ? 'alliance_exists' :
+            null;
+
+          if (claimType) {
+            const candidates = prev.contestants.filter(c =>
+              !c.isEliminated &&
+              c.name !== prev.playerName &&
+              c.name !== target
+            );
+            // Prefer listeners NOT already allied with the victim (more receptive)
+            const victimAllies = new Set<string>();
+            prev.alliances.forEach(a => {
+              if (!a.dissolved && a.members.includes(target)) {
+                a.members.forEach(m => victimAllies.add(m));
+              }
+            });
+            const preferred = candidates.filter(c => !victimAllies.has(c.name));
+            const pool = preferred.length > 0 ? preferred : candidates;
+            const listener = pool[Math.floor(Math.random() * pool.length)];
+
+            if (listener) {
+              try {
+                const input: PlantClaimInput = {
+                  listener: listener.name,
+                  about: target,
+                  claimType,
+                  payload:
+                    claimType === 'voting_intent' ? listener.name :
+                    claimType === 'alliance_exists' ? prev.playerName :
+                    undefined,
+                };
+                const planted = recordClaim(workingState, input);
+                workingState = planted.state;
+                rippleNotes.push(
+                  `${listener.name} now ${planted.result.belief.status === 'believed' ? 'believes' : planted.result.belief.status === 'suspected' ? 'suspects' : 'dismissed'} the angle against ${target}.`
+                );
+              } catch (e) {
+                debugWarn('Scheme ripple recordClaim failed', e);
+              }
+            }
+          }
+        }
+
+        const updatedActions = workingState.playerActions.map((a) =>
           a.type === 'scheme'
             ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 }
             : a
         );
 
         const entry: InteractionLogEntry = {
-          day: prev.currentDay,
+          day: workingState.currentDay,
           type: 'scheme',
-          participants: [prev.playerName, target],
+          participants: [workingState.playerName, target],
           content,
           tone,
           source: 'player',
@@ -1207,7 +1261,9 @@ export const useGameState = () => {
         const reactionSummary: ReactionSummary = {
           take: success ? 'positive' : 'pushback',
           context: 'scheme',
-          notes: success ? 'Your scheme landed.' : 'Your scheme backfired.',
+          notes: success
+            ? `Your scheme against ${target} landed.${rippleNotes.length ? ' ' + rippleNotes.join(' ') : ''}`
+            : `Your scheme against ${target} backfired — they read your hand.`,
           deltas: {
             trust: trustDelta,
             suspicion: suspicionDelta,
@@ -1216,34 +1272,34 @@ export const useGameState = () => {
           },
         };
 
-        const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+        const ratingRes = ratingsEngine.applyReaction(workingState, reactionSummary);
         const nextHistory = [
-          ...(prev.ratingsHistory || []),
+          ...(workingState.ratingsHistory || []),
           {
-            day: prev.currentDay,
+            day: workingState.currentDay,
             rating: Math.round(ratingRes.rating * 100) / 100,
             reason: ratingRes.reason,
           },
         ];
 
         void logInteractionToCloud({
-          day: prev.currentDay,
+          day: workingState.currentDay,
           type: 'scheme',
-          participants: [prev.playerName, target],
-          playerName: prev.playerName,
+          participants: [workingState.playerName, target],
+          playerName: workingState.playerName,
           playerMessage: content,
           aiResponse: '',
           tone,
         });
 
         const baseNext: GameState = {
-          ...prev,
+          ...workingState,
           playerActions: updatedActions,
-          dailyActionCount: (prev.dailyActionCount || 0) + 1,
+          dailyActionCount: (workingState.dailyActionCount || 0) + 1,
           lastActionType: 'scheme',
           lastActionTarget: target,
           lastAIReaction: reactionSummary,
-          interactionLog: [...(prev.interactionLog || []), entry],
+          interactionLog: [...(workingState.interactionLog || []), entry],
           viewerRating: ratingRes.rating,
           ratingsHistory: nextHistory,
         };
