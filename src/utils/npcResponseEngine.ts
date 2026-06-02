@@ -206,6 +206,48 @@ class NPCResponseEngine {
     const playerIsAlly = !!gameState.playerName &&
       context.socialContext.alliances.includes(gameState.playerName);
 
+    // Recent schemes the PLAYER pulled on this specific NPC (gives the model
+    // something specific to call back to).
+    const recentSchemesAgainstNpc: string[] = (gameState.interactionLog || [])
+      .filter(
+        (e) =>
+          e.day >= gameState.currentDay - 4 &&
+          e.type === 'scheme' &&
+          (e.target === npc.name || (e.participants || []).includes(npc.name)) &&
+          (e.initiator === gameState.playerName || (e.participants || []).includes(gameState.playerName))
+      )
+      .slice(-3)
+      .map((e) => e.content || `${e.type} involving ${npc.name}`);
+
+    // Recent evictions players might still be talking about.
+    const recentEliminations: string[] = (gameState.contestants || [])
+      .filter((c) => c.isEliminated && (c.eliminationDay ?? 0) >= gameState.currentDay - 5)
+      .slice(-3)
+      .map((c) => `${c.name} got evicted on day ${c.eliminationDay}`);
+
+    const daysSinceLastTalk = perception?.lastInteractionDay
+      ? Math.max(0, gameState.currentDay - perception.lastInteractionDay)
+      : null;
+
+    const gamePhase =
+      gameState.contestants.filter((c) => !c.isEliminated).length <= 4
+        ? 'endgame'
+        : gameState.contestants.filter((c) => !c.isEliminated).length <= 7
+          ? 'jury phase'
+          : 'mid-game';
+
+    // Build structured conversation turns from this engine's own history map.
+    const rawHistory = this.conversationHistory.get(npc.name) || [];
+    const structuredHistory = rawHistory.slice(-8).map((line) => {
+      if (line.startsWith('Player: ')) {
+        return { role: 'player' as const, text: line.slice('Player: '.length) };
+      }
+      if (line.startsWith(`${npc.name}: `)) {
+        return { role: 'npc' as const, text: line.slice(`${npc.name}: `.length) };
+      }
+      return { role: 'npc' as const, text: line };
+    });
+
     let content: string;
     try {
       content = await generateLocalAIReply({
@@ -235,8 +277,14 @@ class NPCResponseEngine {
           ].slice(0, 4),
           playerIsAlly,
           plantedBeliefs: activeBeliefs,
+          recentSchemesAgainstNpc,
+          recentEliminations,
+          daysSinceLastTalk,
+          currentDay: gameState.currentDay,
+          gamePhase,
         },
         playerName: gameState.playerName,
+        conversationHistory: structuredHistory,
       });
     } catch (e) {
       console.warn('AI generation failed in npcResponseEngine, using rule-based fallback:', e);
