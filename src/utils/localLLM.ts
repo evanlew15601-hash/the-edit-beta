@@ -35,15 +35,22 @@ function norm(x: any) {
 function sanitizeOutput(text: string, maxSentences: number) {
   let t = String(text || "").trim();
 
+  // Preserve a leading *body language cue* if present (e.g. "*glances away* I dunno...").
+  let leadingCue = "";
+  const cueMatch = t.match(/^\s*\*([^*\n]{1,80})\*\s*/);
+  if (cueMatch) {
+    leadingCue = `*${cueMatch[1].trim()}*`;
+    t = t.slice(cueMatch[0].length).trim();
+  }
+
   // Strip wrapping quotes / backticks but keep natural voice intact
   t = t.replace(/^[\s\-–—]+/, "");
   t = t.replace(/^["'`""]+|["'`""]+$/g, "");
 
-  // Drop speaker labels and stage directions only
+  // Drop speaker labels and parenthetical stage directions only
   t = t.replace(/^(assistant|system|npc|character)\s*:\s*/i, "").trim();
   t = t.replace(/^[A-Z][a-z]+:\s*/, "");
   t = t.replace(/^\(([^)]+)\)\s*/, "");
-  t = t.replace(/^\*[^*]+\*\s*/, "");
 
   // Remove meta / OOC hints
   t = t.replace(/\b(as an AI|as a language model|cannot discuss (policy|meta)|I cannot reveal)\b.*$/i, "").trim();
@@ -57,7 +64,7 @@ function sanitizeOutput(text: string, maxSentences: number) {
 
   t = parts.join(" ").trim();
   if (!t) t = "Hm. Let me sit with that.";
-  return t;
+  return leadingCue ? `${leadingCue} ${t}` : t;
 }
 
 // Lightweight validator to catch meta / obviously broken lines.
@@ -107,11 +114,14 @@ export async function generateLocalAIReply(
     npcPlan?: { summary?: string; followUpAction?: string; tone?: string };
     playerName?: string;
     intent?: any;
+    conversationHistory?: Array<{ role: 'player' | 'npc'; text: string }>;
   },
   opts?: GenOpts
 ) {
-  // Cache
-  const cacheKey = `${norm(payload.npc?.name)}|${norm(payload.conversationType)}|${norm(payload.tone)}|${norm(payload.parsedInput)}|${norm(payload.socialContext)}|${norm(payload.playerMessage)}`;
+  // Cache (exclude conversationHistory from key — it changes every turn and would defeat the cache,
+  // but we also want fresh responses, so include a short hash of the last turn).
+  const lastTurn = payload.conversationHistory?.slice(-1)[0]?.text || '';
+  const cacheKey = `${norm(payload.npc?.name)}|${norm(payload.conversationType)}|${norm(payload.tone)}|${norm(payload.parsedInput)}|${norm(payload.socialContext)}|${norm(payload.playerMessage)}|${norm(lastTurn)}`;
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -153,6 +163,7 @@ export async function generateLocalAIReply(
         parsedInput: payload.parsedInput,
         socialContext: payload.socialContext,
         playerName: payload.playerName,
+        conversationHistory: payload.conversationHistory,
       },
     });
 

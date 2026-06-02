@@ -70,12 +70,25 @@ export const AIResponseDisplay = ({ lastTarget, actionType, reactionSummary, aiL
           </div>
         </div>
 
-        {/* Optional: show the short in-character NPC line (local LLM) */}
+        {/* Short in-character NPC line. Render a leading *body language* cue as italic muted text. */}
         {(isGenerating || aiLine) && (
           <div className="text-sm text-foreground bg-muted/30 rounded-md p-2.5 border border-border/60">
-            <span className="font-medium opacity-90">NPC</span>
+            <span className="font-medium opacity-90">{lastTarget}</span>
             <span className="mx-2">—</span>
-            <span className="leading-relaxed">{isGenerating ? '...' : aiLine}</span>
+            {isGenerating ? (
+              <span className="leading-relaxed">...</span>
+            ) : (() => {
+              const m = aiLine?.match(/^\s*\*([^*\n]+)\*\s*(.*)$/);
+              if (m) {
+                return (
+                  <span className="leading-relaxed">
+                    <em className="text-muted-foreground">{m[1]}</em>
+                    {m[2] ? <span> — {m[2]}</span> : null}
+                  </span>
+                );
+              }
+              return <span className="leading-relaxed">{aiLine}</span>;
+            })()}
           </div>
         )}
 
