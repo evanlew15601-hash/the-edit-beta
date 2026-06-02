@@ -213,8 +213,8 @@ class NPCResponseEngine {
         (e) =>
           e.day >= gameState.currentDay - 4 &&
           e.type === 'scheme' &&
-          (e.target === npc.name || (e.participants || []).includes(npc.name)) &&
-          (e.initiator === gameState.playerName || (e.participants || []).includes(gameState.playerName))
+          (e.participants || []).includes(npc.name) &&
+          (e.participants || []).includes(gameState.playerName)
       )
       .slice(-3)
       .map((e) => e.content || `${e.type} involving ${npc.name}`);
