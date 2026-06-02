@@ -114,11 +114,14 @@ export async function generateLocalAIReply(
     npcPlan?: { summary?: string; followUpAction?: string; tone?: string };
     playerName?: string;
     intent?: any;
+    conversationHistory?: Array<{ role: 'player' | 'npc'; text: string }>;
   },
   opts?: GenOpts
 ) {
-  // Cache
-  const cacheKey = `${norm(payload.npc?.name)}|${norm(payload.conversationType)}|${norm(payload.tone)}|${norm(payload.parsedInput)}|${norm(payload.socialContext)}|${norm(payload.playerMessage)}`;
+  // Cache (exclude conversationHistory from key — it changes every turn and would defeat the cache,
+  // but we also want fresh responses, so include a short hash of the last turn).
+  const lastTurn = payload.conversationHistory?.slice(-1)[0]?.text || '';
+  const cacheKey = `${norm(payload.npc?.name)}|${norm(payload.conversationType)}|${norm(payload.tone)}|${norm(payload.parsedInput)}|${norm(payload.socialContext)}|${norm(payload.playerMessage)}|${norm(lastTurn)}`;
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -160,6 +163,7 @@ export async function generateLocalAIReply(
         parsedInput: payload.parsedInput,
         socialContext: payload.socialContext,
         playerName: payload.playerName,
+        conversationHistory: payload.conversationHistory,
       },
     });
 
