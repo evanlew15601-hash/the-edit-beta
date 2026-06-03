@@ -16,6 +16,10 @@ interface ConversationDialogProps {
   forced?: boolean;
   presetTarget?: string;
   forcedTopic?: string;
+  forcedTurn?: number;
+  forcedMaxTurns?: number;
+  forcedPending?: boolean;
+  forcedHistory?: { role: 'npc' | 'player'; text: string }[];
 }
 
 const PRESETS = [
