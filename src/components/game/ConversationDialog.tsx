@@ -233,16 +233,24 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
           )}
 
           <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button 
-              variant="action" 
-              onClick={handleSubmit} 
-              disabled={!selectedTarget || !content || !tone}
+            {!forced && (
+              <Button variant="outline" onClick={onClose} className="flex-1">
+                Cancel
+              </Button>
+            )}
+            <Button
+              variant="action"
+              onClick={handleSubmit}
+              disabled={!selectedTarget || !content || !tone || !!forcedPending}
               className="flex-1"
             >
-              Start Conversation
+              {forced
+                ? forcedPending
+                  ? 'Waiting on them…'
+                  : forcedTurn && forcedTurn > 1
+                    ? `Send reply (turn ${forcedTurn})`
+                    : 'Send reply'
+                : 'Start Conversation'}
             </Button>
             </div>
           </div>
