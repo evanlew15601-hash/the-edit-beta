@@ -41,11 +41,14 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
   const [content, setContent] = useState('');
   const [tone, setTone] = useState<string>('');
 
-  // Set preset values when dialog opens or props change
+  // Set preset values when dialog opens or props change.
+  // For forced pull-asides we treat `forcedTopic` as the NPC's opening line and
+  // display it as a quoted prompt — the player's reply textarea stays empty so
+  // they actually respond instead of editing the NPC's words.
   useEffect(() => {
     if (isOpen) {
       setSelectedTarget(presetTarget || '');
-      setContent(forcedTopic || '');
+      setContent('');
       setTone('');
     }
   }, [isOpen, presetTarget, forcedTopic]);
