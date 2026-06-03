@@ -2200,9 +2200,22 @@ export const useGameState = () => {
   }, []);
 
   const respondToForcedConversation = useCallback((from: string, content: string, tone: string) => {
+    let shouldGenerateFollowUp = false;
+    let followUpContext: {
+      npc: Contestant;
+      history: { role: 'npc' | 'player'; text: string }[];
+      turn: number;
+      maxTurns: number;
+      playerName: string;
+      trustDelta: number;
+      suspicionDelta: number;
+      tone: string;
+    } | null = null;
+
     setGameState(prev => {
       const targetNPC = prev.contestants.find(c => c.name === from);
-      if (!targetNPC || !prev.playerName) {
+      const currentItem = (prev.forcedConversationsQueue || [])[0];
+      if (!targetNPC || !prev.playerName || !currentItem) {
         debugWarn('Forced conversation target not found or playerName missing', from);
         return {
           ...prev,
@@ -2220,13 +2233,15 @@ export const useGameState = () => {
         const newTrustLevel = Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustDelta));
         const newSuspicionLevel = Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspicionDelta));
 
+        const turnLabel = currentItem.turn ? ` (turn ${currentItem.turn})` : '';
         const memory = {
           day: prev.currentDay,
           type: 'conversation' as const,
           participants: [prev.playerName, from],
-          content: `[Forced pull-aside] ${content || 'You responded in the moment.'}`,
+          content: `[Forced pull-aside${turnLabel}] NPC: "${currentItem.topic}" | Player (${toneUsed}): "${content || '(silent)'}"`,
           emotionalImpact: Math.max(-10, Math.min(10, Math.floor(trustDelta / 5))),
           timestamp: Date.now(),
+          tags: ['pull_aside', `turn_${currentItem.turn || 1}`],
         };
 
         return {
@@ -2248,7 +2263,7 @@ export const useGameState = () => {
         suspicionDelta,
         0,
         'conversation',
-        '[Forced pull-aside] player reply',
+        `[Forced pull-aside turn ${currentItem.turn || 1}] player reply`,
         prev.currentDay
       );
 
@@ -2264,7 +2279,7 @@ export const useGameState = () => {
       const reactionSummary: ReactionSummary = {
         take,
         context: 'private',
-        notes: 'They pulled you aside and you responded directly.',
+        notes: `They pulled you aside (turn ${currentItem.turn || 1}) and you responded directly.`,
         deltas: {
           trust: trustDelta,
           suspicion: suspicionDelta,
@@ -2283,13 +2298,60 @@ export const useGameState = () => {
         },
       ];
 
-      const nextQueue = (prev.forcedConversationsQueue || []).slice(1);
+      // ---- Multi-turn decision ----
+      const turn = currentItem.turn || 1;
+      const maxTurns = currentItem.maxTurns || 3;
+      const updatedConvHistory = [
+        ...(currentItem.history || []),
+        { role: 'npc' as const, text: currentItem.topic },
+        { role: 'player' as const, text: content || '' },
+      ];
+
+      // Base probability of follow-up rises when the player heightens suspicion or
+      // breaks trust, and falls when they smooth things over.
+      let pFollowUp = 0.5;
+      if (suspicionDelta > 0) pFollowUp += 0.25;
+      if (trustDelta < 0) pFollowUp += 0.15;
+      if (trustDelta > 3 && suspicionDelta <= 0) pFollowUp -= 0.25;
+      if (currentItem.urgency === 'important') pFollowUp += 0.1;
+      // Force at least one follow-up when the player jabbed back on turn 1.
+      if (turn === 1 && (suspicionDelta > 0 || trustDelta < 0)) pFollowUp = Math.max(pFollowUp, 0.85);
+
+      const willFollowUp = turn < maxTurns && Math.random() < pFollowUp;
+
+      let nextQueue = prev.forcedConversationsQueue || [];
+      if (willFollowUp) {
+        // Keep the entry in the queue, mark as awaiting NPC reply, advance turn.
+        const updatedItem = {
+          ...currentItem,
+          turn: turn + 1,
+          history: updatedConvHistory,
+          pendingFollowUp: true,
+          topic: currentItem.topic, // keep old line visible until follow-up arrives
+        };
+        nextQueue = [updatedItem, ...nextQueue.slice(1)];
+
+        shouldGenerateFollowUp = true;
+        const npcAfterDeltas = updatedContestants.find(c => c.name === from)!;
+        followUpContext = {
+          npc: npcAfterDeltas,
+          history: updatedConvHistory,
+          turn: turn + 1,
+          maxTurns,
+          playerName: prev.playerName,
+          trustDelta,
+          suspicionDelta,
+          tone: toneUsed,
+        };
+      } else {
+        nextQueue = nextQueue.slice(1);
+      }
 
       const interactionEntry: InteractionLogEntry = {
         day: prev.currentDay,
         type: 'talk',
         participants: [prev.playerName, from],
-        content: `[Forced conversation reply] ${content || '(no text provided)'}`,
+        content: `[Forced conversation reply · turn ${turn}] ${content || '(no text provided)'}`,
         tone,
         source: 'player',
       };
@@ -2306,6 +2368,67 @@ export const useGameState = () => {
         ratingsHistory: nextHistory,
       };
     });
+
+    // Fire off NPC follow-up generation outside the reducer so it can be async.
+    if (shouldGenerateFollowUp && followUpContext) {
+      const ctx = followUpContext;
+      const lastPlayerLine = ctx.history[ctx.history.length - 1]?.text || '';
+
+      (async () => {
+        let nextLine = '';
+        try {
+          nextLine = await generateLocalAIReply(
+            {
+              playerMessage: lastPlayerLine,
+              parsedInput: { tone: ctx.tone, turn: ctx.turn },
+              npc: {
+                name: ctx.npc.name,
+                publicPersona: ctx.npc.publicPersona,
+                psychProfile: ctx.npc.psychProfile,
+              },
+              tone: ctx.tone,
+              conversationType: 'private',
+              playerName: ctx.playerName,
+              socialContext: {
+                trustLevel: ctx.npc.psychProfile.trustLevel,
+                suspicionLevel: ctx.npc.psychProfile.suspicionLevel,
+                pullAside: true,
+                turn: ctx.turn,
+                lastDeltas: { trust: ctx.trustDelta, suspicion: ctx.suspicionDelta },
+              },
+              conversationHistory: ctx.history.slice(-6),
+            },
+            { maxSentences: 2 }
+          );
+        } catch (e) {
+          debugWarn('Pull-aside follow-up generation failed', e);
+        }
+
+        const fallback =
+          ctx.suspicionDelta > 0
+            ? `*narrows eyes* That answer didn't actually answer me. Try again — straight this time.`
+            : ctx.trustDelta < 0
+            ? `*steps back* So that's where we are. Cool. Cool.`
+            : `*leans in* Okay. So if I float your name tonight, what do you do?`;
+        const finalLine = (nextLine && nextLine.trim()) ? nextLine.trim() : fallback;
+
+        setGameState(prev => {
+          const queue = prev.forcedConversationsQueue || [];
+          if (queue.length === 0 || queue[0].from !== ctx.npc.name) return prev;
+          const head = queue[0];
+          const updatedHead = {
+            ...head,
+            topic: finalLine,
+            pendingFollowUp: false,
+            history: ctx.history, // already includes prior npc+player turns
+          };
+          return {
+            ...prev,
+            forcedConversationsQueue: [updatedHead, ...queue.slice(1)],
+          };
+        });
+      })();
+    }
   }, []);
 
   const submitAFPVote = useCallback((choice: string) => {
