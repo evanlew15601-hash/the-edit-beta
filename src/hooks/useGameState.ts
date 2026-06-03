@@ -508,7 +508,17 @@ export const useGameState = () => {
         if (pullAside) {
           nextForcedQueue = [
             ...nextForcedQueue,
-            { from: pullAside.from, topic: pullAside.topic, urgency: pullAside.urgency, day: pullAside.day },
+            {
+              from: pullAside.from,
+              topic: pullAside.topic,
+              urgency: pullAside.urgency,
+              day: pullAside.day,
+              turn: 1,
+              maxTurns: 3,
+              history: [],
+              reason: pullAside.reason,
+              pendingFollowUp: false,
+            },
           ];
           // Tag the initiating NPC's memory so they don't repeat tomorrow
           const idx = baseContestants.findIndex(c => c.name === pullAside.from);
