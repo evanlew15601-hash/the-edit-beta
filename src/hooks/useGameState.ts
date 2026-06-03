@@ -34,6 +34,7 @@ import { betaDebugBuildEnabled, canUseDebugUI, isDebugEnabled } from '@/utils/de
 import { resetFinaleMachine } from '@/hooks/useFinaleMachine';
 import { recordClaim, tickCorroboration, type PlantClaimInput, type PlantClaimResult } from '@/utils/deceptionEngine';
 import { generatePullAside, tagPullAsideMemory } from '@/utils/pullAsideEngine';
+import { generateLocalAIReply } from '@/utils/localLLM';
 import { toast } from 'sonner';
 
 type GameActionType =
