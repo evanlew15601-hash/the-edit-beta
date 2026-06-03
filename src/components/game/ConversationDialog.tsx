@@ -16,6 +16,10 @@ interface ConversationDialogProps {
   forced?: boolean;
   presetTarget?: string;
   forcedTopic?: string;
+  forcedTurn?: number;
+  forcedMaxTurns?: number;
+  forcedPending?: boolean;
+  forcedHistory?: { role: 'npc' | 'player'; text: string }[];
 }
 
 const PRESETS = [
@@ -31,7 +35,7 @@ const PRESETS = [
   { label: 'Make a joke', tone: 'friendly', text: (_: string) => `If the house had a thermostat, it'd be set to 'subtle chaos'.` },
 ];
 
-export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forcedTopic }: ConversationDialogProps) => {
+export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forcedTopic, forcedTurn, forcedMaxTurns, forcedPending, forcedHistory }: ConversationDialogProps) => {
   const { gameState, useAction, respondToForcedConversation } = useGame();
   const contestants: Contestant[] = useMemo(
     () => gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName),
@@ -51,19 +55,23 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
       setContent('');
       setTone('');
     }
-  }, [isOpen, presetTarget, forcedTopic]);
+  }, [isOpen, presetTarget, forcedTopic, forcedTurn]);
 
   const handleSubmit = () => {
     if (selectedTarget && content && tone) {
       if (forced) {
         respondToForcedConversation(selectedTarget, content, tone);
+        // Clear local fields; do NOT call onClose — the queue controls dialog
+        // visibility so the next turn can open seamlessly.
+        setContent('');
+        setTone('');
       } else {
         useAction('talk', selectedTarget, content, tone);
+        setSelectedTarget('');
+        setContent('');
+        setTone('');
+        onClose();
       }
-      setSelectedTarget('');
-      setContent('');
-      setTone('');
-      onClose();
     }
   };
 
@@ -91,20 +99,53 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>{forced ? `${presetTarget || 'Someone'} pulled you aside` : 'Start a Conversation'}</DialogTitle>
+          <DialogTitle>
+            {forced
+              ? `${presetTarget || 'Someone'} pulled you aside${forcedTurn && forcedTurn > 1 ? ` — turn ${forcedTurn}` : ''}`
+              : 'Start a Conversation'}
+          </DialogTitle>
           <DialogDescription>
             {forced
-              ? 'They cornered you in private. Pick your tone and reply — silence is not an option here.'
+              ? forcedPending
+                ? `${presetTarget || 'They'} are still weighing your last words...`
+                : `They cornered you in private${forcedMaxTurns ? ` (up to ${forcedMaxTurns} exchanges)` : ''}. Pick your tone and reply — silence is not an option here.`
               : 'Open a strategic or social chat that may impact relationships.'}
           </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="max-h-[60vh] pr-4">
           <div className="space-y-6">
+          {forced && forcedHistory && forcedHistory.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">So far</div>
+              <div className="space-y-1.5">
+                {forcedHistory.map((turn, i) => (
+                  <div
+                    key={i}
+                    className={`text-sm rounded p-2 ${
+                      turn.role === 'npc'
+                        ? 'bg-muted/50 border-l-2 border-muted-foreground/40'
+                        : 'bg-primary/5 border-l-2 border-primary/40 ml-4'
+                    }`}
+                  >
+                    <span className="text-xs text-muted-foreground mr-1">
+                      {turn.role === 'npc' ? (presetTarget || 'They') : 'You'}:
+                    </span>
+                    <span className="italic">"{turn.text}"</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {forced && forcedTopic && (
             <div className="rounded border-l-4 border-primary bg-primary/5 p-3 text-sm">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                {presetTarget || 'They'} say{(presetTarget && !presetTarget.endsWith('s')) ? 's' : ''}
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1 flex items-center gap-2">
+                <span>
+                  {presetTarget || 'They'} say{(presetTarget && !presetTarget.endsWith('s')) ? 's' : ''}
+                </span>
+                {forcedPending && (
+                  <span className="text-muted-foreground/80 italic animate-pulse">· composing follow-up…</span>
+                )}
               </div>
               <div className="italic text-foreground">"{forcedTopic}"</div>
             </div>
@@ -192,16 +233,24 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
           )}
 
           <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button 
-              variant="action" 
-              onClick={handleSubmit} 
-              disabled={!selectedTarget || !content || !tone}
+            {!forced && (
+              <Button variant="outline" onClick={onClose} className="flex-1">
+                Cancel
+              </Button>
+            )}
+            <Button
+              variant="action"
+              onClick={handleSubmit}
+              disabled={!selectedTarget || !content || !tone || !!forcedPending}
               className="flex-1"
             >
-              Start Conversation
+              {forced
+                ? forcedPending
+                  ? 'Waiting on them…'
+                  : forcedTurn && forcedTurn > 1
+                    ? `Send reply (turn ${forcedTurn})`
+                    : 'Send reply'
+                : 'Start Conversation'}
             </Button>
             </div>
           </div>
