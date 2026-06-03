@@ -41,11 +41,14 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
   const [content, setContent] = useState('');
   const [tone, setTone] = useState<string>('');
 
-  // Set preset values when dialog opens or props change
+  // Set preset values when dialog opens or props change.
+  // For forced pull-asides we treat `forcedTopic` as the NPC's opening line and
+  // display it as a quoted prompt — the player's reply textarea stays empty so
+  // they actually respond instead of editing the NPC's words.
   useEffect(() => {
     if (isOpen) {
       setSelectedTarget(presetTarget || '');
-      setContent(forcedTopic || '');
+      setContent('');
       setTone('');
     }
   }, [isOpen, presetTarget, forcedTopic]);
@@ -88,12 +91,24 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Start a Conversation</DialogTitle>
-          <DialogDescription>Open a strategic or social chat that may impact relationships.</DialogDescription>
+          <DialogTitle>{forced ? `${presetTarget || 'Someone'} pulled you aside` : 'Start a Conversation'}</DialogTitle>
+          <DialogDescription>
+            {forced
+              ? 'They cornered you in private. Pick your tone and reply — silence is not an option here.'
+              : 'Open a strategic or social chat that may impact relationships.'}
+          </DialogDescription>
         </DialogHeader>
-        
+
         <ScrollArea className="max-h-[60vh] pr-4">
           <div className="space-y-6">
+          {forced && forcedTopic && (
+            <div className="rounded border-l-4 border-primary bg-primary/5 p-3 text-sm">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                {presetTarget || 'They'} say{(presetTarget && !presetTarget.endsWith('s')) ? 's' : ''}
+              </div>
+              <div className="italic text-foreground">"{forcedTopic}"</div>
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium">Select Target</label>
             <Select value={selectedTarget} onValueChange={setSelectedTarget} disabled={!!forced && !!presetTarget}>
@@ -132,11 +147,13 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Conversation Topic</label>
+            <label className="text-sm font-medium">{forced ? 'Your reply' : 'Conversation Topic'}</label>
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={forcedTopic ? forcedTopic : 'What do you want to discuss? Your approach will be remembered...'}
+              placeholder={forced
+                ? 'How do you answer them? Your words will be remembered.'
+                : 'What do you want to discuss? Your approach will be remembered...'}
               className="min-h-[100px]"
             />
           </div>
