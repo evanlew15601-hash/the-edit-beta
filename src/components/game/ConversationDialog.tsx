@@ -147,11 +147,13 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Conversation Topic</label>
+            <label className="text-sm font-medium">{forced ? 'Your reply' : 'Conversation Topic'}</label>
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={forcedTopic ? forcedTopic : 'What do you want to discuss? Your approach will be remembered...'}
+              placeholder={forced
+                ? 'How do you answer them? Your words will be remembered.'
+                : 'What do you want to discuss? Your approach will be remembered...'}
               className="min-h-[100px]"
             />
           </div>
