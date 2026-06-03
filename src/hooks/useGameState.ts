@@ -491,7 +491,31 @@ export const useGameState = () => {
       }
 
       // Clear forced conversations that are too old; keep up to 2 queued
-      const nextForcedQueue = (prev.forcedConversationsQueue || []).filter(fc => newDay - fc.day <= 2).slice(0, 2);
+      let nextForcedQueue = (prev.forcedConversationsQueue || []).filter(fc => newDay - fc.day <= 2).slice(0, 2);
+
+      // NPC-initiated pull-aside: paranoid / fractured / schemed-against NPCs may corner the player.
+      // Only attempts if the queue isn't already saturated. ~70% chance on eligible days so it doesn't fire every single morning.
+      const pullAsideRoll = Math.random();
+      if (nextForcedQueue.length === 0 && pullAsideRoll < 0.7) {
+        const pullAsideState: GameState = {
+          ...(narrativeApplied as GameState),
+          contestants: baseContestants,
+          currentDay: newDay,
+          forcedConversationsQueue: nextForcedQueue,
+        };
+        const pullAside = generatePullAside(pullAsideState);
+        if (pullAside) {
+          nextForcedQueue = [
+            ...nextForcedQueue,
+            { from: pullAside.from, topic: pullAside.topic, urgency: pullAside.urgency, day: pullAside.day },
+          ];
+          // Tag the initiating NPC's memory so they don't repeat tomorrow
+          const idx = baseContestants.findIndex(c => c.name === pullAside.from);
+          if (idx >= 0) {
+            baseContestants[idx] = tagPullAsideMemory(baseContestants[idx], prev.playerName, newDay, pullAside.reason);
+          }
+        }
+      }
 
       // Scale daily action cap as cast shrinks to keep choices meaningful
       const activeCountForCap = baseContestants.filter(c => !c.isEliminated).length;
