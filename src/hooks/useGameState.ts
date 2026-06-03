@@ -33,6 +33,7 @@ import { clearLocalInteractions, logInteractionToCloud } from '@/utils/interacti
 import { betaDebugBuildEnabled, canUseDebugUI, isDebugEnabled } from '@/utils/debugEnv';
 import { resetFinaleMachine } from '@/hooks/useFinaleMachine';
 import { recordClaim, tickCorroboration, type PlantClaimInput, type PlantClaimResult } from '@/utils/deceptionEngine';
+import { generatePullAside, tagPullAsideMemory } from '@/utils/pullAsideEngine';
 import { toast } from 'sonner';
 
 type GameActionType =
