@@ -313,12 +313,18 @@ export interface GameState {
   finaleSpeechesGiven?: boolean; // Track finale speeches
   finaleSpeech?: string; // Store player's finale speech for jury consideration
   aiSettings: AISettings; // Controls reply depth and additions
-  // New: queue of NPC-initiated forced conversations (at least one per day)
+  // New: queue of NPC-initiated forced conversations (at least one per day).
+  // Supports multi-turn pull-asides: the same NPC can ask follow-ups before being popped.
   forcedConversationsQueue?: {
     from: string;
-    topic: string;
+    topic: string; // current NPC line shown to the player as a quote
     urgency: 'casual' | 'important';
-    day: number
+    day: number;
+    turn?: number;        // 1-based turn index (default 1)
+    maxTurns?: number;    // hard cap on follow-ups (default 3)
+    pendingFollowUp?: boolean; // true while NPC's next line is being generated
+    history?: { role: 'npc' | 'player'; text: string }[]; // prior turns in this pull-aside
+    reason?: string;      // dev/debug label from pullAsideEngine
   }[];
   // New: running tally for America's Favorite Player signals (computed each week, surfaced at finale)
   favoriteTally?: { [name: string]: number };
