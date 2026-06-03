@@ -245,6 +245,10 @@ export const ActionPanel = () => {
         forced
         presetTarget={forcedItem?.from}
         forcedTopic={forcedItem?.topic}
+        forcedTurn={forcedItem?.turn}
+        forcedMaxTurns={forcedItem?.maxTurns}
+        forcedPending={forcedItem?.pendingFollowUp}
+        forcedHistory={forcedItem?.history}
       />
 
       <ConversationDialog
