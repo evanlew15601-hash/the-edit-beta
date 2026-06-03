@@ -35,7 +35,7 @@ const PRESETS = [
   { label: 'Make a joke', tone: 'friendly', text: (_: string) => `If the house had a thermostat, it'd be set to 'subtle chaos'.` },
 ];
 
-export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forcedTopic }: ConversationDialogProps) => {
+export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forcedTopic, forcedTurn, forcedMaxTurns, forcedPending, forcedHistory }: ConversationDialogProps) => {
   const { gameState, useAction, respondToForcedConversation } = useGame();
   const contestants: Contestant[] = useMemo(
     () => gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName),
