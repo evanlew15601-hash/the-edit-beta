@@ -55,19 +55,23 @@ export const ConversationDialog = ({ isOpen, onClose, forced, presetTarget, forc
       setContent('');
       setTone('');
     }
-  }, [isOpen, presetTarget, forcedTopic]);
+  }, [isOpen, presetTarget, forcedTopic, forcedTurn]);
 
   const handleSubmit = () => {
     if (selectedTarget && content && tone) {
       if (forced) {
         respondToForcedConversation(selectedTarget, content, tone);
+        // Clear local fields; do NOT call onClose — the queue controls dialog
+        // visibility so the next turn can open seamlessly.
+        setContent('');
+        setTone('');
       } else {
         useAction('talk', selectedTarget, content, tone);
+        setSelectedTarget('');
+        setContent('');
+        setTone('');
+        onClose();
       }
-      setSelectedTarget('');
-      setContent('');
-      setTone('');
-      onClose();
     }
   };
 
