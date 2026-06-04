@@ -2199,6 +2199,105 @@ export const useGameState = () => {
     });
   }, []);
 
+  // Track in-flight pull-aside follow-up generations so we don't double-fire
+  // (e.g. resume effect racing against the submit handler).
+  const pullAsideInflightRef = useRef<Set<string>>(new Set());
+
+  const runPullAsideFollowUp = useCallback(async (ctx: {
+    npc: Contestant;
+    history: { role: 'npc' | 'player'; text: string }[];
+    turn: number;
+    maxTurns: number;
+    playerName: string;
+    trustDelta: number;
+    suspicionDelta: number;
+    tone: string;
+  }) => {
+    const key = `${ctx.npc.name}#${ctx.turn}`;
+    if (pullAsideInflightRef.current.has(key)) return;
+    pullAsideInflightRef.current.add(key);
+
+    const lastPlayerLine = ctx.history[ctx.history.length - 1]?.text || '';
+    let nextLine = '';
+    try {
+      nextLine = await generateLocalAIReply(
+        {
+          playerMessage: lastPlayerLine,
+          parsedInput: { tone: ctx.tone, turn: ctx.turn },
+          npc: {
+            name: ctx.npc.name,
+            publicPersona: ctx.npc.publicPersona,
+            psychProfile: ctx.npc.psychProfile,
+          },
+          tone: ctx.tone,
+          conversationType: 'private',
+          playerName: ctx.playerName,
+          socialContext: {
+            trustLevel: ctx.npc.psychProfile.trustLevel,
+            suspicionLevel: ctx.npc.psychProfile.suspicionLevel,
+            pullAside: true,
+            turn: ctx.turn,
+            lastDeltas: { trust: ctx.trustDelta, suspicion: ctx.suspicionDelta },
+          },
+          conversationHistory: ctx.history.slice(-6),
+        },
+        { maxSentences: 2 }
+      );
+    } catch (e) {
+      debugWarn('Pull-aside follow-up generation failed', e);
+    }
+
+    const fallback =
+      ctx.suspicionDelta > 0
+        ? `*narrows eyes* That answer didn't actually answer me. Try again — straight this time.`
+        : ctx.trustDelta < 0
+        ? `*steps back* So that's where we are. Cool. Cool.`
+        : `*leans in* Okay. So if I float your name tonight, what do you do?`;
+    const finalLine = (nextLine && nextLine.trim()) ? nextLine.trim() : fallback;
+
+    setGameState(prev => {
+      const queue = prev.forcedConversationsQueue || [];
+      if (queue.length === 0 || queue[0].from !== ctx.npc.name) return prev;
+      const head = queue[0];
+      const updatedHead = {
+        ...head,
+        topic: finalLine,
+        pendingFollowUp: false,
+        history: ctx.history,
+      };
+      return {
+        ...prev,
+        forcedConversationsQueue: [updatedHead, ...queue.slice(1)],
+      };
+    });
+
+    pullAsideInflightRef.current.delete(key);
+  }, []);
+
+  // Resume any pull-aside follow-up whose generation was interrupted (save+load
+  // or page reload mid-conversation). The persisted queue entry preserves
+  // pendingFollowUp, turn, and history — re-run generation if nothing is
+  // currently in flight for that turn.
+  useEffect(() => {
+    const head = (gameState.forcedConversationsQueue || [])[0];
+    if (!head || !head.pendingFollowUp) return;
+    const turn = head.turn || 1;
+    const key = `${head.from}#${turn}`;
+    if (pullAsideInflightRef.current.has(key)) return;
+    const npc = gameState.contestants.find(c => c.name === head.from && !c.isEliminated);
+    if (!npc || !gameState.playerName) return;
+    void runPullAsideFollowUp({
+      npc,
+      history: head.history || [],
+      turn,
+      maxTurns: head.maxTurns || 3,
+      playerName: gameState.playerName,
+      trustDelta: 0,
+      suspicionDelta: 0,
+      tone: 'neutral',
+    });
+  }, [gameState.forcedConversationsQueue, gameState.contestants, gameState.playerName, runPullAsideFollowUp]);
+
   const respondToForcedConversation = useCallback((from: string, content: string, tone: string) => {
     let shouldGenerateFollowUp = false;
     let followUpContext: {
@@ -2255,7 +2354,6 @@ export const useGameState = () => {
         };
       });
 
-      // Mirror forced pull-asides into the relationship graph so jury/voting can see them
       relationshipGraphEngine.updateRelationship(
         prev.playerName,
         from,
@@ -2298,7 +2396,6 @@ export const useGameState = () => {
         },
       ];
 
-      // ---- Multi-turn decision ----
       const turn = currentItem.turn || 1;
       const maxTurns = currentItem.maxTurns || 3;
       const updatedConvHistory = [
@@ -2307,27 +2404,23 @@ export const useGameState = () => {
         { role: 'player' as const, text: content || '' },
       ];
 
-      // Base probability of follow-up rises when the player heightens suspicion or
-      // breaks trust, and falls when they smooth things over.
       let pFollowUp = 0.5;
       if (suspicionDelta > 0) pFollowUp += 0.25;
       if (trustDelta < 0) pFollowUp += 0.15;
       if (trustDelta > 3 && suspicionDelta <= 0) pFollowUp -= 0.25;
       if (currentItem.urgency === 'important') pFollowUp += 0.1;
-      // Force at least one follow-up when the player jabbed back on turn 1.
       if (turn === 1 && (suspicionDelta > 0 || trustDelta < 0)) pFollowUp = Math.max(pFollowUp, 0.85);
 
       const willFollowUp = turn < maxTurns && Math.random() < pFollowUp;
 
       let nextQueue = prev.forcedConversationsQueue || [];
       if (willFollowUp) {
-        // Keep the entry in the queue, mark as awaiting NPC reply, advance turn.
         const updatedItem = {
           ...currentItem,
           turn: turn + 1,
           history: updatedConvHistory,
           pendingFollowUp: true,
-          topic: currentItem.topic, // keep old line visible until follow-up arrives
+          topic: currentItem.topic,
         };
         nextQueue = [updatedItem, ...nextQueue.slice(1)];
 
@@ -2369,67 +2462,10 @@ export const useGameState = () => {
       };
     });
 
-    // Fire off NPC follow-up generation outside the reducer so it can be async.
     if (shouldGenerateFollowUp && followUpContext) {
-      const ctx = followUpContext;
-      const lastPlayerLine = ctx.history[ctx.history.length - 1]?.text || '';
-
-      (async () => {
-        let nextLine = '';
-        try {
-          nextLine = await generateLocalAIReply(
-            {
-              playerMessage: lastPlayerLine,
-              parsedInput: { tone: ctx.tone, turn: ctx.turn },
-              npc: {
-                name: ctx.npc.name,
-                publicPersona: ctx.npc.publicPersona,
-                psychProfile: ctx.npc.psychProfile,
-              },
-              tone: ctx.tone,
-              conversationType: 'private',
-              playerName: ctx.playerName,
-              socialContext: {
-                trustLevel: ctx.npc.psychProfile.trustLevel,
-                suspicionLevel: ctx.npc.psychProfile.suspicionLevel,
-                pullAside: true,
-                turn: ctx.turn,
-                lastDeltas: { trust: ctx.trustDelta, suspicion: ctx.suspicionDelta },
-              },
-              conversationHistory: ctx.history.slice(-6),
-            },
-            { maxSentences: 2 }
-          );
-        } catch (e) {
-          debugWarn('Pull-aside follow-up generation failed', e);
-        }
-
-        const fallback =
-          ctx.suspicionDelta > 0
-            ? `*narrows eyes* That answer didn't actually answer me. Try again — straight this time.`
-            : ctx.trustDelta < 0
-            ? `*steps back* So that's where we are. Cool. Cool.`
-            : `*leans in* Okay. So if I float your name tonight, what do you do?`;
-        const finalLine = (nextLine && nextLine.trim()) ? nextLine.trim() : fallback;
-
-        setGameState(prev => {
-          const queue = prev.forcedConversationsQueue || [];
-          if (queue.length === 0 || queue[0].from !== ctx.npc.name) return prev;
-          const head = queue[0];
-          const updatedHead = {
-            ...head,
-            topic: finalLine,
-            pendingFollowUp: false,
-            history: ctx.history, // already includes prior npc+player turns
-          };
-          return {
-            ...prev,
-            forcedConversationsQueue: [updatedHead, ...queue.slice(1)],
-          };
-        });
-      })();
+      void runPullAsideFollowUp(followUpContext);
     }
-  }, []);
+  }, [runPullAsideFollowUp]);
 
   const submitAFPVote = useCallback((choice: string) => {
     setGameState(prev => {
