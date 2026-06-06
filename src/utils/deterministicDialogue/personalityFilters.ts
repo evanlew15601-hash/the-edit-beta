@@ -52,7 +52,7 @@ export function applyArchetypeVoice(line: string, archetype: Archetype): string 
       out = out.replace(/^Hey — hey/i, 'Hey');
       break;
     case 'Paranoid':
-      out = out + ' I'm watching.';
+      out = out + " I'm watching.";
       break;
     case 'Stoic':
       // strip exclamations, keep terse
