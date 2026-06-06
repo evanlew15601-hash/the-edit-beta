@@ -2,6 +2,8 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useEffect, useState } from 'react';
+import { isAIStyleEnhancementEnabled, setAIStyleEnhancement } from '@/utils/deterministicDialogue/settings';
 
 interface AISettingsPanelProps {
   depth: 'brief' | 'standard' | 'deep';
