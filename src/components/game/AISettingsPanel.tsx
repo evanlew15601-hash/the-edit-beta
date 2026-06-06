@@ -22,8 +22,30 @@ interface AISettingsPanelProps {
 }
 
 export function AISettingsPanel({ depth, additions, deterministicPersonaVariants = false, outcomeScaling = { trustSuspicionScale: 40, influenceScale: 20, entertainmentScale: 20 }, useLocalLLM = false, onChange }: AISettingsPanelProps) {
+  const [styleOn, setStyleOn] = useState(false);
+  useEffect(() => { setStyleOn(isAIStyleEnhancementEnabled()); }, []);
   return (
     <Card className="p-4 space-y-4">
+      <div className="rounded border border-border/60 bg-muted/30 p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="font-medium">Deterministic Dialogue</h4>
+            <p className="text-xs text-muted-foreground">
+              All NPC replies, pull-asides, and confessionals are now driven by the simulation. AI is optional.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-border/40">
+          <div>
+            <Label className="block">AI Style Enhancement</Label>
+            <p className="text-xs text-muted-foreground">Off = no gateway calls. On = AI may rephrase the deterministic line for variety only.</p>
+          </div>
+          <Switch
+            checked={styleOn}
+            onCheckedChange={(v) => { setStyleOn(v); setAIStyleEnhancement(v); }}
+          />
+        </div>
+      </div>
       <div>
         <h4 className="font-medium">AI Reply Depth</h4>
         <RadioGroup
