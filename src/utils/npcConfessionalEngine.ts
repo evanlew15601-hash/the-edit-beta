@@ -117,23 +117,36 @@ async function buildConfessionalForNPC(npc: Contestant, gameState: GameState): P
     primary: 'npc_confessional',
   };
 
-  const text = await generateLocalAIReply(
-    {
-      playerMessage,
-      parsedInput,
-      npc: {
-        name: npc.name,
-        publicPersona: npc.publicPersona,
-        psychProfile: npc.psychProfile,
+  // Deterministic-first: build the confessional text from authored templates
+  // keyed by the NPC's state. AI is only consulted as an optional rephrase
+  // wrapper, gated by the user's AI Style Enhancement setting.
+  const { buildDeterministicConfessional } = await import('./deterministicDialogue/confessionalEngine');
+  const deterministic = buildDeterministicConfessional(npc, gameState);
+
+  let text: string = deterministic;
+  try {
+    const rephrased = await generateLocalAIReply(
+      {
+        playerMessage,
+        parsedInput,
+        npc: {
+          name: npc.name,
+          publicPersona: npc.publicPersona,
+          psychProfile: npc.psychProfile,
+        },
+        tone: 'strategic',
+        conversationType: 'confessional',
+        socialContext,
+        playerName: gameState.playerName,
+        intent: parsedInput,
+        npcPlan: { summary: deterministic },
       },
-      tone: 'strategic',
-      conversationType: 'confessional',
-      socialContext,
-      playerName: gameState.playerName,
-      intent: parsedInput,
-    },
-    { maxSentences: 2 }
-  );
+      { maxSentences: 2 }
+    );
+    if (typeof rephrased === 'string' && rephrased.trim()) text = rephrased.trim();
+  } catch {
+    /* keep deterministic */
+  }
 
   const out = typeof text === 'string' ? text.trim() : '';
   if (!out) return null;
