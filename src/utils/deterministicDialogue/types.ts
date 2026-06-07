@@ -53,7 +53,9 @@ export type MemoryRefKind =
 export interface MemoryRef {
   kind: MemoryRefKind;
   daysAgo: number;
-  about?: string; // person or thing
+  about?: string;            // person or thing (legacy)
+  people?: string[];         // actual participants pulled from GameMemory
+  eventLabel?: string;       // human-readable noun for the event ("the kitchen vote", "your scheme")
 }
 
 export interface ResponseTagBundle {
@@ -67,6 +69,11 @@ export interface ResponseTagBundle {
   reputation: Reputation;
   archetype: Archetype;
   memoryRef?: MemoryRef;
+  // Non-verbal beat woven into the rendered line ("[arms crossed]", "[half-smile]").
+  bodyLanguage?: string;
+  // Hidden subtext shown only when the NPC's stated emotion contradicts their
+  // underlying trust/suspicion — used to layer dramatic irony.
+  subtext?: string;
   // The simulation-side effects derived from this bundle; cosmetic text never changes these.
   effects: {
     trust: number;
