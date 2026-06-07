@@ -72,32 +72,99 @@ function pickReputation(npc: Contestant, playerTrust: number, playerSusp: number
   return 'UNPREDICTABLE';
 }
 
+function deriveEventLabel(memory: { type: string; content: string; day: number }): string {
+  switch (memory.type) {
+    case 'scheme': return 'your scheme';
+    case 'alliance_meeting': return 'the alliance sit-down';
+    case 'elimination': return `the day-${memory.day} eviction`;
+    case 'confessional_leak': return 'what you said in the diary room';
+    case 'dm': return 'that private conversation';
+    case 'observation': return 'what I watched you do';
+    case 'event': return `the day-${memory.day} blowup`;
+    default: return `our day-${memory.day} talk`;
+  }
+}
+
+function formatPeople(people: string[], playerName: string, npcName: string): string {
+  const others = people.filter(p => p && p !== playerName && p !== npcName);
+  if (!others.length) return '';
+  if (others.length === 1) return others[0];
+  if (others.length === 2) return `${others[0]} and ${others[1]}`;
+  return `${others.slice(0, -1).join(', ')}, and ${others[others.length - 1]}`;
+}
+
 function pickMemoryRef(input: DecisionInput): MemoryRef | undefined {
   const day = input.socialContext?.currentDay ?? 0;
   const mems = input.recentMemories || [];
+  const playerName = input.playerName;
+  const npcName = input.npc.name;
 
   // Recent schemes against NPC = recent_scheme
   const scheme = input.socialContext?.recentSchemesAgainstNpc?.[0];
   if (scheme) {
-    return { kind: 'recent_scheme', daysAgo: 1, about: scheme };
+    // Find the most recent matching scheme memory for richer tokens
+    const m = mems.slice().reverse().find(mm => mm.type === 'scheme' && (mm.content || '').toLowerCase().includes(scheme.toLowerCase()));
+    return {
+      kind: 'recent_scheme',
+      daysAgo: m ? Math.max(0, day - m.day) : 1,
+      about: scheme,
+      people: m ? m.participants : undefined,
+      eventLabel: m ? deriveEventLabel(m) : 'your scheme',
+    };
   }
 
-  // Look for betrayal-flavored or save-flavored memories
   for (const m of mems.slice().reverse()) {
     const c = (m.content || '').toLowerCase();
     const daysAgo = Math.max(0, day - m.day);
-    if (/\b(betray|backstab|flipped|burned|lied)\b/.test(c)) {
-      return { kind: 'betrayal', daysAgo };
-    }
-    if (/\b(saved|protected|covered|had my back|voted with)\b/.test(c)) {
-      return { kind: 'save', daysAgo };
-    }
+    const peopleStr = formatPeople(m.participants || [], playerName, npcName);
+    const base = {
+      daysAgo,
+      people: m.participants,
+      eventLabel: deriveEventLabel(m),
+      about: peopleStr || undefined,
+    };
+    if (/\b(betray|backstab|flipped|burned|lied)\b/.test(c)) return { ...base, kind: 'betrayal' };
+    if (/\b(saved|protected|covered|had my back|voted with)\b/.test(c)) return { ...base, kind: 'save' };
     if (/\b(promised|promise)\b/.test(c)) {
-      return { kind: c.includes('broke') || c.includes('broken') ? 'promise_broken' : 'promise_kept', daysAgo };
+      const broken = c.includes('broke') || c.includes('broken');
+      return { ...base, kind: broken ? 'promise_broken' : 'promise_kept' };
     }
-    if (/\b(voted together|same vote)\b/.test(c)) {
-      return { kind: 'shared_vote', daysAgo };
-    }
+    if (/\b(voted together|same vote)\b/.test(c)) return { ...base, kind: 'shared_vote' };
+  }
+  return undefined;
+}
+
+// Layered subtext — fires only when the spoken emotion contradicts the
+// underlying simulation state, producing dramatic irony for the player.
+function pickSubtext(
+  intent: ResponseTagBundle['intent'],
+  emotion: ResponseTagBundle['emotion'],
+  trustBand: Band,
+  suspBand: Band,
+  archetype: ResponseTagBundle['archetype']
+): string | undefined {
+  // Warm/playful surface over low trust or high suspicion = false friendliness
+  const surfaceFriendly = emotion === 'WARM' || emotion === 'PLAYFUL' || emotion === 'SINCERE';
+  const underlyingHostile = suspBand === 'HIGH' || trustBand === 'LOW';
+  if (surfaceFriendly && underlyingHostile) {
+    const opts = [
+      "(doesn't mean a word of it)",
+      "(already counting your votes against them)",
+      "(filing every answer for later)",
+      "(smile is for the cameras)",
+    ];
+    if (archetype === 'PassiveAggressive') opts.push("(loading the knife)");
+    if (archetype === 'Strategist') opts.push("(running the numbers in real time)");
+    return opts[(intent.length + emotion.length) % opts.length];
+  }
+  // Cold/guarded surface over high trust = pretending to be unbothered
+  const surfaceClosed = emotion === 'COLD' || emotion === 'GUARDED';
+  if (surfaceClosed && trustBand === 'HIGH' && suspBand !== 'HIGH') {
+    return "(actually still on your side, won't admit it)";
+  }
+  // Angry surface with low suspicion = performance for someone watching
+  if (emotion === 'ANGRY' && suspBand === 'LOW') {
+    return "(performing for whoever's listening)";
   }
   return undefined;
 }
