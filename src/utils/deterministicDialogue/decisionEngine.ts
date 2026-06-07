@@ -291,6 +291,8 @@ export function decideResponse(input: DecisionInput): ResponseTagBundle {
     suspBand === 'HIGH' || trustBand === 'HIGH' ? 'HIGH' :
     suspBand === 'MEDIUM' && trustBand === 'MEDIUM' ? 'LOW' : 'MEDIUM';
 
+  const subtext = pickSubtext(intent, emotion, trustBand, suspBand, archetype);
+
   return {
     topic,
     intent,
@@ -302,6 +304,7 @@ export function decideResponse(input: DecisionInput): ResponseTagBundle {
     reputation,
     archetype,
     memoryRef,
+    subtext,
     effects,
   };
 }
