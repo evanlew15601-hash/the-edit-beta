@@ -51,16 +51,17 @@ function formatPeople(list: string[] | undefined, exclude: string[]): string | u
   return `${others.slice(0, -1).join(', ')}, and ${others[others.length - 1]}`;
 }
 
-function eventLabelFor(mem: { type: string; day: number; content?: string }): string {
+function eventLabelFor(mem: { type: string; day: number; content?: string }): string | undefined {
+  // Only return a label when the memory type produces a self-contained,
+  // human-sounding phrase. Vague memory types return undefined so no template
+  // using {event} will fire from them.
   switch (mem.type) {
-    case 'scheme': return `that day-${mem.day} scheme`;
+    case 'scheme': return `that scheme on day ${mem.day}`;
     case 'alliance_meeting': return `the day-${mem.day} alliance meeting`;
     case 'elimination': return `the day-${mem.day} eviction`;
     case 'confessional_leak': return `what leaked out of the diary room`;
-    case 'dm': return `that private conversation on day ${mem.day}`;
-    case 'observation': return `what I watched happen on day ${mem.day}`;
     case 'event': return `the day-${mem.day} blowup`;
-    default: return `our day-${mem.day} conversation`;
+    default: return undefined;
   }
 }
 
@@ -68,20 +69,34 @@ function pickSituation(ctx: {
   suspicion: number;
   trust: number;
   remaining: number;
-  hasRecentBetrayal: boolean;
+  hasBurntableBetrayal: boolean;
   hasStrongAlly: boolean;
+  hasThreat: boolean;
   socialPower: number;
-  hasRomance: boolean;
+  hasRomancePartner: boolean;
 }): Situation {
-  if (ctx.hasRecentBetrayal) return 'burnt';
+  if (ctx.hasBurntableBetrayal) return 'burnt';
   if (ctx.suspicion >= 75) return 'paranoid';
-  if (ctx.remaining <= 6 && ctx.suspicion >= 55) return 'threatened';
-  if (ctx.hasRomance) return 'romantic';
+  if (ctx.remaining <= 6 && ctx.suspicion >= 55 && ctx.hasThreat) return 'threatened';
+  if (ctx.hasRomancePartner) return 'romantic';
   if (ctx.socialPower >= 65 && ctx.suspicion < 45) return 'winning';
   if (ctx.hasStrongAlly && ctx.trust >= 55) return 'loyal';
   if (!ctx.hasStrongAlly && ctx.trust < 25) return 'isolated';
-  if (ctx.trust < 40 && ctx.suspicion >= 40) return 'scheming';
+  if (ctx.trust < 40 && ctx.suspicion >= 40 && ctx.hasThreat) return 'scheming';
   return 'reflective';
+}
+
+function extractRomancePartner(
+  npc: Contestant,
+  others: Contestant[]
+): string | undefined {
+  const others_names = new Set(others.map(o => o.name));
+  const romanticMem = (npc.memory || []).find(m =>
+    /flirt|kiss|crush|romance|showmance/i.test(m.content || '')
+  );
+  if (!romanticMem) return undefined;
+  const partner = (romanticMem.participants || []).find(p => p !== npc.name && others_names.has(p));
+  return partner;
 }
 
 function buildContext(npc: Contestant, gameState: GameState): ConfessionalContext {
@@ -92,48 +107,72 @@ function buildContext(npc: Contestant, gameState: GameState): ConfessionalContex
   const susp = npc.psychProfile?.suspicionLevel ?? 30;
   const archetype = deriveArchetypeFromDisposition(npc.psychProfile?.disposition, npc.psychProfile);
 
-  // Only accept a memory from the last 5 days for narrative freshness.
+  // Only accept a memory from the last 5 days for narrative freshness AND
+  // one that produces a self-contained event label.
   const recentMems = (npc.memory || [])
-    .filter(m => gameState.currentDay - m.day <= 5)
+    .filter(m => gameState.currentDay - m.day <= 5 && m.day > 0)
     .sort((a, b) => b.day - a.day);
 
-  const betrayalMem = recentMems.find(m =>
-    /betray|burned|flipped|lied|backstab/i.test(m.content || '')
-  );
+  const othersByName = new Map(others.map(o => [o.name, o] as const));
+
+  // A betrayal memory only counts when we can link it to a still-active,
+  // suspicious houseguest that isn't the NPC themselves. Otherwise the line
+  // "{threat} lit my game up at {event}" would target nobody sensible.
+  const betrayalMem = recentMems.find(m => {
+    if (!/betray|burned|flipped|lied|backstab/i.test(m.content || '')) return false;
+    if (!eventLabelFor(m)) return false;
+    const linkedThreat = (m.participants || []).find(
+      p => p !== npc.name && othersByName.has(p)
+    );
+    return !!linkedThreat;
+  });
+
+  const threatFromBetrayal = betrayalMem
+    ? (betrayalMem.participants || []).find(p => p !== npc.name && othersByName.has(p))
+    : undefined;
 
   const ally = others
     .filter(c => (c.psychProfile?.trustLevel ?? 0) >= 40)
     .sort((a, b) => (b.psychProfile?.trustLevel ?? 0) - (a.psychProfile?.trustLevel ?? 0))[0];
 
-  const threat = others
+  const suspiciousThreat = others
     .filter(c => (c.psychProfile?.suspicionLevel ?? 0) >= 55)
     .sort((a, b) => (b.psychProfile?.suspicionLevel ?? 0) - (a.psychProfile?.suspicionLevel ?? 0))[0];
 
-  const strongestOther = others
-    .sort((a, b) => (b.psychProfile?.suspicionLevel ?? 0) - (a.psychProfile?.suspicionLevel ?? 0))[0];
+  const romancePartner = extractRomancePartner(npc, others);
 
-  const hasRomance = (npc.memory || []).some(m => /flirt|kiss|crush|romance/i.test(m.content || ''));
-
-  // Rough social-power proxy from trust minus suspicion relative to peers.
+  // Rough social-power proxy from trust minus suspicion.
   const score = (trust - susp) + 50;
   const socialPower = Math.max(0, Math.min(100, score));
+
+  // A threat name must be a real, still-active, suspicious houseguest — never
+  // a "least-worst" fallback. Templates using {threat} simply won't fire when
+  // this is undefined, which is exactly what we want.
+  const threatName = threatFromBetrayal || suspiciousThreat?.name;
 
   const situation = pickSituation({
     suspicion: susp,
     trust,
     remaining: active.length,
-    hasRecentBetrayal: !!betrayalMem,
+    hasBurntableBetrayal: !!betrayalMem,
     hasStrongAlly: !!ally,
+    hasThreat: !!threatName,
     socialPower,
-    hasRomance,
+    hasRomancePartner: !!romancePartner,
   });
 
+  // Only surface a memory event when it's self-contained AND relevant to the
+  // situation (burnt uses the betrayal; other situations only garnish from
+  // strong, non-conversational event types).
   const chosenMem =
-    situation === 'burnt' ? betrayalMem :
-    recentMems[0];
+    situation === 'burnt'
+      ? betrayalMem
+      : recentMems.find(m => !!eventLabelFor(m));
 
   const memoryEvent = chosenMem ? eventLabelFor(chosenMem) : undefined;
-  const memoryPeople = chosenMem ? formatPeople(chosenMem.participants, [npc.name]) : undefined;
+  const memoryPeople = chosenMem
+    ? formatPeople(chosenMem.participants, [npc.name])
+    : undefined;
 
   return {
     npc,
@@ -143,12 +182,14 @@ function buildContext(npc: Contestant, gameState: GameState): ConfessionalContex
     remaining: active.length,
     jury: active.length <= 9,
     ally: ally?.name,
-    threat: threat?.name || strongestOther?.name,
+    threat: threatName,
+    romancePartner,
     memoryEvent,
     memoryPeople,
     playerName: gameState.playerName,
   };
 }
+
 
 // ─────────────────────── TEMPLATE LIBRARY ───────────────────────
 // Templates use tokens: {ally} {threat} {day} {count} {event} {people} {player}
