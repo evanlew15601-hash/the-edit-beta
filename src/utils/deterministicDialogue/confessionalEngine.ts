@@ -259,8 +259,8 @@ const BY_SITUATION: Record<Situation, Template[]> = {
 const BY_ARCHETYPE_SITUATION: Partial<Record<Archetype, Partial<Record<Situation, Template[]>>>> = {
   Hothead: {
     burnt: [
-      "{threat} lit my game up at {event}. Now it's a war. That's fine. I like wars.",
-      "I don't forget. I don't forgive. {event} is happening back to {threat} this week.",
+      "{threat} lit my game up. Now it's a war. That's fine. I like wars.",
+      "I don't forget. I don't forgive. {threat} finds that out this week.",
     ],
     threatened: [
       "{threat} wants a problem? I am the problem this week.",
