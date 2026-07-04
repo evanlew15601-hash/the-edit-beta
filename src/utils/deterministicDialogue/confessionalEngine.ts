@@ -232,9 +232,10 @@ const BY_SITUATION: Record<Situation, Template[]> = {
     "The best moves in here look like small talk.",
   ],
   romantic: [
-    "I did not come here for this and yet here we are.",
-    "The showmance is real, the strategy is more real. Both can be true.",
-    "I like them. I'd still cut them. That's the house talking, not me.",
+    "{partner} and I aren't supposed to be a thing. Somehow we are.",
+    "The showmance with {partner} is real. The strategy is more real. Both can be true.",
+    "I like {partner}. I'd still cut them if the vote asked me to. That's the house talking.",
+    "Every time I talk to {partner}, my whole game slows down for a second. I hate that. I like it.",
   ],
   isolated: [
     "I don't have a person in this house. That's the honest answer.",
