@@ -292,7 +292,7 @@ const BY_ARCHETYPE_SITUATION: Partial<Record<Archetype, Partial<Record<Situation
       "I love {ally}. I'd still lie for them. I'd still lie to them if I had to.",
     ],
     romantic: [
-      "They looked at me tonight in a way that would end careers on the outside. I'm keeping it.",
+      "{partner} looked at me tonight in a way that would end careers on the outside. I'm keeping it.",
     ],
     scheming: [
       "I don't push. I invite. By the end of the week, {threat}'s name walks in on its own.",
