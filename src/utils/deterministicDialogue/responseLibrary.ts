@@ -364,9 +364,7 @@ export const RESPONSE_LIBRARY: LibraryShape = {
     "You're the only reason I'm laughing today, {player}.",
     "Between us, this house is a sitcom with no writers.",
   ],
-  JOKE_SARCASTIC_FALLBACK: [
-    "Oh great. Another day of pretending we like each other. Love it.",
-  ],
+
   GREET_SINCERE: [
     "Hey. I was hoping I'd catch you alone.",
     "Good — you. Come here for a second.",
