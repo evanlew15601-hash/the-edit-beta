@@ -408,11 +408,13 @@ export function buildDeterministicConfessional(npc: Contestant, gameState: GameS
   const seed = `${npc.id || npc.name}|conf|${ctx.day}|${ctx.situation}|${ctx.archetype}`;
   let line = pickTemplateFor(ctx, seed);
 
-  // Optional memory garnish — only if we have a real event, the situation
-  // isn't already burnt/threatened (which already reference the memory), and
-  // deterministic seed says so.
+  // Optional memory garnish — only fires when the situation is a "thinking
+  // out loud" mode where a callback to a real, self-contained event fits
+  // naturally. Never after burnt/threatened/scheming/romantic/paranoid where
+  // it would sound like a non-sequitur.
   const seedNum = seed.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const canGarnish = ctx.memoryEvent && !['burnt', 'threatened', 'reflective'].includes(ctx.situation);
+  const garnishSituations: Situation[] = ['reflective', 'isolated', 'loyal', 'winning'];
+  const canGarnish = ctx.memoryEvent && garnishSituations.includes(ctx.situation);
   if (canGarnish && seedNum % 10 < 3) {
     const garnish = seededPick(MEMORY_GARNISH, seed + '|g');
     if (garnish) {
