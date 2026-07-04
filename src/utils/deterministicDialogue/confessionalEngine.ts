@@ -381,8 +381,9 @@ function pickTemplateFor(ctx: ConfessionalContext, seed: string): string {
   const tokens: Record<string, string | undefined> = {
     ally: ctx.ally,
     threat: ctx.threat,
-    day: String(ctx.day),
-    count: String(ctx.remaining),
+    partner: ctx.romancePartner,
+    day: ctx.day > 0 ? String(ctx.day) : undefined,
+    count: ctx.remaining > 0 ? String(ctx.remaining) : undefined,
     event: ctx.memoryEvent,
     people: ctx.memoryPeople,
     player: ctx.playerName,
