@@ -296,6 +296,103 @@ export const RESPONSE_LIBRARY: LibraryShape = {
     "Okay. Good talk. Find me later if anything shifts.",
     "Love you. Mean it. Go.",
   ],
+
+  // ───────────────────────── extra coverage ─────────────────────────
+  BUILD_TRUST_PLAYFUL: [
+    "Fine — I'm officially adopting you, {player}. Don't embarrass me.",
+    "You and me? Dangerous combo. In the good way.",
+  ],
+  REASSURE_GUARDED: [
+    "You're not the problem this week. That's all I can say out loud.",
+    "Don't act different around me. That's how names come up.",
+    "Nothing's changed on my end. Stop looking at me like it has.",
+  ],
+  REASSURE_PLAYFUL: [
+    "Relax, {player}. If I were coming for you, you'd already be gone.",
+    "Breathe. You're spiraling and it's not a good look for either of us.",
+  ],
+  AGREE_PLAYFUL: [
+    "Oh, we're doing this? Fine. I'm in and I'm insufferable about it.",
+    "Say less. I'm already halfway there.",
+  ],
+  AGREE_COLD: [
+    "Fine. Once. Don't ask me twice.",
+    "Yes. Move on.",
+  ],
+  REFUSE_SINCERE: [
+    "I hear you. I'm still saying no.",
+    "It's a good pitch, {player}. It's not for me. Not this week.",
+  ],
+  PROBE_COLD: [
+    "Try that answer again. Slower.",
+    "That's not what I asked.",
+    "Real answer, {player}. Not the camera answer.",
+  ],
+  PROBE_ANGRY: [
+    "Stop dancing and answer me.",
+    "Who told you that? Name. Now.",
+  ],
+  DEFLECT_SINCERE: [
+    "I don't have a clean answer for that yet. Let me sit with it.",
+    "Ask me tomorrow. Tonight I don't trust my own mouth.",
+  ],
+  DEFLECT_SUSPICIOUS: [
+    "Weird question, {player}. Why now?",
+    "You're the third person to ask me that today. Interesting.",
+  ],
+  ACCUSE_GUARDED: [
+    "I want to be wrong about this. Convince me I am.",
+    "Something doesn't add up and it starts with you.",
+  ],
+  APOLOGIZE_WARM: [
+    "I owe you one. And I know it.",
+    "You were right. I was wrong. That's it.",
+  ],
+  THREATEN_GUARDED: [
+    "Don't make me play the other side of this. You won't like it.",
+    "I'd rather not go there with you. Don't push me there.",
+  ],
+  FLIRT_SINCERE: [
+    "I don't know what this is. I know I like it.",
+    "You make this house bearable. That's not nothing.",
+  ],
+  FLIRT_GUARDED: [
+    "We should probably stop doing this on camera.",
+    "Ask me that again when there aren't producers listening.",
+  ],
+  JOKE_WARM: [
+    "You're the only reason I'm laughing today, {player}.",
+    "Between us, this house is a sitcom with no writers.",
+  ],
+
+  GREET_SINCERE: [
+    "Hey. I was hoping I'd catch you alone.",
+    "Good — you. Come here for a second.",
+  ],
+  GREET_PLAYFUL: [
+    "Well well well. Look who finally showed up.",
+    "There's my favorite variable in this house.",
+  ],
+  END_CONVO_SINCERE: [
+    "That's where I'll leave it. Think on it.",
+    "I said what I needed to say.",
+  ],
+  END_CONVO_PLAYFUL: [
+    "Okay, I'm being pulled by production emotionally. Bye.",
+    "Aaand scene. Love you. Sort of.",
+  ],
+  TEST_LOYALTY_SINCERE: [
+    "I'm asking straight: are you with me or not, {player}?",
+    "Say it out loud once and I'll trust it. Are we together on this?",
+  ],
+  REVEAL_INFO_GUARDED: [
+    "I'll give you a piece. Not all of it. {about}.",
+    "One name. Don't ask me for two. {about}.",
+  ],
+  WITHHOLD_INFO_PLAYFUL: [
+    "Oh, that? That's above your pay grade this week.",
+    "Cute try, {player}. Try again after the vote.",
+  ],
 };
 
 // ─────────────────────── ARCHETYPE FLAVOR POOLS ───────────────────────
@@ -382,6 +479,52 @@ export const ARCHETYPE_POOLS: ArchetypePool = {
   ],
   REVEAL_INFO_PLAYFUL_Wildcard: [
     "{about}. Or maybe not. Maybe I'm lying. Have fun!",
+  ],
+
+  // Extra archetype flavor
+  PROBE_SUSPICIOUS_Strategist: [
+    "Walk me through the logic. Start with who benefits.",
+    "You skipped a step. Go back and hit it.",
+  ],
+  ACCUSE_COLD_Strategist: [
+    "The math on your story doesn't close. Try again.",
+    "Two of your data points contradict. Which one's the lie?",
+  ],
+  REASSURE_WARM_Charmer: [
+    "Hey — look at me. You're safe with me, {player}. That's the whole answer.",
+    "Come here. Stop spinning. I've got you.",
+  ],
+  BUILD_TRUST_WARM_Hothead: [
+    "Real talk, {player}? You're one of maybe two people I'd bleed for in here.",
+    "I don't say this to everyone. You. Me. Ride or die. Done.",
+  ],
+  DEFLECT_PLAYFUL_Wildcard: [
+    "Ask me that in a British accent and I'll consider it.",
+    "New topic — do you think the fish tank is spying on us?",
+  ],
+  APOLOGIZE_SINCERE_PassiveAggressive: [
+    "Fine. I was wrong. I said it. Don't make me say it twice.",
+    "Yes. My fault. Happy?",
+  ],
+  END_CONVO_COLD_Paranoid: [
+    "We were never talking. Leave first.",
+    "Don't walk out with me. Wait a minute.",
+  ],
+  GREET_GUARDED_Paranoid: [
+    "Not here. Bathroom. Two minutes.",
+    "Don't say my name out loud. Just walk.",
+  ],
+  JOKE_PLAYFUL_Charmer: [
+    "If I get evicted, I'm suing production for emotional damages and a snack.",
+    "This house runs on gossip and one working coffee pot. That's it.",
+  ],
+  THREATEN_COLD_Strategist: [
+    "You have one move before I stop being polite. Choose carefully.",
+    "The next conversation we have will be about your eviction. Your call.",
+  ],
+  FLIRT_PLAYFUL_Wildcard: [
+    "I'm going to marry you in the storage room. Don't tell production.",
+    "You have the exact energy of a small chaotic dog and I love it.",
   ],
 };
 
