@@ -296,6 +296,105 @@ export const RESPONSE_LIBRARY: LibraryShape = {
     "Okay. Good talk. Find me later if anything shifts.",
     "Love you. Mean it. Go.",
   ],
+
+  // ───────────────────────── extra coverage ─────────────────────────
+  BUILD_TRUST_PLAYFUL: [
+    "Fine — I'm officially adopting you, {player}. Don't embarrass me.",
+    "You and me? Dangerous combo. In the good way.",
+  ],
+  REASSURE_GUARDED: [
+    "You're not the problem this week. That's all I can say out loud.",
+    "Don't act different around me. That's how names come up.",
+    "Nothing's changed on my end. Stop looking at me like it has.",
+  ],
+  REASSURE_PLAYFUL: [
+    "Relax, {player}. If I were coming for you, you'd already be gone.",
+    "Breathe. You're spiraling and it's not a good look for either of us.",
+  ],
+  AGREE_PLAYFUL: [
+    "Oh, we're doing this? Fine. I'm in and I'm insufferable about it.",
+    "Say less. I'm already halfway there.",
+  ],
+  AGREE_COLD: [
+    "Fine. Once. Don't ask me twice.",
+    "Yes. Move on.",
+  ],
+  REFUSE_SINCERE: [
+    "I hear you. I'm still saying no.",
+    "It's a good pitch, {player}. It's not for me. Not this week.",
+  ],
+  PROBE_COLD: [
+    "Try that answer again. Slower.",
+    "That's not what I asked.",
+    "Real answer, {player}. Not the camera answer.",
+  ],
+  PROBE_ANGRY: [
+    "Stop dancing and answer me.",
+    "Who told you that? Name. Now.",
+  ],
+  DEFLECT_SINCERE: [
+    "I don't have a clean answer for that yet. Let me sit with it.",
+    "Ask me tomorrow. Tonight I don't trust my own mouth.",
+  ],
+  DEFLECT_SUSPICIOUS: [
+    "Weird question, {player}. Why now?",
+    "You're the third person to ask me that today. Interesting.",
+  ],
+  ACCUSE_GUARDED: [
+    "I want to be wrong about this. Convince me I am.",
+    "Something doesn't add up and it starts with you.",
+  ],
+  APOLOGIZE_WARM: [
+    "I owe you one. And I know it.",
+    "You were right. I was wrong. That's it.",
+  ],
+  THREATEN_GUARDED: [
+    "Don't make me play the other side of this. You won't like it.",
+    "I'd rather not go there with you. Don't push me there.",
+  ],
+  FLIRT_SINCERE: [
+    "I don't know what this is. I know I like it.",
+    "You make this house bearable. That's not nothing.",
+  ],
+  FLIRT_GUARDED: [
+    "We should probably stop doing this on camera.",
+    "Ask me that again when there aren't producers listening.",
+  ],
+  JOKE_WARM: [
+    "You're the only reason I'm laughing today, {player}.",
+    "Between us, this house is a sitcom with no writers.",
+  ],
+  JOKE_SARCASTIC_FALLBACK: [
+    "Oh great. Another day of pretending we like each other. Love it.",
+  ],
+  GREET_SINCERE: [
+    "Hey. I was hoping I'd catch you alone.",
+    "Good — you. Come here for a second.",
+  ],
+  GREET_PLAYFUL: [
+    "Well well well. Look who finally showed up.",
+    "There's my favorite variable in this house.",
+  ],
+  END_CONVO_SINCERE: [
+    "That's where I'll leave it. Think on it.",
+    "I said what I needed to say.",
+  ],
+  END_CONVO_PLAYFUL: [
+    "Okay, I'm being pulled by production emotionally. Bye.",
+    "Aaand scene. Love you. Sort of.",
+  ],
+  TEST_LOYALTY_SINCERE: [
+    "I'm asking straight: are you with me or not, {player}?",
+    "Say it out loud once and I'll trust it. Are we together on this?",
+  ],
+  REVEAL_INFO_GUARDED: [
+    "I'll give you a piece. Not all of it. {about}.",
+    "One name. Don't ask me for two. {about}.",
+  ],
+  WITHHOLD_INFO_PLAYFUL: [
+    "Oh, that? That's above your pay grade this week.",
+    "Cute try, {player}. Try again after the vote.",
+  ],
 };
 
 // ─────────────────────── ARCHETYPE FLAVOR POOLS ───────────────────────
