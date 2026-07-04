@@ -480,6 +480,52 @@ export const ARCHETYPE_POOLS: ArchetypePool = {
   REVEAL_INFO_PLAYFUL_Wildcard: [
     "{about}. Or maybe not. Maybe I'm lying. Have fun!",
   ],
+
+  // Extra archetype flavor
+  PROBE_SUSPICIOUS_Strategist: [
+    "Walk me through the logic. Start with who benefits.",
+    "You skipped a step. Go back and hit it.",
+  ],
+  ACCUSE_COLD_Strategist: [
+    "The math on your story doesn't close. Try again.",
+    "Two of your data points contradict. Which one's the lie?",
+  ],
+  REASSURE_WARM_Charmer: [
+    "Hey — look at me. You're safe with me, {player}. That's the whole answer.",
+    "Come here. Stop spinning. I've got you.",
+  ],
+  BUILD_TRUST_WARM_Hothead: [
+    "Real talk, {player}? You're one of maybe two people I'd bleed for in here.",
+    "I don't say this to everyone. You. Me. Ride or die. Done.",
+  ],
+  DEFLECT_PLAYFUL_Wildcard: [
+    "Ask me that in a British accent and I'll consider it.",
+    "New topic — do you think the fish tank is spying on us?",
+  ],
+  APOLOGIZE_SINCERE_PassiveAggressive: [
+    "Fine. I was wrong. I said it. Don't make me say it twice.",
+    "Yes. My fault. Happy?",
+  ],
+  END_CONVO_COLD_Paranoid: [
+    "We were never talking. Leave first.",
+    "Don't walk out with me. Wait a minute.",
+  ],
+  GREET_GUARDED_Paranoid: [
+    "Not here. Bathroom. Two minutes.",
+    "Don't say my name out loud. Just walk.",
+  ],
+  JOKE_PLAYFUL_Charmer: [
+    "If I get evicted, I'm suing production for emotional damages and a snack.",
+    "This house runs on gossip and one working coffee pot. That's it.",
+  ],
+  THREATEN_COLD_Strategist: [
+    "You have one move before I stop being polite. Choose carefully.",
+    "The next conversation we have will be about your eviction. Your call.",
+  ],
+  FLIRT_PLAYFUL_Wildcard: [
+    "I'm going to marry you in the storage room. Don't tell production.",
+    "You have the exact energy of a small chaotic dog and I love it.",
+  ],
 };
 
 // ─────────────────────── BODY LANGUAGE LIBRARY ───────────────────────
