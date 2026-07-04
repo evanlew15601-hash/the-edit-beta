@@ -36,7 +36,8 @@ interface ConfessionalContext {
   remaining: number;
   jury: boolean;
   ally?: string;      // real ally name (trust >= 40) or undefined
-  threat?: string;    // real threat name (suspicion >= 55) or undefined
+  threat?: string;    // real threat name (suspicion >= 55, or betrayer) or undefined
+  romancePartner?: string; // actual partner name from memory or undefined
   memoryEvent?: string;   // human-readable, e.g. "the day-6 vote"
   memoryPeople?: string;  // formatted people from a real memory
   playerName: string;
