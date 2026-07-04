@@ -300,7 +300,7 @@ const BY_ARCHETYPE_SITUATION: Partial<Record<Archetype, Partial<Record<Situation
   },
   PassiveAggressive: {
     burnt: [
-      "Oh, {threat} is sweet with me now. Cute. {event} still happened though.",
+      "Oh, {threat} is sweet with me now. Cute. I remember exactly what they did.",
       "I love how {threat} says my name like we're fine. We're not fine.",
     ],
     paranoid: [
