@@ -340,7 +340,7 @@ const BY_ARCHETYPE_SITUATION: Partial<Record<Archetype, Partial<Record<Situation
       "Day {day}. I forgot what day it was. That's healthy, right?",
     ],
     romantic: [
-      "I fell for them at breakfast. I'll fall out of it by dinner. That's a normal Tuesday.",
+      "I fell for {partner} at breakfast. I'll fall out of it by dinner. That's a normal Tuesday.",
     ],
   },
 };
