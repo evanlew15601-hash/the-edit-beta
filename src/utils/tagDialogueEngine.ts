@@ -1,5 +1,6 @@
 import { BaseEffectEntry, Choice, ComputedOutcome, ReactionProfile, TopicTag, ToneTag } from '@/types/tagDialogue';
 import { Contestant, GameState } from '@/types/game';
+import { getHandCraftedReaction } from '@/data/tagChoiceReactions';
 
 // Base effects per intent-topic (comprehensive coverage)
 const BASE_EFFECTS: Partial<Record<Choice['intent'], Partial<Record<TopicTag, BaseEffectEntry>>>> = {
@@ -212,12 +213,19 @@ const recentTagUsage = (
 export const reactionText = (
   npcName: string,
   choice: Choice,
-  outcome: ComputedOutcome
+  outcome: ComputedOutcome,
+  ctx?: { playerName?: string; day?: number }
 ) => {
   const intent = choice.intent;
   const topic = choice.topics[0];
   const tone = choice.tone;
   const cat = outcome.category;
+
+  // Prefer hand-crafted per-choice reaction bank when available.
+  const seed = `${npcName}|${choice.choiceId}|${cat}|${ctx?.day ?? 0}`;
+  const hand = getHandCraftedReaction(choice.choiceId, cat, seed, npcName, ctx?.playerName || 'you');
+  if (hand) return hand;
+  
   
   // Intent-based reactions with topic/tone nuances
   if (intent === 'BuildAlliance') {
