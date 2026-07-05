@@ -3309,7 +3309,7 @@ export const useGameState = () => {
             day: prev.currentDay,
             type: memType as any,
             participants: [prev.playerName, target],
-            content: `[TAG intent=${choice.intent} topic=${choice.topics[0]}] ${reactionText(target, choice, outcome)}`,
+            content: `[TAG intent=${choice.intent} topic=${choice.topics[0]}] ${reactionText(target, choice, outcome, { playerName: prev.playerName, day: prev.currentDay })}`,
             emotionalImpact: Math.max(-10, Math.min(10, Math.floor(trustPts / 5))),
             timestamp: Date.now()
           };
@@ -3378,7 +3378,7 @@ export const useGameState = () => {
           interaction === 'activity' ? 'activity' : 'public';
 
         // Build reaction text and deltas for UI
-        const reactText = reactionText(target, choice, outcome);
+        const reactText = reactionText(target, choice, outcome, { playerName: prev.playerName, day: prev.currentDay });
         const reactionSummary: ReactionSummary = {
           take,
           context,
