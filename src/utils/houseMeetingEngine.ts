@@ -419,7 +419,7 @@ export const houseMeetingEngine = {
       currentRound: 0,
       maxRounds: 5,
       mood: this.getMood(gameState),
-      conversationLog: [{ speaker: initiator, text: `Call House Meeting: ${topic.replace('_', ' ')}` }],
+      conversationLog: [{ speaker: initiator, text: this.generateOpeningStatement({ topic, target: playerSusp > 60 ? player : undefined, initiator }) }],
       currentOptions: this.buildOptions(topic),
       forcedOpen: true,
     };
