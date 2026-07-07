@@ -6,6 +6,26 @@ type DeltasByName = { [name: string]: PerPersonDelta };
 const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
 
 export const houseMeetingEngine = {
+  generateOpeningStatement(input: { topic: HouseMeetingTopic; target?: string; initiator: string }): string {
+    const target = input.target || 'the house';
+    switch (input.topic) {
+      case 'nominate_target':
+        return input.target
+          ? `I called this because I think ${target} needs to be the target this week. I want everyone to say where they stand.`
+          : `I called this because the vote is getting vague. I want us to talk openly about who the target should be.`;
+      case 'defend_self':
+        return `I called this because my name is getting twisted. I want to answer it in front of everyone instead of chasing whispers.`;
+      case 'shift_blame':
+        return input.target
+          ? `I think we're looking in the wrong direction. If we're talking about threats, ${target} needs to be part of that conversation.`
+          : `I think we're looking in the wrong direction. I want to talk about who's actually benefiting from the chaos.`;
+      case 'expose_alliance':
+        return input.target
+          ? `I called this because people are pretending ${target} isn't connected. I want the house to look at the patterns.`
+          : `I called this because there are voting blocs forming and everyone keeps pretending not to see them.`;
+    }
+  },
+
   getMood(gameState: GameState): HouseMeetingState['mood'] {
     const active = gameState.contestants.filter(c => !c.isEliminated);
     const avgSusp = active.reduce((s, c) => s + (c.psychProfile.suspicionLevel || 0), 0) / Math.max(1, active.length);
@@ -44,46 +64,135 @@ export const houseMeetingEngine = {
     });
   },
 
-  generateAIStatement(state: HouseMeetingState): string {
+  generateAIStatement(state: HouseMeetingState, choice?: HouseMeetingToneChoice): string {
     const { topic, target, mood, participants, currentRound, initiator } = state;
 
-    // Scripted beats by topic and round (0-based)
-    const T = (name: string) => name || 'Someone';
-    const tgt = target ? T(target) : 'someone';
-    const host = T(initiator);
-    const other = T(participants.find(n => n !== initiator && n !== target) || participants[0] || 'Someone');
+    const names = participants.filter(Boolean);
+    const responder = names.find(n => n !== initiator && n !== target) || names.find(n => n !== initiator) || 'Someone';
+    const subject = target || 'the vote';
+    const round = Math.max(0, currentRound);
 
-    const scripts: Record<HouseMeetingTopic, string[]> = {
-      nominate_target: [
-        `${host}: I want a clean week. ${tgt} has been playing both sides. We should lock this in.`,
-        `${other}: If we don't unify, the numbers slip. ${tgt} makes the most sense right now.`,
-        `${host}: This isn't personal. It's protection. Are we aligned or not?`
-      ],
-      defend_self: [
-        `${host}: I'm not the one stirring chaos. Check the timelines—accusations don't line up.`,
-        `${other}: I've seen you put in work socially. This pile-on feels performative.`,
-        `${host}: If I were coming after you, you'd know. I'm here to stabilize the house, not blow it up.`
-      ],
-      shift_blame: [
-        `${host}: We're aiming at the wrong person. Look at who benefits if ${tgt} stays quiet in the corner.`,
-        `${other}: I've heard whispers that line up. Someone's managing narratives off camera.`,
-        `${host}: Stop letting the obvious slide. If we miss this window, we deserve the fallout.`
-      ],
-      expose_alliance: [
-        `${host}: Fine. Cards on the table—there's a bloc voting together. I can name two members right now.`,
-        `${other}: You can feel it. Side conversations, synchronized stories, perfectly timed pushbacks.`,
-        `${host}: If you want proof, compare who never call each other out. It's curated. It's deliberate.`
-      ]
+    const byChoice: Record<HouseMeetingToneChoice, Record<HouseMeetingTopic, string[]>> = {
+      persuasive: {
+        nominate_target: [
+          `${responder}: If we're naming ${subject}, I need reasons, not vibes.`,
+          `${responder}: That case makes sense, but people need to own their votes out loud.`,
+          `${responder}: I'm willing to hear it. I'm not signing onto a pile-on.`
+        ],
+        defend_self: [
+          `${responder}: A calm explanation helps. It doesn't erase the questions, but it helps.`,
+          `${responder}: If the timelines check out, people should stop embellishing it.`,
+          `${responder}: I respect you answering it in the room instead of ducking it.`
+        ],
+        shift_blame: [
+          `${responder}: That's a fair redirect. We should ask who benefits before we pick a target.`,
+          `${responder}: If ${subject} is connected to this, say the pattern clearly.`,
+          `${responder}: I'm listening. Just don't turn this into smoke with no fire.`
+        ],
+        expose_alliance: [
+          `${responder}: Patterns matter, but names matter too. If there's a bloc, be specific.`,
+          `${responder}: I have noticed people voting together. I'm not pretending I haven't.`,
+          `${responder}: If this is true, it changes the week. If it's not, it makes you a target.`
+        ]
+      },
+      defensive: {
+        nominate_target: [
+          `${responder}: Don't make this about your safety only. Tell us why ${subject} is bad for the house.`,
+          `${responder}: I get protecting yourself. I need the logic behind the name.`,
+          `${responder}: Defense is fine, but the target still needs to make sense.`
+        ],
+        defend_self: [
+          `${responder}: That's the first version I've heard that actually lines up.`,
+          `${responder}: I still have questions, but I appreciate the direct answer.`,
+          `${responder}: Okay. That clears up part of it, not all of it.`
+        ],
+        shift_blame: [
+          `${responder}: Careful. Redirecting blame can look like dodging blame.`,
+          `${responder}: Maybe, but don't ask us to forget why this started.`,
+          `${responder}: If you're right, prove it without making the room do the work.`
+        ],
+        expose_alliance: [
+          `${responder}: If you're exposing something to defend yourself, people are going to question the timing.`,
+          `${responder}: The timing is messy, but the point might still be real.`,
+          `${responder}: I need more than 'they talk a lot.' Everyone talks in here.`
+        ]
+      },
+      aggressive: {
+        nominate_target: [
+          `${responder}: Calling ${subject} out like that might rally people, or it might blow back on you.`,
+          `${responder}: The name is out now. Nobody gets to act confused later.`,
+          `${responder}: That's a hard shot. Be ready for one back.`
+        ],
+        defend_self: [
+          `${responder}: You can be angry, but volume doesn't make the story cleaner.`,
+          `${responder}: I hear the frustration. I also hear panic.`,
+          `${responder}: If you wanted the room calm, that was not the way to get there.`
+        ],
+        shift_blame: [
+          `${responder}: That was direct. Now ${subject} gets to answer it.`,
+          `${responder}: If you're wrong, you just made an enemy for no reason.`,
+          `${responder}: The room heard you. Don't pretend later that you were just asking questions.`
+        ],
+        expose_alliance: [
+          `${responder}: If you're naming an alliance, name it. Half-exposing it helps nobody.`,
+          `${responder}: That's a grenade. Some people in here just got very quiet.`,
+          `${responder}: You may be right, but now everyone knows you were watching.`
+        ]
+      },
+      manipulative: {
+        nominate_target: [
+          `${responder}: That's a neat story. Maybe too neat.`,
+          `${responder}: I can see the angle, but I can also see why it benefits you.`,
+          `${responder}: You're framing this well. That makes me trust it less, not more.`
+        ],
+        defend_self: [
+          `${responder}: You're smoothing over the part people are actually worried about.`,
+          `${responder}: That's a good spin. I still want the plain version.`,
+          `${responder}: You made it sound reasonable. I need to know if it's true.`
+        ],
+        shift_blame: [
+          `${responder}: That redirect is convenient, but it isn't impossible.`,
+          `${responder}: You're trying to move the spotlight. The question is whether it belongs there.`,
+          `${responder}: I can follow the logic. I just don't know if I trust the messenger.`
+        ],
+        expose_alliance: [
+          `${responder}: Exposing an alliance helps you too. Let's not pretend this is charity.`,
+          `${responder}: The pattern is interesting. The timing is even more interesting.`,
+          `${responder}: If that bloc is real, the house needs to know. If not, this is dangerous.`
+        ]
+      },
+      silent: {
+        nominate_target: [
+          `${responder}: Silence doesn't give us a target. It just makes people fill in blanks.`,
+          `${responder}: If you called this meeting, staying quiet is a choice too.`,
+          `${responder}: Nobody can read your mind. That's risky right now.`
+        ],
+        defend_self: [
+          `${responder}: If your name is in trouble, silence might not save you.`,
+          `${responder}: Not answering leaves the worst version alive.`,
+          `${responder}: Maybe you're taking the high road. Maybe you're hiding. Hard to tell.`
+        ],
+        shift_blame: [
+          `${responder}: You can't redirect the room and then disappear from the conversation.`,
+          `${responder}: If there's another angle, now is the time to say it.`,
+          `${responder}: The pause says as much as an accusation.`
+        ],
+        expose_alliance: [
+          `${responder}: If you know about a bloc, say it clearly or don't bring it up.`,
+          `${responder}: Half-silence makes everyone paranoid.`,
+          `${responder}: The room is going to remember who avoided names.`
+        ]
+      }
     };
 
-    const lines = scripts[topic] || ['The room buzzes with low voices.'];
-    const line = lines[Math.min(currentRound, lines.length - 1)];
+    const topicLines = byChoice[choice || 'persuasive']?.[topic] || [`${responder}: The room is listening, but people need specifics.`];
+    const line = topicLines[round % topicLines.length];
 
     const tone = mood === 'heated'
-      ? ' Voices overlap, tension rises.'
+      ? ' Voices start overlapping.'
       : mood === 'tense'
-      ? ' The room is wary.'
-      : ' Calm but focused.';
+      ? ' The room stays tense.'
+      : ' The room stays focused.';
 
     return `[Round ${currentRound + 1}] ${line}${tone}`;
   },
@@ -234,8 +343,8 @@ export const houseMeetingEngine = {
       mood: this.getMood(gameState),
       conversationLog: [
         ...state.conversationLog,
-        { speaker: 'House', text: this.generateAIStatement(state) },
-        { speaker: state.initiator, text: `${initiator} chose: ${choice}` }
+        { speaker: state.initiator, text: this.describePlayerChoice(state.topic, choice, target) },
+        { speaker: 'House', text: this.generateAIStatement(state, choice) }
       ],
       currentOptions: this.buildOptions(state.topic),
       participants: Array.from(new Set([ ...state.participants, ...(joinedParticipants || []) ])),
@@ -244,9 +353,52 @@ export const houseMeetingEngine = {
     return { updatedState, deltas, reaction, allianceExposureBoost, joinedParticipants };
   },
 
+  describePlayerChoice(topic: HouseMeetingTopic, choice: HouseMeetingToneChoice, target?: string): string {
+    const subject = target || 'the room';
+    const lines: Record<HouseMeetingToneChoice, Record<HouseMeetingTopic, string>> = {
+      persuasive: {
+        nominate_target: `I lay out the case against ${subject} and ask people to commit instead of whispering.`,
+        defend_self: `I answer the accusations point by point and keep my voice steady.`,
+        shift_blame: `I explain why the house is looking in the wrong place and point to the bigger pattern.`,
+        expose_alliance: `I connect the votes and side conversations without overselling it.`
+      },
+      defensive: {
+        nominate_target: `I explain why naming ${subject} protects my game and the house's numbers.`,
+        defend_self: `I defend myself directly and correct the parts that got exaggerated.`,
+        shift_blame: `I push back on the blame and ask people to look at who benefits.`,
+        expose_alliance: `I explain why exposing this now is about transparency, not panic.`
+      },
+      aggressive: {
+        nominate_target: `I call out ${subject} directly and make the vote impossible to ignore.`,
+        defend_self: `I push back hard and tell the room to stop twisting my name.`,
+        shift_blame: `I put the blame on ${subject} and dare them to answer it.`,
+        expose_alliance: `I call the alliance out in front of everyone and force reactions.`
+      },
+      manipulative: {
+        nominate_target: `I frame ${subject} as the logical target and make it sound like the house's idea.`,
+        defend_self: `I reframe the story so my choices look measured instead of messy.`,
+        shift_blame: `I move the conversation toward ${subject} without making it look rehearsed.`,
+        expose_alliance: `I reveal just enough about the alliance to make people suspicious.`
+      },
+      silent: {
+        nominate_target: `I let the room sit with the name instead of adding more fuel.`,
+        defend_self: `I stop defending myself and let the room judge what has already been said.`,
+        shift_blame: `I hold back and watch who rushes to fill the silence.`,
+        expose_alliance: `I stop short of naming more names and let the tension do the work.`
+      }
+    };
+    return lines[choice][topic];
+  },
+
   detectAIInitiation(gameState: GameState): HouseMeetingState | null {
     const active = gameState.contestants.filter(c => !c.isEliminated);
     if (active.length < 4) return null;
+
+    const hadRecentMeeting = (gameState.interactionLog || []).some(e =>
+      e.day >= gameState.currentDay - 3 &&
+      (e.type === 'house_meeting' || /house meeting/i.test(e.content || ''))
+    );
+    if (hadRecentMeeting) return null;
 
     const mostSuspicious = [...active].sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0))[0];
     const player = gameState.playerName;
@@ -273,7 +425,7 @@ export const houseMeetingEngine = {
       currentRound: 0,
       maxRounds: 5,
       mood: this.getMood(gameState),
-      conversationLog: [{ speaker: initiator, text: `Call House Meeting: ${topic.replace('_', ' ')}` }],
+      conversationLog: [{ speaker: initiator, text: this.generateOpeningStatement({ topic, target: playerSusp > 60 ? player : undefined, initiator }) }],
       currentOptions: this.buildOptions(topic),
       forcedOpen: true,
     };

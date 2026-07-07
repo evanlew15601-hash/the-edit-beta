@@ -35,19 +35,19 @@ export const CHOICE_REACTIONS: Record<string, HandCraftedReactionSet> = {
   },
   TALK_BUILD_ALLY_GAME_SINCERE_2: {
     positive: [
-      "{npc}: Locked in. Quiet and precise — I can play that.",
+      "{npc}: Locked in. Quiet and precise works for me.",
       "{npc}: Same page. Let's not tell anyone we're aligned.",
       "{npc}: I've been playing that way already. Nice to have company.",
     ],
     neutral: [
-      "{npc}: Precise, huh. Prove it first — then we talk terms.",
+      "{npc}: I like the pitch. Prove it first — then we talk terms.",
       "{npc}: I hear you. Let me watch one more vote.",
       "{npc}: Not saying no. Not saying yes.",
     ],
     negative: [
-      "{npc}: 'Quietly and precisely' — that's a pitch line.",
+      "{npc}: That sounds rehearsed.",
       "{npc}: You've said this exact thing to two other people, {player}.",
-      "{npc}: Precision is earned. You haven't earned it with me.",
+      "{npc}: I'm not trusting a pitch just because it sounds clean.",
     ],
   },
   TALK_BUILD_ALLY_CHALLENGE_PLAYFUL_1: {

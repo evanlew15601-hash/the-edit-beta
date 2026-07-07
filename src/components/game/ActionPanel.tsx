@@ -43,6 +43,7 @@ export const ActionPanel = () => {
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
   const hasCompletedConfessional = gameState.playerActions.find(a => a.type === 'confessional')?.used;
   const allActionsUsed = (gameState.dailyActionCount ?? 0) >= (gameState.dailyActionCap ?? 10);
+  const groupActionsUsed = (gameState.groupActionsUsedToday ?? 0) >= 2;
 
   const getActionDescription = (type: GameActionType | string) => {
     switch (type) {
@@ -127,7 +128,7 @@ export const ActionPanel = () => {
                 variant="action"
                 size="sm"
                 onClick={() => setActiveDialog('house_meeting')}
-                disabled={allActionsUsed}
+                disabled={allActionsUsed || groupActionsUsed || !!gameState.ongoingHouseMeeting}
               >
                 Call House Meeting
               </Button>

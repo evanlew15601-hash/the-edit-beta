@@ -528,6 +528,20 @@ export const useGameState = () => {
         }
       }
 
+      const autoHouseMeeting =
+        !prev.ongoingHouseMeeting &&
+        gamePhase === 'daily' &&
+        !nextCutscene &&
+        nextForcedQueue.length === 0
+          ? houseMeetingEngine.detectAIInitiation({
+              ...(narrativeApplied as GameState),
+              contestants: baseContestants,
+              currentDay: newDay,
+              twistsActivated,
+              interactionLog: prev.interactionLog,
+            })
+          : null;
+
       // Scale daily action cap as cast shrinks to keep choices meaningful
       const activeCountForCap = baseContestants.filter(c => !c.isEliminated).length;
       const scaledCap = activeCountForCap >= 12
@@ -563,7 +577,7 @@ export const useGameState = () => {
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
         twistsActivated,
-        ongoingHouseMeeting: prev.ongoingHouseMeeting,
+        ongoingHouseMeeting: prev.ongoingHouseMeeting || autoHouseMeeting || undefined,
         forcedConversationsQueue: nextForcedQueue,
         playerCannotBeEliminatedUntilDay:
           typeof prev.playerCannotBeEliminatedUntilDay === 'number' &&
@@ -1424,6 +1438,13 @@ export const useGameState = () => {
     // Handle House Meeting initialization
     if (actionType === 'house_meeting') {
       setGameState(prev => {
+        if (prev.ongoingHouseMeeting) return prev;
+        const usedGroups = prev.groupActionsUsedToday || 0;
+        if (usedGroups >= 2) {
+          toast.error('You already used both group actions today.');
+          return prev;
+        }
+
         const topic = (content as HouseMeetingTopic) || 'nominate_target';
         const participants = prev.contestants.filter(c => !c.isEliminated).map(c => c.name);
         const state = {
@@ -1436,16 +1457,17 @@ export const useGameState = () => {
           currentRound: 0,
           maxRounds: 5,
           mood: houseMeetingEngine.getMood(prev),
-          conversationLog: [{ speaker: prev.playerName || 'Player', text: `Call House Meeting: ${topic.replace('_', ' ')}` }],
+          conversationLog: [{ speaker: prev.playerName || 'Player', text: houseMeetingEngine.generateOpeningStatement({ topic, target, initiator: prev.playerName || 'Player' }) }],
           currentOptions: houseMeetingEngine.buildOptions(topic),
           forcedOpen: true,
         };
-        const usedGroups = prev.groupActionsUsedToday || 0;
-        if (usedGroups >= 2) return prev;
 
-        const updatedActions = prev.playerActions.map(a =>
-          a.type === 'house_meeting' ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
-        );
+        const sawHouseMeetingAction = prev.playerActions.some(a => a.type === 'house_meeting');
+        const updatedActions = sawHouseMeetingAction
+          ? prev.playerActions.map(a =>
+              a.type === 'house_meeting' ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
+            )
+          : [...prev.playerActions, { type: 'house_meeting' as const, used: true, usageCount: 1 }];
 
         const interactionEntry: InteractionLogEntry = {
           day: prev.currentDay,

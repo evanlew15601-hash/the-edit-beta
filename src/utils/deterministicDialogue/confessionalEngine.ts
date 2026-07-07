@@ -200,11 +200,10 @@ type Template = string;
 
 const BY_SITUATION: Record<Situation, Template[]> = {
   burnt: [
-    "I gave {threat} a real shot and they used it against me at {event}.",
-    "{event} told me everything I needed to know about {threat}.",
-    "I don't get burned twice. Not after {event}.",
-    "That wasn't a conversation. That was {threat} setting me up.",
-    "You extend a hand once in this house. I extended mine and lost {people}.",
+    "I trusted {threat}, and that was a mistake.",
+    "After {event}, I know exactly where I stand with {threat}.",
+    "I don't get burned twice. Not by {threat}.",
+    "{threat} showed me their game. Now I have to adjust.",
   ],
   paranoid: [
     "Every room I walk into goes quiet for half a second. That's not nothing.",
@@ -215,9 +214,9 @@ const BY_SITUATION: Record<Situation, Template[]> = {
   ],
   threatened: [
     "Down to {count}. If I don't move on {threat} this week, {threat} moves on me.",
-    "{threat} is the biggest number left in the house. That has to change.",
+    "{threat} has too much room to move. That has to change.",
     "There is no fat left on the bone. Every conversation is a vote now.",
-    "Final {count}. I stop being polite tonight.",
+    "Final {count}. I need clean numbers and no hesitation.",
   ],
   loyal: [
     "{ally} is the only real thing I've got in here. I'm not breaking that.",
@@ -228,7 +227,7 @@ const BY_SITUATION: Record<Situation, Template[]> = {
   scheming: [
     "Tonight I plant the seed on {threat}. By tomorrow it's someone else's idea.",
     "If I say {threat}'s name three times this week, it sticks to the wall.",
-    "I'm not campaigning. I'm just... rearranging the furniture.",
+    "I'm not forcing the vote. I'm making the vote feel obvious.",
     "The best moves in here look like small talk.",
   ],
   romantic: [
@@ -245,7 +244,7 @@ const BY_SITUATION: Record<Situation, Template[]> = {
   winning: [
     "Day {day}, {count} left, and my name hasn't been said in a serious room yet. That's the game.",
     "Everyone thinks they're using me. That's exactly where I want them.",
-    "I'm three moves ahead and pretending to be one behind. Perfect.",
+    "I'm trying to stay useful enough to keep and quiet enough to miss.",
   ],
   reflective: [
     "Day {day}. Still here. That's the only stat that matters.",
@@ -276,14 +275,14 @@ const BY_ARCHETYPE_SITUATION: Partial<Record<Archetype, Partial<Record<Situation
       "I need {threat} out before jury math turns against me. That's the whole calculation.",
     ],
     winning: [
-      "Statistically, my position at {count} is the strongest in the house. I don't say that out loud.",
-      "I've got two shields, one number, and a fake alliance. That's a resume.",
+      "At {count}, my spot is good because nobody needs me gone yet.",
+      "I have options, and options are safer than promises.",
     ],
     threatened: [
-      "At {count}, my equity in this game peaks tomorrow. If I don't cash in on {threat}, I lose it.",
+      "At {count}, waiting too long on {threat} would be a mistake.",
     ],
     loyal: [
-      "{ally} is not a friend. {ally} is a functional partnership with matching incentives. That's better.",
+      "{ally} and I work because our interests line up. In here, that's real trust.",
     ],
   },
   Charmer: {
@@ -333,8 +332,8 @@ const BY_ARCHETYPE_SITUATION: Partial<Record<Archetype, Partial<Record<Situation
   },
   Wildcard: {
     scheming: [
-      "I'm going to say {threat}'s name in three different accents this week and see what sticks.",
-      "The plan is chaos. The chaos is the plan.",
+      "I'm going to float {threat}'s name once and see who panics.",
+      "If the house wants chaos, I can point it somewhere useful.",
     ],
     reflective: [
       "Day {day}. I forgot what day it was. That's healthy, right?",

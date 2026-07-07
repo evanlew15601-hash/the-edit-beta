@@ -67,7 +67,22 @@ function isMetaOrBroken(text: string): boolean {
     /\bopenai\b/, /\bchatgpt\b/, /\bprompt\b/, /\bsystem prompt\b/,
     /\bdeveloper\b/, /\bsource code\b/, /\bthis (simulation|game) is not real\b/,
   ];
-  return forbidden.some(re => re.test(lower));
+  if (forbidden.some(re => re.test(lower))) return true;
+
+  // Catch the kind of synonym-churn output that reads like machine text rather
+  // than a person in the house answering the question.
+  const brokenPhrases = [
+    /\bi play with accuracy\b/i,
+    /\bplay with precision\b/i,
+    /\bplay with that\b/i,
+    /\bwith that with\b/i,
+    /\bthat that\b/i,
+    /\bthe the\b/i,
+    /\ba functional partnership with matching incentives\b/i,
+    /\bmy equity in this game\b/i,
+    /\bvibe-vote\b/i,
+  ];
+  return brokenPhrases.some(re => re.test(t));
 }
 
 // Style rephrase guard: AI output is discarded unless it stays close to the
@@ -154,6 +169,10 @@ export async function generateLocalAIReply(
     }
   }
 
+  if (isMetaOrBroken(deterministic)) {
+    deterministic = sensibleFallback(payload, maxSent);
+  }
+
   // 2) Optional AI rephrase. OFF by default. Never changes meaning.
   const styleOn = isAIStyleEnhancementEnabled();
   const cloudDisabled = import.meta.env.VITE_DISABLE_CLOUD_AI === '1';
@@ -193,4 +212,43 @@ export async function generateLocalAIReply(
     cacheSet(cacheKey, deterministic);
     return deterministic;
   }
+}
+
+function sensibleFallback(
+  payload: {
+    playerMessage: string;
+    parsedInput: any;
+    npc: { name: string; publicPersona?: string; psychProfile?: any; id?: string };
+    tone?: string;
+    conversationType?: "public" | "private" | "confessional" | string;
+    playerName?: string;
+  },
+  maxSentences: number
+) {
+  const msg = (payload.playerMessage || '').toLowerCase();
+  const trust = payload.npc?.psychProfile?.trustLevel ?? 0;
+  const suspicion = payload.npc?.psychProfile?.suspicionLevel ?? 30;
+  let line = '';
+
+  if (payload.conversationType === 'confessional') {
+    line = "I'm looking at who keeps me safe this week and who makes my game harder. That's the decision.";
+  } else if (/vote|evict|target|numbers/.test(msg)) {
+    line = suspicion > 60
+      ? "I'm not giving you a name until I know where you stand."
+      : "I hear you. If the numbers are real, I'm willing to talk about it.";
+  } else if (/alliance|work together|trust|duo/.test(msg)) {
+    line = trust > 40
+      ? "I can work with you, but we keep it quiet and prove it with votes."
+      : "I'm open to it, but I need to see consistency before I call it trust.";
+  } else if (/sorry|apolog/.test(msg)) {
+    line = "I appreciate you saying that. I still need to see what you do next.";
+  } else if (/flirt|like you|cute|romance|showmance/.test(msg)) {
+    line = "Careful. I like hearing that, but this house turns feelings into strategy fast.";
+  } else {
+    line = suspicion > 65
+      ? "I hear what you're saying, but I'm not ready to trust it yet."
+      : "That makes sense. Let me think about where it fits with the vote.";
+  }
+
+  return sanitizeOutput(line, maxSentences);
 }

@@ -26,41 +26,30 @@ export function deriveArchetypeFromDisposition(
 
 // Verbal tics — occasional inserts that color voice without changing meaning.
 const TICS: Record<Archetype, string[]> = {
-  Hothead: ['I swear to god,', 'real talk,', 'on everything,'],
-  Strategist: ['statistically,', 'long-term,', 'logically,'],
-  PassiveAggressive: ['bless your heart,', 'sweetie,', 'no offense but,'],
-  Charmer: ['between us,', 'love,', 'just so you know,'],
-  Paranoid: ['I shouldn\'t even be saying this, but', 'don\'t look at me when I say this —'],
+  Hothead: ['Listen,', 'Real talk,'],
+  Strategist: ['Look,', 'Long-term,'],
+  PassiveAggressive: ['Interesting.', 'Funny.'],
+  Charmer: ['Between us,', 'Just so you know,'],
+  Paranoid: ['I should not be saying this, but', 'Keep your voice down —'],
   Stoic: [''],
-  Wildcard: ['plot twist —', 'wait, hear me out,', 'okay this is gonna sound crazy but'],
+  Wildcard: ['Hear me out —', 'Plot twist —'],
 };
 
 // Vocabulary swaps — light substitutions toward archetype voice.
 const SWAPS: Record<Archetype, Array<[RegExp, string]>> = {
   Hothead: [
-    [/\bvery\b/gi, 'real'],
-    [/\bperson\b/gi, 'clown'],
     [/\bissue\b/gi, 'problem'],
-    [/\bI think\b/gi, 'I know'],
   ],
   Strategist: [
-    [/\bguess\b/gi, 'estimate'],
-    [/\bmaybe\b/gi, 'likely'],
-    [/\bfriend\b/gi, 'number'],
-    [/\bvote\b/gi, 'play'],
+    [/\bguess\b/gi, 'read'],
   ],
   PassiveAggressive: [
-    [/\bokay\b/gi, 'sure, honey'],
-    [/\bfine\b/gi, 'whatever you say'],
-    [/\bI see\b/gi, 'mmhm'],
+    [/\bI see\b/gi, 'I noticed'],
   ],
   Charmer: [
-    [/\bperson\b/gi, 'one'],
-    [/\bagree\b/gi, 'love that'],
-    [/\bokay\b/gi, 'of course'],
+    [/\bokay\b/gi, 'alright'],
   ],
   Paranoid: [
-    [/\bsomeone\b/gi, 'someone — I won\'t say who —'],
     [/\bheard\b/gi, 'overheard'],
   ],
   Stoic: [
@@ -69,8 +58,7 @@ const SWAPS: Record<Archetype, Array<[RegExp, string]>> = {
     [/\bI think\b/gi, ''],
   ],
   Wildcard: [
-    [/\bvote\b/gi, 'vibe-vote'],
-    [/\bplan\b/gi, 'experiment'],
+    [/\bplan\b/gi, 'idea'],
   ],
 };
 
@@ -100,13 +88,12 @@ function applyRhythm(line: string, archetype: Archetype): string {
       break;
     case 'Charmer':
       // Soften openers, add the player's name presence.
-      line = line.replace(/^([A-Z])/, m => m.toLowerCase());
       if (!/^hey/i.test(line)) line = 'Hey — ' + line;
       line = line.replace(/^Hey — hey/i, 'Hey');
       break;
     case 'Paranoid':
       // Add a trailing watcher beat sometimes; halt mid-sentence.
-      if (!/watching|don't look/i.test(line)) line += " ...I'm watching everything.";
+      if (!/watching|voice down|noticing/i.test(line)) line += " I'm watching everything.";
       break;
     case 'Stoic':
       // Strip exclamations and modifiers, keep terse.
@@ -118,7 +105,7 @@ function applyRhythm(line: string, archetype: Archetype): string {
       break;
     case 'Wildcard':
       // Off-kilter trail.
-      const tails = [' ...probably.', ' ...or whatever.', ' anyway, what were we doing?'];
+      const tails = [' Probably.', ' Somehow.', ' That is where I am.'];
       line = line + tails[line.length % tails.length];
       break;
   }

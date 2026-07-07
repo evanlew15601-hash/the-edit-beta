@@ -51,7 +51,8 @@ export const HouseMeetingDialog = ({ isOpen, onClose }: HouseMeetingDialogProps)
     handleHouseMeetingChoice(choice);
   };
 
-  const roundCount = hm ? `${hm.currentRound + 1} / ${hm.maxRounds}` : '—';
+  const roundCount = hm ? `${Math.min(hm.currentRound + 1, hm.maxRounds)} / ${hm.maxRounds}` : '—';
+  const meetingComplete = hm ? hm.currentRound >= hm.maxRounds : false;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (open === false && canClose) onClose(); }}>
@@ -160,6 +161,7 @@ export const HouseMeetingDialog = ({ isOpen, onClose }: HouseMeetingDialogProps)
                     <button
                       key={opt.id}
                       onClick={() => handleChoice(opt.tone)}
+                      disabled={meetingComplete}
                       className="p-3 text-left border border-border rounded hover:bg-muted transition-colors"
                     >
                       <div className="flex items-center gap-2">
@@ -193,7 +195,7 @@ export const HouseMeetingDialog = ({ isOpen, onClose }: HouseMeetingDialogProps)
                 <Button
                   variant="action"
                   className="flex-1"
-                  disabled={hm.currentRound + 1 < hm.maxRounds}
+                  disabled={!meetingComplete}
                   onClick={() => {
                     endHouseMeeting();
                     onClose();

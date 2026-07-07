@@ -15,13 +15,27 @@ function substituteTokens(line: string, tokens: Record<string, string | undefine
   return line.replace(/\{(\w+)\}/g, (_m, key) => {
     const v = tokens[key];
     if (v != null && v !== '') return String(v);
-    // Friendly fallbacks so a missing token never leaks a bare key.
-    if (key === 'about') return 'someone';
-    if (key === 'people') return 'people I trusted';
-    if (key === 'event') return 'what happened';
-    if (key === 'days') return 'a few';
     return '';
   }).replace(/\s+([,.!?])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+}
+
+function requiredTokensOf(line: string): string[] {
+  const out: string[] = [];
+  line.replace(/\{(\w+)\}/g, (_m, key) => {
+    out.push(key);
+    return _m;
+  });
+  return out;
+}
+
+function canRender(line: string, tokens: Record<string, string | undefined>): boolean {
+  return requiredTokensOf(line).every(key => !!tokens[key]);
+}
+
+function pickRenderable(pool: string[], seed: string, tokens: Record<string, string | undefined>): string {
+  const renderable = pool.filter(line => canRender(line, tokens));
+  const safePool = renderable.length ? renderable : pool.filter(line => requiredTokensOf(line).length === 0);
+  return seededPick(safePool, seed) || safePool[0] || "I hear you. Let me think on it.";
 }
 
 // Walk back from (intent, emotion) to the nearest stocked pool. Archetype-specific
@@ -60,8 +74,6 @@ export interface RenderInput {
 export function renderResponse({ bundle, npc, playerName, seedExtra }: RenderInput): string {
   const seed = `${npc.id || npc.name}|${bundle.intent}|${bundle.emotion}|${seedExtra || ''}`;
   const pool = findBackoffPool(bundle);
-  const baseLine = seededPick(pool, seed) || pool[0];
-
   const tokens: Record<string, string | undefined> = {
     player: playerName,
     target: playerName,
@@ -71,12 +83,15 @@ export function renderResponse({ bundle, npc, playerName, seedExtra }: RenderInp
     event: bundle.memoryRef?.eventLabel,
   };
 
+  const baseLine = pickRenderable(pool, seed, tokens);
+
   let line = substituteTokens(baseLine, tokens);
 
   // Weave in memory callback when one is selected (~40% of the time, deterministic).
   if (bundle.memoryRef) {
     const callbacks = MEMORY_CALLBACKS[bundle.memoryRef.kind] || [];
-    const cb = seededPick(callbacks, seed + '|cb');
+    const renderableCallbacks = callbacks.filter(cbLine => canRender(cbLine, tokens));
+    const cb = seededPick(renderableCallbacks, seed + '|cb');
     const shouldUse = (Math.abs(seed.length + bundle.memoryRef.daysAgo) % 5) <= 1;
     if (cb && shouldUse) {
       const cbLine = substituteTokens(cb, tokens);
