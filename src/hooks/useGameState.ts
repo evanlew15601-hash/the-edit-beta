@@ -105,7 +105,9 @@ export const useGameState = () => {
         { type: 'confessional', used: false, usageCount: 0 },
         { type: 'observe', used: false, usageCount: 0 },
         { type: 'scheme', used: false, usageCount: 0 },
-        { type: 'activity', used: false, usageCount: 0 }
+        { type: 'activity', used: false, usageCount: 0 },
+        { type: 'alliance_meeting', used: false, usageCount: 0 },
+        { type: 'house_meeting', used: false, usageCount: 0 }
       ] as PlayerAction[],
       confessionals: [],
       editPerception: {
@@ -174,7 +176,9 @@ export const useGameState = () => {
         { type: 'confessional', used: false, usageCount: 0 },
         { type: 'observe', used: false, usageCount: 0 },
         { type: 'scheme', used: false, usageCount: 0 },
-        { type: 'activity', used: false, usageCount: 0 }
+        { type: 'activity', used: false, usageCount: 0 },
+        { type: 'alliance_meeting', used: false, usageCount: 0 },
+        { type: 'house_meeting', used: false, usageCount: 0 }
       ] as PlayerAction[],
       confessionals: [],
       editPerception: {
@@ -1424,6 +1428,13 @@ export const useGameState = () => {
     // Handle House Meeting initialization
     if (actionType === 'house_meeting') {
       setGameState(prev => {
+        if (prev.ongoingHouseMeeting) return prev;
+        const usedGroups = prev.groupActionsUsedToday || 0;
+        if (usedGroups >= 2) {
+          toast.error('You already used both group actions today.');
+          return prev;
+        }
+
         const topic = (content as HouseMeetingTopic) || 'nominate_target';
         const participants = prev.contestants.filter(c => !c.isEliminated).map(c => c.name);
         const state = {
@@ -1436,16 +1447,17 @@ export const useGameState = () => {
           currentRound: 0,
           maxRounds: 5,
           mood: houseMeetingEngine.getMood(prev),
-          conversationLog: [{ speaker: prev.playerName || 'Player', text: `Call House Meeting: ${topic.replace('_', ' ')}` }],
+          conversationLog: [{ speaker: prev.playerName || 'Player', text: houseMeetingEngine.generateOpeningStatement({ topic, target, initiator: prev.playerName || 'Player' }) }],
           currentOptions: houseMeetingEngine.buildOptions(topic),
           forcedOpen: true,
         };
-        const usedGroups = prev.groupActionsUsedToday || 0;
-        if (usedGroups >= 2) return prev;
 
-        const updatedActions = prev.playerActions.map(a =>
-          a.type === 'house_meeting' ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
-        );
+        const sawHouseMeetingAction = prev.playerActions.some(a => a.type === 'house_meeting');
+        const updatedActions = sawHouseMeetingAction
+          ? prev.playerActions.map(a =>
+              a.type === 'house_meeting' ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
+            )
+          : [...prev.playerActions, { type: 'house_meeting' as const, used: true, usageCount: 1 }];
 
         const interactionEntry: InteractionLogEntry = {
           day: prev.currentDay,

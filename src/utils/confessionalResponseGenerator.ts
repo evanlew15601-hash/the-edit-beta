@@ -36,7 +36,7 @@ const TEMPLATES: Record<string, string[]> = {
 
   // Voting week
   'elimination-pressure': [
-    'Elimination is close. I’m calibrating numbers hour by hour.',
+    'Elimination is close, so I’m checking numbers without looking desperate.',
     'I feel safe enough, but one flip changes everything.',
     'If my name starts to float, I already know the counter-move.'
   ],
@@ -64,7 +64,7 @@ const TEMPLATES: Record<string, string[]> = {
   'competition-threat': [
     '{COMPETITIVE_NAME} is dangerous because they can save themselves when it matters.',
     'You clip {COMPETITIVE_NAME} early or you watch them stack wins later.',
-    'I’m scouting the week I make the move—with numbers ready.'
+    'I’m waiting for the week when the numbers are there to take the shot.'
   ],
 
   // Reflection
@@ -146,7 +146,7 @@ const TEMPLATES: Record<string, string[]> = {
   'prod-soundbite-truth': [
     'The truth is… I make moves no one sees coming.',
     'The truth is… I’m playing my own game, not theirs.',
-    'The truth is… trust is a currency and I’m rich.'
+    'The truth is… I trust people carefully and vote even more carefully.'
   ],
   'prod-bait-rival': [
     '{TARGET} smiles while they set traps.',
@@ -159,7 +159,7 @@ const TEMPLATES: Record<string, string[]> = {
     'I tried to de-escalate. {TARGET} wanted a scene, so I gave them one.'
   ],
   'prod-damage-control': [
-    'I own my choices. If I hurt someone, I’ll fix it with gameplay—not excuses.',
+    'I own my choices. If I hurt someone, I need to fix it with actions, not excuses.',
     'It looked messy, but it was calculated. There’s a bigger plan behind it.',
     'That moment doesn’t define me. My next move will.'
   ],
@@ -172,7 +172,7 @@ const TEMPLATES: Record<string, string[]> = {
   // Twist arcs
   'hc_keep_secret': [
     'I keep focus on votes and numbers—my personal life stays outside the game.',
-    'Rumors are oxygen. I starve them by playing cleaner than they expect.',
+    'Rumors only grow if I feed them, so I keep my answers simple.',
     'If they want a headline, I give them gameplay instead.'
   ],
   'hc_reveal_fallout': [
@@ -208,7 +208,7 @@ const TEMPLATES: Record<string, string[]> = {
 
   // Fallbacks by category (used when specific id has low context)
   'fallback-strategy': [
-    'Strategy-wise, I balance threat and numbers for this situation.',
+    'Strategy-wise, I need the move that keeps me safe next week too.',
     'This comes down to timing—early strike or late shield.',
     'Calm moves, clean outcomes. That’s the plan.'
   ],
