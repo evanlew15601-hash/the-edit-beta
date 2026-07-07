@@ -169,6 +169,10 @@ export async function generateLocalAIReply(
     }
   }
 
+  if (isMetaOrBroken(deterministic)) {
+    deterministic = sensibleFallback(payload, maxSent);
+  }
+
   // 2) Optional AI rephrase. OFF by default. Never changes meaning.
   const styleOn = isAIStyleEnhancementEnabled();
   const cloudDisabled = import.meta.env.VITE_DISABLE_CLOUD_AI === '1';
@@ -177,11 +181,8 @@ export async function generateLocalAIReply(
     !!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
   if (!styleOn || cloudDisabled || !cloudReachable) {
-    const finalDeterministic = isMetaOrBroken(deterministic)
-      ? sensibleFallback(payload, maxSent)
-      : deterministic;
-    cacheSet(cacheKey, finalDeterministic);
-    return finalDeterministic;
+    cacheSet(cacheKey, deterministic);
+    return deterministic;
   }
 
   try {
