@@ -105,9 +105,7 @@ export const useGameState = () => {
         { type: 'confessional', used: false, usageCount: 0 },
         { type: 'observe', used: false, usageCount: 0 },
         { type: 'scheme', used: false, usageCount: 0 },
-        { type: 'activity', used: false, usageCount: 0 },
-        { type: 'alliance_meeting', used: false, usageCount: 0 },
-        { type: 'house_meeting', used: false, usageCount: 0 }
+        { type: 'activity', used: false, usageCount: 0 }
       ] as PlayerAction[],
       confessionals: [],
       editPerception: {
@@ -176,9 +174,7 @@ export const useGameState = () => {
         { type: 'confessional', used: false, usageCount: 0 },
         { type: 'observe', used: false, usageCount: 0 },
         { type: 'scheme', used: false, usageCount: 0 },
-        { type: 'activity', used: false, usageCount: 0 },
-        { type: 'alliance_meeting', used: false, usageCount: 0 },
-        { type: 'house_meeting', used: false, usageCount: 0 }
+        { type: 'activity', used: false, usageCount: 0 }
       ] as PlayerAction[],
       confessionals: [],
       editPerception: {
