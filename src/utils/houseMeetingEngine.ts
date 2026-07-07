@@ -394,6 +394,12 @@ export const houseMeetingEngine = {
     const active = gameState.contestants.filter(c => !c.isEliminated);
     if (active.length < 4) return null;
 
+    const hadRecentMeeting = (gameState.interactionLog || []).some(e =>
+      e.day >= gameState.currentDay - 3 &&
+      (e.type === 'house_meeting' || /house meeting/i.test(e.content || ''))
+    );
+    if (hadRecentMeeting) return null;
+
     const mostSuspicious = [...active].sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0))[0];
     const player = gameState.playerName;
     const playerSusp = active.find(c => c.name === player)?.psychProfile.suspicionLevel || 0;

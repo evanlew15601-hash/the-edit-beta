@@ -528,6 +528,20 @@ export const useGameState = () => {
         }
       }
 
+      const autoHouseMeeting =
+        !prev.ongoingHouseMeeting &&
+        gamePhase === 'daily' &&
+        !nextCutscene &&
+        nextForcedQueue.length === 0
+          ? houseMeetingEngine.detectAIInitiation({
+              ...(narrativeApplied as GameState),
+              contestants: baseContestants,
+              currentDay: newDay,
+              twistsActivated,
+              interactionLog: prev.interactionLog,
+            })
+          : null;
+
       // Scale daily action cap as cast shrinks to keep choices meaningful
       const activeCountForCap = baseContestants.filter(c => !c.isEliminated).length;
       const scaledCap = activeCountForCap >= 12
@@ -563,7 +577,7 @@ export const useGameState = () => {
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
         twistsActivated,
-        ongoingHouseMeeting: prev.ongoingHouseMeeting,
+        ongoingHouseMeeting: prev.ongoingHouseMeeting || autoHouseMeeting || undefined,
         forcedConversationsQueue: nextForcedQueue,
         playerCannotBeEliminatedUntilDay:
           typeof prev.playerCannotBeEliminatedUntilDay === 'number' &&
