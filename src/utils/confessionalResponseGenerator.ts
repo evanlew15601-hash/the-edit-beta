@@ -378,14 +378,104 @@ export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameS
     return true;
   });
 
-  // Filter out lines whose subject matter doesn't fit the current phase.
-  const valid = ordered.filter(r => responseIsValid(r, gameState));
+  // Two-stage filter:
+  //   1. reject lines that reference events the game hasn't reached
+  //   2. reject lines that read as grammar-broken (run-ons, dangling tokens,
+  //      POV drift). Broken lines are dropped and the pool re-selects from
+  //      the remaining approved hand-crafted lines.
+  const phaseOk = ordered.filter(r => responseIsValid(r, gameState));
+  let clean = phaseOk.filter(isGrammaticallyClean);
 
-  // Lightly shuffle everything AFTER the first two so the top-anchored
-  // answers always feel closest to the question, but there's still variety.
-  const head = valid.slice(0, 2);
-  const tail = shuffleArray(valid.slice(2));
+  // If validation nuked everything, pull emergency fallbacks that we know
+  // pass the grammar guard (short, first-person, no tokens).
+  if (clean.length === 0) {
+    clean = SAFE_FALLBACKS.slice();
+  }
+
+  const head = clean.slice(0, 2);
+  const tail = shuffleArray(clean.slice(2));
   return [...head, ...tail].slice(0, 12);
+}
+
+/**
+ * SAFE_FALLBACKS: minimal first-person confessional lines guaranteed to
+ * pass every grammar check. Only used when the entire candidate pool is
+ * rejected by the guards.
+ */
+const SAFE_FALLBACKS: string[] = [
+  "I'm going to keep this short. I'm still here, and I'm still playing.",
+  "I've said what I need to say with my vote. The rest is noise.",
+  "One day at a time. That's the honest answer.",
+];
+
+/**
+ * Reject lines that read as grammar-broken. Any failure here logs a warning
+ * in dev so we can tighten the templates over time.
+ *
+ * Guards:
+ *   - unfilled template tokens ({FOO})
+ *   - dangling name slots ("with .", "about ,", "and .")
+ *   - orphan articles ("the .", "a ,")
+ *   - double spaces or floating punctuation
+ *   - run-on sentences (> 32 words in a single sentence, or > 55 total)
+ *   - second-person address drift ("you should", "your game" while the
+ *     line is otherwise first-person)
+ *   - starts with a lowercase letter or ends without terminal punctuation
+ */
+function isGrammaticallyClean(text: string): boolean {
+  const reasons: string[] = [];
+
+  if (!text || text.length < 4) reasons.push('empty');
+
+  if (/\{[A-Z_]+\}/.test(text)) reasons.push('unfilled-token');
+
+  if (/\b(with|about|for|to|from|and|of|on|by)\s+[.,!?]/i.test(text)) {
+    reasons.push('dangling-name-slot');
+  }
+
+  if (/\b(the|a|an)\s+[.,!?]/i.test(text)) reasons.push('orphan-article');
+
+  if (/\s{2,}/.test(text) || /\s[.,!?]/.test(text)) reasons.push('spacing');
+
+  // Terminal punctuation + capitalized start
+  if (!/[.!?]"?$/.test(text.trim())) reasons.push('no-terminal-punct');
+  if (!/^["']?[A-Z]/.test(text.trim())) reasons.push('lowercase-start');
+
+  // Run-on detection
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const totalWords = text.split(/\s+/).filter(Boolean).length;
+  if (totalWords > 55) reasons.push('run-on-total');
+  for (const s of sentences) {
+    const w = s.split(/\s+/).filter(Boolean).length;
+    if (w > 32) { reasons.push('run-on-sentence'); break; }
+  }
+
+  // POV drift: line uses first-person AND makes a direct second-person
+  // statement about the listener. Idiomatic "you" (generic-you inside a
+  // clause) is allowed; the guard only trips when both a first-person
+  // subject clause AND a second-person subject clause are present in
+  // separate sentences.
+  const firstPersonSubject =
+    /\b(I|I'm|I've|I'll|I'd|my|me)\b/.test(text);
+  const secondPersonAddress = sentences.some(s =>
+    /\b(you're|your)\b/i.test(s) && !/\b(I|I'm|I've|my|me)\b/.test(s)
+  );
+  if (firstPersonSubject && secondPersonAddress) {
+    // Only flag when the second-person clause is clearly addressed to the
+    // listener (imperative or possessive-your), not idiomatic generic-you.
+    if (/\byour (game|move|vote|alliance|name|shot)\b/i.test(text)) {
+      reasons.push('pov-drift');
+    }
+  }
+
+  if (reasons.length > 0) {
+    if (typeof console !== 'undefined' && process?.env?.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.warn('[confessional] rejected line:', reasons.join(','), '-', text);
+    }
+    return false;
+  }
+  return true;
 }
 
 function responseIsValid(text: string, gameState: GameState): boolean {
@@ -406,6 +496,7 @@ function responseIsValid(text: string, gameState: GameState): boolean {
 
   return true;
 }
+
 
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
