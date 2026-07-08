@@ -3,241 +3,273 @@ import { GameState } from '@/types/game';
 import { DynamicConfessionalPrompt } from './enhancedConfessionalEngine';
 
 /**
- * Pre-written, human-sounding confessional lines.
- * No dynamic paraphrasing, no synonym churn, no artificial prefixes/suffixes.
- * We only fill simple tags from game context (names, counts, days) and return
- * a curated set of lines tied to the selected prompt.
+ * Hand-written confessional lines that directly answer the specific producer
+ * prompt being asked. Every line reads like something a real houseguest would
+ * say to camera: contractions, plain words, one idea per sentence, no
+ * template-speak.
+ *
+ * Prompt IDs are mapped 1:1 where possible. Dynamic IDs (recent-scheme-N,
+ * recent-dm-N, alliance-update-N) are matched by prefix. A category fallback
+ * is used only when no specific match exists.
+ *
+ * Tags:
+ *  {PLAYER}, {ACTIVE_COUNT}, {DAYS_TO_ELIM}, {OTHER_MEMBERS},
+ *  {HIGH_TRUST_NAME}, {TOP_SUSPICIOUS_NAME}, {COMPETITIVE_NAME},
+ *  {CONFLICT_OTHER}, {CURRENT_DAY}, {TARGET}, {SCHEME_TARGET},
+ *  {DM_PARTNER}, {BAIT_TARGET}, {PERSONA}
+ * A template is dropped (not rendered) if any tag it uses is missing.
  */
 
-/** Static templates keyed by prompt id. Placeholders:
- * {PLAYER} - current player's name
- * {ACTIVE_COUNT} - number of active (non-eliminated) contestants
- * {DAYS_TO_ELIM} - days until next elimination
- * {OTHER_MEMBERS} - alliance members (excluding player), joined with " and "
- * {HIGH_TRUST_NAME} - a high-trust contestant's name
- * {TOP_SUSPICIOUS_NAME} - the most suspicious contestant's name
- * {COMPETITIVE_NAME} - a competitive threat (immunity winner if present)
- * {CONFLICT_OTHER} - most recent conflict partner
- * {CURRENT_DAY} - current day number
- * {TARGET} - producer/context target when applicable
- */
 const TEMPLATES: Record<string, string[]> = {
-  // Strategy progression
+  // ── Strategy progression ────────────────────────────────────────────────
   'mid-game-strategy': [
-    'With {ACTIVE_COUNT} left, I need to manage numbers without looking like a threat.',
-    'I’m sitting between groups and letting them clash while I build votes.',
-    'This is the phase where matchups matter—who I can actually beat at the end.'
+    "Mid-game, my whole plan is stay useful and stay boring. If I'm never the loudest name in the room, I'm never the vote.",
+    "With {ACTIVE_COUNT} of us left, I stop pushing moves and start letting other people's moves work for me.",
+    "The middle of the game is where people forget you're playing. That's exactly where I want to be right now.",
   ],
   'endgame-strategy': [
-    'At {ACTIVE_COUNT}, it’s all about jury optics and closing doors cleanly.',
-    'I’m shaping a lane where the finals make sense for me—not just for the edit.',
-    'Every relationship is either a shield or a liability. I’m pruning accordingly.'
+    "At {ACTIVE_COUNT}, I'm done making friends. Every conversation is either building a vote or checking a name off my list.",
+    "This late, I'm not trying to win the week. I'm trying to sit next to the people I actually beat.",
+    "My positioning right now is simple. Be the second-most-dangerous person in every room, never the first.",
   ],
 
-  // Voting week
+  // ── Voting week ─────────────────────────────────────────────────────────
   'elimination-pressure': [
-    'Elimination is close, so I’m checking numbers without looking desperate.',
-    'I feel safe enough, but one flip changes everything.',
-    'If my name starts to float, I already know the counter-move.'
+    "Honestly? I feel okay about this vote. My name hasn't come up in any conversation I wasn't already in.",
+    "I'm not comfortable yet. Comfortable is how people go home. I'll check in with three more people before I sleep tonight.",
+    "The vote's coming and I've done my part. Now I just have to sit still and watch it land.",
+  ],
+  'voting-strategy': [
+    "If I could pick right now, I'd send {TOP_SUSPICIOUS_NAME} home. They've been running numbers on me for a week.",
+    "It would be {TOP_SUSPICIOUS_NAME}. Not because I hate them, because they're the one person I can't control.",
+    "Right now? {TOP_SUSPICIOUS_NAME}. If I let them stay another week, I'm playing their game instead of mine.",
+    "If I had the votes today, I'd take the shot at the strongest player left. Sitting on it just makes it harder later.",
   ],
 
-  // Alliances
+  // ── Alliances ───────────────────────────────────────────────────────────
   'alliance-trust': [
-    'With {OTHER_MEMBERS}, trust is earned daily and tested before the vote.',
-    'I trust one of them more than the other—and I’m acting like that’s true.',
-    'I verify promises. Loyalty gets measured in actions, not talk.'
+    "Me and {OTHER_MEMBERS}? We're solid on paper. I still don't tell them everything, and I don't think they tell me either. That's just the game.",
+    "I trust {OTHER_MEMBERS} more than anyone else in here, which honestly isn't saying much. I'd take the shot first if I had to.",
+    "The alliance works because none of us are ready to break it yet. The second one of us is, we're all in trouble.",
   ],
   'solo-game': [
-    'Without a solid alliance, I’m insulating with relationships and information.',
-    'I trade intel for goodwill and keep options open on both sides of the house.',
-    'Smaller circles, cleaner moves. Less exposure, more leverage.'
+    "No alliance is actually kind of freeing. I don't owe anybody a vote, so I can go wherever the numbers are that week.",
+    "My plan without a group is small conversations, everywhere. If everyone thinks they're my number one, nobody targets me.",
+    "I'd rather have three loose friendships than one tight alliance right now. Alliances get people evicted.",
   ],
 
-  // Social dynamics
+  // ── Social ──────────────────────────────────────────────────────────────
   'social-connection': [
-    'With {HIGH_TRUST_NAME}, the connection feels real—game first, always.',
-    '{HIGH_TRUST_NAME} and I click, but I’d still cut them if the math says so.',
-    'It’s genuine, and I’m steering it toward votes without making it messy.'
+    "Me and {HIGH_TRUST_NAME}? It's real. Which is exactly why it scares me a little, because I know how this game ends.",
+    "Yeah, that friendship is genuine. I'd still write their name down if it saved my game. That's the honest answer.",
+    "{HIGH_TRUST_NAME} is one of the few people I don't have to perform for. That's rare in here.",
+  ],
+  'recent-conflict': [
+    "Look, {CONFLICT_OTHER} came at me and I answered. I'm not going to sit here and pretend I started it.",
+    "With {CONFLICT_OTHER}, I said what I needed to say. Now I'm going to leave it alone and let them stew.",
+    "The thing with {CONFLICT_OTHER} wasn't personal for me. It clearly was for them. That tells me everything.",
   ],
 
-  // Threats and competitions
+  // ── Competition threats ─────────────────────────────────────────────────
   'competition-threat': [
-    '{COMPETITIVE_NAME} is dangerous because they can save themselves when it matters.',
-    'You clip {COMPETITIVE_NAME} early or you watch them stack wins later.',
-    'I’m waiting for the week when the numbers are there to take the shot.'
+    "{COMPETITIVE_NAME} is the problem. If they keep winning when it matters, none of us get to touch them.",
+    "You can't leave {COMPETITIVE_NAME} in this game. Every week they're still here is a week I'm not in control of my own vote.",
+    "{COMPETITIVE_NAME} needs to go the first week they can't save themselves. That's the whole strategy.",
   ],
 
-  // Reflection
+  // ── Reflection ──────────────────────────────────────────────────────────
   'game-reflection': [
-    'It’s day {CURRENT_DAY}. I can name my wins and own my mistakes.',
-    'Plans broke and I adapted. That’s why I’m still here.',
-    'If I could restart, I’d pace trust slower and moves faster.'
+    "Day {CURRENT_DAY} and I'm still here. That's more than most people can say, so I'll take it.",
+    "I've made mistakes. I've also made two moves I'm proud of. On balance I think I'm playing a real game, not just surviving.",
+    "Am I playing well? Ask me after the next vote. That's how this game works.",
   ],
   'personal-growth': [
-    'This game forced decisions I used to avoid. I’m sharper for it.',
-    'I learned how to stay calm while everything around me spun.',
-    'I grew by owning outcomes, not excuses.'
+    "This place has taught me to shut up more. I used to fill every silence. Now I let other people fill them and tell me things.",
+    "I've learned I'm more patient than I thought. I've also learned I'm meaner than I thought. Both are useful in here.",
+    "I came in wanting people to like me. Now I just want them to underestimate me. That's the real shift.",
   ],
 
-  // Conflicts
-  'recent-conflict': [
-    'Things got heated with {CONFLICT_OTHER}. I matched energy, not malice.',
-    'I won’t relitigate it. {CONFLICT_OTHER} pushed—now I manage the fallout.',
-    'I set a clear line with {CONFLICT_OTHER}. The next beat is repair or distance.'
-  ],
-
-  // Voting strategy
-  'voting-strategy': [
-    'Right now I’d target {TOP_SUSPICIOUS_NAME} and build numbers before they notice.',
-    'The right vote weakens {TOP_SUSPICIOUS_NAME}’s web and strengthens mine.',
-    'I don’t need unanimous; I need enough—and the story to justify it.'
-  ],
-
-  // Stage-aware strategy
+  // ── Stage-aware strategy ────────────────────────────────────────────────
   'early-game-positioning': [
-    'Early game is insulation—be useful, not loud.',
-    'Keep targets bigger than you and promises small enough to keep.',
-    'Gather information and spend it sparingly for safety.'
+    "Early game, my only job is not to be interesting. Learn names, agree with everyone, don't pick a side yet.",
+    "I'm making friends first and reading the room second. There's no vote worth swinging this early.",
+    "First few weeks, I keep my mouth shut in group settings and do all my real talking one-on-one.",
   ],
   'power-dynamics': [
-    'Power’s shifting. I sit close enough to influence, far enough to dodge heat.',
-    'I map who actually moves votes and attach to that engine.',
-    'Ride the wave now, redirect it later.'
+    "The person actually running the house isn't the loudest one. It's whoever the loud ones keep checking with.",
+    "Power in here is moving. I'm trying to sit next to whoever has it this week without marrying them to it.",
+    "Right now the game is being run by two people who don't realize they agree on everything. That's the alliance I need to break.",
   ],
   'jury-approaching': [
-    'With jury near, I’m tracking reputation as hard as numbers.',
-    'You build your final pitch now—every move needs a clean story.',
-    'Threat management matters, but so does looking like a closer.'
+    "With jury coming, I'm watching my mouth more. Every eviction speech is a juror I'll need later.",
+    "Threat level is the whole game now. I'd rather be underestimated by a juror than respected by one.",
+    "I'm being nicer to people I'm about to vote out. That's a jury vote three weeks from now.",
   ],
   'finale-positioning': [
-    'Finale talk means pruning relationships into shields and goats.',
-    'I need an endgame where my resume reads decisions, not accidents.',
-    'I pick partners I beat on perception and performance.'
+    "To get to the end I need one more big move and two people who'll never take the shot at me. That's the checklist.",
+    "The finale isn't about the best game. It's about the best seat. I'm picking my seat right now.",
+    "I need to sit next to someone the jury respects less than me. That's not mean, that's just how this works.",
   ],
   'immunity-era-ends': [
-    'With the weekly safety comp gone at {ACTIVE_COUNT}, every vote is naked math and relationships.',
-    'No more automatic safety. If you misread the house now, you go home.',
-    'Endgame without a safety net forces people to show where they really stand.'
+    "No safety comp changes everything. Nobody gets to hide behind a win anymore. It's just relationships and votes now.",
+    "Without the weekly save, at {ACTIVE_COUNT} the game is finally honest. You either have the numbers or you don't.",
+    "This is where quiet players get exposed. You can't win your way out anymore. You have to be somebody's number one.",
   ],
 
-  // Edit-awareness prompts
+  // ── Edit-awareness ──────────────────────────────────────────────────────
   'edit-shaping': [
-    'To get screen time without blowing my game, I give clean confessionals with quotable lines.',
-    'I anchor the narrative in choices, not noise. Producers cut clarity.',
-    'Bold line, simple story, visible move—that’s how I get noticed.'
+    "If I want more screen time, I have to say something clean in here. Producers cut sentences, not paragraphs.",
+    "I don't need to blow up my game for airtime. I just need one good sentence per confessional and they'll use it.",
+    "Screen time follows decisions. I'll get shown more the week I actually make a move, not before.",
   ],
   'balance-comedy-strategy': [
-    'My humor disarms; the strategy lands in the silence after.',
-    'I let jokes carry the social game and decisions carry the resume.',
-    'Funny keeps doors open; strategy decides who walks through.'
+    "The jokes are how I get people to trust me. The strategy is what I do with that trust when they're not looking.",
+    "Being funny is a shield. People don't vote out the guy making them laugh at breakfast.",
+    "I keep it light in the house and heavy in the diary room. That's the whole balance.",
   ],
   'underestimated': [
-    'People underestimate me because I’m measured—then I take the shot.',
-    'Being underestimated is leverage. I spend it when it hurts most.',
-    'I want them sleeping on me until the move wakes them up.'
+    "Yeah, they're underestimating me. That's the plan. It's not an accident.",
+    "People think I'm too nice to make a move. They're going to find out I'm not.",
+    "Getting underestimated is the best thing that can happen to you in this house. I'm not going to correct anyone.",
   ],
   'biggest-mistake': [
-    'Trusting pace over proof was my biggest mistake—and I corrected it.',
-    'I misread an alliance early. Now I test loyalty with actions first.',
-    'I learned to separate friendship from votes.'
+    "My biggest mistake was trusting one person too fast. I won't do that again.",
+    "I told somebody a plan before I needed to. It didn't burn me, but it could have. I've been quieter since.",
+    "I got emotional in a conversation I should have been strategic in. That's the one I'd take back.",
   ],
 
-  // Producer tactic prompts (fixed phrasing)
+  // ── Producer tactic prompts ─────────────────────────────────────────────
   'prod-soundbite-truth': [
-    'The truth is… I make moves no one sees coming.',
-    'The truth is… I’m playing my own game, not theirs.',
-    'The truth is… I trust people carefully and vote even more carefully.'
+    "The truth is, I'm the only person in this house playing every angle at once.",
+    "The truth is, half the people in here already lost and don't know it yet.",
+    "The truth is, I like these people and I'm still going to send them home one by one.",
   ],
   'prod-bait-rival': [
-    '{TARGET} smiles while they set traps.',
-    '{TARGET} plays nice, then twists every conversation.',
-    'If {TARGET} wins, it’s because we ignored all the red flags.'
+    "{BAIT_TARGET}. Every time. They smile at you and then your name is on the block.",
+    "It's {BAIT_TARGET}, and I don't say that lightly. They're the one person in here whose word means nothing.",
+    "If we don't take {BAIT_TARGET} out soon, one of us is going to wake up on the wrong side of a vote.",
   ],
   'prod-retell-conflict': [
-    'I was calm until {TARGET} took it personal. That’s when it blew up.',
-    'First they pushed, then they denied it—so I drew a line.',
-    'I tried to de-escalate. {TARGET} wanted a scene, so I gave them one.'
+    "I was calm until {TARGET} brought my family into it. That's where I stopped being polite.",
+    "It started as a game conversation. Then {TARGET} made it personal, and I wasn't going to sit there and take it.",
+    "I gave {TARGET} an out three times. They didn't want one. So we did it their way.",
   ],
   'prod-damage-control': [
-    'I own my choices. If I hurt someone, I need to fix it with actions, not excuses.',
-    'It looked messy, but it was calculated. There’s a bigger plan behind it.',
-    'That moment doesn’t define me. My next move will.'
+    "Look, it happened. I'm not going to pretend it didn't. What I can do is show up tomorrow and play a cleaner game.",
+    "I own it. I'd rather be the person who made the move and explained it than the person who hid.",
+    "It looks worse than it was. Give me a week and the same people mad at me right now will be working with me again.",
   ],
   'prod-reframe-persona': [
-    'I did what I had to because survival beats comfort.',
-    'I did what I had to because loyalty without strategy is a liability.',
-    'I did what I had to because this game rewards decisive people.'
+    "I did what I had to because nobody in here was going to do it for me.",
+    "I did what I had to because I didn't come this far to be nice on the way out.",
+    "I did what I had to because the alternative was watching my game get played by somebody else.",
   ],
 
-  // Twist arcs
+  // ── Twist arcs ──────────────────────────────────────────────────────────
   'hc_keep_secret': [
-    'I keep focus on votes and numbers—my personal life stays outside the game.',
-    'Rumors only grow if I feed them, so I keep my answers simple.',
-    'If they want a headline, I give them gameplay instead.'
+    "I'm not confirming anything in there. If they want to guess, let them guess. Guessing isn't proof.",
+    "I keep the answer short and the same every time. That's how a lie stays a lie.",
+    "The second I start explaining is the second they know. So I don't explain.",
   ],
   'hc_reveal_fallout': [
-    'Trust is built in small scenes now—consistent actions, no theatrics.',
-    'I’m rebuilding with honesty first, strategy second.',
-    'I talk to the people I hurt first, then let the rest watch me play.'
+    "Now that it's out, all I can do is play straight from here. No more managing it, just playing.",
+    "The people who trust me still trust me. The people who don't were never going to. I know where I stand now.",
+    "I'd rather have it out and lose than keep it in and win. That part I'm actually okay with.",
   ],
   'hc_edit_bias': [
-    'The edit will tilt either way. I make sure the footage shows choices, not gossip.',
-    'If the storyline drifts, I anchor it with clean confessionals about the game.',
-    'I don’t control the narrative, but I control the next decision.'
+    "I can't control what airs. I can control what I do next, and that's what the tape will show.",
+    "If the edit wants a villain, fine. I'll give them a villain who plays well.",
+    "I stopped worrying about how I look about ten votes ago.",
   ],
   'phg_mission_update': [
-    'I make the mission feel like everyone’s idea—never mine.',
-    'I plant once, repeat lightly, and let someone else water it.',
-    'The cover is consistency—one believable explanation, every time.'
+    "The trick to the mission is making it sound like something anyone would suggest. Then it's not mine anymore.",
+    "I plant the idea, walk away, and let somebody else say it back to me two days later. Works every time.",
+    "I never push it twice. Push it twice and it's yours. Say it once and it belongs to the house.",
   ],
   'phg_damage_control': [
-    'If it slipped, I turn exposure into leverage: I did it to help the game along.',
-    'Stay calm and specific—panic exposes you more than truth.',
-    'Reframe the secret: pressure I managed, not power I abused.'
+    "If somebody catches on, I lean in a little. Nervous people over-explain. I don't.",
+    "The story stays the same no matter who's asking. That's the whole trick.",
+    "I flip it. If they think I'm the plant, I ask them who they think it really is. People love to answer that.",
   ],
   'phg_cover_story': [
-    'My cover story is simple enough to repeat but broad enough to flex.',
-    'I pick one line and say it the same way to everyone—it becomes true.',
-    'Describe motives, not mechanics. People trust motives.'
+    "My cover is boring on purpose. Boring people don't get investigated.",
+    "One line, same words, every time. I'd rather sound rehearsed than sound caught.",
+    "The story is 90 percent true. That's why I can keep it straight.",
   ],
   'arc_closer': [
-    'What defined my season was how I turned moments into moves.',
-    'The truth behind my edit is in the quiet decisions you didn’t notice.',
-    'I played a story I can stand behind after the credits.'
+    "If this is my last confessional, I want it on record: I played. I didn't just show up.",
+    "Whatever the edit does with me, the moves are the moves. I stand behind every one of them.",
+    "This game is going to end and I'm going to be able to look at it and say I actually played it. That's what I wanted.",
   ],
 
-  // Fallbacks by category (used when specific id has low context)
+  // ── Category fallbacks ──────────────────────────────────────────────────
   'fallback-strategy': [
-    'Strategy-wise, I need the move that keeps me safe next week too.',
-    'This comes down to timing—early strike or late shield.',
-    'Calm moves, clean outcomes. That’s the plan.'
+    "My strategy this week is patience. I don't need to make the move. I need the move to make itself.",
+    "It comes down to timing. I've got the numbers if I want them. I just don't want to spend them yet.",
+    "I'm playing for two votes from now, not this one. That's where the real math is.",
   ],
   'fallback-alliance': [
-    'On alliances, I ask for proof before I commit.',
-    'I test loyalty before the vote, not after.',
-    'Commitments stay narrow and measurable.'
+    "On alliances? I take actions over promises. Words are free in here.",
+    "I trust people the second time they help me, not the first. Once could be an accident.",
+    "The best alliance is the one nobody else knows exists. That's what I'm building.",
   ],
   'fallback-voting': [
-    'I vote to shape the board, not to settle grudges.',
-    'I pick the target that changes the board the most.',
-    'Numbers first, story second—and it needs to hold.'
+    "I vote for the person whose absence changes the game the most. Simple as that.",
+    "My vote isn't personal. It's whichever name gives me the best next week.",
+    "I pick the name I can defend to the jury later. Everything else is noise.",
   ],
   'fallback-social': [
-    'Socially, I keep bonds warm and promises conditional.',
-    'Connection matters, but I tie it back to decisions.',
-    'Read intent first, then respond in kind.'
+    "Socially, I'm warm with everybody and close with almost nobody. That's on purpose.",
+    "I ask more questions than I answer. People will hand you their whole game if you let them talk.",
+    "I read intent first, then I decide how much of myself to give back.",
   ],
   'fallback-reflection': [
-    'I answer this honestly and tie it to a choice I own.',
-    'The lesson is pacing—on trust, on moves, on fallout.',
-    'Keep the takeaway simple so the next choice is clear.'
+    "Honestly, I think about it more than I say out loud. The answer is I'm okay with how I've played.",
+    "I've made choices in here I'd make again, and one or two I wouldn't. That's a normal season.",
+    "The lesson is always the same. Slow down on trust, speed up on moves.",
   ],
   'fallback-general': [
-    'I keep it simple, direct, and tied to the week’s decisions.',
-    'I talk gameplay, not gossip.',
-    'The camera gets the truth, clean and short.'
+    "I'll keep it short. I'm here, I'm playing, and I'm not done.",
+    "Not much to say tonight that I haven't already said with a vote.",
+    "One day at a time. That's genuinely the whole answer.",
   ],
 };
+
+// Dynamic-ID templates (matched by prefix)
+const DYNAMIC_TEMPLATES: { prefix: string; templates: string[] }[] = [
+  {
+    prefix: 'recent-scheme-',
+    templates: [
+      "The conversation about {SCHEME_TARGET} went about how I wanted. I said less than they did, and now they think it was their idea.",
+      "Talking about {SCHEME_TARGET} is the first step. I don't need agreement today. I need the name in the room.",
+      "I planted it, they nodded, we moved on. By the end of the week, {SCHEME_TARGET}'s name won't feel like mine anymore.",
+      "I don't love scheming on {SCHEME_TARGET}, but somebody's got to go and it's not going to be me.",
+    ],
+  },
+  {
+    prefix: 'recent-dm-',
+    templates: [
+      "The talk with {DM_PARTNER} was mostly them venting. I mostly listened. That's usually how you learn the most.",
+      "{DM_PARTNER} pulled me aside because they needed somebody to trust. I'll take that. It's a number I didn't have this morning.",
+      "It was a real conversation. Some of it was game, some of it wasn't. I know which parts to keep.",
+      "{DM_PARTNER} told me more than they meant to. I'm not going to burn that. Not yet.",
+    ],
+  },
+  {
+    prefix: 'alliance-update-',
+    templates: [
+      "The alliance is fine. Not great, not broken. That's actually the sweet spot for me right now.",
+      "Everyone's still saying the same names out loud. What matters is whether they're saying the same names when I'm not in the room.",
+      "I feel good about my position in the group. I'd feel better if I knew who they'd cut first if it came down to it.",
+      "We had a check-in and it went smooth. Smooth check-ins are usually the ones that hide the problems.",
+    ],
+  },
+];
+
+function extractNameAfter(prompt: string, marker: RegExp): string | undefined {
+  const m = prompt.match(marker);
+  return m?.[1]?.trim();
+}
 
 function fillTags(raw: string, prompt: DynamicConfessionalPrompt, gameState: GameState): string | null {
   const activeContestants = gameState.contestants.filter(c => !c.isEliminated);
@@ -261,122 +293,101 @@ function fillTags(raw: string, prompt: DynamicConfessionalPrompt, gameState: Gam
 
   const competitiveName = gameState.immunityWinner || topSuspicious?.name;
 
-  let out = raw;
+  // Extract dynamic prompt-embedded names
+  const promptText = prompt.prompt || '';
+  const schemeTarget = extractNameAfter(promptText, /conversations about ([A-Za-z][A-Za-z .'-]*?)\./);
+  const dmPartner = extractNameAfter(promptText, /private conversation with ([A-Za-z][A-Za-z .'-]*?) recently/);
+  const baitTarget = extractNameAfter(promptText, /\(([A-Za-z][A-Za-z .'-]*?) comes to mind\.\)/) || topSuspicious?.name;
+
   const replacements: Record<string, string | undefined> = {
     '{PLAYER}': gameState.playerName,
     '{ACTIVE_COUNT}': String(activeCount),
     '{DAYS_TO_ELIM}': String(daysToElim),
-    '{OTHER_MEMBERS}': otherMembers.length ? otherMembers.join(' and ') : undefined,
+    '{OTHER_MEMBERS}': otherMembers.length ? formatList(otherMembers) : undefined,
     '{HIGH_TRUST_NAME}': highTrust?.name,
     '{TOP_SUSPICIOUS_NAME}': topSuspicious?.name,
     '{COMPETITIVE_NAME}': competitiveName,
-    '{CONFLICT_OTHER}': conflictOther,
+    '{CONFLICT_OTHER}': conflictOther || prompt.context?.targetName,
     '{CURRENT_DAY}': String(gameState.currentDay),
-    '{TARGET}': prompt.context?.targetName,
+    '{TARGET}': prompt.context?.targetName || conflictOther,
+    '{SCHEME_TARGET}': schemeTarget,
+    '{DM_PARTNER}': dmPartner,
+    '{BAIT_TARGET}': baitTarget,
+    '{PERSONA}': gameState.editPerception?.persona,
   };
 
+  let out = raw;
   for (const [key, val] of Object.entries(replacements)) {
     if (out.includes(key)) {
-      if (val === undefined) return null; // Missing context for this template
+      if (!val) return null;
       out = out.split(key).join(val);
     }
   }
 
-  // Basic punctuation tidy
-  out = out.replace(/\s{2,}/g, ' ').trim();
-  // Enforce 1–2 sentences max
+  out = out.replace(/\s{2,}/g, ' ').replace(/\s+([,.!?])/g, '$1').trim();
+  // Cap at 2 sentences to keep it confessional-sized.
   out = out.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
   return out;
+}
+
+function formatList(items: string[]): string {
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
 }
 
 function templatesForPrompt(prompt: DynamicConfessionalPrompt): string[] {
   const id = prompt.id || '';
   if (TEMPLATES[id]) return TEMPLATES[id];
 
-  // Category fallbacks
-  const cat = prompt.category;
-  if (cat === 'strategy' && TEMPLATES['fallback-strategy']) return TEMPLATES['fallback-strategy'];
-  if (cat === 'alliance' && TEMPLATES['fallback-alliance']) return TEMPLATES['fallback-alliance'];
-  if (cat === 'voting' && TEMPLATES['fallback-voting']) return TEMPLATES['fallback-voting'];
-  if (cat === 'social' && TEMPLATES['fallback-social']) return TEMPLATES['fallback-social'];
-  if (cat === 'reflection' && TEMPLATES['fallback-reflection']) return TEMPLATES['fallback-reflection'];
-  if (cat === 'general' && TEMPLATES['fallback-general']) return TEMPLATES['fallback-general'];
+  const dyn = DYNAMIC_TEMPLATES.find(d => id.startsWith(d.prefix));
+  if (dyn) return dyn.templates;
+
   return [];
 }
 
-function generateStaticResponses(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
-  const raws = templatesForPrompt(prompt);
-  const filled = raws
-    .map(r => fillTags(r, prompt, gameState))
-    .filter((s): s is string => !!s);
-
-  return filled;
-}
-
-function generateTwistResponsesForPrompt(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
-  // Twist templates are already in TEMPLATES by id; rely on fillTags for any context
-  if (!prompt.id) return [];
-  const raws = TEMPLATES[prompt.id] || [];
-  return raws
-    .map(r => fillTags(r, prompt, gameState))
-    .filter((s): s is string => !!s);
-}
-
-function generateProducerResponsesIfAny(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
-  if (!prompt.producerTactic?.kind) return [];
-  const raws = TEMPLATES[prompt.id] || [];
-  // Provide a default target when the template expects {TARGET}
-  const needsTarget = raws.some(r => r.includes('{TARGET}'));
-  let targetName = prompt.context?.targetName;
-
-  if (needsTarget && !targetName) {
-    const activeContestants = gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName);
-    const sorted = activeContestants
-      .sort((a, b) => (b.psychProfile.suspicionLevel || 0) - (a.psychProfile.suspicionLevel || 0));
-    targetName = sorted[0]?.name;
+function categoryFallback(cat: DynamicConfessionalPrompt['category']): string[] {
+  switch (cat) {
+    case 'strategy':   return TEMPLATES['fallback-strategy'];
+    case 'alliance':   return TEMPLATES['fallback-alliance'];
+    case 'voting':     return TEMPLATES['fallback-voting'];
+    case 'social':     return TEMPLATES['fallback-social'];
+    case 'reflection': return TEMPLATES['fallback-reflection'];
+    default:           return TEMPLATES['fallback-general'];
   }
-
-  const contextualPrompt = targetName ? { ...prompt, context: { ...(prompt.context || {}), targetName } } : prompt;
-
-  return raws
-    .map(r => fillTags(r, contextualPrompt, gameState))
-    .filter((s): s is string => !!s);
 }
 
 export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameState: GameState): string[] {
-  // Anchored to prompt id or category
-  const anchored = generateStaticResponses(prompt, gameState);
+  const specific = templatesForPrompt(prompt)
+    .map(r => fillTags(r, prompt, gameState))
+    .filter((s): s is string => !!s);
 
-  // Twist-aware lines
-  const twist = generateTwistResponsesForPrompt(prompt, gameState);
-
-  // Producer tactic lines
-  const producer = generateProducerResponsesIfAny(prompt, gameState);
-
-  // Merge in order of relevance
-  const combined = [...anchored, ...twist, ...producer];
-
-  // Integrity guard: remove lines that reference events that haven't happened
-  const valid = combined.filter(r => responseIsValid(r, gameState));
-
-  // If very short, add category fallbacks
-  let pool = valid;
+  let pool = specific;
   if (pool.length < 3) {
-    const fallbacks = templatesForPrompt({ ...prompt, id: `fallback-${prompt.category}` } as DynamicConfessionalPrompt)
+    const fallbacks = categoryFallback(prompt.category)
       .map(r => fillTags(r, prompt, gameState))
       .filter((s): s is string => !!s);
     pool = [...pool, ...fallbacks];
   }
 
-  // De-duplicate and shuffle minimally
-  const unique = Array.from(new Set(pool));
-  const shuffled = shuffleArray(unique);
+  // De-dupe while preserving relevance order (specifics first).
+  const seen = new Set<string>();
+  const ordered = pool.filter(l => {
+    if (seen.has(l)) return false;
+    seen.add(l);
+    return true;
+  });
 
-  // Return a modest set; UI pages these
-  return shuffled.slice(0, Math.min(12, shuffled.length));
+  // Filter out lines whose subject matter doesn't fit the current phase.
+  const valid = ordered.filter(r => responseIsValid(r, gameState));
+
+  // Lightly shuffle everything AFTER the first two so the top-anchored
+  // answers always feel closest to the question, but there's still variety.
+  const head = valid.slice(0, 2);
+  const tail = shuffleArray(valid.slice(2));
+  return [...head, ...tail].slice(0, 12);
 }
 
-// Prevent responses that imply events that haven't occurred
 function responseIsValid(text: string, gameState: GameState): boolean {
   const t = text.toLowerCase();
   const activeCount = gameState.contestants.filter(c => !c.isEliminated).length;
@@ -392,9 +403,6 @@ function responseIsValid(text: string, gameState: GameState): boolean {
   if (t.includes('jury') && !allowJury) return false;
   if (t.includes('finale') && !allowFinaleTalk) return false;
   if (t.includes('elimination') && !allowEliminationTalk) return false;
-
-  // Avoid lines that assert a win unless we have immunity winner (minimal check)
-  if ((t.includes('won') || t.includes('win ')) && !allowImmunity) return false;
 
   return true;
 }
