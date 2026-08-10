@@ -207,33 +207,46 @@ const TEMPLATES: Record<string, string[]> = {
     "My strategy this week is patience. I don't need to make the move. I need the move to make itself.",
     "It comes down to timing. I've got the numbers if I want them. I just don't want to spend them yet.",
     "I'm playing for two votes from now, not this one. That's where the real math is.",
+    "I keep wanting to do something big. Then I remember that big is how you get noticed, and noticed is how you go home.",
+    "Some nights I lie there running names in my head until I fall asleep. That's the job now.",
   ],
   'fallback-alliance': [
     "On alliances? I take actions over promises. Words are free in here.",
     "I trust people the second time they help me, not the first. Once could be an accident.",
     "The best alliance is the one nobody else knows exists. That's what I'm building.",
+    "I want to believe them. I really do. I've just watched too many people believe someone in here and pack a bag two days later.",
+    "There's a version of this where these people are my friends for life. There's also a version where I write their names down. Both feel true.",
   ],
   'fallback-voting': [
     "I vote for the person whose absence changes the game the most. Simple as that.",
     "My vote isn't personal. It's whichever name gives me the best next week.",
     "I pick the name I can defend to the jury later. Everything else is noise.",
+    "Writing a name down never feels good. It just feels necessary, and those are different things.",
+    "I know exactly who I'm voting for. I'm still going to hug them before I do it.",
   ],
   'fallback-social': [
     "Socially, I'm warm with everybody and close with almost nobody. That's on purpose.",
     "I ask more questions than I answer. People will hand you their whole game if you let them talk.",
     "I read intent first, then I decide how much of myself to give back.",
+    "I'm tired. Being nice for sixteen hours a day is harder than any competition they've thrown at us.",
+    "Half these conversations are real and half are work, and some days I honestly can't tell which one I'm in.",
   ],
   'fallback-reflection': [
     "Honestly, I think about it more than I say out loud. The answer is I'm okay with how I've played.",
     "I've made choices in here I'd make again, and one or two I wouldn't. That's a normal season.",
     "The lesson is always the same. Slow down on trust, speed up on moves.",
+    "I miss my people. That's the part they don't show you on TV.",
+    "I didn't expect to change in here. I have. I'm not sure yet whether I like it.",
   ],
   'fallback-general': [
     "I'll keep it short. I'm here, I'm playing, and I'm not done.",
     "Not much to say tonight that I haven't already said with a vote.",
     "One day at a time. That's genuinely the whole answer.",
+    "I don't have a speech tonight. I've just got a plan and a bad night's sleep.",
+    "Ask me tomorrow. Tonight I'm just tired and still in it.",
   ],
 };
+
 
 // Dynamic-ID templates (matched by prefix)
 const DYNAMIC_TEMPLATES: { prefix: string; templates: string[] }[] = [
@@ -394,8 +407,66 @@ export function generateResponseOptions(prompt: DynamicConfessionalPrompt, gameS
 
   const head = clean.slice(0, 2);
   const tail = shuffleArray(clean.slice(2));
-  return [...head, ...tail].slice(0, 12);
+  const finalPool = [...head, ...tail].slice(0, 12);
+
+  // Spoken-texture pass: give roughly half the options a natural verbal beat
+  // (a lead-in, a hedge, or a closing thought) so the list doesn't read like
+  // twelve polished press quotes. Applied after the grammar guard, and only
+  // with devices that can't break capitalization, spacing or punctuation.
+  return finalPool.map((line, i) => naturalize(line, i));
 }
+
+// ── Spoken texture ────────────────────────────────────────────────────────
+// Devices are whole-sentence lead-ins or trailing thoughts. They never touch
+// the interior of a hand-written line, so grammar stays intact.
+
+const LEAD_INS: string[] = [
+  "Honestly?",
+  "Okay, real talk.",
+  "Look.",
+  "Here's the thing.",
+  "I'll be straight with you.",
+  "Can I be honest?",
+  "See, this is the part nobody gets.",
+  "Man.",
+];
+
+const TRAILING_BEATS: string[] = [
+  "That's just where I'm at.",
+  "And I'm okay with that.",
+  "I don't know how else to put it.",
+  "Say what you want about it.",
+  "That's the whole thing.",
+  "Anyway. Yeah.",
+  "I've made peace with it.",
+];
+
+function hashOf(text: string): number {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) % 100000;
+  return h;
+}
+
+function naturalize(line: string, index: number): string {
+  const h = hashOf(line) + index * 7;
+  const mode = h % 4; // 0 = lead-in, 1 = trailing beat, 2 & 3 = leave alone
+  const words = line.split(/\s+/).filter(Boolean).length;
+
+  if (mode === 0) {
+    const lead = LEAD_INS[h % LEAD_INS.length];
+    if (words + 4 > 50) return line;
+    return `${lead} ${line}`;
+  }
+
+  if (mode === 1) {
+    const beat = TRAILING_BEATS[h % TRAILING_BEATS.length];
+    if (words + 6 > 50) return line;
+    return `${line} ${beat}`;
+  }
+
+  return line;
+}
+
 
 /**
  * SAFE_FALLBACKS: minimal first-person confessional lines guaranteed to
