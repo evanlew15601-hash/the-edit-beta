@@ -21,229 +21,256 @@ import { DynamicConfessionalPrompt } from './enhancedConfessionalEngine';
  */
 
 const TEMPLATES: Record<string, string[]> = {
+  // Every pool answers its prompt in three shapes, in this order:
+  //   [0] KNOW   — the read: what I've actually observed or figured out
+  //   [1] HIDE   — the concealment: what I'm not saying in the house
+  //   [2] DECIDE — the commitment: the move I'm making next
+  // Extra lines below those three are alternate phrasings of the same shapes.
+  // No line is allowed to be a mood statement that doesn't answer the ask.
+
   // ── Strategy progression ────────────────────────────────────────────────
   'mid-game-strategy': [
-    "Mid-game, my whole plan is stay useful and stay boring. If I'm never the loudest name in the room, I'm never the vote.",
-    "With {ACTIVE_COUNT} of us left, I stop pushing moves and start letting other people's moves work for me.",
-    "The middle of the game is where people forget you're playing. That's exactly where I want to be right now.",
+    "What I know is the middle of this game belongs to whoever stops volunteering. Nobody's targeting me right now, so my plan is to keep it that way.",
+    "What nobody in the house knows is I've already picked who I want gone at eight. Until then I'm agreeing with everybody.",
+    "So moving forward: I hold my numbers, let two of them collide over the next vote, and pick up whoever loses.",
+    "With {ACTIVE_COUNT} of us left, my read is that no one has a majority yet. My plan is to be the vote that makes one, and to charge for it.",
   ],
   'endgame-strategy': [
-    "At {ACTIVE_COUNT}, I'm done making friends. Every conversation is either building a vote or checking a name off my list.",
-    "This late, I'm not trying to win the week. I'm trying to sit next to the people I actually beat.",
-    "My positioning right now is simple. Be the second-most-dangerous person in every room, never the first.",
+    "My read at {ACTIVE_COUNT} is that two people here beat me in front of a jury. So my positioning is simple: they leave before I have to sit beside them.",
+    "What I'm not saying out loud is that I've stopped protecting one of my own people. They're my shield until they're my seat.",
+    "Positioning for the final stretch means I need one person who'd never write my name and one person I know I beat. I'm locking both in this week.",
+    "I'm done building. From here I'm spending. Every conversation I have from tonight is me cashing in a favor.",
   ],
 
   // ── Voting week ─────────────────────────────────────────────────────────
   'elimination-pressure': [
-    "Honestly? I feel okay about this vote. My name hasn't come up in any conversation I wasn't already in.",
-    "I'm not comfortable yet. Comfortable is how people go home. I'll check in with three more people before I sleep tonight.",
-    "The vote's coming and I've done my part. Now I just have to sit still and watch it land.",
+    "How I feel about the vote is grounded in what I've actually heard: my name hasn't come up in a single room I wasn't already standing in.",
+    "I'm telling people I'm nervous. I'm not. I want them checking on me instead of counting me.",
+    "I feel fine, and I'm still going to confirm three votes before I go to sleep. Feeling fine is how people get blindsided.",
+    "Honestly, I don't have the votes locked and I know it. So tonight I go get them instead of sitting here hoping.",
   ],
   'voting-strategy': [
-    "If I could pick right now, I'd send {TOP_SUSPICIOUS_NAME} home. They've been running numbers on me for a week.",
-    "It would be {TOP_SUSPICIOUS_NAME}. Not because I hate them, because they're the one person I can't control.",
-    "Right now? {TOP_SUSPICIOUS_NAME}. If I let them stay another week, I'm playing their game instead of mine.",
-    "If I had the votes today, I'd take the shot at the strongest player left. Sitting on it just makes it harder later.",
+    "If it were today, {TOP_SUSPICIOUS_NAME}. What I know is they've been running my name in rooms I'm not in.",
+    "{TOP_SUSPICIOUS_NAME}, and I'm not saying that to their face. I've been friendly with them all week on purpose.",
+    "{TOP_SUSPICIOUS_NAME}. They're the one person left I can't steer, and I'm not spending another week reacting to them.",
+    "It would be the strongest player left, not the person I like least. Waiting only makes that shot harder to take.",
   ],
 
   // ── Alliances ───────────────────────────────────────────────────────────
   'alliance-trust': [
-    "Me and {OTHER_MEMBERS}? We're solid on paper. I still don't tell them everything, and I don't think they tell me either. That's just the game.",
-    "I trust {OTHER_MEMBERS} more than anyone else in here, which honestly isn't saying much. I'd take the shot first if I had to.",
-    "The alliance works because none of us are ready to break it yet. The second one of us is, we're all in trouble.",
+    "How much do I trust {OTHER_MEMBERS}? Enough to share a target, not enough to share a timeline. They've kept every promise they've made to me so far, which is the only reason I'm still here.",
+    "What I haven't told {OTHER_MEMBERS} is that I've got a second conversation running outside this group. If they knew, they'd cut me tonight.",
+    "I'm staying in it through this vote, and then I'm reassessing. The second they start meeting without me, I'm the one who moves first.",
+    "I trust the alliance to work while it's useful to all of us. That's not the same as trust, and I'd be lying if I called it that.",
   ],
   'solo-game': [
-    "No alliance is actually kind of freeing. I don't owe anybody a vote, so I can go wherever the numbers are that week.",
-    "My plan without a group is small conversations, everywhere. If everyone thinks they're my number one, nobody targets me.",
-    "I'd rather have three loose friendships than one tight alliance right now. Alliances get people evicted.",
+    "My game plan without a group is to be everybody's spare vote. What I know is that nobody eliminates the person they might need on Thursday.",
+    "I let people think I'm closer to them than I am. That's the whole plan, and it only works if nobody compares notes.",
+    "Since I don't have a group, I'm going to build the smallest one possible this week. Two people, no name, no meetings.",
+    "No alliance means no obligations. I go where the numbers are that week, and I've been right about where they are twice now.",
   ],
 
   // ── Social ──────────────────────────────────────────────────────────────
   'social-connection': [
-    "Me and {HIGH_TRUST_NAME}? It's real. Which is exactly why it scares me a little, because I know how this game ends.",
-    "Yeah, that friendship is genuine. I'd still write their name down if it saved my game. That's the honest answer.",
-    "{HIGH_TRUST_NAME} is one of the few people I don't have to perform for. That's rare in here.",
+    "How real is it with {HIGH_TRUST_NAME}? Real. They're the only person in here I don't have to think before talking to.",
+    "What {HIGH_TRUST_NAME} doesn't know is that I've already thought about the week I'd have to write their name. That's the part I keep to myself.",
+    "It's real, and I'm still going to use it. I'd take them to the end if the jury math works, and cut them if it doesn't.",
+    "It started as strategy and turned into something else. That's honestly the problem with it.",
   ],
   'recent-conflict': [
-    "Look, {CONFLICT_OTHER} came at me and I answered. I'm not going to sit here and pretend I started it.",
-    "With {CONFLICT_OTHER}, I said what I needed to say. Now I'm going to leave it alone and let them stew.",
-    "The thing with {CONFLICT_OTHER} wasn't personal for me. It clearly was for them. That tells me everything.",
+    "My side is this: {CONFLICT_OTHER} came at me in front of people, and I answered in front of the same people. I wasn't going to be the one who took it quietly.",
+    "What I didn't say to {CONFLICT_OTHER} is that I know exactly who told them. I'm keeping that, because it's worth more later.",
+    "I'm not apologizing to {CONFLICT_OTHER}. I'm going to be pleasant, let it cool, and vote them out when it's convenient.",
+    "It wasn't personal for me and it clearly was for them. That tells me they'll make an emotional decision, and I can use that.",
   ],
 
   // ── Competition threats ─────────────────────────────────────────────────
   'competition-threat': [
-    "{COMPETITIVE_NAME} is the problem. If they keep winning when it matters, none of us get to touch them.",
-    "You can't leave {COMPETITIVE_NAME} in this game. Every week they're still here is a week I'm not in control of my own vote.",
-    "{COMPETITIVE_NAME} needs to go the first week they can't save themselves. That's the whole strategy.",
+    "{COMPETITIVE_NAME} is the threat, and it's not close. Every week they're still here is a week my vote isn't really mine.",
+    "I've been telling {COMPETITIVE_NAME} they're safe with me. They are not safe with me.",
+    "So the decision is: {COMPETITIVE_NAME} goes the first week they can't save themselves, and I'll take the blame for it if I have to.",
+    "The read on {COMPETITIVE_NAME} is that people are scared to say their name first. I'm willing to be first if somebody backs me.",
   ],
 
   // ── Reflection ──────────────────────────────────────────────────────────
   'game-reflection': [
-    "Day {CURRENT_DAY} and I'm still here. That's more than most people can say, so I'll take it.",
-    "I've made mistakes. I've also made two moves I'm proud of. On balance I think I'm playing a real game, not just surviving.",
-    "Am I playing well? Ask me after the next vote. That's how this game works.",
+    "How am I playing? Day {CURRENT_DAY} and I've been named in a vote zero times. I'll take that as the answer.",
+    "The part I don't advertise is how much of my position is luck. Two votes went my way that I had nothing to do with.",
+    "I think I'm playing fine, and fine isn't enough anymore. So from here I'm the one starting the conversation instead of joining it.",
+    "Two moves I'm proud of, one I'd take back. That's a real game, not just survival, and I know the difference.",
   ],
   'personal-growth': [
-    "This place has taught me to shut up more. I used to fill every silence. Now I let other people fill them and tell me things.",
-    "I've learned I'm more patient than I thought. I've also learned I'm meaner than I thought. Both are useful in here.",
-    "I came in wanting people to like me. Now I just want them to underestimate me. That's the real shift.",
+    "It's changed how much I talk. I used to fill silences. Now I let other people fill them, and they hand me their whole game.",
+    "What it's really done is make me comfortable lying to people I like. I'm not proud of how easy that got.",
+    "I came in wanting to be liked. I've decided I'd rather be underestimated, and I'm playing the rest of this that way.",
+    "I'm more patient than I thought and meaner than I thought. In here, both of those have been useful.",
   ],
 
   // ── Stage-aware strategy ────────────────────────────────────────────────
   'early-game-positioning': [
-    "Early game, my only job is not to be interesting. Learn names, agree with everyone, don't pick a side yet.",
-    "I'm making friends first and reading the room second. There's no vote worth swinging this early.",
-    "First few weeks, I keep my mouth shut in group settings and do all my real talking one-on-one.",
+    "To survive the first votes I need to be boring. What I know is that early evictions go to whoever picked a side first.",
+    "I'm agreeing with everybody right now, and none of them know I haven't picked a single one of them.",
+    "So my plan is: no group settings, all one-on-ones, and no name out of my mouth until somebody else says it first.",
+    "I'm learning names and reading the room. There isn't a vote worth swinging this early, and I'm not going to pretend there is.",
   ],
   'power-dynamics': [
-    "The person actually running the house isn't the loudest one. It's whoever the loud ones keep checking with.",
-    "Power in here is moving. I'm trying to sit next to whoever has it this week without marrying them to it.",
-    "Right now the game is being run by two people who don't realize they agree on everything. That's the alliance I need to break.",
+    "Who's really running it? Not the loud one. It's whoever the loud ones keep going to check with, and I've been watching who that is.",
+    "I know two people are running this house and they don't realize they agree on everything. I'm not going to be the one who points it out to them.",
+    "So my move is to get between those two before they notice they're a pair. That's the break I need.",
+    "Power's shifting weekly, and my read is it lands with whoever wins the next vote outright. I want to be on that side of it.",
   ],
   'jury-approaching': [
-    "With jury coming, I'm watching my mouth more. Every eviction speech is a juror I'll need later.",
-    "Threat level is the whole game now. I'd rather be underestimated by a juror than respected by one.",
-    "I'm being nicer to people I'm about to vote out. That's a jury vote three weeks from now.",
+    "Managing my threat level means watching my mouth in group rooms. Every person I vote out becomes someone who scores me later.",
+    "What I'm hiding right now is how many of these votes were my idea. I'd rather a juror thinks I followed.",
+    "So I'm being genuinely kind to the people I'm about to vote out. That's not fake, and it's also a jury vote.",
+    "I'd rather be underestimated by a juror than respected by one. Respect this early just gets you evicted.",
   ],
   'finale-positioning': [
-    "To get to the end I need one more big move and two people who'll never take the shot at me. That's the checklist.",
-    "The finale isn't about the best game. It's about the best seat. I'm picking my seat right now.",
-    "I need to sit next to someone the jury respects less than me. That's not mean, that's just how this works.",
+    "To secure my spot I need one more move that's clearly mine, plus two people who'd never take a shot at me. That's the checklist.",
+    "The part I keep quiet is that I've already picked who I want beside me at the end, and they think it's mutual.",
+    "So the move is: I take the shot at the strongest player myself instead of letting somebody else get credit for it.",
+    "The end isn't about the best game, it's about the best seat. I'm choosing my seat this week, not hoping for one.",
   ],
   'immunity-era-ends': [
-    "No safety comp changes everything. Nobody gets to hide behind a win anymore. It's just relationships and votes now.",
-    "Without the weekly save, at {ACTIVE_COUNT} the game is finally honest. You either have the numbers or you don't.",
-    "This is where quiet players get exposed. You can't win your way out anymore. You have to be somebody's number one.",
+    "With no safety comp left, what I know is that at {ACTIVE_COUNT} nobody gets to hide behind a win. It's relationships and votes now.",
+    "I've been acting like this doesn't change anything for me. It changes everything, and I don't want anyone doing that math out loud.",
+    "So my endgame changes to one thing: be somebody's certain number one before the next vote, not their maybe.",
+    "This is where quiet players get exposed. I can't win my way out anymore, so I have to be needed instead.",
   ],
 
   // ── Edit-awareness ──────────────────────────────────────────────────────
   'edit-shaping': [
-    "If I want more screen time, I have to say something clean in here. Producers cut sentences, not paragraphs.",
-    "I don't need to blow up my game for airtime. I just need one good sentence per confessional and they'll use it.",
-    "Screen time follows decisions. I'll get shown more the week I actually make a move, not before.",
+    "How I get shown more is simple. Producers cut sentences, not paragraphs, so I give one clean sentence a night.",
+    "I'm not blowing up my game for airtime. If they want a story from me, they can have the one I choose to tell.",
+    "So I'm going to make the move I've been sitting on this week. Screen time follows decisions, not confessionals.",
+    "I know exactly why I haven't been shown: I haven't done anything worth showing yet. That's on me, and it changes this week.",
   ],
   'balance-comedy-strategy': [
-    "The jokes are how I get people to trust me. The strategy is what I do with that trust when they're not looking.",
-    "Being funny is a shield. People don't vote out the guy making them laugh at breakfast.",
-    "I keep it light in the house and heavy in the diary room. That's the whole balance.",
+    "The way I balance it is the jokes get people comfortable, and comfortable people tell me things they shouldn't.",
+    "Everybody thinks the jokes are all there is to me. I'd like to keep that going as long as possible.",
+    "So I keep it light in the house and I do the real talking in here. That's the whole split.",
+    "Being funny is a shield. Nobody writes down the name of the person making them laugh at breakfast.",
   ],
   'underestimated': [
-    "Yeah, they're underestimating me. That's the plan. It's not an accident.",
-    "People think I'm too nice to make a move. They're going to find out I'm not.",
-    "Getting underestimated is the best thing that can happen to you in this house. I'm not going to correct anyone.",
+    "Yeah, they are, and I know why: I've never raised my voice in this house once. They read that as harmless.",
+    "They're underestimating me and I'm feeding it. I've played dumb in two conversations this week on purpose.",
+    "So I'm not correcting anybody. I'd rather make the move and let them work out afterward that it was me.",
+    "They think I'm too nice to take a shot. That's the read I want them to have going into this vote.",
   ],
   'biggest-mistake': [
-    "My biggest mistake was trusting one person too fast. I won't do that again.",
-    "I told somebody a plan before I needed to. It didn't burn me, but it could have. I've been quieter since.",
-    "I got emotional in a conversation I should have been strategic in. That's the one I'd take back.",
+    "My biggest mistake was trusting one person too fast, before they'd done anything to earn it. That's what I got wrong.",
+    "The mistake I've never admitted to anybody is that I told a plan out loud a day before I needed to. It didn't burn me. It should have.",
+    "So the fix is that from here nobody gets information until the moment they need it to help me.",
+    "I got emotional in a conversation that should have been strategic. That's the one I'd take back.",
   ],
 
   // ── Producer tactic prompts ─────────────────────────────────────────────
   'prod-soundbite-truth': [
-    "The truth is, I'm the only person in this house playing every angle at once.",
-    "The truth is, half the people in here already lost and don't know it yet.",
-    "The truth is, I like these people and I'm still going to send them home one by one.",
+    "The truth is, I'm the only person in this house running every angle at once, and everybody thinks they're my exception.",
+    "The truth is, I'm hiding a plan that ends two of the friendships I have in here.",
+    "The truth is, I've already decided who I'm cutting, and I'm going to smile at them all week first.",
+    "The truth is, half these people already lost this game and haven't noticed.",
   ],
   'prod-bait-rival': [
-    "{BAIT_TARGET}. Every time. They smile at you and then your name is on the block.",
-    "It's {BAIT_TARGET}, and I don't say that lightly. They're the one person in here whose word means nothing.",
-    "If we don't take {BAIT_TARGET} out soon, one of us is going to wake up on the wrong side of a vote.",
+    "{BAIT_TARGET}, and I can point to when I learned it: they smiled at me and my name was in a room an hour later.",
+    "{BAIT_TARGET}, and I've never once told them I think that. To their face, we're great.",
+    "It's {BAIT_TARGET}, and the decision that comes with that is I'm not waiting for them to move on me first.",
+    "{BAIT_TARGET}. I don't say that lightly. Their word hasn't meant anything since the first vote.",
   ],
   'prod-retell-conflict': [
-    "I was calm until {TARGET} brought my family into it. That's where I stopped being polite.",
-    "It started as a game conversation. Then {TARGET} made it personal, and I wasn't going to sit there and take it.",
-    "I gave {TARGET} an out three times. They didn't want one. So we did it their way.",
+    "Beat by beat: {TARGET} said my name in a group, I asked them to repeat it, they wouldn't, and that's when I went off.",
+    "What I left out of that blow-up is that I already knew what {TARGET} had said. I let them lie about it first.",
+    "I gave {TARGET} an out three times. They didn't take one. So now they're the name I push this week.",
+    "It started as a game conversation and {TARGET} made it personal. I wasn't going to sit there and eat it.",
   ],
   'prod-damage-control': [
-    "Look, it happened. I'm not going to pretend it didn't. What I can do is show up tomorrow and play a cleaner game.",
-    "I own it. I'd rather be the person who made the move and explained it than the person who hid.",
-    "It looks worse than it was. Give me a week and the same people mad at me right now will be working with me again.",
+    "Here's what actually happened, and I'm not going to soften it: I made the move, it went badly, and people have every right to be mad.",
+    "What I'm not telling the house is that I'd do it again with better timing. As far as they know, I regret all of it.",
+    "So the plan is I stop explaining and start showing up. In a week the same people will be working with me again.",
+    "I own it. I'd rather be the person who made the move and said so than the one who hid behind somebody else.",
   ],
   'prod-reframe-persona': [
-    "I did what I had to because nobody in here was going to do it for me.",
-    "I did what I had to because I didn't come this far to be nice on the way out.",
-    "I did what I had to because the alternative was watching my game get played by somebody else.",
+    "I did what I had to because nobody in here was going to do it for me, and I could see the vote coming.",
+    "I did what I had to because the alternative was letting somebody else decide when my game ended.",
+    "I did what I had to because I'd already promised myself I wouldn't go out quiet.",
   ],
 
   // ── Twist arcs ──────────────────────────────────────────────────────────
   'hc_keep_secret': [
-    "I'm not confirming anything in there. If they want to guess, let them guess. Guessing isn't proof.",
-    "I keep the answer short and the same every time. That's how a lie stays a lie.",
-    "The second I start explaining is the second they know. So I don't explain.",
+    "What I know is that nobody has proof. They have a feeling, and feelings don't get you evicted.",
+    "I'm keeping the answer short and identical every single time. Consistency is the only thing holding this together.",
+    "So I don't confirm, I don't deny, and I don't explain. Explaining is how people get caught.",
+    "The second somebody asks twice, I get bored instead of nervous. Bored reads as honest in here.",
   ],
   'hc_reveal_fallout': [
-    "Now that it's out, all I can do is play straight from here. No more managing it, just playing.",
-    "The people who trust me still trust me. The people who don't were never going to. I know where I stand now.",
-    "I'd rather have it out and lose than keep it in and win. That part I'm actually okay with.",
+    "Now that it's out, I know exactly where I stand: the people who trusted me still do, and the rest were never mine.",
+    "What I'm still not saying is how long I could have kept it going if I'd wanted to.",
+    "So from here I play it straight. No more managing the story, just votes and conversations.",
+    "I'd rather have it out and lose than carry it and win. That part I actually mean.",
   ],
   'hc_edit_bias': [
-    "I can't control what airs. I can control what I do next, and that's what the tape will show.",
-    "If the edit wants a villain, fine. I'll give them a villain who plays well.",
-    "I stopped worrying about how I look about ten votes ago.",
+    "I can't control what airs, and I know that. What airs is decided by what I do, so I'll give them something worth cutting.",
+    "If the edit wants a villain, I'm not going to argue with it on camera. I just won't play like one in the house.",
+    "So I stopped managing how I look about ten votes ago and started managing the numbers instead.",
   ],
   'phg_mission_update': [
-    "The trick to the mission is making it sound like something anyone would suggest. Then it's not mine anymore.",
-    "I plant the idea, walk away, and let somebody else say it back to me two days later. Works every time.",
-    "I never push it twice. Push it twice and it's yours. Say it once and it belongs to the house.",
+    "The mission works because I make it sound like something anyone in the room would suggest. Then it isn't mine.",
+    "Nobody knows the idea started with me, and I only get to keep that if I never push it twice.",
+    "So tonight I say it once, walk out, and wait for somebody to say it back to me on Wednesday.",
   ],
   'phg_damage_control': [
-    "If somebody catches on, I lean in a little. Nervous people over-explain. I don't.",
-    "The story stays the same no matter who's asking. That's the whole trick.",
-    "I flip it. If they think I'm the plant, I ask them who they think it really is. People love to answer that.",
+    "What I know is that people who suspect you always tell you they suspect you. That's my warning system.",
+    "I'm not defending myself. Nervous people over-explain, and I'd rather look bored than look caught.",
+    "So if somebody presses me, I ask who they think it is instead. People love answering that question.",
   ],
   'phg_cover_story': [
-    "My cover is boring on purpose. Boring people don't get investigated.",
-    "One line, same words, every time. I'd rather sound rehearsed than sound caught.",
-    "The story is 90 percent true. That's why I can keep it straight.",
+    "My cover works because it's boring, and nobody investigates boring.",
+    "It's ninety percent true, which is the only reason I can keep it straight under pressure.",
+    "So it's one line, the same words, every time. I'd rather sound rehearsed than get caught improvising.",
   ],
   'arc_closer': [
-    "If this is my last confessional, I want it on record: I played. I didn't just show up.",
-    "Whatever the edit does with me, the moves are the moves. I stand behind every one of them.",
-    "This game is going to end and I'm going to be able to look at it and say I actually played it. That's what I wanted.",
+    "If this is my last one, what I know is I played. I didn't just get carried to day {CURRENT_DAY}.",
+    "The thing I never said in the house is that I saw most of it coming and chose to let it happen.",
+    "So whatever happens at the vote, the moves were mine and I'll defend every one of them.",
   ],
 
   // ── Category fallbacks ──────────────────────────────────────────────────
+  // Still answer-shaped: read, concealment, decision. Never mood filler.
   'fallback-strategy': [
-    "My strategy this week is patience. I don't need to make the move. I need the move to make itself.",
-    "It comes down to timing. I've got the numbers if I want them. I just don't want to spend them yet.",
-    "I'm playing for two votes from now, not this one. That's where the real math is.",
-    "I keep wanting to do something big. Then I remember that big is how you get noticed, and noticed is how you go home.",
-    "Some nights I lie there running names in my head until I fall asleep. That's the job now.",
+    "My read this week is that nobody has the numbers locked, including the people acting like they do.",
+    "What I'm not telling anyone is the order I want these people gone in. I've had it written in my head for days.",
+    "So the decision is: I hold my vote until the last possible conversation, then sell it to whoever needs it most.",
+    "I'm playing for two votes from now, not this one. That's where the math actually matters.",
   ],
   'fallback-alliance': [
-    "On alliances? I take actions over promises. Words are free in here.",
-    "I trust people the second time they help me, not the first. Once could be an accident.",
-    "The best alliance is the one nobody else knows exists. That's what I'm building.",
-    "I want to believe them. I really do. I've just watched too many people believe someone in here and pack a bag two days later.",
-    "There's a version of this where these people are my friends for life. There's also a version where I write their names down. Both feel true.",
+    "What I know about these people is what they've done, not what they've promised. Two of them have actually shown up for me.",
+    "None of them know I'm having the same conversation with somebody outside the group.",
+    "So I stay in through this vote and move first the second I hear about a meeting I wasn't in.",
+    "I trust people the second time they help me. Once could be an accident.",
   ],
   'fallback-voting': [
-    "I vote for the person whose absence changes the game the most. Simple as that.",
-    "My vote isn't personal. It's whichever name gives me the best next week.",
-    "I pick the name I can defend to the jury later. Everything else is noise.",
-    "Writing a name down never feels good. It just feels necessary, and those are different things.",
-    "I know exactly who I'm voting for. I'm still going to hug them before I do it.",
+    "My read is that this vote is between two names, and only one of them makes my next week easier.",
+    "I've told two people two different things about my vote. Only one of them is going to be right.",
+    "So I'm voting for whoever I can explain to a juror later. Everything else is noise.",
+    "It's not personal. I write down the name whose absence changes the most.",
   ],
   'fallback-social': [
-    "Socially, I'm warm with everybody and close with almost nobody. That's on purpose.",
-    "I ask more questions than I answer. People will hand you their whole game if you let them talk.",
+    "Socially, what I know is that people hand you their whole game if you just keep asking questions.",
+    "I'm warm with everybody and close with almost nobody, and I'd like that to stay invisible.",
+    "So this week I stop spreading myself out and go deep with the two people who actually vote with me.",
     "I read intent first, then I decide how much of myself to give back.",
-    "I'm tired. Being nice for sixteen hours a day is harder than any competition they've thrown at us.",
-    "Half these conversations are real and half are work, and some days I honestly can't tell which one I'm in.",
   ],
   'fallback-reflection': [
-    "Honestly, I think about it more than I say out loud. The answer is I'm okay with how I've played.",
-    "I've made choices in here I'd make again, and one or two I wouldn't. That's a normal season.",
-    "The lesson is always the same. Slow down on trust, speed up on moves.",
-    "I miss my people. That's the part they don't show you on TV.",
-    "I didn't expect to change in here. I have. I'm not sure yet whether I like it.",
+    "Where I'm at is this: I've made choices in here I'd make again, and one or two I wouldn't.",
+    "What I don't say out loud is how much of this I've gotten wrong and gotten away with.",
+    "So the lesson I'm actually applying from here is slower on trust, faster on moves.",
+    "I think I'm playing a real game. Ask me again after the vote and I'll know for sure.",
   ],
   'fallback-general': [
-    "I'll keep it short. I'm here, I'm playing, and I'm not done.",
-    "Not much to say tonight that I haven't already said with a vote.",
-    "One day at a time. That's genuinely the whole answer.",
-    "I don't have a speech tonight. I've just got a plan and a bad night's sleep.",
-    "Ask me tomorrow. Tonight I'm just tired and still in it.",
+    "What I know right now is that I'm still here and my name hasn't been said in a serious room.",
+    "There's a conversation I had today that I'm not repeating to anybody in this house.",
+    "So my next move is one more conversation tonight, and then I sleep on it.",
+    "I've said what I need to say with my vote. The rest is talk.",
   ],
 };
 
@@ -253,31 +280,32 @@ const DYNAMIC_TEMPLATES: { prefix: string; templates: string[] }[] = [
   {
     prefix: 'recent-scheme-',
     templates: [
-      "The conversation about {SCHEME_TARGET} went about how I wanted. I said less than they did, and now they think it was their idea.",
-      "Talking about {SCHEME_TARGET} is the first step. I don't need agreement today. I need the name in the room.",
-      "I planted it, they nodded, we moved on. By the end of the week, {SCHEME_TARGET}'s name won't feel like mine anymore.",
-      "I don't love scheming on {SCHEME_TARGET}, but somebody's got to go and it's not going to be me.",
+      "How it went: I said less than they did about {SCHEME_TARGET}, and they walked out thinking the name was theirs.",
+      "What they don't know is I've had the same conversation about {SCHEME_TARGET} with two other people this week.",
+      "So the next step is I don't bring {SCHEME_TARGET} up again. Somebody else says it or it doesn't happen.",
+      "It went fine. I got the name in the room without attaching myself to it, and that was the entire goal.",
     ],
   },
   {
     prefix: 'recent-dm-',
     templates: [
-      "The talk with {DM_PARTNER} was mostly them venting. I mostly listened. That's usually how you learn the most.",
-      "{DM_PARTNER} pulled me aside because they needed somebody to trust. I'll take that. It's a number I didn't have this morning.",
-      "It was a real conversation. Some of it was game, some of it wasn't. I know which parts to keep.",
-      "{DM_PARTNER} told me more than they meant to. I'm not going to burn that. Not yet.",
+      "What it was about: {DM_PARTNER} needed somebody to vent to, and I learned who they're actually scared of.",
+      "{DM_PARTNER} told me more than they meant to, and I haven't repeated a word of it. Not yet.",
+      "So I'm treating {DM_PARTNER} as a real number now, and I'll spend it when the vote's close.",
+      "Some of it was game and some of it wasn't. I know which half to keep.",
     ],
   },
   {
     prefix: 'alliance-update-',
     templates: [
-      "The alliance is fine. Not great, not broken. That's actually the sweet spot for me right now.",
-      "Everyone's still saying the same names out loud. What matters is whether they're saying the same names when I'm not in the room.",
-      "I feel good about my position in the group. I'd feel better if I knew who they'd cut first if it came down to it.",
-      "We had a check-in and it went smooth. Smooth check-ins are usually the ones that hide the problems.",
+      "How solid do I feel? Solid enough. Everyone's still saying the same names to my face, and I've checked that twice.",
+      "What I haven't told them is that I already know who they'd cut first if it came down to it. It's me.",
+      "So I'm going to force the issue this week and see who hesitates. Hesitation tells me everything.",
+      "We had a check-in and it was smooth. Smooth check-ins are usually the ones hiding the problem.",
     ],
   },
 ];
+
 
 function extractNameAfter(prompt: string, marker: RegExp): string | undefined {
   const m = prompt.match(marker);
