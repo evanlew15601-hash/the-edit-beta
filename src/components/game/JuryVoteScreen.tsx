@@ -9,6 +9,7 @@ import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { isDebugEnabled } from '@/utils/debugEnv';
 import { useFinaleMachine } from '@/hooks/useFinaleMachine';
+import { buildJuryRationale, buildPlayerJuryRationale } from '@/utils/juryRationaleEngine';
 
 export const JuryVoteScreen = () => {
   const { gameState, endGame } = useGame();
@@ -462,7 +463,7 @@ export const JuryVoteScreen = () => {
                               if (Object.keys(updated).length === juryMembers.length) {
                                 const completeRationales = {
                                   ...rationales,
-                                  [gameState.playerName]: `You chose ${finalist.name} based on the finalist's closing argument and overall game.`,
+                                  [gameState.playerName]: buildPlayerJuryRationale(finalist.name, gameState),
                                 };
                                 const winnerName = determineWinner(updated);
                                 setRationales(completeRationales);
