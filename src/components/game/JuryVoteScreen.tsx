@@ -9,6 +9,7 @@ import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { isDebugEnabled } from '@/utils/debugEnv';
 import { useFinaleMachine } from '@/hooks/useFinaleMachine';
+import { buildJuryRationale, buildPlayerJuryRationale } from '@/utils/juryRationaleEngine';
 
 export const JuryVoteScreen = () => {
   const { gameState, endGame } = useGame();
@@ -292,49 +293,21 @@ export const JuryVoteScreen = () => {
 
       juryVotes[juryMember.name] = topChoice.name;
 
-      // Build rationale
+      // Build a first-person, deterministic rationale from the same signals that drove the vote
       const top = finalTwoScores.find(s => s.name === topChoice.name)!;
-      const relationPhrase =
-        top.totalEmotion > 5
-          ? 'a strong positive history'
-          : top.totalEmotion < -5
-          ? 'lingering resentment'
-          : 'mixed feelings';
+      const votedForPlayer = topChoice.name === gameState.playerName;
+      const speechTier = votedForPlayer && effectivePlayerSpeech ? speechEval.tier : null;
+      const rivalSpeechTier = !votedForPlayer && effectivePlayerSpeech ? speechEval.tier : null;
 
-      let speechOrGamePhrase: string;
-      if (topChoice.name === gameState.playerName && effectivePlayerSpeech) {
-        speechOrGamePhrase =
-          speechEval.tier === 'compelling'
-            ? 'a compelling finale speech that reframed their game'
-            : speechEval.tier === 'solid'
-            ? 'a solid finale speech that backed up their game'
-            : speechEval.tier === 'weak'
-            ? 'a weak or unfocused finale speech'
-            : 'a neutral speech with limited impact';
-      } else {
-        if (jurorStyle === 'resume') {
-          speechOrGamePhrase =
-            top.strategyComponent > 0
-              ? 'respect for how they drove the strategy and closed out the game'
-              : 'their overall game still feeling coherent and intentional';
-        } else if (jurorStyle === 'social') {
-          speechOrGamePhrase =
-            top.totalEmotion > 3
-              ? 'how they treated people and showed up socially'
-              : 'how they balanced relationships with the game';
-        } else {
-          speechOrGamePhrase =
-            top.strategyComponent > 0
-              ? 'respect for their overall strategic game'
-              : 'their overall social presence in the house';
-        }
-      }
+      rationaleMap[juryMember.name] = buildJuryRationale(juryMember, topChoice.name, gameState, {
+        emotion: top.totalEmotion,
+        strategy: top.strategyComponent,
+        betrayalPenalty: top.betrayalPenalty,
+        jurorStyle: jurorStyle === 'balanced' ? 'mixed' : jurorStyle,
+        speechTier: speechTier as any,
+        rivalSpeechTier: rivalSpeechTier === 'weak' ? 'weak' : null,
+      });
 
-      if (top.betrayalPenalty < 0) {
-        speechOrGamePhrase += ', despite past betrayal';
-      }
-
-      rationaleMap[juryMember.name] = `Chose ${topChoice.name} due to ${relationPhrase} and ${speechOrGamePhrase}.`;
     });
 
     if (!finaleDispatch({ type: 'START_JURY_TALLY', votes: juryVotes, rationales: rationaleMap })) return;
@@ -490,7 +463,7 @@ export const JuryVoteScreen = () => {
                               if (Object.keys(updated).length === juryMembers.length) {
                                 const completeRationales = {
                                   ...rationales,
-                                  [gameState.playerName]: `You chose ${finalist.name} based on the finalist's closing argument and overall game.`,
+                                  [gameState.playerName]: buildPlayerJuryRationale(finalist.name, gameState),
                                 };
                                 const winnerName = determineWinner(updated);
                                 setRationales(completeRationales);
