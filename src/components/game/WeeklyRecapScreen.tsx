@@ -7,6 +7,7 @@ import { generateFanReactions } from '@/utils/fanReactions';
 import { buildWeeklyEdit } from '@/utils/weeklyEditBuilder';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { buildEnhancedWeeklyEdit } from '@/utils/enhancedMemoryRecap';
+import { AdvancedEditEngine } from '@/utils/advancedEditEngine';
 import { Badge } from '@/components/ui/badge';
 import { Tv, TrendingUp, TrendingDown, Activity } from 'lucide-react';
 
@@ -28,6 +29,8 @@ export const WeeklyRecapScreen = () => {
     gameState.currentDay,
     gameState
   );
+
+  const advancedEdit = AdvancedEditEngine.calculateAdvancedEdit(gameState);
 
   const fanReactions = generateFanReactions(gameState);
 
