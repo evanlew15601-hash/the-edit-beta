@@ -7,6 +7,7 @@ import { generateFanReactions } from '@/utils/fanReactions';
 import { buildWeeklyEdit } from '@/utils/weeklyEditBuilder';
 import { calculateLegacyEditPerception } from '@/utils/editEngine';
 import { buildEnhancedWeeklyEdit } from '@/utils/enhancedMemoryRecap';
+import { AdvancedEditEngine } from '@/utils/advancedEditEngine';
 import { Badge } from '@/components/ui/badge';
 import { Tv, TrendingUp, TrendingDown, Activity } from 'lucide-react';
 
@@ -28,6 +29,8 @@ export const WeeklyRecapScreen = () => {
     gameState.currentDay,
     gameState
   );
+
+  const advancedEdit = AdvancedEditEngine.calculateAdvancedEdit(gameState);
 
   const fanReactions = generateFanReactions(gameState);
 
@@ -119,6 +122,16 @@ export const WeeklyRecapScreen = () => {
             <p className={`text-3xl font-light ${getPersonaColor(weeklyEdit.playerPersona)}`}>
               {weeklyEdit.playerPersona}
             </p>
+            <div className="space-y-1">
+              <Badge variant="outline" className="text-xs tracking-wide uppercase">
+                Storyline: {advancedEdit.persona}{advancedEdit.subtype ? ` · ${advancedEdit.subtype}` : ''}
+              </Badge>
+              <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+                {advancedEdit.narrative || AdvancedEditEngine.getEditDescription(advancedEdit)}
+              </p>
+            </div>
+
+
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
               <div className="text-center">
