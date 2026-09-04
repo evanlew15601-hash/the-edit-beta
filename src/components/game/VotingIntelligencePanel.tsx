@@ -6,12 +6,23 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGame } from '@/contexts/GameContext';
 import { AIVotingStrategy } from '@/utils/aiVotingStrategy';
+import { EnhancedInformationEngine } from '@/utils/enhancedInformationEngine';
 import { Target, Vote, MessageCircle, Shield } from 'lucide-react';
+
+const TOPICS = [
+  { value: 'voting_plans', label: 'Who they are voting' },
+  { value: 'alliance_info', label: 'Where their alliances stand' },
+  { value: 'threat_assessment', label: 'Who they think the threat is' },
+  { value: 'game_status', label: 'How they read the house' },
+] as const;
+
+type TopicValue = (typeof TOPICS)[number]['value'];
 
 export const VotingIntelligencePanel: React.FC = () => {
   const { gameState } = useGame();
   const [selectedNPC, setSelectedNPC] = useState<string>('');
   const [desiredTarget, setDesiredTarget] = useState<string>('');
+  const [topic, setTopic] = useState<TopicValue>('voting_plans');
   const [result, setResult] = useState<{
     mode: 'ask' | 'pressure';
     name: string;
@@ -22,6 +33,10 @@ export const VotingIntelligencePanel: React.FC = () => {
     success?: boolean;
     commitment?: 'soft' | 'firm';
     notes?: string;
+    topicLabel?: string;
+    quote?: string;
+    shared?: boolean;
+    accuracy?: number;
   } | null>(null);
 
   const availableNPCs = useMemo(
@@ -46,15 +61,44 @@ export const VotingIntelligencePanel: React.FC = () => {
 
   const askPlan = () => {
     if (!npc) return;
-    const shareable = AIVotingStrategy.getShareableVotingInfo(npc, gameState, votingPlans);
-    const plan = votingPlans.get(npc.name);
+    const topicLabel = TOPICS.find(t => t.value === topic)?.label;
+
+    // What they actually say, and whether they are shading it, comes from the
+    // information engine: trust, suspicion, alliances, personality and recent
+    // memory decide whether they open up, hedge, or lie outright.
+    const response = EnhancedInformationEngine.processInformationRequest(
+      { asker: gameState.playerName, target: npc.name, topic, context: 'strategic' },
+      gameState,
+      votingPlans
+    );
+
+    if (topic === 'voting_plans') {
+      const shareable = AIVotingStrategy.getShareableVotingInfo(npc, gameState, votingPlans);
+      const plan = votingPlans.get(npc.name);
+      setResult({
+        mode: 'ask',
+        name: npc.name,
+        target: shareable.target,
+        reasoning: shareable.reasoning,
+        isLying: shareable.isLying || response.isLie,
+        confidence: plan ? `${plan.confidence}%` : 'Unknown',
+        topicLabel,
+        quote: response.information,
+        shared: response.willShare,
+        accuracy: response.accuracy,
+      });
+      return;
+    }
+
     setResult({
       mode: 'ask',
       name: npc.name,
-      target: shareable.target,
-      reasoning: shareable.reasoning,
-      isLying: shareable.isLying,
-      confidence: plan ? `${plan.confidence}%` : 'Unknown',
+      target: '',
+      isLying: response.isLie,
+      topicLabel,
+      quote: response.information,
+      shared: response.willShare,
+      accuracy: response.accuracy,
     });
   };
 
@@ -107,7 +151,23 @@ export const VotingIntelligencePanel: React.FC = () => {
             </Select>
           </div>
 
-          <div className="flex items-end">
+          <div className="space-y-2">
+            <label className="text-sm">Ask about</label>
+            <Select value={topic} onValueChange={(v) => setTopic(v as TopicValue)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-50 bg-popover text-popover-foreground">
+                {TOPICS.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-end sm:col-span-2">
             <Button
               variant="action"
               onClick={askPlan}
@@ -115,7 +175,7 @@ export const VotingIntelligencePanel: React.FC = () => {
               className="w-full"
             >
               <Target className="w-4 h-4 mr-2" />
-              Ask About Their Vote
+              Ask Them
             </Button>
           </div>
         </div>
