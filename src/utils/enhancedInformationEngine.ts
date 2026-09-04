@@ -1,6 +1,7 @@
 import { GameState, Contestant } from '@/types/game';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
+import { seededPick } from '@/utils/deterministicDialogue/decisionEngine';
 
 export interface InformationRequest {
   asker: string;
@@ -328,7 +329,7 @@ export class EnhancedInformationEngine {
       'voting_plans': [
         "I don't like talking about votes until I have to. Too much can change.",
         "It's too early in the week to commit to anything specific.",
-        "I prefer to keep my options open until tribal council."
+        "I prefer to keep my options open until the vote."
       ],
       'alliance_info': [
         "I'm just trying to work with everyone right now.",
@@ -348,7 +349,8 @@ export class EnhancedInformationEngine {
     };
 
     const responses = deflections[topic] || ["I'd rather not get into that right now."];
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+    // Deterministic: the same person deflects the same way about the same topic.
+    const randomResponse = seededPick(responses, `${target.name}|deflect|${topic}`) || responses[0];
 
     return {
       willShare: false,
