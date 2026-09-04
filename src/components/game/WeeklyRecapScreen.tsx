@@ -119,6 +119,16 @@ export const WeeklyRecapScreen = () => {
             <p className={`text-3xl font-light ${getPersonaColor(weeklyEdit.playerPersona)}`}>
               {weeklyEdit.playerPersona}
             </p>
+            <div className="space-y-1">
+              <Badge variant="outline" className="text-xs tracking-wide uppercase">
+                Storyline: {advancedEdit.persona}{advancedEdit.subtype ? ` · ${advancedEdit.subtype}` : ''}
+              </Badge>
+              <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+                {advancedEdit.narrative || AdvancedEditEngine.getEditDescription(advancedEdit)}
+              </p>
+            </div>
+
+            </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
               <div className="text-center">
