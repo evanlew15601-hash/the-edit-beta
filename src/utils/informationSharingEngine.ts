@@ -12,6 +12,25 @@ export interface IntelligenceItem {
   gameRelevant: boolean; // Whether it affects actual gameplay
 }
 
+
+/**
+ * Deterministic pseudo-randomness: intel must read the same every render for a
+ * given day/source, otherwise the panel reshuffles the house's gossip on every
+ * state update. Seeds are built from stable game facts.
+ */
+function hash01(seed: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 100000) / 100000;
+}
+
+function pickSeeded<T>(arr: T[], seed: string): T {
+  return arr[Math.floor(hash01(seed) * arr.length) % arr.length];
+}
+
 export function generateIntelligenceNetwork(gameState: GameState): IntelligenceItem[] {
   const { contestants, playerName, currentDay, alliances, interactionLog = [], votingHistory } = gameState;
   const activeContestants = contestants.filter(c => !c.isEliminated && c.name !== playerName);
@@ -47,7 +66,7 @@ export function generateIntelligenceNetwork(gameState: GameState): IntelligenceI
     // 3. You're in the same alliance (strategic sharing)
     // 4. They have strategic reasons to share (warning about threats, seeking validation)
     const shouldShare = hasRecentConversation || hasSharedActivity || isInSameAlliance || 
-                       Math.random() < 0.4; // Base chance for strategic sharing
+                       hash01(`share|${contestant.name}|${currentDay}`) < 0.4; // Base chance for strategic sharing
 
     if (shouldShare) {
       const intel = generateContextualIntel(contestant.name, gameState, relationship, recentPlayerInteractions);
@@ -58,7 +77,7 @@ export function generateIntelligenceNetwork(gameState: GameState): IntelligenceI
   });
 
   // Add overheard intel (doesn't require direct interaction)
-  if (Math.random() < 0.7) {
+  if (hash01(`overheard|${currentDay}`) < 0.7) {
     const overheardIntel = generateOverheardIntel(gameState);
     if (overheardIntel) {
       intelligence.push(overheardIntel);
@@ -172,7 +191,7 @@ function generateVotingIntel(source: string, gameState: GameState, reliability: 
   const activeContestants = contestants.filter(c => !c.isEliminated && c.name !== source && c.name !== gameState.playerName);
   
   // Base target on recent conflicts or strategic positioning
-  let target = activeContestants[Math.floor(Math.random() * activeContestants.length)];
+  let target = pickSeeded(activeContestants, `votetarget|${source}|${currentDay}`);
   
   const recentConflicts = interactionLog
     .filter(entry => entry.day >= currentDay - 2 && 
@@ -199,7 +218,7 @@ function generateVotingIntel(source: string, gameState: GameState, reliability: 
     source,
     target: target.name,
     type: 'voting_plan',
-    content: `${source} ${votingIntel[Math.floor(Math.random() * votingIntel.length)]}`,
+    content: `${source} ${pickSeeded(votingIntel, `voteline|${source}|${currentDay}`)}`,
     reliability,
     day: currentDay,
     valuable: true,
@@ -256,7 +275,7 @@ function generateThreatIntel(source: string, gameState: GameState, reliability: 
     source,
     target: mainThreat.name,
     type: 'threat_assessment', 
-    content: `${source} ${threatAssessments[Math.floor(Math.random() * threatAssessments.length)]}`,
+    content: `${source} ${pickSeeded(threatAssessments, `threatline|${source}|${gameState.currentDay}`)}`,
     reliability,
     day: gameState.currentDay,
     valuable: true,
@@ -276,7 +295,7 @@ function generateStrategyIntel(source: string, gameState: GameState, reliability
   return {
     source,
     type: 'strategy_intel',
-    content: `${source} ${strategicMoves[Math.floor(Math.random() * strategicMoves.length)]}`,
+    content: `${source} ${pickSeeded(strategicMoves, `strategyline|${source}|${gameState.currentDay}`)}`,
     reliability,
     day: gameState.currentDay,
     valuable: reliability > 70,
@@ -298,7 +317,7 @@ function generateOverheardIntel(gameState: GameState): IntelligenceItem | null {
   let source1, source2;
   
   if (recentInteractions.length > 0) {
-    const interaction = recentInteractions[Math.floor(Math.random() * recentInteractions.length)];
+    const interaction = pickSeeded(recentInteractions, `overheardpair|${currentDay}`);
     const participants = interaction.participants.filter(p => p !== playerName);
     if (participants.length >= 2) {
       source1 = participants[0];
@@ -307,9 +326,9 @@ function generateOverheardIntel(gameState: GameState): IntelligenceItem | null {
   }
   
   if (!source1 || !source2) {
-    source1 = activeContestants[Math.floor(Math.random() * activeContestants.length)].name;
+    source1 = pickSeeded(activeContestants, `overheard1|${currentDay}`).name;
     const remainingContestants = activeContestants.filter(c => c.name !== source1);
-    source2 = remainingContestants[Math.floor(Math.random() * remainingContestants.length)].name;
+    source2 = pickSeeded(remainingContestants, `overheard2|${currentDay}`).name;
   }
   
   const overheardIntel = [
@@ -324,8 +343,8 @@ function generateOverheardIntel(gameState: GameState): IntelligenceItem | null {
   return {
     source: 'Overheard',
     type: 'alliance_info',
-    content: overheardIntel[Math.floor(Math.random() * overheardIntel.length)],
-    reliability: 55 + Math.random() * 30, // 55-85% reliability
+    content: pickSeeded(overheardIntel, `overheardline|${currentDay}`),
+    reliability: Math.round(55 + hash01(`overheardrel|${currentDay}`) * 30), // 55-85% reliability
     day: currentDay,
     valuable: true,
     gameRelevant: true

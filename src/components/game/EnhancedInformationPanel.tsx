@@ -2,7 +2,9 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useGame } from '@/contexts/GameContext';
-import { Clock, Users, AlertCircle, Star, Flame } from 'lucide-react';
+import { Clock, Users, AlertCircle, Star, Flame, Ear } from 'lucide-react';
+import { useMemo } from 'react';
+import { generateIntelligenceNetwork } from '@/utils/informationSharingEngine';
 
 export const EnhancedInformationPanel = () => {
   const { gameState } = useGame();
@@ -20,15 +22,11 @@ export const EnhancedInformationPanel = () => {
       type: 'alliance'
     }));
 
-  // Get contestant relationship insights
-  const relationshipInsights = gameState.contestants
-    .filter(c => !c.isEliminated && c.name !== gameState.playerName)
-    .slice(0, 3)
-    .map(contestant => ({
-      info: `${contestant.name}: Trust ${contestant.psychProfile.trustLevel}, Suspicion ${contestant.psychProfile.suspicionLevel}`,
-      day: gameState.currentDay,
-      type: 'relationship'
-    }));
+  // What the house is actually telling you (and what they may be shading).
+  const intelNetwork = useMemo(
+    () => generateIntelligenceNetwork(gameState),
+    [gameState.currentDay, gameState.contestants, gameState.alliances, gameState.interactionLog]
+  );
 
   // Elimination threats
   const threats = gameState.contestants
@@ -96,18 +94,26 @@ export const EnhancedInformationPanel = () => {
             </div>
           )}
 
-          {/* Relationship Status */}
-          {relationshipInsights.length > 0 && (
+          {/* Word Around the House */}
+          {intelNetwork.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
-                <Users className="w-3 h-3 text-edit-darkhorse" />
+                <Ear className="w-3 h-3 text-edit-darkhorse" />
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Relationship Status
+                  Word Around the House
                 </span>
               </div>
-              {relationshipInsights.map((insight, index) => (
-                <div key={index} className="text-xs text-foreground border-l-2 border-edit-darkhorse pl-2">
-                  <span>{insight.info}</span>
+              {intelNetwork.map((item, index) => (
+                <div key={index} className="text-xs text-foreground border-l-2 border-edit-darkhorse pl-2 space-y-1">
+                  <p>{item.content}</p>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">
+                      {item.reliability >= 80 ? 'Solid' : item.reliability >= 60 ? 'Probably true' : 'Take with salt'}
+                    </Badge>
+                    {item.source === 'Overheard' && (
+                      <span className="text-[10px] text-muted-foreground">overheard</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
