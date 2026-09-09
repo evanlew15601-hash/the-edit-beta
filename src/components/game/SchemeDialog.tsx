@@ -117,6 +117,13 @@ export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
     return { trust, susp: suspicionBase, influence, entertainment };
   }, [selectedTarget, schemeType]);
 
+  // Situational plays generated from the real state of the house
+  const suggestions: SchemeOption[] = useMemo(() => {
+    if (!selectedTarget) return [];
+    return EnhancedSchemeEngine.generateSchemeOptions(gameState, selectedTarget);
+  }, [gameState, selectedTarget]);
+
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
