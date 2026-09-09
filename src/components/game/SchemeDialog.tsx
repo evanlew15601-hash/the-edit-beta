@@ -7,11 +7,27 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGame } from '@/contexts/GameContext';
 import { Contestant } from '@/types/game';
 import { Badge } from '@/components/ui/badge';
+import { EnhancedSchemeEngine, SchemeOption } from '@/utils/enhancedSchemeEngine';
 
 interface SchemeDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+// Maps a situational scheme suggestion onto the scheme type it plays out as
+const SUGGESTION_TYPE_MAP: Record<string, string> = {
+  'form-alliance': 'fake_alliance',
+  'protect-ally': 'vote_manipulation',
+  'extract-information': 'information_trade',
+  'plant-false-info': 'rumor_spread',
+  'target-elimination': 'vote_manipulation',
+  'infiltrate-alliance': 'information_trade',
+  'sabotage-alliance': 'alliance_break',
+  'throw-competition': 'vote_manipulation',
+  'vote-split': 'vote_manipulation',
+  'social-isolation': 'rumor_spread',
+  'jury-management': 'rumor_spread',
+};
 
 const PRESETS = [
   { label: 'Tilt vote', value: 'vote_manipulation', text: (name: string) => `Push subtle arguments against ${name}; never show your hand.` },
@@ -20,6 +36,7 @@ const PRESETS = [
   { label: 'Fake bond', value: 'fake_alliance', text: (name: string) => `Offer trust to ${name} you won't keep; pull leverage later.` },
   { label: 'Trade secret', value: 'information_trade', text: (_: string) => `Exchange minor intel for loyalty—keep your core safe.` },
 ];
+
 
 export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
   const { gameState, useAction } = useGame();
@@ -99,6 +116,13 @@ export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
       schemeType === 'rumor_spread' || schemeType === 'fake_alliance' ? 3 : 2;
     return { trust, susp: suspicionBase, influence, entertainment };
   }, [selectedTarget, schemeType]);
+
+  // Situational plays generated from the real state of the house
+  const suggestions: SchemeOption[] = useMemo(() => {
+    if (!selectedTarget) return [];
+    return EnhancedSchemeEngine.generateSchemeOptions(gameState, selectedTarget);
+  }, [gameState, selectedTarget]);
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -196,6 +220,38 @@ export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
                   </div>
                 </div>
               )}
+
+              {suggestions.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Plays that fit the house right now</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {suggestions.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setContent(s.description);
+                          const mapped = SUGGESTION_TYPE_MAP[s.id];
+                          if (mapped) setSchemeType(mapped);
+                        }}
+                        className="p-3 text-left border border-border rounded hover:bg-muted transition-colors"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{s.title}</span>
+                          <Badge variant="outline" className="text-[10px]">{s.risk} risk</Badge>
+                          <Badge variant="outline" className="text-[10px]">{s.impact} impact</Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">{s.description}</div>
+                        <div className="text-xs mt-1 text-edit-hero">If it lands: {s.consequences.success}</div>
+                        <div className="text-xs text-destructive">If it fails: {s.consequences.failure}</div>
+                        {s.requirements && (
+                          <div className="text-[10px] text-muted-foreground mt-1">Needs: {s.requirements.join(' · ')}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Execution Plan</label>

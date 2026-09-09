@@ -241,7 +241,7 @@ export const VotingIntelligencePanel: React.FC = () => {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">
-                {result.name} • {result.mode === 'ask' ? 'Shared Plan' : 'Pressure Result'}
+                {result.name} • {result.mode === 'ask' ? (result.topicLabel || 'Shared Plan') : 'Pressure Result'}
               </span>
               {result.mode === 'ask' && result.isLying && (
                 <Badge variant="destructive" className="text-[10px]">May be lying</Badge>
@@ -254,19 +254,34 @@ export const VotingIntelligencePanel: React.FC = () => {
             </div>
 
             <div className="bg-muted/40 rounded p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-destructive" />
-                <span className="text-sm font-medium">
-                  Target: {result.target === gameState.playerName ? 'YOU' : result.target}
-                </span>
-              </div>
+              {result.target && (
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-destructive" />
+                  <span className="text-sm font-medium">
+                    Target: {result.target === gameState.playerName ? 'YOU' : result.target}
+                  </span>
+                </div>
+              )}
 
               {result.mode === 'ask' && (
                 <>
-                  <p className="text-sm text-foreground">"{result.reasoning}"</p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Confidence: {result.confidence}</span>
-                    {!result.isLying && <Badge variant="outline" className="text-[9px]">Seems honest</Badge>}
+                  {result.quote && (
+                    <p className="text-sm text-foreground italic">"{result.quote}"</p>
+                  )}
+                  {result.reasoning && result.reasoning !== result.quote && (
+                    <p className="text-xs text-muted-foreground">Their read: {result.reasoning}</p>
+                  )}
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground flex-wrap">
+                    {result.confidence && <span>Confidence: {result.confidence}</span>}
+                    {typeof result.accuracy === 'number' && (
+                      <span>Reliability: {Math.round(result.accuracy * 100)}%</span>
+                    )}
+                    {result.shared === false && (
+                      <Badge variant="outline" className="text-[9px]">Held back</Badge>
+                    )}
+                    {result.shared && !result.isLying && (
+                      <Badge variant="outline" className="text-[9px]">Seems honest</Badge>
+                    )}
                   </div>
                 </>
               )}
@@ -275,6 +290,7 @@ export const VotingIntelligencePanel: React.FC = () => {
                 <p className="text-xs text-muted-foreground">{result.notes}</p>
               )}
             </div>
+
           </div>
         </ScrollArea>
       )}
