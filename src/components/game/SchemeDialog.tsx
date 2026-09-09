@@ -7,11 +7,27 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGame } from '@/contexts/GameContext';
 import { Contestant } from '@/types/game';
 import { Badge } from '@/components/ui/badge';
+import { EnhancedSchemeEngine, SchemeOption } from '@/utils/enhancedSchemeEngine';
 
 interface SchemeDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+// Maps a situational scheme suggestion onto the scheme type it plays out as
+const SUGGESTION_TYPE_MAP: Record<string, string> = {
+  'form-alliance': 'fake_alliance',
+  'protect-ally': 'vote_manipulation',
+  'extract-information': 'information_trade',
+  'plant-false-info': 'rumor_spread',
+  'target-elimination': 'vote_manipulation',
+  'infiltrate-alliance': 'information_trade',
+  'sabotage-alliance': 'alliance_break',
+  'throw-competition': 'vote_manipulation',
+  'vote-split': 'vote_manipulation',
+  'social-isolation': 'rumor_spread',
+  'jury-management': 'rumor_spread',
+};
 
 const PRESETS = [
   { label: 'Tilt vote', value: 'vote_manipulation', text: (name: string) => `Push subtle arguments against ${name}; never show your hand.` },
@@ -20,6 +36,7 @@ const PRESETS = [
   { label: 'Fake bond', value: 'fake_alliance', text: (name: string) => `Offer trust to ${name} you won't keep; pull leverage later.` },
   { label: 'Trade secret', value: 'information_trade', text: (_: string) => `Exchange minor intel for loyalty—keep your core safe.` },
 ];
+
 
 export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
   const { gameState, useAction } = useGame();
