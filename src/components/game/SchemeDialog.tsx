@@ -221,6 +221,38 @@ export const SchemeDialog = ({ isOpen, onClose }: SchemeDialogProps) => {
                 </div>
               )}
 
+              {suggestions.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Plays that fit the house right now</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {suggestions.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setContent(s.description);
+                          const mapped = SUGGESTION_TYPE_MAP[s.id];
+                          if (mapped) setSchemeType(mapped);
+                        }}
+                        className="p-3 text-left border border-border rounded hover:bg-muted transition-colors"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{s.title}</span>
+                          <Badge variant="outline" className="text-[10px]">{s.risk} risk</Badge>
+                          <Badge variant="outline" className="text-[10px]">{s.impact} impact</Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">{s.description}</div>
+                        <div className="text-xs mt-1 text-edit-hero">If it lands: {s.consequences.success}</div>
+                        <div className="text-xs text-destructive">If it fails: {s.consequences.failure}</div>
+                        {s.requirements && (
+                          <div className="text-[10px] text-muted-foreground mt-1">Needs: {s.requirements.join(' · ')}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Execution Plan</label>
                 <Textarea
