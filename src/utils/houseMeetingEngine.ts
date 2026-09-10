@@ -507,7 +507,7 @@ export const houseMeetingEngine = {
       conversationLog: [
         ...state.conversationLog,
         { speaker: state.initiator, text: this.describePlayerChoice(state.topic, choice, target) },
-        { speaker: 'House', text: this.generateAIStatement(state, choice) }
+        { speaker: 'House', text: this.generateAIStatement(state, choice, gameState) }
       ],
       currentOptions: this.buildOptions(state.topic),
       participants: Array.from(new Set([ ...state.participants, ...(joinedParticipants || []) ])),
