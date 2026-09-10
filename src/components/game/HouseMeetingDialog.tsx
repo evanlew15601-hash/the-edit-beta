@@ -140,9 +140,10 @@ export const HouseMeetingDialog = ({ isOpen, onClose }: HouseMeetingDialogProps)
                   Topic: {hm.topic.replace('_', ' ')}{hm.target ? ` • Target: ${hm.target}` : ''}
                 </p>
                 <div className="mt-3 space-y-2">
-                  {hm.conversationLog.slice(-3).map((line, idx) => (
+                  {hm.conversationLog.slice(-6).map((line, idx) => (
                     <div key={idx} className="text-sm">
-                      <span className="font-medium">{line.speaker}:</span> <span className="text-foreground">{line.text}</span>
+                      <span className="font-medium">{line.speaker}:</span>{' '}
+                      <span className="text-foreground whitespace-pre-line">{line.text}</span>
                     </div>
                   ))}
                 </div>

@@ -266,7 +266,7 @@ class EmergentEventEngine {
       );
       
       if (betrayalMemories.length > 0 && Math.random() < 0.4) {
-        const revengeEvent = this.generateRevengeEvent(contestant, betrayalMemories[0]);
+        const revengeEvent = this.generateRevengeEvent(contestant, betrayalMemories[0], gameState.playerName);
         if (revengeEvent) events.push(revengeEvent);
       }
       
@@ -276,7 +276,7 @@ class EmergentEventEngine {
       );
       
       if (positiveMemories.length >= 2 && Math.random() < 0.3) {
-        const allianceEvent = this.generateMemoryBasedAlliance(contestant, positiveMemories);
+        const allianceEvent = this.generateMemoryBasedAlliance(contestant, positiveMemories, gameState.playerName);
         if (allianceEvent) events.push(allianceEvent);
       }
     });
@@ -444,8 +444,11 @@ class EmergentEventEngine {
     });
   }
 
-  private generateRevengeEvent(contestant: Contestant, triggerMemory: GameMemory): EmergentEvent | null {
-    const targets = triggerMemory.participants.filter(p => p !== contestant.name);
+  private generateRevengeEvent(contestant: Contestant, triggerMemory: GameMemory, playerName?: string): EmergentEvent | null {
+    // Background house drama only: never stage a confrontation that silently
+    // speaks for the player. Player-facing confrontations come from the
+    // player-driven event systems instead.
+    const targets = triggerMemory.participants.filter(p => p !== contestant.name && p !== playerName);
     if (targets.length === 0) return null;
     
     return {
@@ -469,8 +472,11 @@ class EmergentEventEngine {
     };
   }
 
-  private generateMemoryBasedAlliance(contestant: Contestant, memories: GameMemory[]): EmergentEvent | null {
-    const potentialAllies = memories.flatMap(m => m.participants).filter(p => p !== contestant.name);
+  private generateMemoryBasedAlliance(contestant: Contestant, memories: GameMemory[], playerName?: string): EmergentEvent | null {
+    // The player can never be auto-enrolled into an alliance they didn't agree to.
+    const potentialAllies = memories
+      .flatMap(m => m.participants)
+      .filter(p => p !== contestant.name && p !== playerName);
     if (potentialAllies.length === 0) return null;
     
     const ally = potentialAllies[0];

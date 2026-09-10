@@ -154,6 +154,66 @@ export function generatePullAside(state: GameState): PullAside | null {
 }
 
 /**
+ * Deterministic follow-up questions for a pull-aside, chosen by why the NPC
+ * cornered the player, how the last answer landed, and their personality.
+ * Used as the authored line (AI rephrasing is optional elsewhere).
+ */
+export function buildPullAsideFollowUp(input: {
+  npc: Contestant;
+  reason?: string;
+  turn: number;
+  trustDelta: number;
+  suspicionDelta: number;
+  playerName: string;
+}): string {
+  const { npc, reason, turn, trustDelta, suspicionDelta } = input;
+  const disposition = npc.psychProfile?.disposition || [];
+  const paranoid = disposition.includes('paranoid');
+  const aggressive = disposition.some(d => ['confrontational', 'aggressive', 'volatile'].includes(d));
+  const warm = disposition.some(d => ['agreeable', 'loyal', 'diplomatic'].includes(d));
+
+  const landing: 'bad' | 'good' | 'flat' =
+    suspicionDelta > 0 || trustDelta < 0 ? 'bad' : trustDelta > 0 ? 'good' : 'flat';
+
+  const pools: Record<'bad' | 'good' | 'flat', string[]> = {
+    bad: [
+      `*folds arms* That's not an answer, that's a dodge. Try it again, plainly.`,
+      `*shakes head* See, that's the part I can't square. Who told you to say that?`,
+      `*lowers voice* I want one straight sentence. Are you voting with me or not?`,
+    ],
+    good: [
+      `*nods slowly* Okay. Then tell me the name you'd actually write down.`,
+      `*relaxes slightly* Good. So if someone comes at me tonight, do I hear it from you first?`,
+      `*quiet* I want to believe that. Prove it with the vote, not the speech.`,
+    ],
+    flat: [
+      `*glances at the door* Fine. Then who do you think is running this week?`,
+      `*taps the counter* Say something I can use. Who's the target?`,
+      `*studies you* Where does my name sit on your list right now?`,
+    ],
+  };
+
+  let line = pools[landing][Math.abs(turn) % pools[landing].length];
+
+  if (paranoid && landing !== 'good') {
+    line = `*checks over their shoulder* I keep hearing my name in rooms I'm not in. ${line.replace(/^\*[^*]*\*\s*/, '')}`;
+  } else if (aggressive && landing === 'bad') {
+    line = `*steps closer* Don't manage me. ${line.replace(/^\*[^*]*\*\s*/, '')}`;
+  } else if (warm && landing === 'good') {
+    line = `*softens* I'm not trying to corner you. ${line.replace(/^\*[^*]*\*\s*/, '')}`;
+  }
+
+  if (reason === 'scheme_blowback' && turn <= 1) {
+    line = `*flat* Your name is on it. ${line.replace(/^\*[^*]*\*\s*/, '')}`;
+  }
+  if (reason === 'alliance_fracture' && landing !== 'bad') {
+    line = `*sighs* We were supposed to be solid. ${line.replace(/^\*[^*]*\*\s*/, '')}`;
+  }
+
+  return line;
+}
+
+/**
  * Stamp a pull_aside memory tag so the same NPC won't corner the player again in 2 days.
  * Call this when enqueuing.
  */

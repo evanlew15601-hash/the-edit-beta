@@ -64,13 +64,18 @@ export const houseMeetingEngine = {
     });
   },
 
-  generateAIStatement(state: HouseMeetingState, choice?: HouseMeetingToneChoice): string {
+  generateAIStatement(state: HouseMeetingState, choice?: HouseMeetingToneChoice, gameState?: GameState): string {
     const { topic, target, mood, participants, currentRound, initiator } = state;
 
     const names = participants.filter(Boolean);
-    const responder = names.find(n => n !== initiator && n !== target) || names.find(n => n !== initiator) || 'Someone';
-    const subject = target || 'the vote';
     const round = Math.max(0, currentRound);
+    // Rotate the lead responder each round so the meeting reads as a room of
+    // people rather than one voice repeating itself.
+    const eligible = names.filter(n => n !== initiator && n !== target);
+    const pool = eligible.length > 0 ? eligible : names.filter(n => n !== initiator);
+    const responder = pool.length > 0 ? pool[round % pool.length] : 'Someone';
+    const subject = target || 'the vote';
+
 
     const byChoice: Record<HouseMeetingToneChoice, Record<HouseMeetingTopic, string[]>> = {
       persuasive: {
@@ -194,8 +199,166 @@ export const houseMeetingEngine = {
       ? ' The room stays tense.'
       : ' The room stays focused.';
 
-    return `[Round ${currentRound + 1}] ${line}${tone}`;
+    // Secondary voices: the room reacts according to how each person currently
+    // feels about the initiator, so rounds stop reading like one flat reply.
+    const extras: string[] = [];
+    if (gameState) {
+      const others = names.filter(n => n !== initiator && n !== responder);
+      const scored = others
+        .map(n => {
+          const c = gameState.contestants.find(x => x.name === n && !x.isEliminated);
+          if (!c) return null;
+          const trust = c.psychProfile.trustLevel ?? 0;
+          const susp = c.psychProfile.suspicionLevel ?? 0;
+          const stance: 'ally' | 'skeptic' | 'neutral' =
+            susp >= 55 || trust <= -20 ? 'skeptic' : trust >= 35 ? 'ally' : 'neutral';
+          return { name: n, stance, weight: susp + Math.abs(trust) };
+        })
+        .filter(Boolean) as { name: string; stance: 'ally' | 'skeptic' | 'neutral'; weight: number }[];
+
+      scored.sort((a, b) => b.weight - a.weight);
+      const speakerCount = mood === 'heated' ? 2 : mood === 'tense' ? 2 : 1;
+      const chosen = scored.slice(round % Math.max(1, Math.min(2, scored.length))).slice(0, speakerCount);
+
+      chosen.forEach((s, idx) => {
+        extras.push(`${s.name}: ${this.stanceLine(s.stance, choice || 'persuasive', topic, subject, round + idx)}`);
+      });
+
+      if (target && names.includes(target)) {
+        extras.push(`${target}: ${this.targetLine(choice || 'persuasive', round)}`);
+      }
+    }
+
+    const body = [line, ...extras].join('\n');
+    return `[Round ${currentRound + 1}] ${body}${tone}`;
   },
+
+  stanceLine(
+    stance: 'ally' | 'skeptic' | 'neutral',
+    choice: HouseMeetingToneChoice,
+    topic: HouseMeetingTopic,
+    subject: string,
+    seed: number
+  ): string {
+    const pools: Record<'ally' | 'skeptic' | 'neutral', Record<HouseMeetingToneChoice, string[]>> = {
+      ally: {
+        persuasive: [
+          `That's the clearest version anyone has said out loud. I'm with it.`,
+          `Thank you. Someone finally said it without hedging.`,
+          `If that's the plan, count me in and say it again louder.`,
+        ],
+        defensive: [
+          `I've been in the room for those conversations. That version is accurate.`,
+          `Let them answer. The story people are repeating isn't the one I heard.`,
+          `I'll vouch for that. I was there.`,
+        ],
+        aggressive: [
+          `Harsh, but people needed to hear it.`,
+          `I'd have said it softer. I wouldn't have said anything different.`,
+          `Fine. At least now nobody can claim confusion.`,
+        ],
+        manipulative: [
+          `I follow the logic, and it lines up with what I've seen.`,
+          `That actually explains a couple of things I didn't get.`,
+          `Okay. I'm listening, and I'm not writing it off.`,
+        ],
+        silent: [
+          `Give them a second. Not everyone performs on command.`,
+          `Silence isn't guilt. Some of you decided it was.`,
+          `I don't need a speech to know where they stand.`,
+        ],
+      },
+      skeptic: {
+        persuasive: [
+          `That was rehearsed. Rehearsed isn't the same as true.`,
+          `Convenient that the plan protects you first.`,
+          `I want to hear ${subject} answer before I sign onto anything.`,
+        ],
+        defensive: [
+          `Every time your name comes up you have a new explanation.`,
+          `You're answering the easy part and skipping the rest.`,
+          `That's a defense. It isn't proof.`,
+        ],
+        aggressive: [
+          `Yelling at the room is a strategy right up until the vote.`,
+          `You just told everyone exactly who you're afraid of.`,
+          `That's a lot of noise for someone with nothing to hide.`,
+        ],
+        manipulative: [
+          `You're building a story, not telling one.`,
+          `The pattern you're pointing at includes you.`,
+          `I don't trust anything that lands this neatly.`,
+        ],
+        silent: [
+          `Nothing? You called the room together for nothing?`,
+          `Standing there quiet is an answer too.`,
+          `I'll remember that you had the floor and used none of it.`,
+        ],
+      },
+      neutral: {
+        persuasive: [
+          `I need a day with it before I commit either way.`,
+          `Makes sense on paper. I want to hear the other side.`,
+          `I'm not locked in, but I'm not against it.`,
+        ],
+        defensive: [
+          `Half of this is people repeating people. I'd rather hear the source.`,
+          `That clears up part of it for me.`,
+          `I'm going to stay out of this until the story settles.`,
+        ],
+        aggressive: [
+          `This is going to blow up on somebody tonight.`,
+          `I don't need to be in the middle of this.`,
+          `Everybody take a breath before we vote on feelings.`,
+        ],
+        manipulative: [
+          `I can't tell yet whether that's insight or spin.`,
+          `Interesting angle. I'll watch who reacts to it.`,
+          `I'm keeping my read to myself for now.`,
+        ],
+        silent: [
+          `The quiet is honestly worse than an argument.`,
+          `Well. That's the meeting, apparently.`,
+          `Somebody say something before we all just leave.`,
+        ],
+      },
+    };
+    const arr = pools[stance][choice];
+    return arr[Math.abs(seed) % arr.length];
+  },
+
+  targetLine(choice: HouseMeetingToneChoice, seed: number): string {
+    const lines: Record<HouseMeetingToneChoice, string[]> = {
+      persuasive: [
+        `So I'm the name. Say it to me next time, not to the room.`,
+        `You framed that well. It's still my head on the block.`,
+        `I'll take the shot. I'll remember who lined it up.`,
+      ],
+      defensive: [
+        `You keep defending yourself by putting me in the story.`,
+        `Nothing you just said explains my name being out there.`,
+        `Fine. Then we're clear and you leave me out of it.`,
+      ],
+      aggressive: [
+        `You want to do this in front of everyone? Let's do it.`,
+        `That's your read? Say the rest of it then.`,
+        `Loud doesn't make you right. It makes you nervous.`,
+      ],
+      manipulative: [
+        `That is not what happened, and you know it.`,
+        `You're rewriting a conversation I was in.`,
+        `Careful. I remember the actual version.`,
+      ],
+      silent: [
+        `Nothing to say now that I'm standing here?`,
+        `You had plenty to say when I wasn't in the room.`,
+        `That silence just told everyone something.`,
+      ],
+    };
+    const arr = lines[choice];
+    return arr[Math.abs(seed) % arr.length];
+  },
+
 
   applyChoice(state: HouseMeetingState, choice: HouseMeetingToneChoice, gameState: GameState): {
     updatedState: HouseMeetingState;
@@ -344,7 +507,7 @@ export const houseMeetingEngine = {
       conversationLog: [
         ...state.conversationLog,
         { speaker: state.initiator, text: this.describePlayerChoice(state.topic, choice, target) },
-        { speaker: 'House', text: this.generateAIStatement(state, choice) }
+        { speaker: 'House', text: this.generateAIStatement(state, choice, gameState) }
       ],
       currentOptions: this.buildOptions(state.topic),
       participants: Array.from(new Set([ ...state.participants, ...(joinedParticipants || []) ])),
