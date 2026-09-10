@@ -64,13 +64,18 @@ export const houseMeetingEngine = {
     });
   },
 
-  generateAIStatement(state: HouseMeetingState, choice?: HouseMeetingToneChoice): string {
+  generateAIStatement(state: HouseMeetingState, choice?: HouseMeetingToneChoice, gameState?: GameState): string {
     const { topic, target, mood, participants, currentRound, initiator } = state;
 
     const names = participants.filter(Boolean);
-    const responder = names.find(n => n !== initiator && n !== target) || names.find(n => n !== initiator) || 'Someone';
-    const subject = target || 'the vote';
     const round = Math.max(0, currentRound);
+    // Rotate the lead responder each round so the meeting reads as a room of
+    // people rather than one voice repeating itself.
+    const eligible = names.filter(n => n !== initiator && n !== target);
+    const pool = eligible.length > 0 ? eligible : names.filter(n => n !== initiator);
+    const responder = pool.length > 0 ? pool[round % pool.length] : 'Someone';
+    const subject = target || 'the vote';
+
 
     const byChoice: Record<HouseMeetingToneChoice, Record<HouseMeetingTopic, string[]>> = {
       persuasive: {
