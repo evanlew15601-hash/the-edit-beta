@@ -72,16 +72,37 @@ function pickReputation(npc: Contestant, playerTrust: number, playerSusp: number
   return 'UNPREDICTABLE';
 }
 
+// Strip engine bookkeeping out of anything that could reach a spoken line.
+// Memory contents carry tags like "[TAG intent=SowDoubt topic=Game]" and ids
+// like "scheme_plant_doubt" — an NPC must never read those out loud.
+export function naturalizeSubject(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  let s = String(raw)
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\b\w+=\S+/g, ' ')
+    .replace(/[_|]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  // Reject leftovers that still look like data rather than speech.
+  if (!s || s.length < 3) return undefined;
+  if (/^[a-z]+([A-Z][a-z]+)+$/.test(s)) return undefined; // camelCase ids
+  if (/\d{3,}/.test(s)) return undefined;
+  // Keep it to a short spoken clause.
+  const words = s.split(/\s+/);
+  if (words.length > 12) s = words.slice(0, 12).join(' ');
+  return s;
+}
+
 function deriveEventLabel(memory: { type: string; content: string; day: number }): string {
   switch (memory.type) {
-    case 'scheme': return 'your scheme';
-    case 'alliance_meeting': return 'the alliance sit-down';
-    case 'elimination': return `the day-${memory.day} eviction`;
+    case 'scheme': return 'that move you made';
+    case 'alliance_meeting': return 'that alliance sit-down';
+    case 'elimination': return 'that eviction';
     case 'confessional_leak': return 'what you said in the diary room';
     case 'dm': return 'that private conversation';
     case 'observation': return 'what I watched you do';
-    case 'event': return `the day-${memory.day} blowup`;
-    default: return `our day-${memory.day} talk`;
+    case 'event': return 'that blowup';
+    default: return 'that talk we had';
   }
 }
 
