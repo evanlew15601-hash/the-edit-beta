@@ -30,6 +30,7 @@ export const ActionPanel = () => {
   const {
     gameState,
     advanceDay,
+    submitAlliancePlan,
   } = useGame();
 
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
