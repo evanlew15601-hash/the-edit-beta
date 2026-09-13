@@ -14,6 +14,7 @@ import { AllianceMeetingDialog } from './AllianceMeetingDialog';
 import { TagConversationDialog } from './TagConversationDialog';
 import { CreateAllianceDialog } from './CreateAllianceDialog';
 import { AddAllianceMemberDialog } from './AddAllianceMemberDialog';
+import { AlliancePlanningDialog } from './AlliancePlanningDialog';
 import { AISettingsPanel } from './AISettingsPanel';
 import { UserPlus } from 'lucide-react';
 import { HouseMeetingDialog } from './HouseMeetingDialog';
@@ -29,6 +30,7 @@ export const ActionPanel = () => {
   const {
     gameState,
     advanceDay,
+    submitAlliancePlan,
   } = useGame();
 
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
@@ -38,6 +40,8 @@ export const ActionPanel = () => {
   const [allianceMeetingOpen, setAllianceMeetingOpen] = useState(false);
   const [createAllianceOpen, setCreateAllianceOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [alliancePlanOpen, setAlliancePlanOpen] = useState(false);
+  const playerAlliance = gameState.alliances.find(a => a.members.includes(gameState.playerName));
   const forcedItem = (gameState.forcedConversationsQueue || [])[0];
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
@@ -194,6 +198,16 @@ export const ActionPanel = () => {
                 Add Members
               </Button>
             )}
+            {playerAlliance && (
+              <Button
+                variant="secondary"
+                onClick={() => setAlliancePlanOpen(true)}
+                disabled={allActionsUsed}
+                className="flex-1"
+              >
+                Influence Alliance
+              </Button>
+            )}
             <Button
               variant="action"
               onClick={() => setCreateAllianceOpen(true)}
@@ -313,6 +327,15 @@ export const ActionPanel = () => {
         isOpen={addMemberOpen}
         onClose={() => setAddMemberOpen(false)}
       />
+
+      {playerAlliance && (
+        <AlliancePlanningDialog
+          isOpen={alliancePlanOpen}
+          onClose={() => setAlliancePlanOpen(false)}
+          alliance={playerAlliance}
+          onSubmitPlan={(plan, responses) => submitAlliancePlan(playerAlliance.id, plan, responses as any)}
+        />
+      )}
     </div>
   );
 };

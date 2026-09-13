@@ -17,7 +17,7 @@ interface TagConversationDialogProps {
 }
 
 export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagConversationDialogProps) => {
-  const { gameState, tagTalk } = useGame();
+  const { gameState, tagTalk, tagTalkGroup } = useGame();
   const contestants = useMemo(() => gameState.contestants.filter((c) => !c.isEliminated), [gameState.contestants]);
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [selectedGroupTargets, setSelectedGroupTargets] = useState<string[]>([]);
@@ -66,8 +66,8 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
       tagTalk(selectedTarget, selectedChoiceId, interaction);
     } else if (targetType === 'Group') {
       if (selectedGroupTargets.length === 0) return;
-      // Apply the choice to each selected contestant for a group effect
-      selectedGroupTargets.forEach(name => tagTalk(name, selectedChoiceId, interaction));
+      // One line spoken to the whole room; each listener reacts in their own way.
+      tagTalkGroup(selectedGroupTargets, selectedChoiceId, interaction);
     } else if (targetType === 'Self') {
       tagTalk(gameState.playerName, selectedChoiceId, interaction);
     } else {
@@ -213,7 +213,7 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
             <div className="rounded border border-primary/40 bg-primary/5 p-2.5 text-sm">
               <span className="text-muted-foreground">Group subjects ({selectedGroupTargets.length}): </span>
               <span className="font-semibold text-foreground">{selectedGroupTargets.join(', ')}</span>
-              <span className="text-muted-foreground"> — the line lands on each of them.</span>
+              <span className="text-muted-foreground"> — you say it once, in front of all of them. Trust gains are diluted in a crowd; suspicion spreads faster.</span>
             </div>
           )}
           {targetType === 'Self' && (
