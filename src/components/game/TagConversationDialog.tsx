@@ -17,7 +17,7 @@ interface TagConversationDialogProps {
 }
 
 export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagConversationDialogProps) => {
-  const { gameState, tagTalk } = useGame();
+  const { gameState, tagTalk, tagTalkGroup } = useGame();
   const contestants = useMemo(() => gameState.contestants.filter((c) => !c.isEliminated), [gameState.contestants]);
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [selectedGroupTargets, setSelectedGroupTargets] = useState<string[]>([]);
