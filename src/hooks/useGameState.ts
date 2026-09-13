@@ -3498,6 +3498,225 @@ export const useGameState = () => {
     });
   }, [useAction]);
 
+  // Group tag talk: one exchange in front of several houseguests. The line lands
+  // once, but each listener reacts in their own way and the room reads the moment
+  // together (public delivery, so suspicion carries a small crowd penalty).
+  const tagTalkGroup = useCallback((targets: string[], choiceId: string, interaction: 'talk' | 'dm' | 'scheme' | 'activity') => {
+    debugLog('=== GROUP TAG TALK ===', targets, choiceId, interaction);
+    setGameState(prev => {
+      const choice = (TAG_CHOICES as any[]).find((c: any) => c.choiceId === choiceId);
+      if (!choice) return prev;
+      const listeners = prev.contestants.filter(c => targets.includes(c.name) && !c.isEliminated && c.name !== prev.playerName);
+      if (listeners.length === 0) return prev;
+
+      const trustSuspScale = prev.aiSettings?.outcomeScaling?.trustSuspicionScale ?? 40;
+      const influenceScale = prev.aiSettings?.outcomeScaling?.influenceScale ?? 20;
+      const entertainmentScale = prev.aiSettings?.outcomeScaling?.entertainmentScale ?? 20;
+      // Speaking to a room is louder but less intimate: trust gains are diluted,
+      // entertainment and influence are amplified.
+      const crowd = listeners.length;
+      const trustDilution = 1 / (1 + (crowd - 1) * 0.35);
+      const publicAmp = 1 + Math.min(0.5, (crowd - 1) * 0.12);
+
+      const perTarget: Record<string, { trust: number; suspicion: number; line: string }> = {};
+      let totalInfl = 0;
+      let totalEnt = 0;
+
+      const updatedContestants = prev.contestants.map(c => {
+        if (!listeners.some(l => l.name === c.name)) return c;
+        const outcome = evaluateChoice(choice, c, prev.playerName, prev);
+        const trustPts = Math.round((outcome.trustDelta || 0) * trustSuspScale * trustDilution);
+        const suspPts = Math.round((outcome.suspicionDelta || 0) * trustSuspScale * publicAmp);
+        totalInfl += (outcome.influenceDelta || 0) * influenceScale * publicAmp;
+        totalEnt += (outcome.entertainmentDelta || 0) * entertainmentScale * publicAmp;
+
+        const line = reactionText(c.name, choice, outcome, { playerName: prev.playerName, day: prev.currentDay });
+        perTarget[c.name] = { trust: trustPts, suspicion: suspPts, line };
+
+        if (trustPts !== 0 || suspPts !== 0) {
+          relationshipGraphEngine.updateRelationship(
+            c.name,
+            prev.playerName,
+            trustPts,
+            suspPts,
+            0,
+            'conversation',
+            `[GROUP TAG] ${choice.choiceId}`,
+            prev.currentDay
+          );
+        }
+
+        return {
+          ...c,
+          psychProfile: {
+            ...c.psychProfile,
+            trustLevel: Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustPts)),
+            suspicionLevel: Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + suspPts)),
+          },
+          memory: [
+            ...c.memory,
+            {
+              day: prev.currentDay,
+              type: 'conversation' as const,
+              participants: [prev.playerName, ...listeners.map(l => l.name)],
+              content: `[GROUP intent=${choice.intent} topic=${choice.topics[0]}] ${prev.playerName} said this to the whole group. ${perTarget[c.name]?.line || ''}`,
+              emotionalImpact: Math.max(-10, Math.min(10, Math.floor(trustPts / 5))),
+              timestamp: Date.now(),
+            },
+          ],
+        };
+      });
+
+      const inflPts = Math.round(totalInfl / crowd);
+      const entPts = Math.round(totalEnt / crowd);
+      const avgTrust = Math.round(Object.values(perTarget).reduce((s, v) => s + v.trust, 0) / crowd);
+      const avgSusp = Math.round(Object.values(perTarget).reduce((s, v) => s + v.suspicion, 0) / crowd);
+
+      const roomNotes = Object.entries(perTarget)
+        .map(([name, v]) => `${name}: ${v.line}`)
+        .join('\n');
+      const header = `You said it to ${listeners.map(l => l.name).join(', ')} at once. The room reacted:`;
+
+      const reactionSummary: ReactionSummary = {
+        take: avgTrust - avgSusp > 1 ? 'positive' : avgTrust - avgSusp < -1 ? 'pushback' : 'neutral',
+        context: 'public',
+        notes: `${header}\n${roomNotes}`,
+        deltas: { trust: avgTrust, suspicion: avgSusp, influence: inflPts, entertainment: entPts },
+      };
+
+      const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        playerActions: prev.playerActions.map(a =>
+          a.type === interaction ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
+        ),
+        dailyActionCount: (prev.dailyActionCount || 0) + 1,
+        groupActionsUsedToday: (prev.groupActionsUsedToday ?? 0) + 1,
+        lastActionType: interaction,
+        lastActionTarget: listeners.map(l => l.name).join(', '),
+        lastAIReaction: reactionSummary,
+        interactionLog: [
+          ...(prev.interactionLog || []),
+          {
+            day: prev.currentDay,
+            type: interaction,
+            participants: [prev.playerName, ...listeners.map(l => l.name)],
+            content: `[TAG intent=${choice.intent} topic=${choice.topics[0]}] group:${choice.choiceId}`,
+            tone: choice.tone,
+            source: 'player' as const,
+            intent: choice.intent,
+            topic: choice.topics[0],
+            choiceId: choice.choiceId,
+          } as InteractionLogEntry,
+        ],
+        editPerception: {
+          ...prev.editPerception,
+          screenTimeIndex: Math.max(0, Math.min(100, prev.editPerception.screenTimeIndex + entPts)),
+          lastEditShift: entPts,
+          audienceApproval: Math.max(-100, Math.min(100, prev.editPerception.audienceApproval + Math.round(inflPts / 2))),
+        },
+        viewerRating: ratingRes.rating,
+        ratingsHistory: [
+          ...(prev.ratingsHistory || []),
+          { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
+        ],
+      };
+    });
+  }, []);
+
+  // Alliance influence: the player pitches a plan, members accept/hedge/refuse,
+  // and the outcome moves trust plus the alliance's shared voting intention.
+  const submitAlliancePlan = useCallback((
+    allianceId: string,
+    plan: { id: string; title: string; description: string; type: string; targetDay: number },
+    responses: Record<string, { memberId: string; response: 'accept' | 'conditional' | 'reject'; reasoning: string; trustImpact: number; memoryEntry: string }>
+  ) => {
+    setGameState(prev => {
+      const alliance = prev.alliances.find(a => a.id === allianceId);
+      if (!alliance) return prev;
+      const list = Object.values(responses);
+      const accepted = list.filter(r => r.response === 'accept').length;
+      const hedged = list.filter(r => r.response === 'conditional').length;
+      const support = list.length ? (accepted + hedged * 0.7) / list.length : 0;
+      const targetName = (plan.description.match(/\b(?:target|vote out|against)\s+([A-Z][a-z]+)/) || [])[1];
+
+      const updatedContestants = prev.contestants.map(c => {
+        const r = responses[c.name];
+        if (!r) return c;
+        const trustPts = Math.round(r.trustImpact);
+        return {
+          ...c,
+          psychProfile: {
+            ...c.psychProfile,
+            trustLevel: Math.max(-100, Math.min(100, c.psychProfile.trustLevel + trustPts)),
+            suspicionLevel: Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + (r.response === 'reject' ? 4 : -2))),
+          },
+          memory: [
+            ...c.memory,
+            {
+              day: prev.currentDay,
+              type: 'alliance_meeting' as const,
+              participants: [prev.playerName, ...alliance.members.filter(m => m !== prev.playerName)],
+              content: `${prev.playerName} pitched "${plan.title}" to the alliance. ${r.memoryEntry}`,
+              emotionalImpact: r.response === 'accept' ? 4 : r.response === 'reject' ? -4 : 0,
+              timestamp: Date.now(),
+            },
+          ],
+        };
+      });
+
+      // Members who accepted line up behind the plan's target for the next vote.
+      if (targetName && support >= 0.5) {
+        updatedContestants.forEach(c => {
+          const r = responses[c.name];
+          if (r && r.response === 'accept') {
+            relationshipGraphEngine.updateRelationship(c.name, targetName, -6, 6, 0, 'scheme', `Alliance plan: ${plan.title}`, prev.currentDay);
+          }
+        });
+      }
+
+      const summaryLines = list.map(r => `${r.memberId} — ${r.response}: ${r.reasoning}`).join('\n');
+      const reactionSummary: ReactionSummary = {
+        take: support >= 0.7 ? 'positive' : support >= 0.4 ? 'neutral' : 'pushback',
+        context: 'private',
+        notes: `You pitched "${plan.title}" to ${alliance.name || 'your alliance'}.\n${summaryLines}`,
+        deltas: {
+          trust: Math.round(list.reduce((s, r) => s + r.trustImpact, 0) / Math.max(1, list.length)),
+          suspicion: 0,
+          influence: Math.round(support * 10),
+          entertainment: 3,
+        },
+      };
+
+      return {
+        ...prev,
+        contestants: updatedContestants,
+        alliances: prev.alliances.map(a =>
+          a.id === allianceId
+            ? { ...a, strength: Math.max(0, Math.min(100, (a.strength || 50) + Math.round((support - 0.5) * 20))) }
+            : a
+        ),
+        playerActions: prev.playerActions.map(a =>
+          a.type === 'scheme' ? { ...a, used: true, usageCount: (a.usageCount || 0) + 1 } : a
+        ),
+        dailyActionCount: (prev.dailyActionCount || 0) + 1,
+        lastAIReaction: reactionSummary,
+        interactionLog: [
+          ...(prev.interactionLog || []),
+          {
+            day: prev.currentDay,
+            type: 'alliance_meeting',
+            participants: [prev.playerName, ...alliance.members.filter(m => m !== prev.playerName)],
+            content: `Alliance plan pitched: ${plan.title} (${Math.round(support * 100)}% support)`,
+            source: 'player' as const,
+          } as InteractionLogEntry,
+        ],
+      };
+    });
+  }, []);
+
   // House Meeting round progress
   const handleHouseMeetingChoice = useCallback((choice: HouseMeetingToneChoice) => {
     setGameState(prev => {
