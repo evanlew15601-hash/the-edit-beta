@@ -40,6 +40,8 @@ export const ActionPanel = () => {
   const [allianceMeetingOpen, setAllianceMeetingOpen] = useState(false);
   const [createAllianceOpen, setCreateAllianceOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [alliancePlanOpen, setAlliancePlanOpen] = useState(false);
+  const playerAlliance = gameState.alliances.find(a => a.members.includes(gameState.playerName));
   const forcedItem = (gameState.forcedConversationsQueue || [])[0];
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
