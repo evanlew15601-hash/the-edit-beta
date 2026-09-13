@@ -327,6 +327,15 @@ export const ActionPanel = () => {
         isOpen={addMemberOpen}
         onClose={() => setAddMemberOpen(false)}
       />
+
+      {playerAlliance && (
+        <AlliancePlanningDialog
+          isOpen={alliancePlanOpen}
+          onClose={() => setAlliancePlanOpen(false)}
+          alliance={playerAlliance}
+          onSubmitPlan={(plan, responses) => submitAlliancePlan(playerAlliance.id, plan, responses as any)}
+        />
+      )}
     </div>
   );
 };
