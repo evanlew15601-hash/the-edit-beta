@@ -14,6 +14,7 @@ import { AllianceMeetingDialog } from './AllianceMeetingDialog';
 import { TagConversationDialog } from './TagConversationDialog';
 import { CreateAllianceDialog } from './CreateAllianceDialog';
 import { AddAllianceMemberDialog } from './AddAllianceMemberDialog';
+import { AlliancePlanningDialog } from './AlliancePlanningDialog';
 import { AISettingsPanel } from './AISettingsPanel';
 import { UserPlus } from 'lucide-react';
 import { HouseMeetingDialog } from './HouseMeetingDialog';
