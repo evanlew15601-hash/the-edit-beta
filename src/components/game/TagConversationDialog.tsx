@@ -213,7 +213,7 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
             <div className="rounded border border-primary/40 bg-primary/5 p-2.5 text-sm">
               <span className="text-muted-foreground">Group subjects ({selectedGroupTargets.length}): </span>
               <span className="font-semibold text-foreground">{selectedGroupTargets.join(', ')}</span>
-              <span className="text-muted-foreground"> — the line lands on each of them.</span>
+              <span className="text-muted-foreground"> — you say it once, in front of all of them. Trust gains are diluted in a crowd; suspicion spreads faster.</span>
             </div>
           )}
           {targetType === 'Self' && (
