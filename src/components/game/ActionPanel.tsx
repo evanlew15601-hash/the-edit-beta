@@ -198,6 +198,16 @@ export const ActionPanel = () => {
                 Add Members
               </Button>
             )}
+            {playerAlliance && (
+              <Button
+                variant="secondary"
+                onClick={() => setAlliancePlanOpen(true)}
+                disabled={allActionsUsed}
+                className="flex-1"
+              >
+                Influence Alliance
+              </Button>
+            )}
             <Button
               variant="action"
               onClick={() => setCreateAllianceOpen(true)}
