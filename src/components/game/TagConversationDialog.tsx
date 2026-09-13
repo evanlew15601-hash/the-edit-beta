@@ -66,8 +66,8 @@ export const TagConversationDialog = ({ isOpen, onClose, interactionType }: TagC
       tagTalk(selectedTarget, selectedChoiceId, interaction);
     } else if (targetType === 'Group') {
       if (selectedGroupTargets.length === 0) return;
-      // Apply the choice to each selected contestant for a group effect
-      selectedGroupTargets.forEach(name => tagTalk(name, selectedChoiceId, interaction));
+      // One line spoken to the whole room; each listener reacts in their own way.
+      tagTalkGroup(selectedGroupTargets, selectedChoiceId, interaction);
     } else if (targetType === 'Self') {
       tagTalk(gameState.playerName, selectedChoiceId, interaction);
     } else {
