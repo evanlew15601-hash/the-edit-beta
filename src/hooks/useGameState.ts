@@ -4228,6 +4228,8 @@ export const useGameState = () => {
     resetGame,
     handleEmergentEventChoice,
     tagTalk,
+    tagTalkGroup,
+    submitAlliancePlan,
     handleHouseMeetingChoice,
     endHouseMeeting,
     handleTieBreakResult,
