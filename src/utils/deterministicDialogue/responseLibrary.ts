@@ -572,7 +572,7 @@ export const MEMORY_CALLBACKS: Record<MemoryRefKind, string[]> = {
   ],
   promise_broken: [
     "You promised me {event} and walked it back the next day.",
-    "Your word at {event} meant nothing {days} days later. Why is now different?",
+    "Your word at {event} meant nothing by {when}. Why is now different?",
   ],
   shared_vote: [
     "We voted together at {event}. Let's not break that pattern now.",
