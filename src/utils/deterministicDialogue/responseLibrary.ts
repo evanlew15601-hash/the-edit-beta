@@ -557,7 +557,7 @@ export const ARCHETYPE_BODY_TILTS: Partial<Record<Archetype, string[]>> = {
 export const MEMORY_CALLBACKS: Record<MemoryRefKind, string[]> = {
   betrayal: [
     "Last time I trusted you it cost me {people}.",
-    "I haven't forgotten {event} — {days} days isn't long enough.",
+    "I haven't forgotten {event} — {when} isn't long enough ago for me.",
     "You lit my game on fire over {event}. I remember every second.",
     "{people} went home because of what you pulled. So spare me.",
   ],
