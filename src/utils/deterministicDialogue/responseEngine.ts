@@ -19,6 +19,16 @@ function substituteTokens(line: string, tokens: Record<string, string | undefine
   }).replace(/\s+([,.!?])/g, '$1').replace(/\s{2,}/g, ' ').trim();
 }
 
+// Spoken timing instead of raw day counts ("0 days" never reaches dialogue).
+export function naturalWhen(daysAgo: number): string {
+  if (daysAgo <= 0) return 'earlier today';
+  if (daysAgo === 1) return 'yesterday';
+  if (daysAgo <= 3) return 'a couple days back';
+  if (daysAgo <= 6) return 'a few days back';
+  if (daysAgo <= 9) return 'about a week ago';
+  return 'way back at the start';
+}
+
 function requiredTokensOf(line: string): string[] {
   const out: string[] = [];
   line.replace(/\{(\w+)\}/g, (_m, key) => {
