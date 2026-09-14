@@ -557,7 +557,7 @@ export const ARCHETYPE_BODY_TILTS: Partial<Record<Archetype, string[]>> = {
 export const MEMORY_CALLBACKS: Record<MemoryRefKind, string[]> = {
   betrayal: [
     "Last time I trusted you it cost me {people}.",
-    "I haven't forgotten {event} — {days} days isn't long enough.",
+    "I haven't forgotten {event} — {when} isn't long enough ago for me.",
     "You lit my game on fire over {event}. I remember every second.",
     "{people} went home because of what you pulled. So spare me.",
   ],
@@ -572,7 +572,7 @@ export const MEMORY_CALLBACKS: Record<MemoryRefKind, string[]> = {
   ],
   promise_broken: [
     "You promised me {event} and walked it back the next day.",
-    "Your word at {event} meant nothing {days} days later. Why is now different?",
+    "Your word at {event} meant nothing by {when}. Why is now different?",
   ],
   shared_vote: [
     "We voted together at {event}. Let's not break that pattern now.",

@@ -12,7 +12,8 @@ import { processVoting } from '@/utils/votingEngine';
 import { memoryEngine } from '@/utils/memoryEngine';
 import { relationshipGraphEngine } from '@/utils/relationshipGraphEngine';
 import { generateNPCConfessionalsForDay } from '@/utils/npcConfessionalEngine';
-import { getTrustDelta, getSuspicionDelta, calculateSchemeSuccess } from '@/utils/actionEngine';
+import { getTrustDelta, getSuspicionDelta } from '@/utils/actionEngine';
+import { resolveManipulation } from '@/utils/manipulationEngine';
 import { TwistEngine } from '@/utils/twistEngine';
 import { speechActClassifier } from '@/utils/speechActClassifier';
 import { EnhancedNPCMemorySystem } from '@/utils/enhancedNPCMemorySystem';
@@ -1210,23 +1211,12 @@ export const useGameState = () => {
         const targetNPC = prev.contestants.find(c => c.name === target);
         if (!targetNPC) return prev;
 
-        const success = calculateSchemeSuccess(prev.playerName, targetNPC, content, tone);
-
-        const trustDelta =
-          tone === 'information_trade' ? (success ? 3 : -1) :
-          tone === 'vote_manipulation' ? (success ? 1 : -3) :
-          tone === 'rumor_spread' ? (success ? -1 : -4) :
-          tone === 'fake_alliance' ? (success ? 0 : -6) :
-          tone === 'alliance_break' ? (success ? -1 : -5) :
-          (success ? 1 : -3);
-
-        const suspicionDelta =
-          tone === 'information_trade' ? (success ? 2 : 4) :
-          tone === 'vote_manipulation' ? (success ? 4 : 8) :
-          tone === 'rumor_spread' ? (success ? 6 : 10) :
-          tone === 'fake_alliance' ? (success ? 8 : 14) :
-          tone === 'alliance_break' ? (success ? 7 : 12) :
-          (success ? 4 : 8);
+        // Setup-driven manipulation resolution: a well-prepared lie can land
+        // clean with no suspicion at all; a lazy or repeated one gets read.
+        const resolution = resolveManipulation(prev, targetNPC, tone, content);
+        const success = resolution.success;
+        const trustDelta = resolution.trustDelta;
+        const suspicionDelta = resolution.suspicionDelta;
 
         relationshipGraphEngine.updateRelationship(
           target,
@@ -1311,9 +1301,11 @@ export const useGameState = () => {
         const reactionSummary: ReactionSummary = {
           take: success ? 'positive' : 'pushback',
           context: 'scheme',
-          notes: success
-            ? `Your scheme against ${target} landed.${rippleNotes.length ? ' ' + rippleNotes.join(' ') : ''}`
-            : `Your scheme against ${target} backfired — they read your hand.`,
+          notes: [
+            resolution.summary,
+            resolution.reasons.length ? `Why: ${resolution.reasons.slice(0, 2).join('; ')}.` : '',
+            success && rippleNotes.length ? rippleNotes.join(' ') : '',
+          ].filter(Boolean).join(' '),
           deltas: {
             trust: trustDelta,
             suspicion: suspicionDelta,
