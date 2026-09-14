@@ -1300,9 +1300,11 @@ export const useGameState = () => {
         const reactionSummary: ReactionSummary = {
           take: success ? 'positive' : 'pushback',
           context: 'scheme',
-          notes: success
-            ? `Your scheme against ${target} landed.${rippleNotes.length ? ' ' + rippleNotes.join(' ') : ''}`
-            : `Your scheme against ${target} backfired — they read your hand.`,
+          notes: [
+            resolution.summary,
+            resolution.reasons.length ? `Why: ${resolution.reasons.slice(0, 2).join('; ')}.` : '',
+            success && rippleNotes.length ? rippleNotes.join(' ') : '',
+          ].filter(Boolean).join(' '),
           deltas: {
             trust: trustDelta,
             suspicion: suspicionDelta,
