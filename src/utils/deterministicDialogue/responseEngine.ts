@@ -78,6 +78,7 @@ export function renderResponse({ bundle, npc, playerName, seedExtra }: RenderInp
     player: playerName,
     target: playerName,
     days: bundle.memoryRef?.daysAgo != null ? String(bundle.memoryRef.daysAgo) : undefined,
+    when: bundle.memoryRef?.daysAgo != null ? naturalWhen(bundle.memoryRef.daysAgo) : undefined,
     about: bundle.memoryRef?.about,
     people: bundle.memoryRef?.about, // people callbacks reuse `about` formatting from formatPeople
     event: bundle.memoryRef?.eventLabel,
