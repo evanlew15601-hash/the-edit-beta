@@ -4322,6 +4322,8 @@ export const useGameState = () => {
     handleEmergentEventChoice,
     tagTalk,
     tagTalkGroup,
+    influenceDrama,
+
     submitAlliancePlan,
     handleHouseMeetingChoice,
     endHouseMeeting,
