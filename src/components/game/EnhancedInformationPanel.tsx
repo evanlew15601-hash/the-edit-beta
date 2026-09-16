@@ -1,13 +1,15 @@
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useGame } from '@/contexts/GameContext';
 import { Clock, Users, AlertCircle, Star, Flame, Ear } from 'lucide-react';
-import { useMemo } from 'react';
-import { generateIntelligenceNetwork } from '@/utils/informationSharingEngine';
+import { useMemo, useState } from 'react';
+import { buildDramaFeed } from '@/utils/houseDramaEngine';
 
 export const EnhancedInformationPanel = () => {
-  const { gameState } = useGame();
+  const { gameState, influenceDrama } = useGame();
+  const [handled, setHandled] = useState<Record<string, boolean>>({});
   // Get recent interactions that actually matter
   const recentInteractions = (gameState.interactionLog || [])
     .filter(log => log.day >= gameState.currentDay - 3)
@@ -22,11 +24,12 @@ export const EnhancedInformationPanel = () => {
       type: 'alliance'
     }));
 
-  // What the house is actually telling you (and what they may be shading).
-  const intelNetwork = useMemo(
-    () => generateIntelligenceNetwork(gameState),
+  // Living drama the player publicly witnessed, with ways to step in.
+  const dramaFeed = useMemo(
+    () => buildDramaFeed(gameState),
     [gameState.currentDay, gameState.contestants, gameState.alliances, gameState.interactionLog]
   );
+
 
   // Elimination threats
   const threats = gameState.contestants
@@ -94,30 +97,51 @@ export const EnhancedInformationPanel = () => {
             </div>
           )}
 
-          {/* Word Around the House */}
-          {intelNetwork.length > 0 && (
-            <div className="space-y-2">
+          {/* House Drama — things you actually saw happen */}
+          {dramaFeed.length > 0 && (
+            <div className="space-y-3">
               <div className="flex items-center space-x-2">
                 <Ear className="w-3 h-3 text-edit-darkhorse" />
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Word Around the House
+                  House Drama
                 </span>
               </div>
-              {intelNetwork.map((item, index) => (
-                <div key={index} className="text-xs text-foreground border-l-2 border-edit-darkhorse pl-2 space-y-1">
-                  <p>{item.content}</p>
+              {dramaFeed.map((thread) => (
+                <div key={thread.id} className="text-xs border-l-2 border-edit-darkhorse pl-2 space-y-2">
+                  <p className="text-foreground">{thread.headline}</p>
+                  <p className="text-[10px] text-muted-foreground italic">{thread.witnessed}</p>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px]">
-                      {item.reliability >= 80 ? 'Solid' : item.reliability >= 60 ? 'Probably true' : 'Take with salt'}
+                    <Badge variant="outline" className="text-[10px]">Day {thread.day}</Badge>
+                    <Badge variant={thread.heat >= 70 ? 'destructive' : 'secondary'} className="text-[10px]">
+                      {thread.heat >= 70 ? 'Boiling' : thread.heat >= 50 ? 'Simmering' : 'Quiet'}
                     </Badge>
-                    {item.source === 'Overheard' && (
-                      <span className="text-[10px] text-muted-foreground">overheard</span>
-                    )}
                   </div>
+                  {handled[thread.id] ? (
+                    <p className="text-[10px] text-muted-foreground">You already stepped in on this today.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {thread.options.map((opt) => (
+                        <Button
+                          key={opt.id}
+                          size="sm"
+                          variant={opt.risk === 'high' ? 'destructive' : opt.risk === 'low' ? 'secondary' : 'outline'}
+                          className="h-6 px-2 text-[10px]"
+                          title={opt.hint}
+                          onClick={() => {
+                            influenceDrama(thread, opt.id);
+                            setHandled((h) => ({ ...h, [thread.id]: true }));
+                          }}
+                        >
+                          {opt.label}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
+
 
           {/* Cast Quick Stats (separate from weekly edit persona) */}
           {castQuickStats.length > 0 && (
