@@ -3618,6 +3618,105 @@ export const useGameState = () => {
     });
   }, []);
 
+  // House drama: the player steps into (or out of) something they publicly
+  // witnessed. Effects are named per houseguest so the player sees who moved.
+  const influenceDrama = useCallback((thread: DramaThread, option: DramaInfluence) => {
+    setGameState(prev => {
+      const effect = resolveDramaInfluence(thread, option, prev);
+      const entries = Object.entries(effect.perContestant);
+
+      const contestants = prev.contestants.map(c => {
+        const d = effect.perContestant[c.name];
+        if (!d) return c;
+        if (d.trust !== 0 || d.suspicion !== 0) {
+          relationshipGraphEngine.updateRelationship(
+            c.name,
+            prev.playerName,
+            d.trust,
+            d.suspicion,
+            d.closeness,
+            'conversation',
+            `[DRAMA ${option}] ${thread.kind}`,
+            prev.currentDay
+          );
+        }
+        return {
+          ...c,
+          psychProfile: {
+            ...c.psychProfile,
+            trustLevel: Math.max(-100, Math.min(100, c.psychProfile.trustLevel + d.trust)),
+            suspicionLevel: Math.max(0, Math.min(100, c.psychProfile.suspicionLevel + d.suspicion)),
+          },
+          memory: [
+            ...c.memory,
+            {
+              day: prev.currentDay,
+              type: 'observation' as const,
+              participants: [prev.playerName, ...thread.participants],
+              content: `[DRAMA ${thread.kind}] ${effect.note}`,
+              emotionalImpact: Math.max(-10, Math.min(10, Math.round(d.trust / 4))),
+              timestamp: Date.now(),
+              tags: ['public'],
+            },
+          ],
+        };
+      });
+
+      const notes = entries.length
+        ? `${effect.note}\n${entries
+            .map(([name, d]) => `${name}: trust ${d.trust >= 0 ? '+' : ''}${d.trust}, suspicion ${d.suspicion >= 0 ? '+' : ''}${d.suspicion}`)
+            .join('\n')}`
+        : effect.note;
+
+      const reactionSummary: ReactionSummary = {
+        take: entries.some(([, d]) => d.trust > 0) ? 'positive' : entries.some(([, d]) => d.trust < 0) ? 'pushback' : 'neutral',
+        context: 'public',
+        notes,
+        deltas: {
+          trust: entries.reduce((s, [, d]) => s + d.trust, 0),
+          suspicion: entries.reduce((s, [, d]) => s + d.suspicion, 0),
+          influence: effect.influence,
+          entertainment: effect.entertainment,
+        },
+      };
+
+      const ratingRes = ratingsEngine.applyReaction(prev, reactionSummary);
+
+      return {
+        ...prev,
+        contestants,
+        dailyActionCount: (prev.dailyActionCount || 0) + (option === 'stay_out' ? 0 : 1),
+        lastActionType: 'observe',
+        lastActionTarget: thread.participants.join(', '),
+        lastAIReaction: reactionSummary,
+        interactionLog: [
+          ...(prev.interactionLog || []),
+          {
+            day: prev.currentDay,
+            type: 'observe',
+            participants: [prev.playerName, ...thread.participants],
+            content: `[DRAMA ${thread.kind}/${option}] ${effect.note}`,
+            tone: 'neutral',
+            source: 'player' as const,
+          } as InteractionLogEntry,
+        ],
+        editPerception: {
+          ...prev.editPerception,
+          screenTimeIndex: Math.max(0, Math.min(100, prev.editPerception.screenTimeIndex + effect.entertainment)),
+          lastEditShift: effect.entertainment,
+          audienceApproval: Math.max(-100, Math.min(100, prev.editPerception.audienceApproval + Math.round(effect.influence / 2))),
+        },
+        viewerRating: ratingRes.rating,
+        ratingsHistory: [
+          ...(prev.ratingsHistory || []),
+          { day: prev.currentDay, rating: Math.round(ratingRes.rating * 100) / 100, reason: ratingRes.reason },
+        ],
+      };
+    });
+  }, []);
+
+
+
   // Alliance influence: the player pitches a plan, members accept/hedge/refuse,
   // and the outcome moves trust plus the alliance's shared voting intention.
   const submitAlliancePlan = useCallback((
