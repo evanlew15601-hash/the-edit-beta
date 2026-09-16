@@ -1,13 +1,15 @@
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useGame } from '@/contexts/GameContext';
 import { Clock, Users, AlertCircle, Star, Flame, Ear } from 'lucide-react';
-import { useMemo } from 'react';
-import { generateIntelligenceNetwork } from '@/utils/informationSharingEngine';
+import { useMemo, useState } from 'react';
+import { buildDramaFeed } from '@/utils/houseDramaEngine';
 
 export const EnhancedInformationPanel = () => {
-  const { gameState } = useGame();
+  const { gameState, influenceDrama } = useGame();
+  const [handled, setHandled] = useState<Record<string, boolean>>({});
   // Get recent interactions that actually matter
   const recentInteractions = (gameState.interactionLog || [])
     .filter(log => log.day >= gameState.currentDay - 3)
@@ -22,11 +24,12 @@ export const EnhancedInformationPanel = () => {
       type: 'alliance'
     }));
 
-  // What the house is actually telling you (and what they may be shading).
-  const intelNetwork = useMemo(
-    () => generateIntelligenceNetwork(gameState),
+  // Living drama the player publicly witnessed, with ways to step in.
+  const dramaFeed = useMemo(
+    () => buildDramaFeed(gameState),
     [gameState.currentDay, gameState.contestants, gameState.alliances, gameState.interactionLog]
   );
+
 
   // Elimination threats
   const threats = gameState.contestants
