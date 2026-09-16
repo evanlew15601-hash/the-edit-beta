@@ -36,6 +36,8 @@ import { resetFinaleMachine } from '@/hooks/useFinaleMachine';
 import { recordClaim, tickCorroboration, type PlantClaimInput, type PlantClaimResult } from '@/utils/deceptionEngine';
 import { generatePullAside, tagPullAsideMemory } from '@/utils/pullAsideEngine';
 import { generateLocalAIReply } from '@/utils/localLLM';
+import { resolveDramaInfluence, type DramaThread, type DramaInfluence } from '@/utils/houseDramaEngine';
+
 import { toast } from 'sonner';
 
 type GameActionType =
