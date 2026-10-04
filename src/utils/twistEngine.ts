@@ -78,16 +78,19 @@ export class TwistEngine {
 
     return {
       editPerception: editPenalty,
-      twistsActivated: [...gameState.twistsActivated, twistId]
+      twistsActivated: [...gameState.twistsActivated, twistId],
+      lastTwistNotice: 'A confessional leaked. Your cut got louder and less liked.',
     };
   }
 
   // Reveal the mole contestant - player-only twist (no NPC state changes)
   private static executeMoleReveal(gameState: GameState, twistId: string): Partial<GameState> {
-    // Do not add NPC memories or modify NPC psych profiles.
-    // Limit the twist to tracking-only for now.
+    const mole = gameState.contestants.find(c => c.isMole && !c.isEliminated);
     return {
-      twistsActivated: [...gameState.twistsActivated, twistId]
+      twistsActivated: [...gameState.twistsActivated, twistId],
+      lastTwistNotice: mole
+        ? `${mole.name} is the mole. The house does not know yet. You do.`
+        : 'Production looked for a mole and found none.',
     };
   }
 
@@ -130,15 +133,16 @@ export class TwistEngine {
 
     return {
       editPerception: flippedEdit,
-      twistsActivated: [...gameState.twistsActivated, twistId]
+      twistsActivated: [...gameState.twistsActivated, twistId],
+      lastTwistNotice: `The edit flipped. You are a ${newPersona} now.`,
     };
   }
 
-  // Public vote override - player-only tracking, no NPC memories
+  // Public vote override - the next eviction is not a house vote.
   private static executePublicVote(gameState: GameState, twistId: string): Partial<GameState> {
-    // Keep twist tracking only; avoid adding tags/memories/goals to NPCs.
     return {
-      twistsActivated: [...gameState.twistsActivated, twistId]
+      twistsActivated: [...gameState.twistsActivated, twistId],
+      lastTwistNotice: 'Public vote this cycle. The house does not decide the boot.',
     };
   }
 }

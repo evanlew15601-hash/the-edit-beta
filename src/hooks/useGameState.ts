@@ -596,6 +596,7 @@ export const useGameState = () => {
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
         twistsActivated: twistPatch.twistsActivated || twistsActivated,
+        lastTwistNotice: twistPatch.lastTwistNotice || prev.lastTwistNotice,
         ongoingHouseMeeting: prev.ongoingHouseMeeting || autoHouseMeeting || undefined,
         forcedConversationsQueue: nextForcedQueue,
         playerCannotBeEliminatedUntilDay:

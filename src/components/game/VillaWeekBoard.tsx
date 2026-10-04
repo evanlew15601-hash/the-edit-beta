@@ -23,6 +23,10 @@ export const VillaWeekBoard = () => {
   const move = recommendedMove(gameState, cycle, blocs, threats);
   const alreadySat = (gameState.confessionals || []).some(c => c.day === gameState.currentDay);
   const options = sitDownOptions();
+  const houseNotes = (gameState.interactionLog || [])
+    .filter(entry => entry.source === 'npc' || entry.type === 'npc')
+    .slice(-3)
+    .reverse();
   const rating = typeof gameState.viewerRating === 'number' ? gameState.viewerRating : 3.8;
 
   return (
@@ -119,6 +123,18 @@ export const VillaWeekBoard = () => {
           <p className="text-[11px] text-muted-foreground mt-2">
             {alreadySat || sat ? 'Session recorded. The cut is locked for today.' : options[0].effect}
           </p>
+          <h3 className="text-xs uppercase tracking-wide text-muted-foreground mt-4 mb-1">House without you</h3>
+          {houseNotes.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Advance a day. NPCs talk, scheme, and pull you aside on their own.</p>
+          ) : (
+            <ul className="space-y-1">
+              {houseNotes.map((note, i) => (
+                <li key={i} className="text-xs text-muted-foreground">
+                  {note.participants?.[0] || 'House'}: {note.content || note.tone || 'moved'}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </Card>

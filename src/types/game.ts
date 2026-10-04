@@ -432,6 +432,7 @@ export interface GameState {
 
   // Season rules chosen before the house opens.
   seasonSetup?: SeasonSetup;
+  lastTwistNotice?: string;
 
   // Manipulation system: log of all claims the player has planted
   deceptionLog?: DeceptionLogEntry[];

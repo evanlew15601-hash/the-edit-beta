@@ -5,6 +5,11 @@
 /* THE EDIT - Prestige TV Reality Simulation Design System */
 
 @layer base {
+  html, body, #root {
+    background-color: hsl(220 15% 6%);
+    color: hsl(0 0% 95%);
+    min-height: 100%;
+  }
   :root {
     /* Core Background System - Deep blacks and charcoals */
     --background: 220 15% 6%;

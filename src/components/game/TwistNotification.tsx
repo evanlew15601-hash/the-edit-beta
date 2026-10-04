@@ -6,6 +6,7 @@ export const TwistNotification = () => {
   const { gameState } = useGame();
   const twists = gameState.twistsActivated || [];
   const recentTwist = twists[twists.length - 1];
+  const notice = gameState.lastTwistNotice;
   const player = gameState.contestants.find(c => c.name === gameState.playerName);
   const spec = player?.special && player.special.kind === 'planted_houseguest' ? player.special : undefined;
 
@@ -134,6 +135,15 @@ export const TwistNotification = () => {
             Got it
           </Button>
         </div>
+      </Card>
+    );
+  }
+
+  if (notice) {
+    return (
+      <Card className="p-4 border border-border bg-muted/50">
+        <div className="text-sm font-medium">Twist</div>
+        <p className="text-xs text-muted-foreground mt-1">{notice}</p>
       </Card>
     );
   }
