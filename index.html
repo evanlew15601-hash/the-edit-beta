@@ -22,11 +22,19 @@
     <meta name="twitter:image" content="/og.jpg" />
     <style>
       html, body, #root { background: #0e1014; color: #f2f2f2; min-height: 100%; }
-      body { margin: 0; }
+      body { margin: 0; font-family: Georgia, serif; }
     </style>
-
+  </head>
   <body>
-    <div id="root"></div>
+    <div id="root">Loading The Edit…</div>
+    <script>
+      window.addEventListener('error', function (e) {
+        var root = document.getElementById('root');
+        if (root && root.textContent.indexOf('Loading') === 0) {
+          root.textContent = 'The Edit failed to start: ' + (e.message || 'unknown error');
+        }
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
