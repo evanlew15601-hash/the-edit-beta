@@ -44,10 +44,10 @@ export interface SitDownOption {
 
 const BEATS: { id: CycleBeat; label: string }[] = [
   { id: 'villa', label: 'Villa' },
-  { id: 'challenge', label: 'Challenge' },
+  { id: 'challenge', label: 'Head of House' },
   { id: 'nominations', label: 'Nominations' },
-  { id: 'production', label: 'Production' },
-  { id: 'vote', label: 'Vote' },
+  { id: 'production', label: 'Veto' },
+  { id: 'vote', label: 'Eviction' },
 ];
 
 export function cycleBeats() {
@@ -69,7 +69,7 @@ export function readCycle(state: Pick<GameState, 'currentDay' | 'nextElimination
       beat: 'production',
       label: 'Production',
       daysToVote,
-      brief: 'Challenge is done. Sit with production, then lock the vote. Nominees are the story.',
+      brief: 'Veto is the last pull. Then the cycle format decides it: house vote, public vote, or an elim duel.',
     };
   }
   if (daysToVote === 1) {
@@ -77,7 +77,7 @@ export function readCycle(state: Pick<GameState, 'currentDay' | 'nextElimination
       beat: 'nominations',
       label: 'Nominations',
       daysToVote,
-      brief: 'Names are about to stick. Find out who the numbers are on before you spend a scheme.',
+      brief: 'Names are about to stick. The Head of House nominates. Veto can still pull one off before the eviction.',
     };
   }
   if (daysToVote === 2) {
@@ -85,7 +85,7 @@ export function readCycle(state: Pick<GameState, 'currentDay' | 'nextElimination
       beat: 'challenge',
       label: 'Challenge',
       daysToVote,
-      brief: 'Head of house is still open. A win is safety. A loss means you need a bloc, not a speech.',
+      brief: 'Head of House is still open. The winner is safe and names the nominees. A loss means you need a bloc, not a speech.',
     };
   }
   return {

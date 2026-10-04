@@ -8,7 +8,8 @@ export const PlayerVoteScreen = () => {
   const [choice, setChoice] = useState<string>('');
 
   const active = gameState.contestants.filter(c => !c.isEliminated);
-  const eligible = active.filter(c => c.name !== gameState.playerName && c.name !== gameState.immunityWinner);
+  const nominated = (gameState.nominees || []).filter(n => n !== gameState.immunityWinner);
+  const eligible = (nominated.length ? active.filter(c => nominated.includes(c.name)) : active.filter(c => c.name !== gameState.playerName && c.name !== gameState.immunityWinner));
   
   // Show lightweight hints when the player likely has insight (alliances or high trust)
   const playerAlliances = gameState.alliances.filter(a => a.members.includes(gameState.playerName));
@@ -18,8 +19,10 @@ export const PlayerVoteScreen = () => {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-3xl mx-auto space-y-6">
         <Card className="p-6">
-          <h1 className="text-3xl font-light mb-1">Eviction Night</h1>
-          <p className="text-sm text-muted-foreground mb-1">Player Vote</p>
+          <h1 className="text-3xl font-light mb-1">Eviction</h1>
+          <p className="text-sm text-muted-foreground mb-1">
+            {gameState.weekFormat === 'public' ? 'Public vote. You are campaigning for someone to stay.' : 'House vote. Only the nominees are up.'}
+          </p>
           <p className="text-sm text-muted-foreground mb-6">
             Choose the houseguest you want to evict. Your vote will be locked in once submitted.
           </p>

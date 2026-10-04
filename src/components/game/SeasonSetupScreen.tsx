@@ -50,6 +50,25 @@ export const SeasonSetupScreen = () => {
               Final 3
             </Button>
           </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant={setup.nomineeCount === 2 ? 'action' : 'outline'} onClick={() => setSetup(prev => ({ ...prev, nomineeCount: 2 }))}>
+              2 nominees
+            </Button>
+            <Button size="sm" variant={setup.nomineeCount === 3 ? 'action' : 'outline'} onClick={() => setSetup(prev => ({ ...prev, nomineeCount: 3 }))}>
+              3 nominees
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(['mixed', 'house', 'public', 'duel'] as const).map(fmt => (
+              <Button key={fmt} size="sm" variant={setup.elimFormat === fmt ? 'action' : 'outline'} onClick={() => setSetup(prev => ({ ...prev, elimFormat: fmt }))}>
+                {fmt === 'mixed' ? 'Mixed eviction' : fmt === 'house' ? 'House vote' : fmt === 'public' ? 'Public vote' : 'Elim duel'}
+              </Button>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={setup.showmances} onChange={e => setSetup(prev => ({ ...prev, showmances: e.target.checked }))} />
+            Showmances vote as a pair
+          </label>
         </Card>
 
         <Card className="p-4 space-y-2">

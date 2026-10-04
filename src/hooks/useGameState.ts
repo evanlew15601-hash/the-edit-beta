@@ -1729,12 +1729,70 @@ export const useGameState = () => {
       return {
         ...prev,
         immunityWinner: winner,
-        // After an immunity competition, move directly into the eviction vote.
-        gamePhase: 'player_vote' as const,
+        nominees: undefined,
+        vetoHolder: undefined,
+        weekFormat: undefined,
+        // Hasbeen order: the winner nominates. The vote comes after veto.
+        gamePhase: 'nominations' as const,
         viewerRating: baseRating,
         ratingsHistory: nextHistory,
       };
     });
+  }, []);
+
+  const lockNominations = useCallback((names: string[]) => {
+    setGameState(prev => {
+      const setup = prev.seasonSetup || defaultSeasonSetup();
+      const formats = ['public', 'house', 'duel'] as const;
+      const weekFormat = setup.elimFormat === 'mixed'
+        ? formats[prev.currentDay % formats.length]
+        : setup.elimFormat;
+      return {
+        ...prev,
+        nominees: names,
+        weekFormat,
+        gamePhase: 'veto' as const,
+      };
+    });
+  }, []);
+
+  const resolveVeto = useCallback((saveName?: string) => {
+    setGameState(prev => {
+      let nominees = [...(prev.nominees || [])];
+      if (saveName && nominees.includes(saveName) && prev.vetoHolder) {
+        const blocked = new Set([prev.immunityWinner, prev.vetoHolder, ...nominees]);
+        const replacement = prev.contestants
+          .filter(c => !c.isEliminated && !blocked.has(c.name))
+          .sort((a, b) => b.psychProfile.suspicionLevel - a.psychProfile.suspicionLevel)[0];
+        nominees = nominees.filter(n => n !== saveName);
+        if (replacement) nominees.push(replacement.name);
+      }
+      if (prev.weekFormat === 'duel' && nominees.length >= 2) {
+        const score = (name: string) => prev.contestants.find(c => c.name === name)?.stats?.physical || 40;
+        const loser = [...nominees].sort((a, b) => score(a) - score(b))[0];
+        const updatedContestants = prev.contestants.map(c =>
+          c.name === loser ? { ...c, isEliminated: true, eliminationDay: prev.currentDay } : c
+        );
+        return {
+          ...prev,
+          contestants: updatedContestants,
+          nominees: undefined,
+          vetoHolder: undefined,
+          immunityWinner: undefined,
+          gamePhase: 'elimination' as const,
+          nextEliminationDay: prev.currentDay + 7,
+        };
+      }
+      return {
+        ...prev,
+        nominees,
+        gamePhase: 'player_vote' as const,
+      };
+    });
+  }, []);
+
+  const setVetoHolder = useCallback((name: string) => {
+    setGameState(prev => ({ ...prev, vetoHolder: name }));
   }, []);
 
   const submitFinaleSpeech = useCallback((speech?: string) => {
@@ -2023,8 +2081,9 @@ export const useGameState = () => {
   const submitPlayerVote = useCallback((choice: string) => {
     setGameState(prev => {
       const active = prev.contestants.filter(c => !c.isEliminated);
-      const eligible = active
-        .filter(c => c.name !== prev.playerName && c.name !== prev.immunityWinner)
+      const nomineePool = (prev.nominees || []).filter(n => n !== prev.immunityWinner);
+      const eligible = (nomineePool.length ? active.filter(c => nomineePool.includes(c.name)) : active
+        .filter(c => c.name !== prev.playerName && c.name !== prev.immunityWinner))
         .map(c => c.name);
 
       if (!eligible.includes(choice)) {
@@ -2054,6 +2113,13 @@ export const useGameState = () => {
           reason: votingResult.reason,
         });
         return prev;
+      }
+      if (prev.nominees?.length && !prev.nominees.includes(votingResult.eliminated)) {
+        votingResult.eliminated = prev.nominees.includes(choice) ? choice : prev.nominees[0];
+      }
+      if (prev.weekFormat === 'public' && prev.nominees?.length) {
+        const stay = choice;
+        votingResult.eliminated = prev.nominees.find(n => n !== stay) || prev.nominees[0];
       }
 
       // Update voting result with current day
@@ -2105,7 +2171,10 @@ export const useGameState = () => {
         votingHistory: [...prev.votingHistory, votingResult],
         gamePhase: 'elimination' as const,
         nextEliminationDay: nextElimDay,
-        immunityWinner: undefined, // Reset immunity
+        immunityWinner: undefined,
+        nominees: undefined,
+        vetoHolder: undefined,
+        weekFormat: undefined,
         juryMembers: updatedJuryMembers.length ? updatedJuryMembers : prev.juryMembers,
         isPlayerEliminated,
         playerCannotBeEliminatedUntilDay:
@@ -4352,6 +4421,9 @@ export const useGameState = () => {
     submitConfessional,
     advanceDay,
     setImmunityWinner,
+    lockNominations,
+    setVetoHolder,
+    resolveVeto,
     submitFinaleSpeech,
     submitPlayerVote,
     submitFinal3Vote,

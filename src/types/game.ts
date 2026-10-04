@@ -2,8 +2,11 @@ export interface SeasonSetup {
   castSize: number;
   jurySize: number;
   finaleSize: 2 | 3;
+  nomineeCount: 2 | 3;
+  elimFormat: 'mixed' | 'public' | 'house' | 'duel';
   organicAlliances: boolean;
   preseedAlliances: boolean;
+  showmances: boolean;
   twists: {
     confessional_leak: boolean;
     mole_reveal: boolean;
@@ -17,8 +20,11 @@ export const defaultSeasonSetup = (): SeasonSetup => ({
   castSize: 12,
   jurySize: 7,
   finaleSize: 2,
+  nomineeCount: 2,
+  elimFormat: 'mixed',
   organicAlliances: true,
   preseedAlliances: true,
+  showmances: true,
   twists: {
     confessional_leak: true,
     mole_reveal: true,
@@ -310,6 +316,8 @@ export interface GameState {
     | 'weekly_recap'
     | 'finale'
     | 'immunity_competition'
+    | 'nominations'
+    | 'veto'
     | 'jury_vote'
     | 'final_3_vote'
     | 'post_season'
@@ -339,7 +347,10 @@ export interface GameState {
   lastHouseMeetingReaction?: ReactionSummary;
   lastActionTarget?: string; // Most recent action target for UI context
   lastActionType?: PlayerAction['type']; // Most recent action type for UI context
-  immunityWinner?: string; // Who won immunity this week
+  immunityWinner?: string; // Head of house this cycle. Safe, and they nominate.
+  nominees?: string[];
+  vetoHolder?: string;
+  weekFormat?: 'public' | 'house' | 'duel';
   juryMembers?: string[]; // Who is on the jury (odd number to avoid ties)
   finaleSpeechesGiven?: boolean; // Track finale speeches
   finaleSpeech?: string; // Store player's finale speech for jury consideration

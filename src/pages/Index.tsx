@@ -5,6 +5,7 @@ import { IntroScreen } from '@/components/game/IntroScreen';
 import { GameplayScreen } from '@/components/game/GameplayScreen';
 import { WeeklyRecapScreen } from '@/components/game/WeeklyRecapScreen';
 import { ImmunityCompetitionScreen } from '@/components/game/ImmunityCompetitionScreen';
+import { NominationsScreen, VetoScreen } from '@/components/game/VillaCeremony';
 import { JuryVoteScreen } from '@/components/game/JuryVoteScreen';
 import { PremiereCutscene } from '@/components/game/PremiereCutscene';
 import { Cutscene } from '@/components/game/cutscenes/Cutscene';
@@ -81,6 +82,12 @@ const Index = () => {
 
       case 'immunity_competition':
         return <ImmunityCompetitionScreen />;
+
+      case 'nominations':
+        return <NominationsScreen />;
+
+      case 'veto':
+        return <VetoScreen />;
 
       case 'finale':
         return <FinaleEpisode />;
