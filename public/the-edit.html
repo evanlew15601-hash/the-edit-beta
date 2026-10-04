@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Edit</title>
+<style>
+  :root { --bg:#0d0f12; --card:#14171c; --line:#2a2e36; --text:#f2f2f2; --mute:#9aa0a8; --red:#d4543c; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 Georgia, "Iowan Old Style", serif; min-height:100%; }
+  button, input, select { font:inherit; color:inherit; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:12px 18px; border-bottom:1px solid var(--line); }
+  header b { font-weight:500; letter-spacing:.04em; }
+  main { max-width:880px; margin:0 auto; padding:28px 16px 64px; }
+  h1 { font-weight:300; letter-spacing:.18em; font-size:42px; margin:0; }
+  .rule { width:96px; height:1px; background:var(--red); margin:14px auto; }
+  .kicker { letter-spacing:.22em; text-transform:uppercase; color:var(--mute); font-size:12px; }
+  .card { background:var(--card); border:1px solid var(--line); padding:22px; margin:18px 0; }
+  .host { border-left:2px solid var(--red); padding-left:16px; color:var(--text); font-style:italic; }
+  button { background:#2a241f; border:1px solid #4a4038; color:#f3efe8; padding:10px 16px; cursor:pointer; }
+  button.primary { background:#3a332c; min-width:220px; }
+  button:disabled { opacity:.45; cursor:default; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:720px) { .grid { grid-template-columns:1fr; } h1 { font-size:32px; } }
+  .beat { text-align:center; padding:8px; background:#1c2026; color:var(--mute); font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
+  .beat.on { background:var(--red); color:white; }
+  .mute { color:var(--mute); font-size:14px; }
+  label { display:block; font-size:14px; margin:8px 0; }
+  input[type="text"], input[type="number"] { background:#0d0f12; border:1px solid var(--line); padding:8px; width:100%; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<header><b>The Edit</b><span class="mute" id="crumb">Workspace build</span></header>
+<main id="app"></main>
+<script>
+const NAMES = ["Ava","Liam","Mia","Ethan","Isla","Noah","Sofia","Owen","Nora","Leo","Jade","Caleb","Priya","Hugo"];
+const PERSONAS = ["Strategist","Athlete","Charmer","Floater","Villain","Loyalist","Wildcard"];
+const state = {
+  screen: "title",
+  name: "",
+  castSize: 12,
+  jurySize: 7,
+  finaleSize: 2,
+  twistsOn: true,
+  seedBloc: true,
+  day: 1,
+  voteDay: 4,
+  cast: [],
+  blocs: [],
+  log: [],
+  notice: "",
+  immunity: "",
+  jury: [],
+  eliminated: [],
+  rating: 3.8,
+  edit: "Underedited",
+  sat: false
+};
+
+function el(html){ document.getElementById("app").innerHTML = html; bind(); }
+function bind(){ document.querySelectorAll("[data-go]").forEach(n => n.onclick = () => go(n.dataset.go));
+  document.querySelectorAll("[data-act]").forEach(n => n.onclick = () => act(n.dataset.act, n.dataset.who)); }
+
+function title(){
+  el(`<div style="text-align:center;padding-top:28px">
+    <h1>THE EDIT</h1><div class="rule"></div><p class="kicker">Episode One</p>
+    <div class="card" style="text-align:center">
+      <p>Location: The House</p>
+      <p class="mute">The lights buzz on. Cameras swing into place. You sit alone in the diary room.</p>
+      <p class="kicker">Mars Vega (Host)</p>
+      <p class="host">"Welcome to The Edit. From this moment on, everything you say, and everything you don't, becomes part of your story."</p>
+      <p>This copy runs in the workspace. No Lovable preview.</p>
+      <button class="primary" data-go="setup">Begin the season</button>
+    </div>
+    <p class="mute">All actions have consequences. Trust no one completely.</p>
+  </div>`);
+}
+
+function setup(){
+  el(`<p class="kicker">Before the house opens</p><h2>Season setup</h2>
+    <div class="card">
+      <label>Your name <input id="pname" type="text" value="Alex"></label>
+      <label>Cast size <input id="csize" type="number" min="8" max="16" value="${state.castSize}"></label>
+      <div class="row">
+        <button data-act="jury" data-who="5">5 jury</button>
+        <button data-act="jury" data-who="7">7 jury</button>
+        <button data-act="jury" data-who="9">9 jury</button>
+        <button data-act="finale" data-who="2">Final 2</button>
+        <button data-act="finale" data-who="3">Final 3</button>
+      </div>
+      <p class="mute">Jury ${state.jurySize}. Finale ${state.finaleSize}. Twists ${state.twistsOn ? "on" : "off"}. Opening bloc ${state.seedBloc ? "on" : "off"}.</p>
+      <div class="row">
+        <button data-act="toggle" data-who="twists">Twists</button>
+        <button data-act="toggle" data-who="bloc">Opening bloc</button>
+        <button class="primary" data-go="open">Open the house</button>
+      </div>
+    </div>`);
+}
+
+function openHouse(){
+  state.name = (document.getElementById("pname")||{}).value || "Alex";
+  state.castSize = Number((document.getElementById("csize")||{}).value || 12);
+  const pool = NAMES.filter(n => n !== state.name).slice(0, state.castSize-1);
+  state.cast = [{ name: state.name, you: true, persona: "Player", threat: 48, trust: 50, out: false },
+    ...pool.map((n,i) => ({ name:n, persona:PERSONAS[i%PERSONAS.length], threat:40+((i*17)%45), trust:40+(i%30), out:false }))];
+  state.blocs = state.seedBloc ? [{ name:"Opening bloc", members: pool.slice(0,3), secret:true }] : [];
+  state.day = 1; state.voteDay = 4; state.log = ["The house walks in. Nobody has a number yet."];
+  state.screen = "week"; week();
+}
+
+function beat(){
+  const left = state.voteDay - state.day;
+  if (left <= 0) return "vote";
+  if (left === 1) return "nominations";
+  if (left === 2) return "challenge";
+  return "villa";
+}
+
+function live(){ return state.cast.filter(c => !c.out); }
+
+function week(){
+  const b = beat();
+  const beats = ["villa","challenge","nominations","production","vote"].map(x => `<div class="beat ${x===b|| (b==="nominations"&&x==="production")?"on":""}">${x}</div>`).join("");
+  const threats = live().slice().sort((a,c)=>c.threat-a.threat).slice(0,5)
+    .map(c => `<li>${c.name}${c.you?" (you)":""} · ${c.name===state.immunity?"safe":c.threat} · ${c.persona}</li>`).join("");
+  const blocs = state.blocs.map(bl => `<li>${bl.name}: ${bl.members.join(", ")} ${bl.secret?"· quiet":""}</li>`).join("") || "<li>No bloc yet.</li>";
+  el(`<p class="kicker">Day ${state.day} · ${live().length} left · rating ${state.rating.toFixed(1)} · ${state.edit}</p>
+    <h2>Villa week</h2>
+    <div class="row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px">${beats}</div>
+    <p>${b==="villa"?"Life before the challenge. Build one bond.":b==="challenge"?"Safety is still open.":b==="nominations"?"Names are sticking.":"The house votes tonight."}</p>
+    ${state.notice?`<div class="card"><b>Twist.</b> ${state.notice}</div>`:""}
+    <div class="grid">
+      <div class="card"><b>Threat</b><ul>${threats}</ul></div>
+      <div class="card"><b>Blocs</b><ul>${blocs}</ul><p class="mute">${state.log[state.log.length-1]||""}</p></div>
+      <div class="card"><b>Today</b>
+        <div class="row">
+          <button data-act="talk">Talk</button>
+          <button data-act="scheme">Scheme</button>
+          <button data-act="sit">Sit-down</button>
+          <button data-act="advance">Advance day</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+function act(kind, who){
+  if (kind==="jury"){ state.jurySize = Number(who); setup(); return; }
+  if (kind==="finale"){ state.finaleSize = Number(who); setup(); return; }
+  if (kind==="toggle"){ if(who==="twists") state.twistsOn=!state.twistsOn; else state.seedBloc=!state.seedBloc; setup(); return; }
+  const others = live().filter(c => !c.you);
+  if (kind==="talk" && others[0]){ others[0].trust += 6; state.log.push(`You talked with ${others[0].name}. Trust up. No pitch.`); }
+  if (kind==="scheme" && others[1]){ others[1].trust -= 4; state.rating += 0.2; state.log.push(`You pitched against ${others[1].name}. The room noticed.`); }
+  if (kind==="sit" && !state.sat){ state.sat = true; state.edit = "Strategic Player"; state.rating += 0.3; state.log.push("Production sit-down recorded. The cut is locked for today."); }
+  if (kind==="advance") advance();
+  else week();
+}
+
+function advance(){
+  state.day += 1; state.sat = false;
+  const others = live().filter(c => !c.you);
+  if (others[0]) state.log.push(`${others[0].name} pulled ${others[1]?others[1].name:"someone"} aside.`);
+  if (state.twistsOn && state.day===3){ state.notice = "A confessional leaked. Your cut got louder and less liked."; state.edit = "Controversial"; state.rating += 0.4; }
+  if (beat()==="challenge" && !state.immunity && others[2]) state.immunity = others[2].name;
+  if (state.day >= state.voteDay) vote();
+  else week();
+}
+
+function vote(){
+  const house = live().filter(c => c.name !== state.immunity);
+  const boot = house.slice().sort((a,c)=>c.threat-a.threat)[0];
+  if (!boot) return finale();
+  boot.out = true; state.eliminated.push(boot.name);
+  if (live().length <= state.jurySize + state.finaleSize) state.jury.push(boot.name);
+  state.log.push(`${boot.name} is out. ${state.jury.length? "Jury seat taken.":"Pre-jury."}`);
+  state.immunity = ""; state.voteDay = state.day + 3; state.notice = "";
+  if (live().length <= state.finaleSize) finale();
+  else week();
+}
+
+function finale(){
+  const finalists = live().map(c => c.name).join(" and ");
+  el(`<p class="kicker">Finale</p><h2>${finalists}</h2>
+    <div class="card"><p>Jury (${state.jurySize}): ${state.jury.join(", ") || "still seating"}.</p>
+    <p class="mute">The house ran the votes. Production ran the cut. ${state.name}'s edit ended as ${state.edit}.</p>
+    <button class="primary" data-go="title">New season</button></div>`);
+}
+
+function go(screen){
+  if (screen==="title"){ state.screen="title"; title(); }
+  if (screen==="setup"){ state.screen="setup"; setup(); }
+  if (screen==="open") openHouse();
+}
+title();
+</script>
+</body>
+</html>
