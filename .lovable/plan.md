@@ -1,111 +1,85 @@
-# Deterministic Tag-Talk as the Primary Conversation System
+# Strategy Simulation Overhaul
 
-Goal: the entire social sim — NPC replies, pull-asides, confessionals, perception, memory tagging — must work correctly with AI fully disabled. AI becomes a stylistic wrapper only.
+## Goal
+Use Hasbeen Villa as systems inspiration while preserving this game's identity as an interactive reality-show social strategy game. The upgrade should make every conversation, alliance, scheme, public incident, competition, vote, and edit feed one coherent simulation.
 
-## Architecture
+## Player Experience
+- Every day presents consequential tradeoffs: build trust, collect information, protect an alliance, manipulate a target, manage public perception, or prepare for power.
+- Houseguests act independently between player turns: they talk, lobby, form grudges, compare claims, reconsider loyalties, and pursue their own endgame interests.
+- The player only learns what they directly witness, are told, or can reasonably infer. Hidden motives and private deals remain simulated but unseen.
+- Strategy intensifies as the cast shrinks: loyalty matters earlier, while threat management, competition records, jury respect, and betrayal timing matter later.
+- Outcomes are explainable through witnessed evidence without exposing raw hidden scores.
 
-New pipeline for every NPC utterance:
+## Implementation Phases
 
-```text
-Player input / trigger
-  → Intent Interpretation (speechActClassifier + conversationIntentEngine)
-  → NPC Perception (socialInterpretationEngine, memoryEngine, relationshipGraph)
-  → NPC Decision (new: npcDecisionEngine — picks response intent + emotion + reveal level)
-  → Response Tag Bundle (TOPIC, INTENT, EMOTION, TRUST, SUSPICION, CERTAINTY, CONTEXT, REPUTATION, ARCHETYPE, MEMORY_REF?)
-  → Deterministic Dialogue (new: deterministicResponseLibrary, filtered by archetype)
-  → [optional] AI rephrase pass (style only, never changes tags/effects)
-```
+### 1. One Social Source of Truth
+- Create one shared interaction resolver for free-text talk, Tag-Talk, group talk, pull-asides, house meetings, schemes, and drama interventions.
+- Make the relationship graph authoritative for directional trust, suspicion, closeness, alliance loyalty, and recent interaction history.
+- Synchronize contestant-facing summaries from that graph instead of independently changing duplicate trust and suspicion fields.
+- Apply diminishing returns and social fatigue when repeatedly targeting the same person or repeating the same approach.
+- Preserve deterministic Tag-Talk as the decision source; optional AI remains wording-only.
 
-All trust/suspicion/memory/vote/alliance effects are computed from the tag bundle in the simulation layer, BEFORE any text is generated. The string is cosmetic.
+### 2. Hidden Personality and Compatibility
+- Derive stable hidden traits from each houseguest's existing personality and stats: warmth, loyalty, authenticity, cooperation, composure, ego, risk tolerance, gullibility, and strategic intensity.
+- Add directional compatibility between every pair, distinct from current trust. Compatibility influences how quickly trust forms, how grudges persist, and which approaches work.
+- Use separate strategic affinity and personal closeness so allies can dislike one another and friends can become strategic threats.
+- Keep these values hidden; surface them only through behavior, witnessed reactions, and natural dialogue.
 
-## New files
+### 3. Unified NPC Strategy Utility
+- Replace fragmented targeting rules with a shared utility model used by nominations, votes, saves, lobbying, alliance plans, information sharing, and autonomous conversations.
+- Score options from relationship, suspicion, alliance loyalty, conflicting alliances, recent changes, grudges, promises, known threats, competition record, edit/reputation, jury implications, and controlled personality-based uncertainty.
+- Scale weights by game phase so NPC priorities evolve naturally from early social positioning to late-game threat removal and jury planning.
+- Store concise decision reasons for testing and debugging, while showing only diegetic clues to the player.
 
-1. `src/data/responseLibrary.ts`
-   - Authored pools keyed by `${INTENT}_${EMOTION}` with 4–8 variants each.
-   - Covers: BUILD_TRUST, TEST_LOYALTY, WITHHOLD_INFO, REVEAL_INFO, ACCUSE, DEFLECT, AGREE, REFUSE, PROBE, REASSURE, THREATEN, APOLOGIZE, FLIRT, JOKE, GREET, END_CONVO × emotions (SINCERE, GUARDED, SUSPICIOUS, ANGRY, PLAYFUL, ANXIOUS, COLD, WARM).
-   - Plus memory-callback variants gated by `MEMORY_REF` (betrayal, save, promise_kept, promise_broken, shared_vote).
+### 4. Autonomous House Simulation
+- Add a bounded between-turn simulation where NPCs choose a small number of purposeful actions: private talk, public discussion, lobbying, reassurance, confrontation, alliance recruitment, information exchange, or target testing.
+- Persist convictions such as grudges, promises, suspected lies, protected allies, and preferred targets with decay and reinforcement.
+- Resolve conflicting alliance loyalties explicitly rather than treating every alliance as equally binding.
+- Feed only publicly witnessed or legitimately learned outcomes into the House Drama feed; private actions remain hidden until leaked or revealed.
 
-2. `src/data/personalityFilters.ts`
-   - Archetype → text transform / variant selector (Hothead, Strategist, PassiveAggressive, Charmer, Paranoid, Stoic, Wildcard).
-   - Maps `psychProfile.disposition` + key traits → archetype.
+### 5. Information and Deception Economy
+- Consolidate information trading, enhanced information, planted beliefs, and corroboration into one knowledge ledger recording source, subject, confidence, privacy, age, and corroboration state.
+- Let NPCs compare claims over multiple days, independently corroborate them, withhold information, trade it, leak it, or expose a liar.
+- Make manipulation viable but situational: compatibility, trust, gullibility, specificity, corroboration, repetition, and delivery context determine success.
+- Allow information to influence targets, alliances, confrontations, and jury opinions rather than ending as flavor text.
 
-3. `src/utils/npcDecisionEngine.ts`
-   - `decideResponse(npc, playerIntent, gameState): ResponseTagBundle`
-   - Pure function. Reads memory, trust, suspicion, alliance state, recent events, reputation.
-   - Picks response INTENT + EMOTION + CERTAINTY + reveal level deterministically (seeded RNG by `npc.id + day + turn`).
-   - Selects optional MEMORY_REF when a relevant memory exists.
+### 6. Alliance Strategy
+- Give alliances shared targets, protected members, promises, voting discipline, exposure risk, and conflicting obligations.
+- Expand alliance influence into concrete proposals: nominate, save, vote, recruit, exclude, leak, or abandon a target.
+- Members respond according to personal utility and may agree, hedge, secretly defect, or counter-propose.
+- Track alliance history so betrayal, loyalty, and timing affect future cooperation and jury respect.
 
-4. `src/utils/deterministicResponseEngine.ts`
-   - `renderResponse(bundle, npc): string`
-   - Pulls from `responseLibrary`, applies `personalityFilters`, substitutes `{player}`, `{target}`, `{memory}` tokens.
-   - Never calls AI.
+### 7. Power, Voting, and Episode Structure
+- Formalize each cycle into composable phases: social play, competition, power decision, campaigning, vote, aftermath, and recap.
+- Make power outcomes feed strategic decisions: competition record raises threat, immunity changes lobbying, and visible safety can enable riskier play.
+- Ensure nomination, save, and eviction decisions all use the unified strategy utility while respecting the player's incomplete information.
+- Keep the current season format, but structure phases so future twists or alternate vote formats can be added without duplicating logic.
 
-5. `src/utils/misinterpretationLibrary.ts`
-   - For each (playerIntent, tone) pair, authored confessional/observation snippets keyed by NPC perception outcome (from `socialInterpretationEngine`).
+### 8. Edit, Ratings, and Jury Consequences
+- Turn edit and audience response into strategic feedback rather than cosmetic meters.
+- Public conflict, visible loyalty, entertaining risks, hypocrisy, underdog momentum, and competition performance shape the weekly edit.
+- Let reputation affect information credibility, social leverage, selected public twists, tie-break sentiment, and audience awards without overriding the core social game.
+- Make jurors evaluate finalists from lived memory: loyalty, betrayals, agency, respect, personal treatment, and visible game ownership.
 
-6. `src/utils/deterministicConfessionalEngine.ts`
-   - Replaces runtime AI confessionals. Builds from interpretation + emotion + goals using authored templates.
+### 9. Presentation and Player Agency
+- Reorganize the gameplay screen around the current decision, witnessed house activity, strategic relationships, and remaining daily actions.
+- Replace overlapping conversation and intelligence surfaces with shared controls and consistent outcomes.
+- Show concise consequence previews where the player should reasonably anticipate risk; never reveal exact hidden calculations.
+- Keep debug explanations behind debug mode for balancing and regression work.
 
-## Edits
+## Technical Approach
+- Introduce small pure engines for hidden traits, strategic utility, knowledge state, and autonomous turns.
+- Route existing systems through shared interfaces before deleting superseded paths.
+- Refactor the oversized game-state hook incrementally into focused action resolvers without changing save compatibility.
+- Version or safely normalize saved state so existing seasons receive defaults for new fields.
+- Remove dead or duplicate information, conversation, and “enhanced” modules only after all active call sites move to the consolidated systems.
+- Record deterministic seeds and decision reasons so simulation outcomes remain reproducible in tests.
 
-- `src/utils/npcResponseEngine.ts` — route through `npcDecisionEngine` → `deterministicResponseEngine`. Remove direct AI calls from the critical path. Keep an optional `enhanceWithAI` step gated by a setting, that ONLY rephrases the deterministic string and is discarded if it changes length/structure dramatically or fails.
-- `src/utils/npcConfessionalEngine.ts` — replace `generateLocalAIReply` call with `deterministicConfessionalEngine`; AI rephrase optional.
-- `src/utils/backgroundConversationEngine.ts` — same swap.
-- `src/utils/juryRationaleEngine.ts` — deterministic rationale templates keyed by jury member's memory/trust/suspicion of finalists; AI optional.
-- `src/hooks/useGameState.ts`
-  - `runPullAsideFollowUp`: compute next NPC line via `npcDecisionEngine` + `deterministicResponseEngine`. Apply trust/suspicion deltas from the bundle, NOT from any AI text. Only call AI as optional rephrase after deltas are committed.
-  - `respondToForcedConversation`: deltas already come from tags via `actionEngine`; ensure no AI-derived deltas remain.
-- `src/utils/localLLM.ts` — keep as a thin rephrase helper. Add `rephraseDeterministic(text, styleHints)` that returns input on failure. Mark `generateLocalAIReply` as legacy.
-- `src/components/game/AISettingsPanel.tsx` — add toggle "AI Style Enhancement (optional)"; default OFF. When OFF, app must never hit the edge function.
-- `src/components/game/ConversationDialog.tsx` — show a small "Deterministic" / "Style-enhanced" badge on each NPC turn so the player can see source-of-truth.
+## Verification
+- Unit tests for compatibility, phase scaling, conflicting alliances, conviction decay, information corroboration, manipulation outcomes, and target selection.
+- Regression tests proving free-text and Tag-Talk apply equivalent social rules and cannot desynchronize relationship state.
+- Multi-day simulation tests verifying NPC autonomy, information visibility, alliances, voting, and jury memory remain coherent.
+- Live playthrough checks for an early week, a midgame betrayal, a late-game threat vote, and the finale across desktop and mobile layouts.
 
-## Tag bundle type
-
-In `src/types/tagDialogue.ts` add:
-
-```ts
-export type ResponseIntent = 'BUILD_TRUST' | 'TEST_LOYALTY' | 'WITHHOLD_INFO' | 'REVEAL_INFO'
-  | 'ACCUSE' | 'DEFLECT' | 'AGREE' | 'REFUSE' | 'PROBE' | 'REASSURE'
-  | 'THREATEN' | 'APOLOGIZE' | 'FLIRT' | 'JOKE' | 'GREET' | 'END_CONVO';
-export type Emotion = 'SINCERE'|'GUARDED'|'SUSPICIOUS'|'ANGRY'|'PLAYFUL'|'ANXIOUS'|'COLD'|'WARM';
-export type Archetype = 'Hothead'|'Strategist'|'PassiveAggressive'|'Charmer'|'Paranoid'|'Stoic'|'Wildcard';
-export interface ResponseTagBundle {
-  topic: TopicTag;
-  intent: ResponseIntent;
-  emotion: Emotion;
-  certainty: 'LOW'|'MEDIUM'|'HIGH';
-  trustBand: 'LOW'|'MEDIUM'|'HIGH';
-  suspicionBand: 'LOW'|'MEDIUM'|'HIGH';
-  context: 'PRIVATE'|'PUBLIC'|'GROUP';
-  reputation: 'TRUSTED'|'NEUTRAL'|'UNPREDICTABLE'|'DISTRUSTED';
-  archetype: Archetype;
-  memoryRef?: { eventId: string; kind: 'betrayal'|'save'|'promise_kept'|'promise_broken'|'shared_vote' };
-  effects: { trust: number; suspicion: number; entertainment: number; influence: number };
-}
-```
-
-`effects` is computed by the decision engine from the bundle (using existing `actionEngine` deltas) so callers apply state changes from the bundle, never from text.
-
-## Audit (Step 7)
-
-Grep and remove any path where AI output changes:
-- trust/suspicion deltas
-- alliance formation
-- vote targets
-- memory creation
-- perception/intent
-
-Verified targets: `npcResponseEngine.ts`, `useGameState.ts` pull-aside follow-up, `npcConfessionalEngine.ts` (currently only writes memory event with AI text — switch to deterministic text first, then store).
-
-## Scope notes
-
-- This is a large refactor; I will do it in one pass but keep changes additive where possible: new engines coexist with old ones, and existing call sites are switched over file-by-file. Old `generateLocalAIReply` stays as the optional rephraser.
-- Default behavior after this change: AI Style Enhancement OFF. Game fully playable with zero edge-function calls.
-- I will not redesign `actionEngine` deltas — they already come from tags.
-
-## Deliverable
-
-After this lands:
-- Disabling AI in settings produces a fully coherent season.
-- Every NPC line in pull-asides, free conversations, and confessionals is traceable to a tag bundle.
-- AI, when enabled, only rephrases — verified by a guard that discards rephrasings that change length by >2× or are empty.
+## Delivery Order
+Implement phases 1–3 first because every later mechanic depends on one authoritative social state and decision model. Then add autonomy and information, followed by alliances/voting, and finish with edit/jury consequences and interface consolidation. Each phase must leave the game playable and tested.
