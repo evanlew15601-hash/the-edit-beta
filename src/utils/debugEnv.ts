@@ -1,20 +1,4 @@
-export const betaDebugBuildEnabled = () => {
-  if (import.meta.env.VITE_ENABLE_BETA_DEBUG === '1') return true;
-  // Auto-enable in Lovable preview/sandbox deploys so QA can use debug tools.
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (
-      host.endsWith('.lovable.app') ||
-      host.endsWith('.lovable.dev') ||
-      host.endsWith('.lovableproject.com') ||
-      host === 'localhost' ||
-      host === '127.0.0.1'
-    ) {
-      return true;
-    }
-  }
-  return false;
-};
+export const betaDebugBuildEnabled = () => import.meta.env.VITE_ENABLE_BETA_DEBUG === '1';
 
 export const canUseDebugUI = () => {
   return import.meta.env.MODE !== 'production' || betaDebugBuildEnabled();
