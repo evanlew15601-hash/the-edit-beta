@@ -80,100 +80,109 @@ export const ActionPanel = () => {
     setActiveDialog(null);
   };
 
+  const lanes: { title: string; hint: string; types: string[] }[] = [
+    { title: 'Social', hint: 'Build the bond before you pitch.', types: ['talk', 'activity', 'observe'] },
+    { title: 'Scheme', hint: 'One clean pitch. Loud schemes leak.', types: ['scheme', 'dm'] },
+    { title: 'Broadcast', hint: 'Production is listening. This is the edit.', types: ['confessional'] },
+  ];
+
   return (
     <div className="space-y-6">
       <Card className="p-6 md:p-7 rounded-lg shadow-sm">
-        <h2 className="text-xl md:text-2xl font-medium tracking-wide mb-2">Daily Actions</h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          Use up to {gameState.dailyActionCap} actions per day (optional). Used {gameState.dailyActionCount}/{gameState.dailyActionCap}.
+        <div className="flex items-end justify-between gap-3 mb-1">
+          <h2 className="text-xl md:text-2xl font-medium tracking-wide">Today in the house</h2>
+          <p className="text-xs text-muted-foreground">{gameState.dailyActionCount}/{gameState.dailyActionCap} used</p>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          {remainingActions} action{remainingActions === 1 ? '' : 's'} left. Skipping a day is allowed — the house will still move.
         </p>
-        
-        <div className="grid gap-4">
-          {gameState.playerActions.map((action, index) => (
-            <div key={index} className="ring-1 ring-border rounded-lg p-4 hover:bg-muted/40 transition-colors">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium capitalize">{action.type.replace('_', ' ')}</h3>
-                <div className="flex gap-2">
-                  {(action.type === 'talk' || action.type === 'dm' || action.type === 'scheme' || action.type === 'activity') && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setTagTalkType(action.type as 'talk' | 'dm' | 'scheme' | 'activity');
-                        setTagTalkOpen(true);
-                      }}
-                      disabled={allActionsUsed}
-                    >
-                      Tag {action.type.charAt(0).toUpperCase() + action.type.slice(1)}
-                    </Button>
-                  )}
-                  <Button
-                    variant="action"
-                    size="sm"
-                    onClick={() => handleActionClick(action.type)}
-                  >
-                    Select
-                  </Button>
+
+        <div className="grid gap-5">
+          {lanes.map(lane => {
+            const actions = lane.types
+              .map(type => gameState.playerActions.find(a => a.type === type))
+              .filter(Boolean) as typeof gameState.playerActions;
+            if (actions.length === 0) return null;
+            return (
+              <div key={lane.title}>
+                <div className="mb-2">
+                  <h3 className="text-sm font-medium">{lane.title}</h3>
+                  <p className="text-xs text-muted-foreground">{lane.hint}</p>
+                </div>
+                <div className="grid gap-2">
+                  {actions.map(action => (
+                    <div key={action.type} className="flex items-center justify-between gap-3 ring-1 ring-border rounded-lg px-3 py-2.5">
+                      <div>
+                        <p className="text-sm font-medium capitalize">{action.type.replace('_', ' ')}</p>
+                        <p className="text-xs text-muted-foreground">{getActionDescription(action.type)}</p>
+                      </div>
+                      <Button
+                        variant="action"
+                        size="sm"
+                        onClick={() => handleActionClick(action.type)}
+                        disabled={allActionsUsed}
+                      >
+                        Open
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {getActionDescription(action.type)}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Public House Meeting */}
-        <div className="mt-4 ring-1 ring-border rounded-lg p-4 hover:bg-muted/40 transition-colors">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-medium">House Meeting</h3>
-            <div className="flex gap-2">
-              <Button
-                variant="action"
-                size="sm"
-                onClick={() => setActiveDialog('house_meeting')}
-                disabled={allActionsUsed || groupActionsUsed || !!gameState.ongoingHouseMeeting}
-              >
-                Call House Meeting
-              </Button>
-            </div>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Call a public meeting to address the house. Multi-round choices with ripple effects on trust, alliances, and votes.
-          </p>
-        </div>
-
-        {/* Settings panel for deterministic variants and outcome scaling */}
-        <div className="mt-6 pt-6 border-t border-border">
-          <h3 className="text-lg font-medium mb-3">AI & Dialogue Settings</h3>
-          <AISettingsPanel
-            depth={gameState.aiSettings.depth}
-            additions={gameState.aiSettings.additions}
-            deterministicPersonaVariants={gameState.aiSettings.deterministicPersonaVariants}
-            outcomeScaling={gameState.aiSettings.outcomeScaling}
-            useLocalLLM={gameState.aiSettings.useLocalLLM}
-            onChange={(next) => {
-              // Merge into aiSettings within gameState
-              const merged = {
-                ...gameState.aiSettings,
-                ...('depth' in next ? { depth: next.depth } : {}),
-                ...('additions' in next ? { additions: next.additions! } : {}),
-                ...('deterministicPersonaVariants' in next ? { deterministicPersonaVariants: next.deterministicPersonaVariants } : {}),
-                ...('outcomeScaling' in next ? { outcomeScaling: next.outcomeScaling } : {}),
-                ...('useLocalLLM' in next ? { useLocalLLM: next.useLocalLLM } : {}),
-              };
-              // Local update only – ActionPanel isn't the state owner; dispatch via custom event
-              window.dispatchEvent(new CustomEvent('updateAISettings', { detail: merged }));
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setTagTalkType('talk');
+              setTagTalkOpen(true);
             }}
-          />
+            disabled={allActionsUsed}
+          >
+            Deeper talk
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setActiveDialog('house_meeting')}
+            disabled={allActionsUsed || groupActionsUsed || !!gameState.ongoingHouseMeeting}
+          >
+            House meeting
+          </Button>
         </div>
 
+        <details className="mt-6 pt-4 border-t border-border">
+          <summary className="text-sm text-muted-foreground cursor-pointer">Dialogue settings</summary>
+          <div className="pt-3">
+            <AISettingsPanel
+              depth={gameState.aiSettings.depth}
+              additions={gameState.aiSettings.additions}
+              deterministicPersonaVariants={gameState.aiSettings.deterministicPersonaVariants}
+              outcomeScaling={gameState.aiSettings.outcomeScaling}
+              useLocalLLM={gameState.aiSettings.useLocalLLM}
+              onChange={(next) => {
+                const merged = {
+                  ...gameState.aiSettings,
+                  ...('depth' in next ? { depth: next.depth } : {}),
+                  ...('additions' in next ? { additions: next.additions! } : {}),
+                  ...('deterministicPersonaVariants' in next ? { deterministicPersonaVariants: next.deterministicPersonaVariants } : {}),
+                  ...('outcomeScaling' in next ? { outcomeScaling: next.outcomeScaling } : {}),
+                  ...('useLocalLLM' in next ? { useLocalLLM: next.useLocalLLM } : {}),
+                };
+                window.dispatchEvent(new CustomEvent('updateAISettings', { detail: merged }));
+              }}
+            />
+          </div>
+        </details>
+
         <div className="mt-6 pt-6 border-t border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium">Alliance Management</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium">Your bloc</h3>
             <p className="text-xs text-muted-foreground">
-              {gameState.alliances.length} active alliance
-              {gameState.alliances.length > 1 ? 's' : ''}
+              {gameState.alliances.filter(a => !a.dissolved).length} active
             </p>
           </div>
           <div className="flex gap-2">

@@ -1,5 +1,15 @@
 # Game Development Roadmap
 
+## Villa cycle pass (done)
+Inspired by a played Hasbeen Villa season (setup corridor, then villa events → Head Hasbeen → nominations → confessional sessions → veto). The daily screen was a stack of every system at once.
+
+- Villa week board is the first thing on a day: cycle beat, threat board, blocs/bonds, one production sit-down.
+- House desk replaces the sidebar pile: Play, House, Strategy, Edit.
+- Daily actions grouped into Social / Scheme / Broadcast. Duplicate per-action Tag buttons collapsed into one deeper talk.
+- Strategy read lives in `src/utils/villaStrategy.ts`.
+
+Still open: episode designer, pre-season alliance/relationship setup, veto as its own phase, quit/expulsion cancelling an eviction.
+
 ## Phase 1: Core Voting & Elimination Systems (Priority 1)
 **Goal**: Fix fundamental game progression mechanics
 
