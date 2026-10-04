@@ -21,7 +21,7 @@ export const VillaWeekBoard = () => {
   const bonds = readBonds(gameState);
   const threats = readThreats(gameState).slice(0, 5);
   const move = recommendedMove(gameState, cycle, blocs, threats);
-  const alreadySat = gameState.confessionals.some(c => c.day === gameState.currentDay);
+  const alreadySat = (gameState.confessionals || []).some(c => c.day === gameState.currentDay);
   const options = sitDownOptions();
   const rating = typeof gameState.viewerRating === 'number' ? gameState.viewerRating : 3.8;
 

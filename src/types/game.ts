@@ -1,3 +1,33 @@
+export interface SeasonSetup {
+  castSize: number;
+  jurySize: number;
+  finaleSize: 2 | 3;
+  organicAlliances: boolean;
+  preseedAlliances: boolean;
+  twists: {
+    confessional_leak: boolean;
+    mole_reveal: boolean;
+    edit_flip: boolean;
+    public_vote: boolean;
+    double_elimination: boolean;
+  };
+}
+
+export const defaultSeasonSetup = (): SeasonSetup => ({
+  castSize: 12,
+  jurySize: 7,
+  finaleSize: 2,
+  organicAlliances: true,
+  preseedAlliances: true,
+  twists: {
+    confessional_leak: true,
+    mole_reveal: true,
+    edit_flip: true,
+    public_vote: true,
+    double_elimination: false,
+  },
+});
+
 export type StatInclination = 'social' | 'strategy' | 'physical' | 'deception';
 
 export interface CharacterStats {
@@ -270,6 +300,7 @@ export interface GameState {
   votingHistory: VotingRecord[];
   gamePhase:
     | 'intro'
+    | 'season_setup'
     | 'character_creation'
     | 'premiere'
     | 'houseguests_roster'
@@ -398,6 +429,9 @@ export interface GameState {
 
   // Debug: force Final 3 tie-break flow
   debugForceFinal3TieBreak?: boolean;
+
+  // Season rules chosen before the house opens.
+  seasonSetup?: SeasonSetup;
 
   // Manipulation system: log of all claims the player has planted
   deceptionLog?: DeceptionLogEntry[];

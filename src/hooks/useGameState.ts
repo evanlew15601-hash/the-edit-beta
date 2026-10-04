@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic, InteractionLogEntry, ClaimType } from '@/types/game';
+import { GameState, PlayerAction, ReactionSummary, ReactionTake, Contestant, HouseMeetingToneChoice, HouseMeetingTopic, InteractionLogEntry, ClaimType, SeasonSetup, defaultSeasonSetup } from '@/types/game';
 import { houseMeetingEngine } from '@/utils/houseMeetingEngine';
 import { generateContestants } from '@/utils/contestantGenerator';
 import { generateStaticNPCs } from '@/utils/npcGeneration';
@@ -188,7 +188,8 @@ export const useGameState = () => {
       },
       alliances: [],
       votingHistory: [],
-      gamePhase: 'character_creation',
+      gamePhase: 'season_setup',
+      seasonSetup: defaultSeasonSetup(),
       twistsActivated: [],
       nextEliminationDay: 7,
       daysUntilJury: 28,
@@ -555,6 +556,21 @@ export const useGameState = () => {
             ? 6
             : Math.max(4, activeCountForCap);
 
+      // House can form a bloc on its own if the season allows it.
+      const alliancesAfterOrganic = (newDay > 1 && newDay % 3 === 0)
+        ? AllianceManager.formOrganic({ ...prev, contestants: baseContestants, alliances: alliancesWithSecrecy, currentDay: newDay })
+        : alliancesWithSecrecy;
+
+      // Twists only fire if the season setup left them on. The engine was imported and never called.
+      let twistPatch: Partial<GameState> = {};
+      const enabled = prev.seasonSetup?.twists;
+      const twistCandidate = TwistEngine.shouldActivateTwist({ ...prev, currentDay: newDay, contestants: baseContestants, twistsActivated });
+      const twistKey = twistCandidate?.replace(/_day\d+$/, '') || '';
+      const twistAllowed = !enabled || enabled[twistKey as keyof NonNullable<typeof enabled>] !== false;
+      if (twistCandidate && twistAllowed && gamePhase === 'daily') {
+        twistPatch = TwistEngine.executeTwist(twistCandidate, { ...prev, currentDay: newDay, contestants: baseContestants, twistsActivated });
+      }
+
       return {
         ...prev,
         currentDay: newDay,
@@ -562,12 +578,12 @@ export const useGameState = () => {
         dailyActionCap: scaledCap,
         groupActionsUsedToday: 0,
         contestants: baseContestants,
-        alliances: alliancesWithSecrecy,
+        alliances: alliancesAfterOrganic,
         juryMembers,
         daysUntilJury,
         gamePhase: nextCutscene ? 'cutscene' as const : gamePhase,
         currentCutscene: nextCutscene || prev.currentCutscene,
-        editPerception: prev.editPerception,
+        editPerception: twistPatch.editPerception || prev.editPerception,
         lastAIResponse: undefined,
         lastAIAdditions: undefined,
         lastAIReaction: undefined,
@@ -579,7 +595,7 @@ export const useGameState = () => {
         hostChildName: specialApplied.hostChildName || prev.hostChildName,
         hostChildRevealDay: specialApplied.hostChildRevealDay || prev.hostChildRevealDay,
         twistNarrative: narrativeApplied.twistNarrative || prev.twistNarrative,
-        twistsActivated,
+        twistsActivated: twistPatch.twistsActivated || twistsActivated,
         ongoingHouseMeeting: prev.ongoingHouseMeeting || autoHouseMeeting || undefined,
         forcedConversationsQueue: nextForcedQueue,
         playerCannotBeEliminatedUntilDay:
@@ -2059,11 +2075,21 @@ export const useGameState = () => {
           : c
       );
 
-      // If we're in jury phase, ensure eliminated is added to jury (up to 7)
+      // Jury starts once the house is small enough to fill the chosen jury, not only after a debug skip.
+      const jurySize = prev.seasonSetup?.jurySize || 7;
+      const finaleSize = prev.seasonSetup?.finaleSize || 2;
+      const remainingAfter = updatedContestants.filter(c => !c.isEliminated).length;
       let updatedJuryMembers = [...(prev.juryMembers || [])];
-      const inJuryPhase = updatedJuryMembers.length > 0;
-      if (inJuryPhase && votingResult.eliminated && !updatedJuryMembers.includes(votingResult.eliminated) && updatedJuryMembers.length < 7) {
+      const juryOpen = remainingAfter <= jurySize + finaleSize;
+      if (juryOpen && votingResult.eliminated && !updatedJuryMembers.includes(votingResult.eliminated)) {
         updatedJuryMembers.push(votingResult.eliminated);
+      }
+      if (updatedJuryMembers.length > jurySize) {
+        updatedJuryMembers = updatedContestants
+          .filter(c => updatedJuryMembers.includes(c.name))
+          .sort((a, b) => (b.eliminationDay || 0) - (a.eliminationDay || 0))
+          .slice(0, jurySize)
+          .map(c => c.name);
       }
 
       // Flag player elimination for downstream UIs (e.g., jury voting screen)
@@ -2724,10 +2750,22 @@ export const useGameState = () => {
   }, []);
 
   // Finalize character creation: build cast and proceed to premiere
+  const confirmSeasonSetup = useCallback((setup: SeasonSetup) => {
+    const castSize = Math.max(8, Math.min(16, setup.castSize || 12));
+    const jurySize = [5, 7, 9].includes(setup.jurySize) ? setup.jurySize : 7;
+    setGameState(prev => ({
+      ...prev,
+      seasonSetup: { ...defaultSeasonSetup(), ...setup, castSize, jurySize },
+      daysUntilJury: Math.max(7, (castSize - jurySize - (setup.finaleSize || 2)) * 7),
+      gamePhase: 'character_creation' as const,
+    }));
+  }, []);
+
   const finalizeCharacterCreation = useCallback((player: Contestant) => {
     setGameState(prev => {
       const playerName = player.name || prev.playerName || 'You';
-      const npcs = generateStaticNPCs({ count: 15, excludeNames: [playerName] });
+      const castSize = prev.seasonSetup?.castSize || 12;
+      const npcs = generateStaticNPCs({ count: Math.max(7, castSize - 1), excludeNames: [playerName] });
       const sanitizedNPCs = npcs.map(c => ({ ...c, special: { kind: 'none' as const } }));
       const contestants: Contestant[] = [{ ...player }, ...sanitizedNPCs];
 
@@ -2737,15 +2775,23 @@ export const useGameState = () => {
         reactionProfiles[c.name] = reactionProfiles[c.id];
       });
 
-      // Initialize global systems that depend on the cast
       memoryEngine.resetMemory();
       memoryEngine.initializeJournals(contestants);
       relationshipGraphEngine.initializeRelationships(contestants);
+
+      let alliances = prev.alliances || [];
+      if (prev.seasonSetup?.preseedAlliances !== false) {
+        const seeds = sanitizedNPCs.slice(0, 3).map(c => c.name);
+        if (seeds.length === 3) {
+          alliances = [AllianceManager.createAlliance(seeds, 'Opening bloc', 1)];
+        }
+      }
 
       const baseState = {
         ...prev,
         playerName,
         contestants,
+        alliances,
         reactionProfiles,
         gamePhase: 'premiere' as const,
       } as GameState;
@@ -4258,7 +4304,7 @@ export const useGameState = () => {
   // This prevents soft-corrupted state from bricking the UI.
   useEffect(() => {
     setGameState(prev => {
-      if (prev.gamePhase === 'cutscene' || prev.gamePhase === 'intro' || prev.gamePhase === 'character_creation') {
+      if (prev.gamePhase === 'cutscene' || prev.gamePhase === 'intro' || prev.gamePhase === 'season_setup' || prev.gamePhase === 'character_creation') {
         return prev;
       }
 
@@ -4343,6 +4389,7 @@ export const useGameState = () => {
     toggleDebugMode,
     // Character creation finalize
     finalizeCharacterCreation,
+    confirmSeasonSetup,
     // Cutscene
     completeCutscene,
     // Manipulation

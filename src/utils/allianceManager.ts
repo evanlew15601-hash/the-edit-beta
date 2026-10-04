@@ -313,6 +313,20 @@ export class AllianceManager {
   }
 
   /**
+   * House forms a bloc of 3+ if none exists and the season allows it.
+   */
+  static formOrganic(gameState: GameState): Alliance[] {
+    const existing = gameState.alliances.filter(a => !a.dissolved);
+    if (existing.length > 0) return gameState.alliances;
+    if (gameState.seasonSetup && gameState.seasonSetup.organicAlliances === false) return gameState.alliances;
+    const pool = gameState.contestants.filter(c => !c.isEliminated && c.name !== gameState.playerName);
+    if (pool.length < 6) return gameState.alliances;
+    const picked = [...pool].sort(() => Math.random() - 0.5).slice(0, 3);
+    const formed = this.createAlliance(picked.map(c => c.name), undefined, gameState.currentDay);
+    return [...gameState.alliances, formed];
+  }
+
+  /**
    * Create a new alliance
    */
   static createAlliance(members: string[], name?: string, currentDay: number = 1): Alliance {

@@ -41,7 +41,7 @@ export const ActionPanel = () => {
   const [createAllianceOpen, setCreateAllianceOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [alliancePlanOpen, setAlliancePlanOpen] = useState(false);
-  const playerAlliance = gameState.alliances.find(a => a.members.includes(gameState.playerName));
+  const playerAlliance = (gameState.alliances || []).find(a => a.members.includes(gameState.playerName));
   const forcedItem = (gameState.forcedConversationsQueue || [])[0];
   
   const remainingActions = Math.max(0, (gameState.dailyActionCap ?? 10) - (gameState.dailyActionCount ?? 0));
@@ -182,11 +182,11 @@ export const ActionPanel = () => {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium">Your bloc</h3>
             <p className="text-xs text-muted-foreground">
-              {gameState.alliances.filter(a => !a.dissolved).length} active
+              {(gameState.alliances || []).filter(a => !a.dissolved).length} active
             </p>
           </div>
           <div className="flex gap-2">
-            {gameState.alliances.length > 0 && (
+            {(gameState.alliances || []).length > 0 && (
               <Button
                 variant="outline"
                 onClick={() => setAllianceMeetingOpen(true)}
@@ -196,7 +196,7 @@ export const ActionPanel = () => {
                 Call Meeting
               </Button>
             )}
-            {gameState.alliances.length > 0 && (
+            {(gameState.alliances || []).length > 0 && (
               <Button
                 variant="secondary"
                 onClick={() => setAddMemberOpen(true)}
@@ -221,9 +221,9 @@ export const ActionPanel = () => {
               variant="action"
               onClick={() => setCreateAllianceOpen(true)}
               disabled={allActionsUsed}
-              className={gameState.alliances.length === 0 ? 'w-full' : ''}
+              className={(gameState.alliances || []).length === 0 ? 'w-full' : ''}
             >
-              {gameState.alliances.length > 0 ? 'New Alliance' : 'Create Alliance'}
+              {(gameState.alliances || []).length > 0 ? 'New Alliance' : 'Create Alliance'}
             </Button>
           </div>
         </div>

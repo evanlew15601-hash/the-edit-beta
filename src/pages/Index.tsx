@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGame } from '@/contexts/GameContext';
+import { SeasonSetupScreen } from '@/components/game/SeasonSetupScreen';
 import { IntroScreen } from '@/components/game/IntroScreen';
 import { GameplayScreen } from '@/components/game/GameplayScreen';
 import { WeeklyRecapScreen } from '@/components/game/WeeklyRecapScreen';
@@ -51,6 +52,8 @@ const Index = () => {
     switch (gameState.gamePhase) {
       case 'intro':
         return <IntroScreen />;
+      case 'season_setup':
+        return <SeasonSetupScreen />;
       case 'character_creation':
         return <CharacterCreation />;
       case 'premiere':

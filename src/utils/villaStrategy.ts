@@ -107,7 +107,7 @@ function allianceNote(size: number, house: number): string {
 
 export function readBlocs(state: Pick<GameState, 'alliances' | 'playerName' | 'contestants'>): BlocRead[] {
   const house = state.contestants.filter(c => !c.isEliminated).length;
-  return state.alliances
+  return (state.alliances || [])
     .filter(a => !a.dissolved)
     .map((a: Alliance) => ({
       id: a.id,
@@ -123,7 +123,7 @@ export function readBlocs(state: Pick<GameState, 'alliances' | 'playerName' | 'c
 
 export function readBonds(state: Pick<GameState, 'alliances' | 'contestants' | 'playerName'>): BondRead[] {
   const bonds: BondRead[] = [];
-  for (const alliance of state.alliances) {
+  for (const alliance of state.alliances || []) {
     if (alliance.dissolved || alliance.members.length !== 2) continue;
     bonds.push({
       names: [alliance.members[0], alliance.members[1]],
@@ -154,7 +154,7 @@ export function readBonds(state: Pick<GameState, 'alliances' | 'contestants' | '
 
 export function readThreats(state: Pick<GameState, 'contestants' | 'alliances' | 'playerName' | 'immunityWinner'>): ThreatRead[] {
   const live = state.contestants.filter(c => !c.isEliminated);
-  const blocs = state.alliances.filter(a => !a.dissolved);
+  const blocs = (state.alliances || []).filter(a => !a.dissolved);
   const yours = new Set(blocs.filter(a => a.members.includes(state.playerName)).flatMap(a => a.members));
 
   return live

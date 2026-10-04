@@ -27,6 +27,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <div className="text-xs bg-muted rounded p-3 overflow-auto">
               {String(this.state.error || 'Unknown error')}
             </div>
+            <button
+              className="mt-3 text-sm underline"
+              onClick={() => {
+                this.setState({ hasError: false, error: undefined });
+                window.location.assign('/');
+              }}
+            >
+              Back to title
+            </button>
           </Card>
         </div>
       );

@@ -43,7 +43,7 @@ export const HouseDesk = () => {
         <p className="text-sm text-muted-foreground">
           Who votes together, who flipped, and what you actually know. Ask before you pitch.
         </p>
-        {gameState.alliances.length > 0 && <AllianceIntelligencePanel />}
+        {(gameState.alliances || []).length > 0 && <AllianceIntelligencePanel />}
         <VotingIntelligencePanel />
         <MemoryPanel />
         <EnhancedInformationPanel />
